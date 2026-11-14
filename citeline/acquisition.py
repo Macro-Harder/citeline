@@ -225,7 +225,9 @@ def _inline_link_spans(text):
     parentheses, which stand as written; the span ends at
     the closing parenthesis that balances the opening one.
     An optional quoted title after the target is part of
-    the span and not of the target.
+    the span and not of the target. A parenthesis inside a
+    quoted title, and a parenthesis preceded by a
+    backslash, stand outside the balance.
     """
     spans = []
     index = 0
@@ -247,10 +249,25 @@ def _inline_link_spans(text):
             continue
         depth = 1
         cursor = label_end + 2
+        quote = None
         while cursor < length and depth:
-            if text[cursor] == "(":
+            ch = text[cursor]
+            if ch == "\\" and cursor + 1 < length:
+                cursor += 2
+                continue
+            if quote is not None:
+                if ch == quote:
+                    quote = None
+                cursor += 1
+                continue
+            if ch in ("\"", "'") and cursor > 0 \
+                    and text[cursor - 1] in (" ", "\t"):
+                quote = ch
+                cursor += 1
+                continue
+            if ch == "(":
                 depth += 1
-            elif text[cursor] == ")":
+            elif ch == ")":
                 depth -= 1
             cursor += 1
         if depth:
@@ -736,6 +753,10 @@ def _read_supplied_file(page_path):
         if not stat.S_ISREG(opened.st_mode):
             _fail("SUPPLIED_PATH_UNSAFE",
                   "the opened handle does not name a regular file")
+        if opened.st_nlink > 1:
+            _fail("SUPPLIED_PATH_UNSAFE",
+                  "a supplied file with a hard link count above 1 "
+                  "is rejected")
         if opened.st_size > _PAGE_FILE_LIMIT:
             _fail("LIMIT_EXCEEDED",
                   "page file size limit is 2 MiB, with rejection "
@@ -1255,9 +1276,7 @@ def _extract_markdown(text, notes):
         nonlocal current_table
         if current_table:
             rows = []
-            for row_line in current_table:
-                cells = [cell.strip() for cell in
-                         row_line.strip().strip("|").split("|")]
+            for cells in current_table:
                 if all(re.fullmatch(r":?-{3,}:?", cell or "---")
                        for cell in cells):
                     continue
@@ -1331,7 +1350,9 @@ def _extract_markdown(text, notes):
             flush_list()
             flush_table()
             flush_block()
-            htext = heading.group(2).strip()
+            htext = _markdown_inline(
+                heading.group(2).strip(), links, references, notes,
+                line_offsets[idx])
             headings.append({
                 "text": htext,
                 "level": len(heading.group(1)),
@@ -1361,10 +1382,16 @@ def _extract_markdown(text, notes):
             continue
         if stripped.startswith("|") and stripped.endswith("|") and "|" in stripped[1:]:
             flush_list()
-            current_table.append(line)
-            cells = [cell.strip() for cell in stripped.strip("|").split("|")]
-            if not all(re.fullmatch(r":?-{3,}:?", cell or "---")
-                       for cell in cells):
+            raw_cells = [cell.strip() for cell in
+                         stripped.strip("|").split("|")]
+            if all(re.fullmatch(r":?-{3,}:?", cell or "---")
+                   for cell in raw_cells):
+                current_table.append(raw_cells)
+            else:
+                cells = [_markdown_inline(
+                    cell, links, references, notes,
+                    line_offsets[idx]) for cell in raw_cells]
+                current_table.append(cells)
                 current_block.append(" ".join(cells))
             continue
         flush_list()

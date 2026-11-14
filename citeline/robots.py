@@ -699,6 +699,12 @@ def _read_supplied_file(path):
                 "SUPPLIED_PATH_UNSAFE",
                 "the opened handle does not name a regular file",
             )
+        if opened.st_nlink > 1:
+            raise RobotsError(
+                "SUPPLIED_PATH_UNSAFE",
+                "a supplied file with a hard link count above 1 "
+                "is rejected",
+            )
         chunks = []
         total = 0
         while True:

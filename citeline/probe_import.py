@@ -629,9 +629,13 @@ def build_worksheet_text(*, product=None, round=None, queries=(),
     named once in that slot and nowhere else in the worksheet,
     so a slot count can be read from the field names. The
     worksheet states the round label, the query list, and the
-    engine labels to attempt. The operator captures by hand
-    against the worksheet and fills the slots; the completed
-    worksheet imports back through the import route above.
+    engine labels to attempt. Each slot line states, beside
+    each field, the value or form a filled slot carries and
+    one example value, drawn from the adapter contract and
+    the labelled fixture example in the usage text. The
+    operator captures by hand against the worksheet and
+    fills the slots; the completed worksheet imports back
+    through the import route above.
     """
     lines = [
         "Citeline capture worksheet",
@@ -648,8 +652,14 @@ def build_worksheet_text(*, product=None, round=None, queries=(),
     lines.append("| slot | answer text stands below its slot line |")
     for index in range(1, int(planned_answers) + 1):
         lines.append(
-            "slot %d: engine_label= kind= captured_on= "
-            "capture_method=" % index)
+            "slot %d: engine_label= (the label as asserted, "
+            "up to 200 code points; example Fixture Engine) "
+            "kind= (real_sample or fixture; example fixture) "
+            "captured_on= (an ISO date in the form "
+            "YYYY-MM-DD, a real calendar date not in the "
+            "future; example 2026-08-16) capture_method= "
+            "(not empty, up to 2,000 code points; example "
+            "manual copy)" % index)
     return "\n".join(lines) + "\n"
 
 

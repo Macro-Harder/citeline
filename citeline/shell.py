@@ -211,14 +211,15 @@ def help_text():
         "verify --home --form",
         "status --home --form",
         "help",
-        "watch --plan",
+        "watch --plan --form",
         "install: python install.py [location]",
         "uninstall: python install.py uninstall [location]",
         "The flag forms --location and --home stand accepted "
         "beside the install forms above, and --uninstall "
         "beside the word uninstall.",
-        "Forms are simple, advanced, and agentic; every "
-        "subcommand takes --form.",
+        "Forms are simple, advanced, and agentic. The "
+        "subcommands above and watch each take --form. "
+        "The help line takes no flag.",
         "List valued inputs (--competitors, --aliases, "
         "--query_set, --category_terms) take a comma "
         "separated list, a JSON list, or the flag repeated "
@@ -421,7 +422,16 @@ def _print_error(exc):
             exc, "error_value", None)
         message = str(exc)
     if value:
-        print("%s: %s" % (value, message), file=sys.stderr)
+        text = str(message)
+        prefix = "%s: " % (value,)
+        if text == str(value):
+            text = ""
+        elif text.startswith(prefix):
+            text = text[len(prefix):]
+        if text:
+            print("%s: %s" % (value, text), file=sys.stderr)
+        else:
+            print(str(value), file=sys.stderr)
     else:
         print(str(message), file=sys.stderr)
 

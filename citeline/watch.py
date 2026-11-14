@@ -157,13 +157,59 @@ def _open_plan(plan_file):
             "the WatchPlan file stands over the governing "
             "size bound of 1 MiB at W-2: refused at open, "
             "before any round runs")
+    flags = os.O_RDONLY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    if hasattr(os, "O_NONBLOCK"):
+        flags |= os.O_NONBLOCK
     try:
-        with open(str(plan_file), "rb") as handle:
+        descriptor = os.open(str(plan_file), flags)
+    except OSError as exc:
+        import errno
+        if exc.errno in (errno.ELOOP, errno.EMLINK):
+            _fail(
+                "SUPPLIED_PATH_UNSAFE",
+                "a supplied path that is itself a symbolic link "
+                "is rejected: the WatchPlan file stands in the "
+                "same supplied file discipline as every other "
+                "input at W-2, opened with no link following")
+        _fail(
+            "MALFORMED_CALL",
+            "the WatchPlan file stands unreadable: %s" % (exc,))
+    try:
+        opened = os.fstat(descriptor)
+        if (opened.st_dev, opened.st_ino) != (info.st_dev, info.st_ino):
+            _fail(
+                "SUPPLIED_PATH_UNSAFE",
+                "the opened handle does not match the pre open "
+                "stat: the WatchPlan file stands in the same "
+                "supplied file discipline as every other input "
+                "at W-2")
+        if not stat.S_ISREG(opened.st_mode):
+            _fail(
+                "SUPPLIED_PATH_UNSAFE",
+                "a supplied path that does not name a regular "
+                "file is rejected: the WatchPlan file names a "
+                "device, a FIFO, or a socket")
+        if opened.st_nlink > 1:
+            _fail(
+                "SUPPLIED_PATH_UNSAFE",
+                "a supplied file with a hard link count above 1 "
+                "is rejected: the WatchPlan file stands in the "
+                "same supplied file discipline as every other "
+                "input at W-2")
+        with os.fdopen(descriptor, "rb") as handle:
+            descriptor = None
             raw = handle.read(PLAN_SIZE_BOUND + 1)
+    except errors.CitelineError:
+        raise
     except OSError as exc:
         _fail(
             "MALFORMED_CALL",
             "the WatchPlan file stands unreadable: %s" % (exc,))
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
     if len(raw) > PLAN_SIZE_BOUND:
         _fail(
             "WATCHPLAN_SIZE_EXCEEDED",

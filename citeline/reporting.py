@@ -735,7 +735,7 @@ def _rate_line(name, node):
     return with_warning(line)
 
 
-def _emit(lines, key, value, depth):
+def _emit(lines, key, value, depth, suppress_anchor_bare=False):
     pad = "  " * depth
     if _is_absence(value):
         lines.append("%s%s: not recorded" % (pad, key))
@@ -760,11 +760,12 @@ def _emit(lines, key, value, depth):
                 lines.append("%s  %s" % (pad, _scalar_text(item)))
         return
     lines.append("%s%s: %s" % (pad, key, _scalar_text(value)))
-    if key == "head_hash" and value:
+    if key == "head_hash" and value and not suppress_anchor_bare:
         lines.append("%s%s" % (pad, ANCHOR_LIMIT_SENTENCE))
 
 
-def _emit_dict(lines, node, depth, top=True):
+def _emit_dict(lines, node, depth, top=True, top_suppress=None,
+               suppress_anchor_bare=False):
     """Walk one record level in the Simple form.
 
     The path defaulted companion sentence stands beside the
@@ -773,13 +774,26 @@ def _emit_dict(lines, node, depth, top=True):
     and a nested record the artefact carries, such as a robots
     summary, states its own flag as a field in the JSON forms
     and earns no companion sentence of its own here.
+
+    A source_kind value that repeats the same record level's
+    kind value states the one value a second time under a
+    second name, so it is not printed: the kind line states
+    the value once. A source_kind that differs from kind
+    stands printed as it stands.
     """
     has_path = "evaluated_page_path" in node
     has_flag = "path_defaulted" in node
     for key, value in node.items():
         if key == "path_defaulted" and has_path:
             continue
-        _emit(lines, key, value, depth)
+        if top and top_suppress and key in top_suppress:
+            continue
+        if key == "source_kind" and node.get("kind") == value \
+                and "kind" in node:
+            continue
+        _emit(lines, key, value, depth,
+              suppress_anchor_bare=bool(
+                  suppress_anchor_bare and key == "head_hash"))
         if key == "evaluated_page_path" and has_flag and top:
             pad = "  " * depth
             if node.get("path_defaulted"):
@@ -818,7 +832,8 @@ def _render_guide_simple(body):
                 lines.append("  %s" % text)
     rest = [a for a in actions if id(a) not in grouped]
     if rest:
-        lines.append("Actions:")
+        lines.append(
+            "After the groups: actions with no class value:")
         for action in rest:
             if isinstance(action, dict):
                 lines.append(
@@ -827,7 +842,14 @@ def _render_guide_simple(body):
             else:
                 lines.append("  %s" % _scalar_text(action))
     if body.get("standing_action"):
-        lines.append("Standing action: %s" % body["standing_action"])
+        if body["standing_action"] == "ACT_THIRD_PARTY":
+            lines.append(
+                "Standing action: ACT_THIRD_PARTY: third party "
+                "mentions stand outside version 1 measurement; "
+                "this standing action is manual and unscored.")
+        else:
+            lines.append(
+                "Standing action: %s" % body["standing_action"])
     if body.get("control_failure_notice"):
         notice = body["control_failure_notice"]
         lines.append(notice if isinstance(notice, str)
@@ -892,7 +914,20 @@ def _render_simple(body):
         lines = _render_query_set_simple(body)
     else:
         lines = []
-        _emit_dict(lines, body, 0)
+        top_suppress = set()
+        suppress_anchor_bare = False
+        if _is_invocation_computed(body):
+            top_suppress.add("honesty_sentence")
+            if _is_report_like(body) and \
+                    _find_bounds(body) is not None:
+                top_suppress.add("bounds")
+            if "anchor_limit" in body:
+                top_suppress.add("anchor_limit_sentence")
+            if "anchor_limit" in body or \
+                    "anchor_limit_sentence" in body:
+                suppress_anchor_bare = True
+        _emit_dict(lines, body, 0, top_suppress=top_suppress,
+                   suppress_anchor_bare=suppress_anchor_bare)
     bounds = _find_bounds(body)
     if bounds is not None and _is_report_like(body):
         lines.append("Bounds.")

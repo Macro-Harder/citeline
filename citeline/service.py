@@ -731,10 +731,12 @@ def _with_group_rules(evaluation, robots_file):
     """
     if not isinstance(evaluation, dict):
         return evaluation
+    from citeline import robots as robots_module
+    checked_read = getattr(robots_module, "_read_supplied_file", None)
+    if checked_read is None:
+        return evaluation
+    raw = checked_read(str(robots_file))
     try:
-        from citeline import robots as robots_module
-        with open(str(robots_file), "rb") as handle:
-            raw = handle.read()
         text, _notes = robots_module.decode_robots_bytes(raw)
         parsed = robots_module.parse_robots(text)
     except Exception:

@@ -410,13 +410,16 @@ def _statistic_analysis(page):
     # A figure the sentence itself names as its version
     # counts nothing either, in the two part form as in
     # the longer form: the naming word stands beside the
-    # figure in the sentence that carries it.
+    # figure in the sentence that carries it, with a
+    # colon between them, or with the word is between
+    # them, as well as standing directly beside it.
     masked = _mask(
         masked,
         [
             (m.start(), m.end())
             for m in re.finditer(
-                r"\bversion\s+\d+(?:\.\d+)+\b", masked, re.IGNORECASE
+                r"\bversion(?:\s*:\s*|\s+is\s+|\s+)\d+(?:\.\d+)+\b",
+                masked, re.IGNORECASE
             )
         ],
     )
@@ -463,24 +466,14 @@ def _quotation_analysis(page):
         window = text[end:window_end]
         # A single capitalised name is a cue in its own
         # right, as one of the three cues in the closed
-        # set. A capitalised word that opens a new
-        # sentence in the window is not read as a name:
-        # its capital belongs to the sentence, not to a
-        # person. The first word of the window continues
-        # the span's own sentence where the span did not
-        # close that sentence.
-        single_name = False
-        for name_match in re.finditer(r"\b[A-Z][a-z]+\b", window):
-            prefix = window[:name_match.start()].rstrip()
-            if not prefix:
-                if not inner.rstrip().endswith((".", "!", "?")):
-                    single_name = True
-                    break
-                continue
-            if prefix.endswith((".", "!", "?")):
-                continue
-            single_name = True
-            break
+        # set. The window may cross a sentence boundary,
+        # and no sentence position exception stands in
+        # that statement, so a capitalised name counts
+        # wherever it stands inside the window, including
+        # as the first word of the next sentence.
+        single_name = bool(
+            re.search(r"\b[A-Z][a-z]+\b", window)
+        )
         cue = (
             re.search(r"(?<![A-Za-z])said(?![A-Za-z])", window,
                       re.IGNORECASE)

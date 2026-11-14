@@ -106,11 +106,12 @@ subcommand per call, every input a named flag:
     guide --home --run_id --product --round_label --audit_date --form
     verify --home --form
     status --home --form
-    watch --plan
+    watch --plan --form
     help
 
-Forms are simple, advanced, and agentic; every
-subcommand takes --form. List valued inputs
+Forms are simple, advanced, and agentic. The
+subcommands above and watch each take --form. The
+help line takes no flag. List valued inputs
 (--competitors, --aliases, --query_set,
 --category_terms) take a comma separated list, a
 JSON list, or the flag repeated once per item.

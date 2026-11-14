@@ -238,6 +238,13 @@ def _quantize(value, scale):
     return format(result, "f")
 
 
+def _integral_float_form(value):
+    text = format(value.to_integral_value(), "f")
+    if value == 0 and text.startswith("-"):
+        text = text[1:]
+    return text + ".0"
+
+
 def _render_decimal(value, key):
     scale = _scale_for(key)
     if scale is not None:
@@ -246,12 +253,7 @@ def _render_decimal(value, key):
         raise JournalError(
             "a non integer value whose member defines no scale "
             "cannot stand in hashed material")
-    if value == value.to_integral_value():
-        return format(value, "f") + ".0"
-    text = format(value, "f")
-    if value == 0:
-        text = text.lstrip("-")
-    return text
+    return _integral_float_form(value)
 
 
 def _render_parsed(number, key):
@@ -270,10 +272,7 @@ def _render_parsed(number, key):
         raise JournalError(
             "a non integer value whose member defines no scale "
             "cannot stand in hashed material")
-    text = format(value, "f")
-    if value == 0:
-        text = text.lstrip("-")
-    return text
+    return _integral_float_form(value)
 
 
 def _render_float(value, key):
