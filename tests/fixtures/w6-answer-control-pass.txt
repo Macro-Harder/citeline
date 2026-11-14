@@ -1,0 +1,1 @@
+Example Product answers the question directly. It cites the study at https://example.org/study for support.

@@ -1,0 +1,3 @@
+First line block has one sentence. And another one here.
+
+A text file with no line breaks rule applies below.

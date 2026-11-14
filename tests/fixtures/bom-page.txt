@@ -1,0 +1,3 @@
+﻿Fixture heading line
+
+Body text stands here.

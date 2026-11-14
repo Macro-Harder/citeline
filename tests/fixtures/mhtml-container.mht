@@ -1,0 +1,12 @@
+From: <Saved by Blink>
+Snapshot-Content-Location: https://example.invalid/page
+Subject: Saved Page
+MIME-Version: 1.0
+Content-Type: multipart/related; boundary="----=_Part_1"
+
+------=_Part_1
+Content-Type: text/html; charset="utf-8"
+Content-Location: https://example.invalid/page
+
+<html><head><title>Saved</title></head><body><p>Body text stands here.</p></body></html>
+------=_Part_1--

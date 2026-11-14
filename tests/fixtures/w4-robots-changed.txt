@@ -1,0 +1,19 @@
+User-agent: GPTBot
+Allow: /private/
+
+User-agent: Googlebot
+Allow: /private/public/
+Disallow: /private/
+
+User-agent: Google-Extended
+Disallow: /
+
+User-agent: ChatGPT-User
+Disallow: /private/
+
+User-agent: *
+Disallow: /tmp/
+
+Sitemap: https://example.com/sitemap.xml
+Crawl-delay: 10
+Bananas: 3

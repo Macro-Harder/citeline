@@ -1,0 +1,131 @@
+{
+  "checks": [
+    {
+      "check_id": "answer_first",
+      "weight": 12,
+      "earned": 1.0,
+      "reason_code": "AF_FULL",
+      "evidence_spans": []
+    },
+    {
+      "check_id": "citations",
+      "weight": 16,
+      "earned": 1.0,
+      "reason_code": "CIT_COUNT",
+      "evidence_spans": [
+        {
+          "start": 57,
+          "end": 78,
+          "excerpt": "https://example.org/a"
+        },
+        {
+          "start": 83,
+          "end": 104,
+          "excerpt": "https://example.org/b"
+        },
+        {
+          "start": 109,
+          "end": 130,
+          "excerpt": "https://example.org/c"
+        }
+      ]
+    },
+    {
+      "check_id": "statistics",
+      "weight": 13,
+      "earned": 0.5,
+      "reason_code": "STAT_COUNT",
+      "evidence_spans": [
+        {
+          "start": 162,
+          "end": 165,
+          "excerpt": "42%"
+        },
+        {
+          "start": 173,
+          "end": 175,
+          "excerpt": "10"
+        }
+      ]
+    },
+    {
+      "check_id": "quotations",
+      "weight": 11,
+      "earned": 0.5,
+      "reason_code": "QUO_COUNT",
+      "evidence_spans": [
+        {
+          "start": 186,
+          "end": 214,
+          "excerpt": "\"Teams plan better together\""
+        }
+      ]
+    },
+    {
+      "check_id": "comparison",
+      "weight": 10,
+      "earned": 0.6,
+      "reason_code": "CMP_THIN",
+      "evidence_spans": []
+    },
+    {
+      "check_id": "freshness",
+      "weight": 8,
+      "earned": 1.0,
+      "reason_code": "FRESH_OK",
+      "evidence_spans": []
+    },
+    {
+      "check_id": "description_consistency",
+      "weight": 8,
+      "earned": 1.0,
+      "reason_code": "DESC_PRESENT",
+      "evidence_spans": []
+    },
+    {
+      "check_id": "keyword_stuffing",
+      "weight": 8,
+      "earned": 1.0,
+      "reason_code": "STF_OK",
+      "evidence_spans": []
+    },
+    {
+      "check_id": "fluff",
+      "weight": 7,
+      "earned": 1.0,
+      "reason_code": "FLF_OK",
+      "evidence_spans": []
+    },
+    {
+      "check_id": "unproven_superlatives",
+      "weight": 7,
+      "earned": 1.0,
+      "reason_code": "SUP_OK",
+      "evidence_spans": []
+    }
+  ],
+  "score": {
+    "value": 84.0,
+    "band": "strong",
+    "cap_status": false,
+    "applicable_basis": {
+      "applicable_checks": [
+        "answer_first",
+        "citations",
+        "statistics",
+        "quotations",
+        "comparison",
+        "freshness",
+        "description_consistency",
+        "keyword_stuffing",
+        "fluff",
+        "unproven_superlatives"
+      ],
+      "applicable_weight": 100
+    },
+    "claim_type": "signal_presence_only",
+    "validated_predictor": false,
+    "honesty_sentence": "This score is a signal index. It measures the presence of citability signals. It is not validated as a predictor of citation, and it does not verify truth.",
+    "score_ruleset_version": "1"
+  }
+}

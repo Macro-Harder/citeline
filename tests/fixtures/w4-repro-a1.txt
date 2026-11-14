@@ -1,0 +1,1 @@
+Acme Ledger helps teams track citations for reports. The [Acme Ledger guide](https://acme.example/guide) explains the method in plain steps.

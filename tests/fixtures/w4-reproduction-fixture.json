@@ -1,0 +1,271 @@
+{
+  "fixture_identifier": "the reproduction fixture (CQ-D10), writer 4 holding",
+  "source_class": "authored synthetic fixture, a stated round of answer_imported entries held as journal entries, authored for this proof and recorded from no run",
+  "round": {
+    "product_name": "Acme Ledger",
+    "product_id": "acme-ledger",
+    "domain": "acme.example",
+    "aliases": [],
+    "competitors": [],
+    "round_label": "repro-round",
+    "query_set": [
+      "What is Acme Ledger?"
+    ]
+  },
+  "journal_entries": [
+    {
+      "sequence": 1,
+      "entry_kind": "product_registered",
+      "payload": {
+        "product_id": "acme-ledger",
+        "name": "Acme Ledger",
+        "domain": "acme.example",
+        "aliases": [],
+        "competitors": [],
+        "query_set": [
+          "What is Acme Ledger?"
+        ]
+      }
+    },
+    {
+      "sequence": 2,
+      "entry_kind": "round_named",
+      "payload": {
+        "product_id": "acme-ledger",
+        "round_label": "repro-round"
+      }
+    },
+    {
+      "sequence": 3,
+      "entry_kind": "answer_imported",
+      "payload": {
+        "sequence_in_round": 1,
+        "fixture_answer_label": "R1",
+        "answer_file": "w4-repro-a1.txt",
+        "answer_file_sha256": "3bc460b836ab2c25547d2d3d31f4b7bc62fd76faa808e152751eb52089850b4d",
+        "product_id": "acme-ledger",
+        "round_label": "repro-round",
+        "query": "What is Acme Ledger?",
+        "engine_label_original": "Engine A",
+        "engine_label_normalised": "engine a",
+        "kind": "real_sample",
+        "captured_on": "2026-11-07",
+        "capture_method": "manual copy",
+        "content_hash": "3bc460b836ab2c25547d2d3d31f4b7bc62fd76faa808e152751eb52089850b4d",
+        "answer_text": "Acme Ledger helps teams track citations for reports. The [Acme Ledger guide](https://acme.example/guide) explains the method in plain steps.\n",
+        "answer_size": {
+          "characters": 141,
+          "words": 18
+        },
+        "control_flag": false,
+        "control_kind": null
+      }
+    },
+    {
+      "sequence": 4,
+      "entry_kind": "answer_imported",
+      "payload": {
+        "sequence_in_round": 2,
+        "fixture_answer_label": "R2",
+        "answer_file": "w4-repro-a2.txt",
+        "answer_file_sha256": "a0c5fc35fcf87a62f04f8e2fbc8d79479dee397dfef5138b2e87cc0122c8f8df",
+        "product_id": "acme-ledger",
+        "round_label": "repro-round",
+        "query": "What is Acme Ledger?",
+        "engine_label_original": "Engine A",
+        "engine_label_normalised": "engine a",
+        "kind": "real_sample",
+        "captured_on": "2026-11-08",
+        "capture_method": "manual copy",
+        "content_hash": "a0c5fc35fcf87a62f04f8e2fbc8d79479dee397dfef5138b2e87cc0122c8f8df",
+        "answer_text": "Gardening notes list soil water sunlight pruning compost mulch seasons beds tools harvest weather shade seeds.\n",
+        "answer_size": {
+          "characters": 111,
+          "words": 16
+        },
+        "control_flag": false,
+        "control_kind": null
+      }
+    },
+    {
+      "sequence": 5,
+      "entry_kind": "answer_imported",
+      "payload": {
+        "sequence_in_round": 3,
+        "fixture_answer_label": "R3",
+        "answer_file": "w4-repro-a3.txt",
+        "answer_file_sha256": "b541bab901a055836e9af2611d94d2d07afbd46188893c04bf8fa3dd6d63392f",
+        "product_id": "acme-ledger",
+        "round_label": "repro-round",
+        "query": "What is Acme Ledger?",
+        "engine_label_original": "Engine A",
+        "engine_label_normalised": "engine a",
+        "kind": "real_sample",
+        "captured_on": "2026-11-09",
+        "capture_method": "manual copy",
+        "content_hash": "b541bab901a055836e9af2611d94d2d07afbd46188893c04bf8fa3dd6d63392f",
+        "answer_text": "marker001 marker002 marker003 marker004 marker005 marker006 marker007 marker008 marker009 marker010 marker011 marker012 marker013 marker014 marker015 marker016 marker017 marker018 marker019 marker020 marker021 marker022 marker023 marker024 marker025 marker026 marker027 marker028 marker029 marker030 marker031 marker032 marker033 marker034 marker035 marker036 marker037 marker038 marker039 marker040 marker041 marker042 marker043 marker044 marker045 marker046 marker047 marker048 marker049 marker050 marker051 marker052 marker053 marker054 marker055 marker056 marker057 marker058 marker059 marker060 marker061 marker062 marker063 marker064 marker065 marker066 marker067 marker068 marker069 marker070 marker071 marker072 marker073 marker074 marker075 marker076 marker077 marker078 marker079 marker080 marker081 marker082 marker083 marker084 marker085 marker086 marker087 marker088 marker089 marker090 marker091 marker092 marker093 marker094 marker095 marker096 marker097 marker098 marker099 marker100 marker101 marker102 marker103 marker104 marker105 Acme Ledger closes the list.\n",
+        "answer_size": {
+          "characters": 1079,
+          "words": 110
+        },
+        "control_flag": false,
+        "control_kind": null
+      }
+    },
+    {
+      "sequence": 6,
+      "entry_kind": "answer_imported",
+      "payload": {
+        "sequence_in_round": 4,
+        "fixture_answer_label": "R4",
+        "answer_file": "w4-repro-a4.txt",
+        "answer_file_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+        "product_id": "acme-ledger",
+        "round_label": "repro-round",
+        "query": "What is Acme Ledger?",
+        "engine_label_original": "Engine A",
+        "engine_label_normalised": "engine a",
+        "kind": "real_sample",
+        "captured_on": "2026-11-10",
+        "capture_method": "manual copy",
+        "content_hash": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+        "answer_text": "\n",
+        "answer_size": {
+          "characters": 1,
+          "words": 0
+        },
+        "control_flag": false,
+        "control_kind": null
+      }
+    }
+  ],
+  "expectation_source": "hand computed AnswerMetrics for the stated round and hand computed RoundMetrics through them, computed by hand from plan Section 5.2 recomputation rules with brief Section 5.7 detection rules and brief Section 5.8 measurement rules, never computed by the code under test and never recorded from a run of it",
+  "version_binding": "the detector version the report states, the version the recomputation runs under, as plan Section 5.2 states for AnswerMetrics",
+  "hand_computed_answer_metrics": [
+    {
+      "fixture_answer_label": "R1",
+      "named": true,
+      "named_early": true,
+      "cited": true,
+      "first_offset": 0,
+      "matched_aliases": [
+        "Acme Ledger"
+      ],
+      "per_competitor": {},
+      "unresolved_form_count": 0,
+      "references_section_split_counts": {
+        "prose": 0,
+        "references": 0
+      },
+      "cluster_label": "C1",
+      "near_duplicate": false
+    },
+    {
+      "fixture_answer_label": "R2",
+      "named": false,
+      "named_early": false,
+      "cited": false,
+      "first_offset": null,
+      "matched_aliases": [],
+      "per_competitor": {},
+      "unresolved_form_count": 0,
+      "references_section_split_counts": {
+        "prose": 0,
+        "references": 0
+      },
+      "cluster_label": "C2",
+      "near_duplicate": false
+    },
+    {
+      "fixture_answer_label": "R3",
+      "named": true,
+      "named_early": false,
+      "cited": false,
+      "first_offset": 1050,
+      "matched_aliases": [
+        "Acme Ledger"
+      ],
+      "per_competitor": {},
+      "unresolved_form_count": 0,
+      "references_section_split_counts": {
+        "prose": 0,
+        "references": 0
+      },
+      "cluster_label": "C3",
+      "near_duplicate": false
+    },
+    {
+      "fixture_answer_label": "R4",
+      "named": false,
+      "named_early": false,
+      "cited": false,
+      "first_offset": null,
+      "matched_aliases": [],
+      "per_competitor": {},
+      "unresolved_form_count": 0,
+      "references_section_split_counts": {
+        "prose": 0,
+        "references": 0
+      },
+      "cluster_label": "C4",
+      "near_duplicate": false
+    }
+  ],
+  "hand_computed_round_metrics_real_sample": {
+    "imported_count": 4,
+    "empty_answer_count": 1,
+    "control_count": 0,
+    "named": {
+      "count": 2,
+      "rate": 0.5,
+      "wilson_low": 0.150036,
+      "wilson_high": 0.849964,
+      "n": 4,
+      "effective_n": 4,
+      "tier": "count only, effective n under 5",
+      "small_sample_warning": true
+    },
+    "named_early": {
+      "count": 1,
+      "rate": 0.25,
+      "wilson_low": 0.045586,
+      "wilson_high": 0.699364,
+      "n": 4,
+      "effective_n": 4,
+      "tier": "count only, effective n under 5",
+      "small_sample_warning": true
+    },
+    "cited_rate_gross": 0.25,
+    "cited_rate_net": 0.0,
+    "self_citation_share": 1.0,
+    "citing_answer_count": 1,
+    "citation_instance_count": 1,
+    "effective_n": 4,
+    "cluster_count": 4,
+    "largest_cluster_share": 0.25,
+    "chained_cluster_count": 0,
+    "no_name_count": 2,
+    "no_name_share": 0.5,
+    "owner_level_cited_count": 0,
+    "per_alias_match_counts": {
+      "Acme Ledger": 2
+    },
+    "per_query": {
+      "What is Acme Ledger?": {
+        "n": 4,
+        "named_rate": 0.5,
+        "named_early_rate": 0.25,
+        "cited_rate_gross": 0.25,
+        "cited_rate_net": 0.0
+      }
+    },
+    "per_competitor": {},
+    "capture_context_counts": {
+      "distinct_engines": 1,
+      "distinct_capture_dates": 4,
+      "distinct_capture_methods": 1
+    },
+    "wilson_method": "Wilson score interval at the rate value with sample size effective n, z equal to 1.96, clamped to 0 to 1, brief Section 5.8 item 59 and guard G2 statement"
+  }
+}

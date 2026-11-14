@@ -1,0 +1,4 @@
+# w1 valid config
+
+journal_length = 5000
+page_file_size = 2

@@ -1,0 +1,8 @@
+Disallow: /orphan/
+User-agent: GPTBot
+Disallow: /one/
+
+User-agent: GPTBot
+Disallow: /two/
+Allow:
+Disallow:

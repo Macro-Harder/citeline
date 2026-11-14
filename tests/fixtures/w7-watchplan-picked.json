@@ -1,0 +1,22 @@
+{
+  "home": "HOME",
+  "audit_date": "2026-11-13",
+  "form": "simple",
+  "scope": "picked",
+  "targets": [
+    {
+      "product": "p-alpha",
+      "page_file": "w7-page.md",
+      "robots_file": "w7-robots.txt",
+      "guide": true
+    },
+    {
+      "product": "p-alpha",
+      "round": "round-1"
+    },
+    {
+      "product": "p-beta",
+      "page_file": "w7-page.md"
+    }
+  ]
+}

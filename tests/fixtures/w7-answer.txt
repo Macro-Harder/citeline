@@ -1,0 +1,1 @@
+Example Product is a tool that answers questions with citations, according to its documentation.

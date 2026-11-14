@@ -1,0 +1,2 @@
+{"entry_kind":"round_named","form_version":1,"payload":{"product_id":"p-example","round_id":"p-example:r2","round_label":"r2"},"previous_hash":null,"sequence":1}
+{"entry_kind":"answer_imported","form_version":1,"payload":{"answer_id":"ans-3","round_id":"p-example:r2","text":"Chain answer"},"previous_hash":"20b56c8c4fd279f5edd3d12c17cbc981df158c33feeafb3803e1136b5a5754f0","sequence":2}

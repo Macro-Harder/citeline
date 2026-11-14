@@ -1,0 +1,5 @@
+An answer about tools in general with no product named in the prose part here.
+
+## References
+
+- Northbeam, https://northbeam.example.com/guide

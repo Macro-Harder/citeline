@@ -1,0 +1,12 @@
+{
+  "home": "HOME",
+  "audit_date": "2026-11-13",
+  "form": "simple",
+  "scope": "estate",
+  "targets": [
+    {
+      "product": "p-alpha",
+      "round": "round-1"
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+{"entry_kind":"product_registered","form_version":1,"payload":{"name":"Example Product","product_id":"p-example"},"previous_hash":null,"sequence":1}

@@ -1,0 +1,13 @@
+User-agent: Bingbot
+Allow: /docs/
+Disallow: /docs/
+
+User-agent: ClaudeBot
+Disallow: /a*/
+Allow: /a/b/
+
+User-agent: PerplexityBot
+Disallow: /caf%C3%A9/
+
+User-agent: YouBot
+Disallow: /docs/

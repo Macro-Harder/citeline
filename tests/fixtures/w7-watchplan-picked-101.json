@@ -1,0 +1,412 @@
+{
+  "home": "HOME",
+  "audit_date": "2026-11-13",
+  "form": "simple",
+  "scope": "picked",
+  "targets": [
+    {
+      "product": "p-000",
+      "round": "round-1"
+    },
+    {
+      "product": "p-001",
+      "round": "round-1"
+    },
+    {
+      "product": "p-002",
+      "round": "round-1"
+    },
+    {
+      "product": "p-003",
+      "round": "round-1"
+    },
+    {
+      "product": "p-004",
+      "round": "round-1"
+    },
+    {
+      "product": "p-005",
+      "round": "round-1"
+    },
+    {
+      "product": "p-006",
+      "round": "round-1"
+    },
+    {
+      "product": "p-007",
+      "round": "round-1"
+    },
+    {
+      "product": "p-008",
+      "round": "round-1"
+    },
+    {
+      "product": "p-009",
+      "round": "round-1"
+    },
+    {
+      "product": "p-010",
+      "round": "round-1"
+    },
+    {
+      "product": "p-011",
+      "round": "round-1"
+    },
+    {
+      "product": "p-012",
+      "round": "round-1"
+    },
+    {
+      "product": "p-013",
+      "round": "round-1"
+    },
+    {
+      "product": "p-014",
+      "round": "round-1"
+    },
+    {
+      "product": "p-015",
+      "round": "round-1"
+    },
+    {
+      "product": "p-016",
+      "round": "round-1"
+    },
+    {
+      "product": "p-017",
+      "round": "round-1"
+    },
+    {
+      "product": "p-018",
+      "round": "round-1"
+    },
+    {
+      "product": "p-019",
+      "round": "round-1"
+    },
+    {
+      "product": "p-020",
+      "round": "round-1"
+    },
+    {
+      "product": "p-021",
+      "round": "round-1"
+    },
+    {
+      "product": "p-022",
+      "round": "round-1"
+    },
+    {
+      "product": "p-023",
+      "round": "round-1"
+    },
+    {
+      "product": "p-024",
+      "round": "round-1"
+    },
+    {
+      "product": "p-025",
+      "round": "round-1"
+    },
+    {
+      "product": "p-026",
+      "round": "round-1"
+    },
+    {
+      "product": "p-027",
+      "round": "round-1"
+    },
+    {
+      "product": "p-028",
+      "round": "round-1"
+    },
+    {
+      "product": "p-029",
+      "round": "round-1"
+    },
+    {
+      "product": "p-030",
+      "round": "round-1"
+    },
+    {
+      "product": "p-031",
+      "round": "round-1"
+    },
+    {
+      "product": "p-032",
+      "round": "round-1"
+    },
+    {
+      "product": "p-033",
+      "round": "round-1"
+    },
+    {
+      "product": "p-034",
+      "round": "round-1"
+    },
+    {
+      "product": "p-035",
+      "round": "round-1"
+    },
+    {
+      "product": "p-036",
+      "round": "round-1"
+    },
+    {
+      "product": "p-037",
+      "round": "round-1"
+    },
+    {
+      "product": "p-038",
+      "round": "round-1"
+    },
+    {
+      "product": "p-039",
+      "round": "round-1"
+    },
+    {
+      "product": "p-040",
+      "round": "round-1"
+    },
+    {
+      "product": "p-041",
+      "round": "round-1"
+    },
+    {
+      "product": "p-042",
+      "round": "round-1"
+    },
+    {
+      "product": "p-043",
+      "round": "round-1"
+    },
+    {
+      "product": "p-044",
+      "round": "round-1"
+    },
+    {
+      "product": "p-045",
+      "round": "round-1"
+    },
+    {
+      "product": "p-046",
+      "round": "round-1"
+    },
+    {
+      "product": "p-047",
+      "round": "round-1"
+    },
+    {
+      "product": "p-048",
+      "round": "round-1"
+    },
+    {
+      "product": "p-049",
+      "round": "round-1"
+    },
+    {
+      "product": "p-050",
+      "round": "round-1"
+    },
+    {
+      "product": "p-051",
+      "round": "round-1"
+    },
+    {
+      "product": "p-052",
+      "round": "round-1"
+    },
+    {
+      "product": "p-053",
+      "round": "round-1"
+    },
+    {
+      "product": "p-054",
+      "round": "round-1"
+    },
+    {
+      "product": "p-055",
+      "round": "round-1"
+    },
+    {
+      "product": "p-056",
+      "round": "round-1"
+    },
+    {
+      "product": "p-057",
+      "round": "round-1"
+    },
+    {
+      "product": "p-058",
+      "round": "round-1"
+    },
+    {
+      "product": "p-059",
+      "round": "round-1"
+    },
+    {
+      "product": "p-060",
+      "round": "round-1"
+    },
+    {
+      "product": "p-061",
+      "round": "round-1"
+    },
+    {
+      "product": "p-062",
+      "round": "round-1"
+    },
+    {
+      "product": "p-063",
+      "round": "round-1"
+    },
+    {
+      "product": "p-064",
+      "round": "round-1"
+    },
+    {
+      "product": "p-065",
+      "round": "round-1"
+    },
+    {
+      "product": "p-066",
+      "round": "round-1"
+    },
+    {
+      "product": "p-067",
+      "round": "round-1"
+    },
+    {
+      "product": "p-068",
+      "round": "round-1"
+    },
+    {
+      "product": "p-069",
+      "round": "round-1"
+    },
+    {
+      "product": "p-070",
+      "round": "round-1"
+    },
+    {
+      "product": "p-071",
+      "round": "round-1"
+    },
+    {
+      "product": "p-072",
+      "round": "round-1"
+    },
+    {
+      "product": "p-073",
+      "round": "round-1"
+    },
+    {
+      "product": "p-074",
+      "round": "round-1"
+    },
+    {
+      "product": "p-075",
+      "round": "round-1"
+    },
+    {
+      "product": "p-076",
+      "round": "round-1"
+    },
+    {
+      "product": "p-077",
+      "round": "round-1"
+    },
+    {
+      "product": "p-078",
+      "round": "round-1"
+    },
+    {
+      "product": "p-079",
+      "round": "round-1"
+    },
+    {
+      "product": "p-080",
+      "round": "round-1"
+    },
+    {
+      "product": "p-081",
+      "round": "round-1"
+    },
+    {
+      "product": "p-082",
+      "round": "round-1"
+    },
+    {
+      "product": "p-083",
+      "round": "round-1"
+    },
+    {
+      "product": "p-084",
+      "round": "round-1"
+    },
+    {
+      "product": "p-085",
+      "round": "round-1"
+    },
+    {
+      "product": "p-086",
+      "round": "round-1"
+    },
+    {
+      "product": "p-087",
+      "round": "round-1"
+    },
+    {
+      "product": "p-088",
+      "round": "round-1"
+    },
+    {
+      "product": "p-089",
+      "round": "round-1"
+    },
+    {
+      "product": "p-090",
+      "round": "round-1"
+    },
+    {
+      "product": "p-091",
+      "round": "round-1"
+    },
+    {
+      "product": "p-092",
+      "round": "round-1"
+    },
+    {
+      "product": "p-093",
+      "round": "round-1"
+    },
+    {
+      "product": "p-094",
+      "round": "round-1"
+    },
+    {
+      "product": "p-095",
+      "round": "round-1"
+    },
+    {
+      "product": "p-096",
+      "round": "round-1"
+    },
+    {
+      "product": "p-097",
+      "round": "round-1"
+    },
+    {
+      "product": "p-098",
+      "round": "round-1"
+    },
+    {
+      "product": "p-099",
+      "round": "round-1"
+    },
+    {
+      "product": "p-100",
+      "round": "round-1"
+    }
+  ]
+}
