@@ -26,6 +26,7 @@ does, reads those fields from the raised error and enters
 them in its own summary for that one target only.
 """
 
+import contextlib
 import copy
 import hashlib
 import inspect
@@ -207,6 +208,36 @@ def _require_home(home):
             "the home stands missing: %s" % (home,))
 
 
+def _guard_supplied_path(value):
+    """Refuse a supplied path no filesystem call can state.
+
+    A supplied page, robots, or answer path carrying a NUL
+    byte, or a lone surrogate no encoding can carry, stands
+    refused in the governed vocabulary at row X-4, token
+    SUPPLIED_PATH_UNSAFE, at this seam, before any stat,
+    open, or size read on the service routes can raise a
+    bare ValueError or UnicodeEncodeError on it (Step 17
+    round 2 entry S17-R2-018). The acquisition component
+    gives the same refusal where it is reached directly;
+    this guard stands on the service paths that touch a
+    supplied path before that component runs.
+    """
+    if not isinstance(value, str):
+        return
+    if "\x00" in value:
+        _fail(
+            "SUPPLIED_PATH_UNSAFE",
+            "a supplied path holding a NUL byte cannot be "
+            "stated and is rejected")
+    try:
+        value.encode("utf-8")
+    except UnicodeEncodeError:
+        _fail(
+            "SUPPLIED_PATH_UNSAFE",
+            "a supplied path holding a lone surrogate "
+            "cannot be stated and is rejected")
+
+
 def _validate_audit_date(audit_date):
     """Refuse an audit date input that is not a date.
 
@@ -236,6 +267,18 @@ def _validate_audit_date(audit_date):
         return audit_date.date().isoformat()
     if isinstance(audit_date, datetime.date):
         return audit_date.isoformat()
+    # The type discipline stands completed (Step 17 round 2
+    # entry S17-R2-076): the forms the discipline names are
+    # a date object, a datetime, an integer in basic ISO
+    # form, and an ISO string. Every other type refuses
+    # here, a float included: a float is none of the named
+    # forms, and passing it through a string conversion
+    # into the parser silently dropped its fraction.
+    if isinstance(audit_date, bool) or not isinstance(
+            audit_date, (int, str)):
+        _fail(
+            "VALIDATION_FAILED",
+            "audit_date is not an ISO date: %r" % (audit_date,))
     try:
         parsed = datetime.date.fromisoformat(str(audit_date))
     except ValueError:
@@ -453,6 +496,122 @@ def _require_typed_field(record, field, kinds, owner):
     return value
 
 
+def _require_string_list(record, field, owner):
+    """Refuse a stored list field holding a wrong element.
+
+    The field itself and every element stand judged: a
+    list of the wrong element type passes a whole list
+    check and crashes the reader behind it, so the
+    elements stand under the same discipline (Step 17
+    round 2 entry S17-R2-081).
+    """
+    value = record.get(field)
+    if value is None:
+        return None
+    if not isinstance(value, list) or any(
+            not isinstance(item, str) for item in value):
+        _fail(
+            "VALIDATION_FAILED",
+            "the stored %s record carries %s in a form its "
+            "readers cannot use: %r" % (owner, field, value))
+    return value
+
+
+def _validate_product_record(record):
+    """The stored product field discipline at the readers.
+
+    A general reader validation, in the outcome the
+    S17-R1-075 cure established at its pinned spots: a
+    stored field of a type its readers cannot use refuses
+    VALIDATION_FAILED naming the field (Step 17 round 2
+    entry S17-R2-081). Identity and text fields stand as
+    strings, and the list fields stand as lists of
+    strings, the competitor list as names or records
+    naming a string name.
+    """
+    if not isinstance(record, dict):
+        return
+    for field in ("product_id", "name", "canonical_line",
+                  "domain"):
+        _require_typed_field(record, field, str, "product")
+    for field in ("aliases", "query_set", "category"):
+        _require_string_list(record, field, "product")
+    competitors = record.get("competitors")
+    if competitors is not None:
+        bad = not isinstance(competitors, list) or any(
+            not isinstance(item, (str, dict))
+            or (isinstance(item, dict)
+                and not isinstance(item.get("name"), str))
+            for item in competitors)
+        if bad:
+            _fail(
+                "VALIDATION_FAILED",
+                "the stored product record carries "
+                "competitors in a form its readers cannot "
+                "use: %r" % (competitors,))
+
+
+def _validate_answer_payload(payload):
+    """The stored answer field discipline at the readers."""
+    if not isinstance(payload, dict):
+        return
+    for field in ("answer_text", "query", "captured_on",
+                  "capture_method", "engine_label_original",
+                  "engine_label_normalised", "kind", "round",
+                  "product", "round_id", "product_id",
+                  "answer_id"):
+        _require_typed_field(payload, field, str, "answer")
+
+
+def _validate_audit_payload(payload):
+    """The stored audit record field discipline at the
+    readers, its sentence elements included."""
+    if not isinstance(payload, dict):
+        return
+    for field in ("run_id", "product_id", "canonical_line",
+                  "product_name", "snapshot_id"):
+        _require_typed_field(payload, field, str, "audit")
+    _require_string_list(payload, "sentences", "audit")
+    _require_string_list(payload, "trigger_codes", "audit")
+    count = payload.get("distinct_cited_target_count")
+    if count is not None and (
+            isinstance(count, bool)
+            or not isinstance(count, int)):
+        _fail(
+            "VALIDATION_FAILED",
+            "the stored audit record carries "
+            "distinct_cited_target_count in a form its "
+            "readers cannot use: %r" % (count,))
+
+
+def _validate_stored_entries(entries):
+    """Judge every stored entry a reader is about to fold.
+
+    The readers key records by their identity fields and
+    consume their text and list fields; a type swapped
+    field in any of those positions refuses in the
+    recorded vocabulary here, before any reader can crash
+    on it (Step 17 round 2 entry S17-R2-081).
+    """
+    for entry in entries:
+        kind = _get(entry, "entry_kind")
+        payload = _payload(entry)
+        if kind in ("product_registered", "registry_change"):
+            _validate_product_record(payload)
+        elif kind == "round_named":
+            for field in ("round_id", "product_id",
+                          "round_label"):
+                _require_typed_field(payload, field, str, "round")
+        elif kind == "answer_imported":
+            _validate_answer_payload(payload)
+        elif kind == "audit_record":
+            _validate_audit_payload(payload)
+        elif kind == "snapshot_registered":
+            for field in ("snapshot_id", "product_id"):
+                _require_typed_field(
+                    payload, field, str, "snapshot")
+
+
 # ----------------------------------------------------------------
 # Status and verify: the service homes of the journal pair.
 # ----------------------------------------------------------------
@@ -538,6 +697,7 @@ def status(*, home):
     result["anchor_limit_sentence"] = _anchor_limit_sentence()
     result["honesty_sentence"] = _honesty_sentence()
     result["bounds"] = _bounds_computed()
+    _surface_failure_records(result, home)
     return result
 
 
@@ -574,6 +734,7 @@ def verify(*, home):
     result["anchor_limit_sentence"] = _anchor_limit_sentence()
     result["honesty_sentence"] = _honesty_sentence()
     result["bounds"] = _bounds_computed()
+    _surface_failure_records(result, home)
     return result
 
 
@@ -771,6 +932,7 @@ def _staleness_row(record_kind, record_id, payload, axes,
     uncompared = []
     malformed = []
     break_changed = False
+    compared = 0
     not_recorded_axes = list(not_recorded)
     for axis, _fields, is_break in axes:
         if axis in conflicts:
@@ -818,6 +980,7 @@ def _staleness_row(record_kind, record_id, payload, axes,
             if axis not in not_recorded_axes:
                 not_recorded_axes.append(axis)
             continue
+        compared += 1
         if bound_form != current_form:
             changed.append(axis)
             if is_break:
@@ -827,6 +990,13 @@ def _staleness_row(record_kind, record_id, payload, axes,
     elif changed:
         state = "stale"
     elif uncompared:
+        state = "uncompared"
+    elif compared == 0:
+        # No axis stood compared at all: a record that
+        # binds no version, or whose bound axes every one
+        # failed comparison, earns no currency verdict,
+        # so its state stands uncompared, never current
+        # over zero compared axes.
         state = "uncompared"
     else:
         state = "current"
@@ -848,7 +1018,7 @@ def _staleness_row(record_kind, record_id, payload, axes,
     notes = []
     if state == "stale":
         notes.append(STALENESS_STALE_NOTE)
-    if uncompared and state != "stale":
+    if (uncompared or state == "uncompared") and state != "stale":
         notes.append(STALENESS_UNCOMPARED_NOTE)
     if notes:
         row["state_note"] = " ".join(notes)
@@ -890,7 +1060,14 @@ def staleness_view(*, home):
     """
     _require_home(home)
     _barred_check(home)
-    entries = _fold(home)
+    # The staleness assembly reads corrections as the
+    # other reporting readers do (Step 17 round 2 entry
+    # S17-R2-103, on the S17-R1-086 corrections ground):
+    # the fold stands corrections aware, so a corrected
+    # record binds the versions its corrected record
+    # carries, in this view as in every other reader.
+    entries = _fold(home, apply_corrections=True)
+    _validate_stored_entries(entries)
     products = {}
     for record in list_products(home=home):
         if record.get("product_id") is not None:
@@ -960,6 +1137,7 @@ def staleness_view(*, home):
     }
     if not records:
         result["absence"] = "no entries"
+    _surface_failure_records(result, home)
     return result
 
 
@@ -1150,6 +1328,7 @@ def estate_grounds(*, home, product):
     journal order. Both readings run over the journal fold
     in this one call.
     """
+    _validate_stored_entries(_fold(home, apply_corrections=True))
     record = _find_product(home, product)
     if record is None:
         return {"page_path": None, "rounds": []}
@@ -1242,7 +1421,7 @@ def _robots_evaluation(*, home, robots_file, evaluated_page_path,
     try:
         with open(str(robots_file), "rb") as handle:
             raw = handle.read()
-    except OSError as exc:
+    except (OSError, ValueError, UnicodeError) as exc:
         _fail(
             "SUPPLIED_PATH_UNSAFE",
             "the supplied robots file stands unreadable: %s"
@@ -1286,6 +1465,7 @@ def robots(*, home, robots_file, evaluated_page_path=None,
     """
     audit_date = _validate_audit_date(audit_date)
     _require_home(home)
+    _guard_supplied_path(robots_file)
     _barred_check(home)
     evaluation = _robots_evaluation(
         home=home, robots_file=robots_file,
@@ -1312,17 +1492,22 @@ def _validate_capture_date(value, audit_date, name):
     if isinstance(value, datetime.datetime):
         value = value.date()
     if isinstance(value, datetime.date):
-        return value.isoformat()
-    if not isinstance(value, str):
+        parsed = value
+    elif not isinstance(value, str):
         _fail(
             "VALIDATION_FAILED",
             "%s is not an ISO date: %r" % (name, value))
-    try:
-        parsed = datetime.date.fromisoformat(value)
-    except ValueError:
-        _fail(
-            "VALIDATION_FAILED",
-            "%s is not a real calendar date: %s" % (name, value))
+    else:
+        try:
+            parsed = datetime.date.fromisoformat(value)
+        except ValueError:
+            _fail(
+                "VALIDATION_FAILED",
+                "%s is not a real calendar date: %s" % (name, value))
+    # The audit date comparison stands on every supplied
+    # form alike, the date object and datetime object
+    # forms as on the string form, as the S17-R1X-034
+    # discipline states it in full.
     if audit_date is not None:
         try:
             audit_value = datetime.date.fromisoformat(str(audit_date)) \
@@ -1390,6 +1575,8 @@ def robots_preview(*, home, first_robots_file, second_robots_file,
     if second_capture_date is None:
         second_capture_date = second_captured_on
     _require_home(home)
+    _guard_supplied_path(first_robots_file)
+    _guard_supplied_path(second_robots_file)
     first_capture_date = _validate_capture_date(
         first_capture_date, audit_date, "first_capture_date")
     second_capture_date = _validate_capture_date(
@@ -1463,9 +1650,18 @@ def _front_matter_key_count(page_file):
     try:
         with open(str(page_file), "rb") as handle:
             raw = handle.read(64 * 1024)
-    except OSError:
+    except (OSError, ValueError, UnicodeError):
         return None
+    # The count stands taken on the same text the parser
+    # parses (Step 17 round 2 entry S17-R2-086): the
+    # extraction path strips one leading byte order mark
+    # before it parses the block, so this counter strips
+    # the same mark before it reads the fence.
+    if raw.startswith(b"\xef\xbb\xbf"):
+        raw = raw[len(b"\xef\xbb\xbf"):]
     text = raw.decode("utf-8", errors="ignore")
+    if text.startswith("\ufeff"):
+        text = text[1:]
     lines = text.splitlines()
     if not lines or lines[0].strip() != "---":
         return None
@@ -1613,6 +1809,8 @@ def _audit_impl(*, home, page_file=None, robots_file=None,
     audit_date = _validate_audit_date(audit_date)
     _barred_check(home)
     _require_home(home)
+    _guard_supplied_path(page_file)
+    _guard_supplied_path(robots_file)
     run_started = _clock()
     run_candidate = None
     start_limits = None
@@ -1701,13 +1899,22 @@ def _audit_impl(*, home, page_file=None, robots_file=None,
     if product_record is not None:
         _require_typed_field(
             product_record, "canonical_line", str, "product")
+        _validate_product_record(product_record)
     product_id = (
         product_record.get("product_id") if product_record else None)
     from citeline import acquisition
+    # The extraction runs without registering its snapshot:
+    # the snapshot append and the audit record append land
+    # together on the atomic batch at the end of this
+    # assembly, or not at all (Step 17 round 2 entry
+    # S17-R2-072). The run identity travels to the
+    # extraction reading, so one reading of the limits in
+    # force governs both gates (entry S17-R2-085).
     extraction = acquisition.extract_page(
         str(home), product_id=product_id, page_path=str(page_file),
         audit_date=audit_date,
-        evaluated_page_path=evaluated_page_path)
+        evaluated_page_path=evaluated_page_path,
+        run_id=run_candidate, register_snapshot=False)
     # Limit 42, the per file parse time backstop, read
     # over the extraction this run performed (Step 17
     # entry S17-R1-038).
@@ -1822,10 +2029,20 @@ def _audit_impl(*, home, page_file=None, robots_file=None,
             "per run wall clock backstop is %s seconds in "
             "force for this run, and this run passed it"
             % (run_limit,))
+    # The snapshot identity the batch append will resolve:
+    # the snapshot entry stands first in the batch, so its
+    # sequence stands one past the standing count, and the
+    # record names the identity that append will store.
+    stated_snapshot_id = snapshot.get("snapshot_id")
+    if stated_snapshot_id and "{sequence}" not in str(
+            stated_snapshot_id):
+        snapshot_id = stated_snapshot_id
+    else:
+        snapshot_id = "snap-%d" % (_entry_count(home) + 1)
     record = {
         "run_id": run_id,
         "product_id": product_id,
-        "snapshot_id": snapshot.get("snapshot_id"),
+        "snapshot_id": snapshot_id,
         "snapshot_sha256": snapshot.get("sha256"),
         "evaluated_page_path": snapshot.get("evaluated_page_path"),
         "path_defaulted": bool(snapshot.get("path_defaulted")),
@@ -1855,16 +2072,43 @@ def _audit_impl(*, home, page_file=None, robots_file=None,
         "bounds": _bounds(),
         "canonical_line": facts["canonical_line"],
         "product_name": facts["product_name"],
+        # The selection inputs of the run stand stored on
+        # the record, as they stood at the run: the aliases
+        # and category terms in force at audit time, so a
+        # guide drafted from the run reads the run time
+        # basis from the record itself and no later
+        # registry state enters the draft (Step 17 round 2
+        # entry S17-R2-058, the service route limb).
+        "aliases": list(facts["aliases"]),
+        "category_terms": list(facts["category_terms"]),
         "sentences": list(_get(extracted, "sentences", []) or []),
         "trigger_codes": triggers,
         "distinct_cited_target_count": cited_count,
     }
-    appended = journal.append_entry(
-        str(home), "audit_record", copy.deepcopy(record),
-        audit_date=audit_date, run_id=run_candidate)
-    stored = _payload(appended) or record
+    # The audit appends land whole or not at all, on the
+    # atomic batch primitive the import route uses (Step
+    # 17 round 2 entry S17-R2-072, on the S17-R1-089 multi
+    # append discipline): the snapshot entry and the audit
+    # record stand in one batch, so a failure, a kill, or
+    # contention between them leaves no orphan snapshot,
+    # and a contended audit stores nothing, as its
+    # contract states.
+    batch = [
+        ("snapshot_registered", copy.deepcopy(snapshot)),
+        ("audit_record", copy.deepcopy(record)),
+    ]
+    appended = journal.append_entries_atomic(
+        str(home), batch, audit_date=audit_date,
+        run_id=run_candidate)
+    stored = record
+    stored_snapshot = snapshot
+    for entry in appended or []:
+        if _get(entry, "entry_kind") == "audit_record":
+            stored = _payload(entry) or record
+        elif _get(entry, "entry_kind") == "snapshot_registered":
+            stored_snapshot = _payload(entry) or snapshot
     result = dict(stored)
-    result["snapshot"] = snapshot
+    result["snapshot"] = stored_snapshot
     result["audit_run"] = dict(stored)
     return result
 
@@ -1899,6 +2143,24 @@ def audit(*, home, page_file=None, robots_file=None,
                 page_file if page_file is not None else run_id,
                 audit_date)
         raise
+    except Exception as exc:
+        # A governed failure class of this route whose
+        # error type is not the recorded error type, the
+        # robots component error among them, stands caught
+        # here all the same: it converts to the recorded
+        # error of its token, and its failure record stands
+        # appended exactly once, as for every governed
+        # failure of the route (Step 17 round 2 entry
+        # S17-R2-072).
+        token = getattr(exc, "token", None)
+        if token is None or errors.error_for_token(token) is None:
+            raise
+        converted = errors.CitelineError(str(exc), token=token)
+        _append_failure_record(
+            home, "audit", converted,
+            page_file if page_file is not None else run_id,
+            audit_date)
+        raise converted
 
 
 def _detector_version():
@@ -1907,6 +2169,31 @@ def _detector_version():
         return getattr(detection, "DETECTOR_VERSION", 1)
     except Exception:
         return 1
+
+
+@contextlib.contextmanager
+def _import_judgement_lock(home):
+    """Hold the home write lock across one import judgement.
+
+    The duplicate and contradiction judgement and the
+    first import stamp decision of an import stand inside
+    the journal write lock, with the batch append they
+    govern (Step 17 round 2 entry S17-R2-090): a caller
+    that meets the lock held stands contended at row X-10
+    and stores nothing, and a caller that takes the lock
+    reads the standing answers as they stand at its
+    judgement, never as another caller's unstored work
+    left them. The batch and single appends inside the
+    judgement join the hold on this thread, as the journal
+    lock's own re-entry discipline states.
+    """
+    journal = _journal()
+    lock_class = getattr(journal, "_WriteLock", None)
+    if lock_class is None:
+        yield
+        return
+    with lock_class(str(home)):
+        yield
 
 
 # ----------------------------------------------------------------
@@ -1965,6 +2252,27 @@ def _import_preflight(home, answer_file, extra_entries):
         pass
 
 
+def _worksheet_record_count(answer_file):
+    """The records one worksheet import would append.
+
+    The count stands read from the sheet itself: one
+    record per filled slot. A sheet that cannot be read
+    or parsed here counts as None, and the preflight
+    falls back to the single record cost while the
+    worksheet route raises its own recorded error for
+    the sheet (entry S17-R2-087).
+    """
+    try:
+        from citeline import probe_import as import_module
+        _raw, text, _hash = import_module.read_answer_file(
+            str(answer_file))
+        sheet = import_module.parse_worksheet(text)
+    except Exception:
+        return None
+    return sum(1 for slot in sheet.get("slots", [])
+               if str(slot.get("body") or "").strip())
+
+
 def _first_import_extra(home, product, round_label):
     """One where this import would write the round stamps."""
     try:
@@ -2005,15 +2313,47 @@ def probe_import(*, home, answer_file=None, product=None,
     standing record, and no control count, so no round
     level check fires ahead of the lookup that owns it.
     """
-    _barred_check(home)
     _require_home(home)
-    run_started = _clock()
-    journal = _journal()
-    from citeline import probe_import as import_module
     try:
-        _import_preflight(
-            home, answer_file,
-            _first_import_extra(home, product, round))
+        _guard_supplied_path(answer_file)
+    except Exception as exc:
+        # The supplied path guard stands at this route's
+        # head, before the recording tries below: its
+        # refusal stands recorded like every other governed
+        # failure of the route, carrying the governed token
+        # as its error value and rule fired, never the raw
+        # message (Step 17 round 2 entry S17-R2-018).
+        _append_failure_record(
+            home, "probe import", exc, answer_file, audit_date)
+        raise
+    # A batch killed inside its appends on an earlier
+    # invocation stands rolled back before anything here
+    # reads the chain, so no partial batch stands as the
+    # state this import meets (entry S17-R2-083).
+    journal = _journal()
+    recover = getattr(journal, "recover_interrupted_batch", None)
+    if recover is not None:
+        try:
+            recover(str(home))
+        except Exception:
+            pass
+    _barred_check(home)
+    run_started = _clock()
+    from citeline import probe_import as import_module
+    worksheet = bool(answer_file) and import_module.is_worksheet_file(
+        str(answer_file))
+    try:
+        # The preflight cost of a worksheet import stands
+        # counted in the records the sheet would append,
+        # beside the first import round stamp, and not as
+        # one answer entry however many slots the sheet
+        # holds (entry S17-R2-087).
+        preflight_extra = _first_import_extra(home, product, round)
+        if worksheet:
+            record_count = _worksheet_record_count(answer_file)
+            if record_count:
+                preflight_extra += record_count - 1
+        _import_preflight(home, answer_file, preflight_extra)
         # Limits 31 and 3's seam companions, enforced at
         # the values in force before the file's validation
         # runs (Step 17 entries S17-R1-038 and
@@ -2035,8 +2375,6 @@ def probe_import(*, home, answer_file=None, product=None,
         _append_failure_record(
             home, "probe import", exc, answer_file, audit_date)
         raise
-    worksheet = bool(answer_file) and import_module.is_worksheet_file(
-        str(answer_file))
     if worksheet:
         try:
             import_module.validate_adapter_inputs(
@@ -2047,6 +2385,20 @@ def probe_import(*, home, answer_file=None, product=None,
                 control_designation=control_designation,
                 audit_date=audit_date, known_round=True,
                 query_set=None, control_count=0)
+        except TypeError as exc:
+            # The worksheet seam screens the call through the
+            # same conversion the plain file adapter runs, so
+            # a malformed input set refuses in the recorded
+            # vocabulary here too, and its failure record
+            # carries that vocabulary value (entry S17-R2-041).
+            converted = errors.CitelineError(
+                "IMPORT_VALIDATION_FAILED: adapter call does "
+                "not match the contract inputs: " + str(exc),
+                token="IMPORT_VALIDATION_FAILED")
+            _append_failure_record(
+                home, "probe import", converted, answer_file,
+                audit_date)
+            raise converted
         except Exception as exc:
             _append_failure_record(
                 home, "probe import", exc, answer_file, audit_date)
@@ -2068,144 +2420,146 @@ def probe_import(*, home, answer_file=None, product=None,
             _append_failure_record(
                 home, "probe import", exc, answer_file, audit_date)
             raise
-    try:
-        product_record = _require_product(home, product)
-        round_record = _require_round(home, product_record, round)
-    except Exception as exc:
-        _append_failure_record(
-            home, "probe import", exc, answer_file, audit_date)
-        raise
-    product_id = product_record.get("product_id")
-    round_id = round_record.get("round_id")
-    standing = _answers(home, round_id)
-    sequence = _entry_count(home) + 1
-    from citeline import probe_import as import_module
-    try:
-        if worksheet:
-            control_count = sum(
-                1 for item in standing
-                if item.get("control_flag"))
-            records = import_module.prepare_worksheet_import(
-                answer_file=str(answer_file), product=product,
-                round=round, engine_label=engine_label,
-                query=query, kind=kind, captured_on=captured_on,
-                capture_method=capture_method,
-                control_designation=control_designation,
-                audit_date=audit_date, known_round=True,
-                query_set=list(product_record.get("query_set") or []),
-                standing_records=standing,
-                control_count=control_count,
-                product_id=product_id, round_id=round_id,
-                answer_id_prefix="ans-{sequence}",
-                registry_version_at_import=product_record.get(
-                    "registry_version", 1),
-                detector_version_at_import=_detector_version())
-        else:
-            control_count = sum(
-                1 for item in standing
-                if item.get("control_flag")
-                and item.get("kind") == kind)
-            records = [import_module.prepare_import(
-                answer_file=str(answer_file), product=product,
-                round=round, engine_label=engine_label, query=query,
-                kind=kind, captured_on=captured_on,
-                capture_method=capture_method,
-                control_designation=control_designation,
-                audit_date=audit_date, known_round=True,
-                query_set=list(product_record.get("query_set") or []),
-                standing_records=standing,
-                control_count=control_count,
-                product_id=product_id, round_id=round_id,
-                answer_id="ans-{sequence}",
-                registry_version_at_import=product_record.get(
-                    "registry_version", 1),
-                detector_version_at_import=_detector_version())]
-    except Exception as exc:
-        _append_failure_record(
-            home, "probe import", exc, answer_file, audit_date)
-        raise
-    try:
-        # The seam limits on the prepared records, at the
-        # values in force, before anything stands stored
-        # (Step 17 entries S17-R1-038 and S17-R1-080):
-        # limit 3, extracted text length per answer;
-        # limit 22, answers per round; and the two
-        # backstops, limit 42 over the preparation and
-        # limit 41 over the whole run.
-        text_limit = _limit_value(
-            home, "extracted_text_length_per_page_or_answer")
-        if text_limit is not None:
-            for item in records:
-                text = item.get("answer_text")
-                if isinstance(text, str) and len(text) > text_limit:
-                    _fail(
-                        "LIMIT_EXCEEDED",
-                        "extracted text length per answer "
-                        "limit is %s characters, with "
-                        "rejection and no partial record"
-                        % (text_limit,))
-        round_limit = _limit_value(home, "answers_per_round")
-        if round_limit is not None and len(standing) + len(
-                records) > round_limit:
-            _fail(
-                "LIMIT_EXCEEDED",
-                "answers per round limit is %s, with "
-                "rejection and no partial record"
-                % (round_limit,))
-        parse_limit = _limit_value(home, "per_file_parse_time")
-        if parse_limit is not None and \
-                _clock() - run_started > parse_limit:
-            _fail(
-                "LIMIT_EXCEEDED",
-                "per file parse time backstop is %s seconds "
-                "in force, and the preparation of this file "
-                "passed it" % (parse_limit,))
-        run_limit = _limit_value(
-            home, "per_run_wall_clock_backstop")
-        if run_limit is not None and \
-                _clock() - run_started > run_limit:
-            _fail(
-                "LIMIT_EXCEEDED",
-                "per run wall clock backstop is %s seconds "
-                "in force, and this run passed it"
-                % (run_limit,))
-    except Exception as exc:
-        _append_failure_record(
-            home, "probe import", exc, answer_file, audit_date)
-        raise
-    batch = [("answer_imported", copy.deepcopy(item))
-             for item in records]
-    if round_record.get("registry_version_at_first_import") is None:
-        stamped = dict(round_record)
-        stamped["registry_version_at_first_import"] = records[0].get(
-            "registry_version_at_import")
-        stamped["detector_version_at_first_import"] = records[0].get(
-            "detector_version_at_import")
-        batch.append(("round_named", stamped))
-    appended = journal.append_entries_atomic(
-        str(home), batch, audit_date=audit_date)
-    # The identities the appends assigned stand read back
-    # from the appended entries themselves, so the record
-    # the caller receives names the identity that stands
-    # stored (Step 17 entry S17-R1-077).
-    appended_answers = [
-        _payload(entry) for entry in appended
-        if _get(entry, "entry_kind") == "answer_imported"]
-    result_records = []
-    for index, item in enumerate(records):
-        shown = dict(item)
-        if index < len(appended_answers) and appended_answers[
-                index].get("answer_id") is not None:
-            shown["answer_id"] = appended_answers[index][
-                "answer_id"]
-        if not str(shown.get("answer_text") or "").strip():
-            shown["import_warning"] = (
-                "Empty answer warning: the file held no "
-                "answer text, and the empty answer stands "
-                "imported and counted in its round. If the "
-                "empty file was the wrong file, import the "
-                "right file under a different capture date")
-        result_records.append(shown)
+    with _import_judgement_lock(home):
+        try:
+            product_record = _require_product(home, product)
+            round_record = _require_round(home, product_record, round)
+        except Exception as exc:
+            _append_failure_record(
+                home, "probe import", exc, answer_file, audit_date)
+            raise
+        product_id = product_record.get("product_id")
+        round_id = round_record.get("round_id")
+        standing = _answers(home, round_id)
+        sequence = _entry_count(home) + 1
+        from citeline import probe_import as import_module
+        try:
+            if worksheet:
+                control_count = sum(
+                    1 for item in standing
+                    if item.get("control_flag"))
+                records = import_module.prepare_worksheet_import(
+                    answer_file=str(answer_file), product=product,
+                    round=round, engine_label=engine_label,
+                    query=query, kind=kind, captured_on=captured_on,
+                    capture_method=capture_method,
+                    control_designation=control_designation,
+                    audit_date=audit_date, known_round=True,
+                    query_set=list(product_record.get("query_set") or []),
+                    standing_records=standing,
+                    control_count=control_count,
+                    product_id=product_id, round_id=round_id,
+                    answer_id_prefix="ans-{sequence}",
+                    registry_version_at_import=product_record.get(
+                        "registry_version", 1),
+                    detector_version_at_import=_detector_version(),
+                    answer_sequence_base=sequence)
+            else:
+                control_count = sum(
+                    1 for item in standing
+                    if item.get("control_flag")
+                    and item.get("kind") == kind)
+                records = [import_module.prepare_import(
+                    answer_file=str(answer_file), product=product,
+                    round=round, engine_label=engine_label, query=query,
+                    kind=kind, captured_on=captured_on,
+                    capture_method=capture_method,
+                    control_designation=control_designation,
+                    audit_date=audit_date, known_round=True,
+                    query_set=list(product_record.get("query_set") or []),
+                    standing_records=standing,
+                    control_count=control_count,
+                    product_id=product_id, round_id=round_id,
+                    answer_id="ans-{sequence}",
+                    registry_version_at_import=product_record.get(
+                        "registry_version", 1),
+                    detector_version_at_import=_detector_version())]
+        except Exception as exc:
+            _append_failure_record(
+                home, "probe import", exc, answer_file, audit_date)
+            raise
+        try:
+            # The seam limits on the prepared records, at the
+            # values in force, before anything stands stored
+            # (Step 17 entries S17-R1-038 and S17-R1-080):
+            # limit 3, extracted text length per answer;
+            # limit 22, answers per round; and the two
+            # backstops, limit 42 over the preparation and
+            # limit 41 over the whole run.
+            text_limit = _limit_value(
+                home, "extracted_text_length_per_page_or_answer")
+            if text_limit is not None:
+                for item in records:
+                    text = item.get("answer_text")
+                    if isinstance(text, str) and len(text) > text_limit:
+                        _fail(
+                            "LIMIT_EXCEEDED",
+                            "extracted text length per answer "
+                            "limit is %s characters, with "
+                            "rejection and no partial record"
+                            % (text_limit,))
+            round_limit = _limit_value(home, "answers_per_round")
+            if round_limit is not None and len(standing) + len(
+                    records) > round_limit:
+                _fail(
+                    "LIMIT_EXCEEDED",
+                    "answers per round limit is %s, with "
+                    "rejection and no partial record"
+                    % (round_limit,))
+            parse_limit = _limit_value(home, "per_file_parse_time")
+            if parse_limit is not None and \
+                    _clock() - run_started > parse_limit:
+                _fail(
+                    "LIMIT_EXCEEDED",
+                    "per file parse time backstop is %s seconds "
+                    "in force, and the preparation of this file "
+                    "passed it" % (parse_limit,))
+            run_limit = _limit_value(
+                home, "per_run_wall_clock_backstop")
+            if run_limit is not None and \
+                    _clock() - run_started > run_limit:
+                _fail(
+                    "LIMIT_EXCEEDED",
+                    "per run wall clock backstop is %s seconds "
+                    "in force, and this run passed it"
+                    % (run_limit,))
+        except Exception as exc:
+            _append_failure_record(
+                home, "probe import", exc, answer_file, audit_date)
+            raise
+        batch = [("answer_imported", copy.deepcopy(item))
+                 for item in records]
+        if round_record.get("registry_version_at_first_import") is None:
+            stamped = dict(round_record)
+            stamped["registry_version_at_first_import"] = records[0].get(
+                "registry_version_at_import")
+            stamped["detector_version_at_first_import"] = records[0].get(
+                "detector_version_at_import")
+            batch.append(("round_named", stamped))
+        appended = journal.append_entries_atomic(
+            str(home), batch, audit_date=audit_date)
+        # The identities the appends assigned stand read back
+        # from the appended entries themselves, so the record
+        # the caller receives names the identity that stands
+        # stored (Step 17 entry S17-R1-077).
+        appended_answers = [
+            _payload(entry) for entry in appended
+            if _get(entry, "entry_kind") == "answer_imported"]
+        result_records = []
+        for index, item in enumerate(records):
+            shown = dict(item)
+            if index < len(appended_answers) and appended_answers[
+                    index].get("answer_id") is not None:
+                shown["answer_id"] = appended_answers[index][
+                    "answer_id"]
+            if not str(shown.get("answer_text") or "").strip():
+                shown["import_warning"] = (
+                    "Empty answer warning: the file held no "
+                    "answer text, and the empty answer stands "
+                    "imported and counted in its round. If the "
+                    "empty file was the wrong file, import the "
+                    "right file under a different capture date")
+            result_records.append(shown)
     if len(result_records) == 1:
         return result_records[0]
     return result_records
@@ -2222,8 +2576,58 @@ _LOOKUP_REFUSAL_CODES = frozenset({
     "UNKNOWN_ROUND", "NO_SUCH_PRODUCT"})
 
 
+def _failure_record_payloads(home):
+    """The failure record payloads standing in one home.
+
+    The surfacing assembly limb of Step 17 entry
+    S17-R1-112, carried into the records the service
+    routes hand to rendering (Step 17 round 2 entry
+    S17-R2-101): the stored failure record payloads of
+    the home, in journal order, complete as appended.
+    """
+    payloads = []
+    for entry in _fold(home):
+        if _get(entry, "entry_kind") == "failure_record":
+            payload = _payload(entry)
+            if payload:
+                payloads.append(payload)
+    return payloads
+
+
+def _surface_failure_records(record, home):
+    """Carry one home's failure records into one record.
+
+    The rendering cure of S17-R1-112 fires on a record
+    that carries the payloads; this assembly stands them
+    on the record before it is handed to rendering, so a
+    later operator can distinguish a home with failed
+    operations from a home with none on the operator
+    surfaces themselves.
+    """
+    if not isinstance(record, dict):
+        return record
+    try:
+        payloads = _failure_record_payloads(home)
+    except Exception:
+        return record
+    if payloads:
+        record["failure_records"] = payloads
+    return record
+
+
 def _append_failure_record(home, operation, exc, subject, audit_date):
     if is_contention(exc):
+        return
+    # No state stands created by a read: where no home
+    # stands, no failure record stands appended, because
+    # the journal append itself would create the home and
+    # its journal for a failure whose governed refusal is
+    # that the home stands missing (Step 17 round 2 entry
+    # S17-R2-070, on row U-6).
+    try:
+        if not os.path.isdir(str(home)):
+            return
+    except (ValueError, UnicodeError):
         return
     journal = _journal()
     try:
@@ -2234,10 +2638,34 @@ def _append_failure_record(home, operation, exc, subject, audit_date):
         return
     token = getattr(exc, "token", None) or getattr(
         exc, "error_value", None) or str(exc)
+    if errors.error_for_token(token) is None:
+        # A value outside the closed vocabulary never
+        # stands in the journal as an error value: a bare
+        # operating system message on a supplied path
+        # stands recorded under the row X-4 token its
+        # refusal carries (Step 17 round 2 entry
+        # S17-R2-018).
+        if "null byte" in str(exc) or "\x00" in str(exc):
+            token = "SUPPLIED_PATH_UNSAFE"
+        else:
+            token = "VALIDATION_FAILED"
+    subject_text = str(subject)
+    try:
+        subject_text.encode("utf-8")
+    except UnicodeEncodeError:
+        # A subject no encoding can carry, a supplied path
+        # holding a lone surrogate among them, stands
+        # recorded in its escaped form, so the failure
+        # record itself stands appended and carries the
+        # governed token, instead of the append failing in
+        # silence on the subject text (Step 17 round 2
+        # entry S17-R2-018).
+        subject_text = subject_text.encode(
+            "utf-8", "backslashreplace").decode("utf-8")
     payload = {
         "operation": operation,
         "error_value": token,
-        "subject_identity": str(subject),
+        "subject_identity": subject_text,
         "date": audit_date,
         "rule_fired": token,
     }
@@ -2338,14 +2766,14 @@ def _round_entries(home, product_record, round_record):
             if payload.get("product_id") == product_id and (
                     bound is None or not isinstance(
                         sequence, int) or sequence <= bound):
+                _validate_product_record(payload)
                 selected.append(entry)
         elif kind == "round_named":
             if payload.get("round_id") == round_id:
                 selected.append(entry)
         elif kind == "answer_imported":
             if payload.get("round_id") == round_id:
-                _require_typed_field(
-                    payload, "answer_text", str, "answer")
+                _validate_answer_payload(payload)
                 selected.append(entry)
     return selected
 
@@ -2426,6 +2854,29 @@ def _round_metrics(home, product_record, round_record):
     return metrics.round_metrics_from_journal(entries, **kwargs)
 
 
+def _check_run_backstop(home, started):
+    """The per run wall clock backstop, limit 41, at this
+    seam, on a reporting run.
+
+    The backstop position of the report routes (Step 17
+    round 2 entry S17-R2-052, its report route limb): a
+    probe report or trend recomputes its figures in this
+    invocation, and that run stands under the same limit
+    41 reading the audit and import runs stand under at
+    this seam, through the one clock this module reads.
+    At the backstop the run aborts with the recorded
+    error LIMIT_EXCEEDED and produces no report.
+    """
+    limit = _limit_value(home, "per_run_wall_clock_backstop")
+    if isinstance(limit, (int, float)) and \
+            _clock() - started > limit:
+        _fail(
+            "LIMIT_EXCEEDED",
+            "per run wall clock backstop is %s seconds in "
+            "force for this run, and this run passed it"
+            % (limit,))
+
+
 def _probe_report_record(home, product_record, round_record,
                          audit_date=None, metrics_record=None):
     """The assembled probe report record of one round.
@@ -2474,6 +2925,7 @@ def probe_report(*, home, product, round, form=None,
     S17-R1-085), as the audit route states.
     """
     audit_date = _validate_audit_date(audit_date)
+    run_started = _clock()
     try:
         _require_home(home)
         _barred_check(home)
@@ -2482,6 +2934,8 @@ def probe_report(*, home, product, round, form=None,
         result = _probe_report_record(
             home, product_record, round_record,
             audit_date=audit_date)
+        _check_run_backstop(home, run_started)
+        _surface_failure_records(result, home)
         from citeline import reporting
         return reporting.render(result, form=form or "advanced")
     except errors.CitelineError as exc:
@@ -2540,6 +2994,7 @@ def probe_trend(*, home, product, round_a, round_b, form=None,
     probe report home does.
     """
     audit_date = _validate_audit_date(audit_date)
+    run_started = _clock()
     try:
         _require_home(home)
         _barred_check(home)
@@ -2577,6 +3032,8 @@ def probe_trend(*, home, product, round_a, round_b, form=None,
         # it, whether or not the trend computation printed a
         # delta with its own comparability line.
         result["honesty_sentence"] = _honesty_sentence()
+        _check_run_backstop(home, run_started)
+        _surface_failure_records(result, home)
         from citeline import reporting
         return reporting.render(result, form=form or "advanced")
     except errors.CitelineError as exc:
@@ -2600,6 +3057,7 @@ def query_set_report(*, home, product, form=None, audit_date=None):
         _require_home(home)
         _barred_check(home)
         product_record = _require_product(home, product)
+        _validate_product_record(product_record)
         from citeline import reporting
         return reporting.query_set_report(
             product_record, form=form or "advanced")
@@ -2629,6 +3087,7 @@ def export_capture_worksheet(*, home, product, round, queries=None,
     """
     audit_date = _validate_audit_date(audit_date)
     product_record = _require_product(home, product)
+    _validate_product_record(product_record)
     _require_round(home, product_record, round)
     if queries is None:
         queries = list(product_record.get("query_set") or [])
@@ -2677,6 +3136,12 @@ def _guide_impl(*, home, run_id=None, product=None,
     table assigns guide its missing references at U-4.
     """
     audit_date = _validate_audit_date(audit_date)
+    # The guide assembly runs the home existence check
+    # every sibling read only route runs, at row U-6,
+    # before its barred check and its lookups, so a guide
+    # over a missing home answers HOME_MISSING and creates
+    # nothing (Step 17 round 2 entry S17-R2-071).
+    _require_home(home)
     _barred_check(home)
     if run_id is not None and (
             product is not None or round_label is not None):
@@ -2699,6 +3164,13 @@ def _guide_impl(*, home, run_id=None, product=None,
             if _get(entry, "entry_kind") != "audit_record":
                 continue
             payload = _payload(entry)
+            # The stored record stands validated as it is
+            # scanned, before its identity is compared: a
+            # run identity in a swapped type refuses in the
+            # recorded vocabulary naming the field, instead
+            # of the standing run reading as unknown (Step
+            # 17 round 2 entry S17-R2-081).
+            _validate_audit_payload(payload)
             if payload.get("run_id") == run_id:
                 audit_record = payload
         if audit_record is None:
@@ -2706,13 +3178,14 @@ def _guide_impl(*, home, run_id=None, product=None,
                 "UNKNOWN_ROUND",
                 "no completed audit record stands under the "
                 "identity given: %r" % (run_id,))
-        _require_typed_field(
-            audit_record, "sentences", list, "audit")
+        _validate_audit_payload(audit_record)
         product_record = None
         for candidate in list_products(home=home):
             if candidate.get("product_id") == audit_record.get(
                     "product_id"):
                 product_record = candidate
+        if product_record is not None:
+            _validate_product_record(product_record)
         draft = guide_module.draft_from_audit_record(
             audit_record,
             canonical_line=(
@@ -2746,6 +3219,7 @@ def _guide_impl(*, home, run_id=None, product=None,
         answers = metrics.answer_metrics_from_journal(entries)
         bound_record = _bound_product_record(
             home, product_record, round_record)
+        _validate_product_record(bound_record)
         draft = guide_module.draft_from_round(
             round_record,
             canonical_line=bound_record.get("canonical_line"),
@@ -2759,6 +3233,7 @@ def _guide_impl(*, home, run_id=None, product=None,
     if sequence is None:
         sequence = _entry_count(home)
     result["guide_id"] = "guide-%d" % int(sequence)
+    _surface_failure_records(result, home)
     return result
 
 

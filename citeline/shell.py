@@ -391,7 +391,13 @@ def _coerce_list_inputs(inputs):
             if text.startswith("["):
                 try:
                     parsed = json.loads(text)
-                except ValueError:
+                except (ValueError, RecursionError):
+                    # A list nested past the parser depth
+                    # stands as a malformed list input, in
+                    # the same governed form as an
+                    # undecodable one (Step 17 round 2 entry
+                    # S17-R2-080), never as a raw crash of
+                    # the whole shell.
                     return None
                 if not isinstance(parsed, list):
                     return None
@@ -399,7 +405,7 @@ def _coerce_list_inputs(inputs):
             elif text.startswith("{"):
                 try:
                     items.append(json.loads(text))
-                except ValueError:
+                except (ValueError, RecursionError):
                     return None
             elif text:
                 items.extend(

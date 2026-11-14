@@ -164,68 +164,25 @@ def _has_citation_target(sentence):
 
 
 def _has_statistic_token(sentence):
-    # The Section 5.7 earning rules: a token inside a
-    # quoted span, a date fragment, and a version string
-    # do not count, and a year between 1900 and 2099
-    # standing alone does not count.
-    masked = sentence
-    masked = _mask_spans(masked, [
-        (match.start(), match.end())
-        for match in re.finditer(r'"[^"\n]*"', masked)
-    ])
-    masked = _mask_spans(masked, [
-        (match.start(), match.end())
-        for match in re.finditer(r"\b\d{4}-\d{2}-\d{2}\b", masked)
-    ])
-    masked = _mask_spans(masked, [
-        (match.start(), match.end())
-        for match in re.finditer(r"\b\d{1,2}/\d{1,2}/\d{2,4}\b", masked)
-    ])
-    masked = _mask_spans(masked, [
-        (match.start(), match.end())
-        for match in re.finditer(
-            r"\b(?:" + _MONTH_NAME_PATTERN
-            + r")\s+\d{1,2},\s+\d{4}\b", masked)
-    ])
-    masked = _mask_spans(masked, [
-        (match.start(), match.end())
-        for match in re.finditer(r"\b\d+(?:\.\d+){2,}\b", masked)
-    ])
-    masked = _mask_spans(masked, [
-        (match.start(), match.end())
-        for match in re.finditer(
-            r"\bversion\s+\d+(?:\.\d+)+\b", masked, re.IGNORECASE)
-    ])
-    for match in _STATISTIC_PATTERN.finditer(masked):
-        plain = match.group("token").strip()
-        if re.fullmatch(r"\d{4}", plain):
-            if 1900 <= int(plain) <= 2099:
-                continue
-        return True
-    return False
+    # The Section 5.7 earning rules stand in one place:
+    # the checks module owns them, and this test reads
+    # that computation over the sentence as a page of one
+    # sentence, so the guide test and the checks can
+    # never diverge into two copies of one rule.
+    from citeline import checks as _checks
+    analysis = _checks._statistic_analysis(
+        {"running_text": sentence, "links": []})
+    return bool(analysis.get("count"))
 
 
 def _has_attributed_quoted_span(sentence):
-    # A quoted span of at least four words, with one of
-    # the closed attribution cues in the window after it:
-    # said, according to, or a capitalised name standing
-    # inside the window and not at the start of a new
-    # sentence.
-    for match in re.finditer(r'"([^"\n]*)"', sentence):
-        if len(match.group(1).split()) < 4:
-            continue
-        window = sentence[match.end():match.end() + 100]
-        if re.search(r"(?<![A-Za-z])said(?![A-Za-z])", window,
-                     re.IGNORECASE):
-            return True
-        if re.search(r"according\s+to", window, re.IGNORECASE):
-            return True
-        for name_match in re.finditer(r"\b[A-Z][a-z]+\b", window):
-            before = window[:name_match.start()].rstrip()
-            if not before or before.endswith((".", "!", "?")):
-                continue
-            return True
-    return False
+    # The attributed quotation limb of the same earning
+    # rules, read from the checks module computation on
+    # the same one sentence page form.
+    from citeline import checks as _checks
+    analysis = _checks._quotation_analysis(
+        {"running_text": sentence})
+    return bool(analysis.get("attributed"))
 
 
 def is_quotable_evidence_sentence(sentence):
@@ -245,6 +202,32 @@ def is_quotable_evidence_sentence(sentence):
     )
 
 
+def _sentence_collection(value):
+    """One sentence input in its collection form.
+
+    A string value is one sentence, never its characters.
+    A list or tuple stands as its items. Any other shape
+    stands as no collection the draft can read.
+    """
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, (list, tuple)):
+        return list(value)
+    return []
+
+
+def _term_collection(value):
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, (list, tuple)):
+        return list(value)
+    return []
+
+
 def choose_evidence_sentence(sentences, product_name=None, aliases=(),
                              category_terms=()):
     """Choose the draft evidence sentence, in extracted order.
@@ -256,7 +239,11 @@ def choose_evidence_sentence(sentences, product_name=None, aliases=(),
     however it reached this module: a supplied sentence
     that is not quotable evidence is no candidate at all.
     """
-    candidates = list(sentences or [])
+    candidates = [
+        sentence for sentence in _sentence_collection(sentences)
+        if isinstance(sentence, str)
+        and is_quotable_evidence_sentence(sentence)
+    ]
     if not candidates:
         return None
     for sentence in candidates:
@@ -503,6 +490,26 @@ def draft_from_audit_record(record, canonical_line=None, audit_date=None,
         record, "name", None)
     if stored_name:
         product_name = stored_name
+    # The selection inputs of a draft from a stored run
+    # stand on the stored record: the aliases and category
+    # terms the record itself carries govern, and where a
+    # stored run carries none, a caller supplied list
+    # drawn from a later registry state does not enter
+    # the draft. A record carrying no run identity is a
+    # direct draft input, and caller values stand for it
+    # as they stand for the canonical line.
+    stored_aliases = _get(record, "aliases", None)
+    if stored_aliases is not None:
+        aliases = _term_collection(stored_aliases)
+    elif _get(record, "run_id", None):
+        aliases = ()
+    stored_terms = _get(record, "category_terms", None)
+    if stored_terms is None:
+        stored_terms = _get(record, "category", None)
+    if stored_terms is not None:
+        category_terms = _term_collection(stored_terms)
+    elif _get(record, "run_id", None):
+        category_terms = ()
     run_id = _get(record, "run_id", None)
     product_id = _get(record, "product_id", None)
     if audit_date is None:
@@ -537,26 +544,32 @@ def draft_from_audit_record(record, canonical_line=None, audit_date=None,
 
     if evidence_sentences is not None:
         quotable = [
-            sentence for sentence in evidence_sentences
-            if is_quotable_evidence_sentence(sentence)
+            sentence for sentence in _sentence_collection(
+                evidence_sentences)
+            if isinstance(sentence, str)
+            and is_quotable_evidence_sentence(sentence)
         ]
     elif sentences is not None:
         quotable = [
-            sentence for sentence in sentences
-            if is_quotable_evidence_sentence(sentence)
+            sentence for sentence in _sentence_collection(sentences)
+            if isinstance(sentence, str)
+            and is_quotable_evidence_sentence(sentence)
         ]
     else:
         stored = _get(record, "evidence_sentences", None)
         if stored is not None:
             quotable = [
-                sentence for sentence in stored
-                if is_quotable_evidence_sentence(sentence)
+                sentence for sentence in _sentence_collection(stored)
+                if isinstance(sentence, str)
+                and is_quotable_evidence_sentence(sentence)
             ]
         else:
             stored_sentences = _get(record, "sentences", None) or []
             quotable = [
-                sentence for sentence in stored_sentences
-                if is_quotable_evidence_sentence(sentence)
+                sentence for sentence in _sentence_collection(
+                    stored_sentences)
+                if isinstance(sentence, str)
+                and is_quotable_evidence_sentence(sentence)
             ]
 
     low_citations = (
@@ -659,6 +672,7 @@ def compute_round_triggers(answers=None, round_metrics=None):
     govern, a null or zero rate firing its trigger.
     """
     if answers is not None:
+        answers = list(answers)
         active = []
         for item in answers or []:
             control = False
@@ -721,6 +735,13 @@ def draft_from_round(round_record=None, canonical_line=None, audit_date=None,
     failure notice field stating that standing.
     """
     record = round_record or {}
+    # The answers input stands materialised once, in the
+    # form the triggers compute on, so every later reading
+    # in this draft, the empty round notice included,
+    # derives from that same basis and no second reading
+    # of a one pass input can state a different round.
+    if answers is not None:
+        answers = list(answers)
     if canonical_line is None:
         canonical_line = _get(record, "canonical_line", "") or ""
     if source_round_id is None:
@@ -817,19 +838,36 @@ def draft_from_round(round_record=None, canonical_line=None, audit_date=None,
             "a control in this round failed, and no action "
             "stands produced from this round"
         )
+    empty_basis = False
     if answers is not None:
         non_control = [
             item for item in (answers or [])
             if not is_control(item)]
-        if not non_control:
-            # The round holds no answers: the draft states
-            # that empty basis in plain words on its own
-            # face, so no action in it reads as a finding
-            # on evidence the round does not hold.
-            draft["empty_round_notice"] = (
-                "This round holds no answers, so the "
-                "actions in this draft rest on no answer "
-                "in the round.")
+        empty_basis = not non_control
+    elif round_metrics is not None:
+        # A round supplied as metrics alone states its
+        # basis in the rates the triggers computed on:
+        # where every rate block stands at zero of zero,
+        # that basis holds no answer, and the notice
+        # derives from it in the same words.
+        rates = _get(round_metrics, "rates", None) or {}
+        totals = []
+        if isinstance(rates, dict):
+            for block in rates.values():
+                total = _get(block, "n", None)
+                if total is not None:
+                    totals.append(total)
+        empty_basis = bool(totals) and all(
+            total == 0 for total in totals)
+    if empty_basis:
+        # The round holds no answers: the draft states
+        # that empty basis in plain words on its own
+        # face, so no action in it reads as a finding
+        # on evidence the round does not hold.
+        draft["empty_round_notice"] = (
+            "This round holds no answers, so the "
+            "actions in this draft rest on no answer "
+            "in the round.")
     draft.update(_stamps_from(record))
     return draft
 

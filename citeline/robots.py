@@ -429,6 +429,16 @@ def parse_robots(text):
         value = field_match.group(2).strip()
         if field_name == "user-agent":
             note_unknown(value)
+            if not value:
+                # An empty agent value names no group, as
+                # round 1 established on this surface: no
+                # group record stands for it, and the rules
+                # that follow it belong to no group, so they
+                # count as orphan rules and the warning the
+                # report carries for them fires.
+                current = None
+                blank_since_content = False
+                continue
             if current is None or current["rules"] or (
                 blank_since_content and current["agents"]
             ):
@@ -500,38 +510,58 @@ def _wildcard_match(pattern, text, anchored):
     """Star matching with no backtracking blowup.
 
     A star matches any sequence of characters and every
-    other character matches itself. The scan keeps one
-    star to resume from, so its cost grows with the two
-    lengths together, never combinatorially: a rule of
-    many repeated star segments against a near matching
-    path completes at once. Where anchored stands false
-    the pattern need only match a prefix of the text.
+    other character matches itself. The pattern is read
+    as its literal segments between stars, and each
+    segment is located with the string search the
+    interpreter runs in compiled code, in order, so one
+    match costs a small number of segment searches over
+    the text and never the product of a segment length
+    and the text length that a character by character
+    rescan at every offset costs. The semantics are the
+    scan semantics stated before: the first segment
+    stands at the head of the text where the pattern
+    does not open with a star, the last segment stands
+    at the end of the text where the match is anchored,
+    and every other segment stands in order between
+    them. Where anchored stands false the pattern need
+    only match a prefix of the text.
     """
-    p = 0
-    t = 0
-    star_p = -1
-    star_t = 0
-    while t < len(text):
-        if p < len(pattern) and pattern[p] == "*":
-            star_p = p
-            star_t = t
-            p += 1
-        elif p < len(pattern) and pattern[p] == text[t]:
-            p += 1
-            t += 1
-        elif star_p >= 0:
-            p = star_p + 1
-            star_t += 1
-            t = star_t
-        else:
+    segments = pattern.split("*")
+    if len(segments) == 1:
+        if anchored:
+            return text == pattern
+        return text.startswith(pattern)
+    position = 0
+    first = segments[0]
+    if first:
+        if not text.startswith(first):
             return False
-        if not anchored and p >= len(pattern):
-            return True
-    while p < len(pattern) and pattern[p] == "*":
-        p += 1
-    if p >= len(pattern):
+        position = len(first)
+    if anchored:
+        last = segments[-1]
+        middle = segments[1:-1]
+        limit = len(text) - len(last) if last else len(text)
+        for segment in middle:
+            if not segment:
+                continue
+            found = text.find(segment, position, limit)
+            if found < 0:
+                return False
+            position = found + len(segment)
+        if last:
+            if not text.endswith(last):
+                return False
+            if len(text) - len(last) < position:
+                return False
         return True
-    return False
+    for segment in segments[1:]:
+        if not segment:
+            continue
+        found = text.find(segment, position)
+        if found < 0:
+            return False
+        position = found + len(segment)
+    return True
 
 
 def _rule_matches(rule_path, evaluated_path):
@@ -662,29 +692,17 @@ def _build_report(text, sha256_value, evaluated_path,
         )
         for row in CRAWLER_TABLE
     ]
-    report = {
-        "findings": findings,
-        "evaluated_page_path": evaluated_path,
-        "path_defaulted": bool(path_defaulted),
-        "honesty_sentence": HONESTY_SENTENCE,
-        "anchor_limit": ANCHOR_LIMIT,
-        "next_refresh_due_date": NEXT_REFRESH_DUE_DATE,
-        "robots_snapshot_sha256": sha256_value,
-        "robots_snapshot_asserted_capture_date": asserted_capture_date,
-        "table_version": TABLE_VERSION,
-        "table_snapshot_date": TABLE_SNAPSHOT_DATE,
-        "robots_ruleset_version": ROBOTS_RULESET_VERSION,
-        "crawl_delay_observation": parsed[
-            "crawl_delay_observation"
-        ],
-        "sitemap_line_presence_count": parsed[
-            "sitemap_line_presence_count"
-        ],
-        "non_protocol_line_count": parsed["non_protocol_line_count"],
-        "unknown_token_count": len(parsed["unknown_tokens"]),
-        "finding_count": len(findings),
-    }
-    if not parsed["groups"]:
+    # The two notices stand at the head of the report,
+    # before the findings they qualify, so a first user
+    # meets the warning before the rows it qualifies in
+    # every form, the Simple form first of all. The no
+    # directive notice stands only where the file holds
+    # no group and no rule line at all: a file holding
+    # only orphan rule lines is a robots file written in
+    # the wrong shape, and the orphan warning alone gives
+    # that file its one account.
+    report = {}
+    if not parsed["groups"] and not parsed["orphan_rule_count"]:
         # A file holding no group at all, such as an HTML
         # error page saved under a robots name, states
         # that plainly at the head of the report, so its
@@ -707,6 +725,28 @@ def _build_report(text, sha256_value, evaluated_path,
             "took no effect. Those rules do not apply to "
             "any crawler." % parsed["orphan_rule_count"]
         )
+    report.update({
+        "findings": findings,
+        "evaluated_page_path": evaluated_path,
+        "path_defaulted": bool(path_defaulted),
+        "honesty_sentence": HONESTY_SENTENCE,
+        "anchor_limit": ANCHOR_LIMIT,
+        "next_refresh_due_date": NEXT_REFRESH_DUE_DATE,
+        "robots_snapshot_sha256": sha256_value,
+        "robots_snapshot_asserted_capture_date": asserted_capture_date,
+        "table_version": TABLE_VERSION,
+        "table_snapshot_date": TABLE_SNAPSHOT_DATE,
+        "robots_ruleset_version": ROBOTS_RULESET_VERSION,
+        "crawl_delay_observation": parsed[
+            "crawl_delay_observation"
+        ],
+        "sitemap_line_presence_count": parsed[
+            "sitemap_line_presence_count"
+        ],
+        "non_protocol_line_count": parsed["non_protocol_line_count"],
+        "unknown_token_count": len(parsed["unknown_tokens"]),
+        "finding_count": len(findings),
+    })
     if parsed["unknown_tokens"]:
         # The names of the unlisted tokens are carried
         # with the count, each in the spelling the
@@ -726,6 +766,14 @@ def _resolve_path(evaluated_page_path, path_defaulted):
     if path_defaulted is None:
         path_defaulted = False
     path = str(evaluated_page_path)
+    # The length limit at Section 5.11 limit 38 stands on
+    # the path argument as supplied, before any part of
+    # it is cut, so an argument far over the limit fails
+    # the call however short the path it cuts down to.
+    if len(path) > ROBOTS_PATH_LIMIT:
+        raise RobotsError(
+            "LIMIT_EXCEEDED", "robots path argument over limit"
+        )
     # Matching is on the path only, at brief Section
     # 5.10 item 92: no query and no fragment enters the
     # comparison, so both come off the supplied value
@@ -734,10 +782,6 @@ def _resolve_path(evaluated_page_path, path_defaulted):
         cut = path.find(marker)
         if cut >= 0:
             path = path[:cut]
-    if len(path) > ROBOTS_PATH_LIMIT:
-        raise RobotsError(
-            "LIMIT_EXCEEDED", "robots path argument over limit"
-        )
     return path, path_defaulted
 
 

@@ -315,6 +315,16 @@ def _install_impl(location=None, home=None):
         raise InstallError(
             "MALFORMED_CALL",
             "install names a location and a home")
+    if location == "" or home == "":
+        # An empty string names no path at all (Step 17
+        # round 2 entry S17-R2-075): the shape stands as a
+        # malformed call at exit 2, as the same shape
+        # through the shell does, never as a filesystem
+        # failure over the empty path.
+        raise InstallError(
+            "MALFORMED_CALL",
+            "install names a location and a home, and an "
+            "empty string names neither")
     location = str(location)
     home = str(home)
     _check_no_overlap(location)
@@ -437,6 +447,11 @@ def _uninstall_impl(location=None, home=None):
         raise InstallError(
             "MALFORMED_CALL",
             "uninstall names a location and a home")
+    if location == "" or home == "":
+        raise InstallError(
+            "MALFORMED_CALL",
+            "uninstall names a location and a home, and an "
+            "empty string names neither")
     location = str(location)
     home = str(home)
     removed = []
@@ -512,6 +527,16 @@ def main(argv=None):
     index = 0
     while index < len(argv):
         token = argv[index]
+        if token == "uninstall" and mode == "uninstall" \
+                and index != 0:
+            # The mode word stands consumed once (Step 17
+            # round 2 entry S17-R2-075): a second uninstall
+            # word is no location, and the call stands
+            # malformed instead of silently uninstalling a
+            # directory named uninstall.
+            print("install: MALFORMED_CALL: the uninstall "
+                  "mode stands named twice", file=sys.stderr)
+            return 2
         if token == "uninstall" and index == 0:
             mode = "uninstall"
             index += 1

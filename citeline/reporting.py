@@ -554,9 +554,16 @@ def _apply_guide_texts(body):
     for source_key in ("source_run_id", "source_round_id"):
         if body.get(source_key) is None:
             body.pop(source_key, None)
+    # The fixed guide sentences stand assigned outright,
+    # as the honesty sentence stands: a stored copy under
+    # the same field never replaces the fixed text, and a
+    # fixed sentence field the record state does not call
+    # for does not stand in the artefact at all.
     if body.get("refused") or \
             body.get("refusal_code") == "NO_REUSABLE_EVIDENCE":
-        body.setdefault("refusal_sentence", REFUSAL_SENTENCE)
+        body["refusal_sentence"] = REFUSAL_SENTENCE
+    else:
+        body.pop("refusal_sentence", None)
     citation_only = body.get("refusal_code") == _CITATION_ONLY_CODE
     if not citation_only:
         for action in body.get("actions") or []:
@@ -566,18 +573,22 @@ def _apply_guide_texts(body):
                         action.get("check_or_outcome")):
                 citation_only = True
     if citation_only:
-        body.setdefault("citation_only_sentence",
-                        CITATION_ONLY_SENTENCE)
-    for value in _selection_marker_values(body):
-        if not isinstance(value, str):
-            continue
-        lowered = value.lower()
-        if "fallback" in lowered:
-            body.setdefault("selection_statement",
-                            FALLBACK_STATEMENT)
-        elif "preference" in lowered or "preferred" in lowered:
-            body.setdefault("selection_statement",
-                            PREFERENCE_STATEMENT)
+        body["citation_only_sentence"] = CITATION_ONLY_SENTENCE
+    else:
+        body.pop("citation_only_sentence", None)
+    # The selection statement is governed by the draft
+    # record selection_basis field alone, in its stated
+    # values. No other field of the record, and no marker
+    # shaped value anywhere in it, chooses the statement.
+    basis = body.get("selection_basis")
+    if isinstance(basis, str) and "fallback" in basis.lower():
+        body["selection_statement"] = FALLBACK_STATEMENT
+    elif isinstance(basis, str) and (
+            "preference" in basis.lower()
+            or "preferred" in basis.lower()):
+        body["selection_statement"] = PREFERENCE_STATEMENT
+    else:
+        body.pop("selection_statement", None)
 
 
 def _apply_small_sample_warning_text(body):
@@ -604,25 +615,37 @@ def _apply_control_failure_notice(body):
     """
     if not isinstance(body, dict):
         return
-    stated = None
+    # The notice stands only on a record that states a
+    # failed control, by its control_failed or
+    # control_failure flag standing true, and it stands
+    # in its fixed text. Notice text read from the record
+    # never stands as the artefact notice, at the top
+    # level or promoted from a nested object, and a
+    # record stating no failed control carries no notice:
+    # its notice shaped fields do not stand in the
+    # artefact in that role.
     flagged = False
     for obj in _walk(body):
-        for key in ("control_failure_notice", "control_notice",
-                    "failed_control_notice"):
-            if key in obj and obj[key]:
-                stated = obj[key]
         for key in ("control_failed", "control_failure"):
             if obj.get(key) is True:
                 flagged = True
-    if stated is None and not flagged:
+    guide_notice = (
+        "opening_text" in body and "actions" in body
+        and body.get("control_failure_notice") == (
+            "a control in this round failed, and no action "
+            "stands produced from this round"))
+    if flagged:
+        body["control_failure_notice"] = CONTROL_FAILURE_NOTICE
         return
-    if isinstance(stated, str):
-        body.setdefault("control_failure_notice", stated)
-    elif isinstance(stated, dict):
-        body.setdefault("control_failure_notice", stated)
-    else:
-        body.setdefault("control_failure_notice",
-                        CONTROL_FAILURE_NOTICE)
+    if guide_notice:
+        return
+    body.pop("control_failure_notice", None)
+    for obj in _walk(body):
+        if obj is body:
+            continue
+        for key in ("control_failure_notice", "control_notice",
+                    "failed_control_notice"):
+            obj.pop(key, None)
 
 
 def _apply_methods_note_version(body):
@@ -716,9 +739,8 @@ def _recomputed_secondary_figure(score, checks):
         Decimal(str(item.get("earned") or 0))
         * Decimal(str(item.get("weight") or 0))
         for item in applicable)
-    value = float(
-        (weighted / Decimal(100) * 100).quantize(
-            Decimal("0.1"), rounding=ROUND_HALF_UP))
+    value = float(_quantized_decimal(
+        weighted / Decimal(100) * 100, "0.1"))
     if score.get("cap_status") and value > 39.0:
         value = 39.0
     return {
@@ -811,8 +833,12 @@ def _apply_agentic_scope(body):
         carries_rate = "wilson_low" in obj and "tier" in obj
         carries_tier = "tier" in obj and ("rate" in obj or "n" in obj)
         if carries_rate or carries_tier:
-            if SCOPE_VALUE not in [str(v) for v in obj.values()]:
-                obj["claim_type"] = SCOPE_VALUE
+            # The scope value stands assigned outright on
+            # an object that carries a rate or a tier, in
+            # the fixed scope discipline: no field of the
+            # object, and no value standing in any sibling
+            # field, shields a stored claim_type from it.
+            obj["claim_type"] = SCOPE_VALUE
 
 
 def _simple_safe_text(text):
@@ -834,12 +860,24 @@ def _simple_safe_text(text):
         category = unicodedata.category(char)
         if category == "Cs":
             cleaned.append("�")
-        elif category in ("Cc", "Cf"):
+        elif category in ("Cc", "Cf", "Zl", "Zp"):
+            # Control and format characters become spaces,
+            # and so do the line and paragraph separator
+            # categories: a separator inside a stored name
+            # or note is a line break to every line based
+            # reader, so it stands as a space here, at the
+            # one escaping point, like the control forms.
             cleaned.append(" ")
         else:
             cleaned.append(char)
     joined = "".join(cleaned)
-    return re.sub(r"\{\s*\"", '{ "', joined)
+    # JSON object syntax stands broken in the Simple
+    # form on the brief criterion, not only in its brace
+    # and quote adjacency: a zero width space stands
+    # after every opening brace, a character no JSON
+    # reading treats as whitespace, so no value in the
+    # artefact parses as a JSON object, spaced or not.
+    return joined.replace("{", "{\u200b")
 
 
 def _simple_safe(node):
@@ -848,10 +886,23 @@ def _simple_safe(node):
     if isinstance(node, str):
         return _simple_safe_text(node)
     if isinstance(node, dict):
-        return {
-            _simple_safe_text(str(key)): _simple_safe(item)
-            for key, item in node.items()
-        }
+        # Keys stand mapped through the escaping point
+        # here, a second mapping after the plain
+        # conversion: two keys that differ before this
+        # mapping and match after it refuse in the open,
+        # in the same form as the plain conversion
+        # refusal, rather than one field dropping in
+        # silence behind the other.
+        safe = {}
+        for key, item in node.items():
+            text_key = _simple_safe_text(str(key))
+            if text_key in safe:
+                raise ValueError(
+                    "record keys share the Simple form %r "
+                    "after escaping and cannot both stand "
+                    "in the Simple artefact" % (text_key,))
+            safe[text_key] = _simple_safe(item)
+        return safe
     if isinstance(node, list):
         return [_simple_safe(item) for item in node]
     return node
@@ -935,6 +986,63 @@ _TREND_RATE_KEYS = ("first_value", "second_value", "delta")
 _NONE_SILENT_KEYS = ("honesty_line", "no_delta_statement")
 
 
+def _quantized_decimal(value, quantum):
+    """A Decimal figure quantized at any magnitude.
+
+    The default decimal context holds 28 significant
+    digits, so quantizing a figure of great magnitude
+    raises a raw decimal error. The context here widens
+    to the figure own size, so a finite figure of any
+    magnitude quantizes and renders as a figure.
+    """
+    from decimal import localcontext
+    number = Decimal(str(value))
+    with localcontext() as context:
+        context.prec = max(
+            28, len(number.as_tuple().digits)
+            + abs(number.adjusted()) + 4)
+        return number.quantize(
+            Decimal(quantum), rounding=ROUND_HALF_UP)
+
+
+def _percent_int(value):
+    """A stored proportion restated as a whole percent,
+    at any magnitude: the product of a great finite
+    float and 100 overflows before rounding, so the
+    conversion runs in decimal at that scale."""
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value * 100
+    number = float(value)
+    if math.isfinite(number) and abs(number) < 1e12:
+        return round(number * 100)
+    return int(_quantized_decimal(
+        Decimal(str(value)) * 100, "1"))
+
+
+def _figure_or_none(value):
+    """One figure position read as a figure or as none.
+
+    A figure carried as a string is text to the pipeline:
+    a string that reads as a finite number stands as
+    that number, and any other string stands as no
+    figure, so no string figure prints as a figure and
+    none reaches a numeric step in its string form.
+    """
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float, Decimal)):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = float(value)
+        except ValueError:
+            return None
+        return parsed if math.isfinite(parsed) else None
+    return value
+
+
 def _rate_value_text(value):
     """A rate value in the Simple form, at four decimal places.
 
@@ -992,9 +1100,9 @@ def _capture_context_line(node):
 
 
 def _rate_line(name, node):
-    rate = node.get("rate")
-    low = node.get("wilson_low")
-    high = node.get("wilson_high")
+    rate = _figure_or_none(node.get("rate"))
+    low = _figure_or_none(node.get("wilson_low"))
+    high = _figure_or_none(node.get("wilson_high"))
     tier = node.get("tier")
     clause = TIER_CLAUSES.get(tier) if isinstance(tier, str) \
         else None
@@ -1011,7 +1119,7 @@ def _rate_line(name, node):
             "%s: %s answers, interval %d to %d percent, tier "
             "count only: %s."
             % (name, _scalar_text(count),
-               round(low * 100), round(high * 100), clause)
+               _percent_int(low), _percent_int(high), clause)
         )
     warning = node.get("small_sample_warning")
 
@@ -1028,7 +1136,7 @@ def _rate_line(name, node):
         interval_part = "interval null" if (
             low is None or high is None) else (
             "interval %d to %d percent"
-            % (round(low * 100), round(high * 100)))
+            % (_percent_int(low), _percent_int(high)))
         if clause is not None:
             line = (
                 "%s: %s over %s answers, %s, tier %s: %s."
@@ -1042,8 +1150,8 @@ def _rate_line(name, node):
                    interval_part, _scalar_text(tier))
             )
         return with_warning(line)
-    low_pct = round(low * 100)
-    high_pct = round(high * 100)
+    low_pct = _percent_int(low)
+    high_pct = _percent_int(high)
     if clause is not None:
         line = (
             "%s: rate %s over %s answers, interval %d to %d "
@@ -1092,6 +1200,7 @@ def _emit(lines, key, value, depth, suppress_anchor_bare=False,
         return
     if isinstance(value, float) and (
             key in _TREND_RATE_KEYS
+            or key in ("rate", "share", "percent")
             or key in ("wilson_low", "wilson_high")
             or key.startswith("wilson_")
             or "_rate" in key
@@ -1405,17 +1514,20 @@ def _render_audit_simple(body):
         score = {}
     value = score.get("value")
     band = score.get("band")
-    if value is None:
+    if value is None or isinstance(value, bool) or not isinstance(
+            value, (int, float, Decimal)):
+        # A score carried in no figure form, a string
+        # included, stands as no figure in the Simple
+        # form: no string prints as the run score.
         lines.append("The score for this run stands not recorded.")
     else:
-        if isinstance(value, (int, float)) \
+        if isinstance(value, (int, float, Decimal)) \
                 and not isinstance(value, bool):
             # The ScoreObject value stands rounded to one
             # decimal place in its stored shape, and the
-            # Simple form prints it at that precision.
-            value_text = str(
-                Decimal(str(value)).quantize(
-                    Decimal("0.1"), rounding=ROUND_HALF_UP))
+            # Simple form prints it at that precision, at
+            # any magnitude the stored figure carries.
+            value_text = str(_quantized_decimal(value, "0.1"))
         else:
             value_text = _scalar_text(value)
         lines.append(
@@ -1438,12 +1550,17 @@ def _render_audit_simple(body):
             lines.append(
                 "The evidence cap does not hold for this run.")
         figure = score.get("secondary_figure")
-        if isinstance(figure, dict) and \
-                figure.get("value") is not None:
+        if isinstance(figure, dict) and isinstance(
+                figure.get("value"), (int, float, Decimal)) \
+                and not isinstance(figure.get("value"), bool):
+            # The secondary figure prints at the same one
+            # decimal precision as the headline score, and
+            # a value in no figure form prints no figure.
             lines.append(
                 "The score on the not applicable as zero "
                 "basis is %s. This figure is not a second "
-                "score." % _scalar_text(figure.get("value")))
+                "score." % str(_quantized_decimal(
+                    figure.get("value"), "0.1")))
             if isinstance(figure.get("basis"), str) and \
                     figure.get("basis"):
                 lines.append(figure["basis"])
@@ -1574,18 +1691,59 @@ def _render_staleness_simple(body):
                 _scalar_text(row.get("state"))))
         bound = row.get("bound_versions") or {}
         in_force = row.get("versions_in_force") or {}
+        uncompared = row.get("uncompared_axes") or []
+        conflicted = row.get("conflicted_axes") or []
         for axis in bound:
             lines.append(
                 "  %s: bound %s, in force %s" % (
                     axis, _scalar_text(bound.get(axis)),
                     _scalar_text(in_force.get(axis))))
+        # An axis the record binds and no comparison
+        # stands on is stated once, as uncompared, never
+        # also as not recorded. An axis the record stores
+        # in conflict is stated as conflicted, in those
+        # words. Only an axis the record does not bind at
+        # all stands as not recorded.
+        stated = set(bound)
         for axis in row.get("not_recorded_axes") or []:
-            lines.append("  %s: not recorded" % axis)
+            if axis in stated:
+                continue
+            stated.add(axis)
+            if axis in conflicted:
+                lines.append(
+                    "  %s: conflicted, the record stores "
+                    "two different values for this axis" % axis)
+            elif axis in uncompared:
+                lines.append("  %s: uncompared" % axis)
+            else:
+                lines.append("  %s: not recorded" % axis)
+        for axis in uncompared:
+            if axis in stated:
+                continue
+            stated.add(axis)
+            if axis in conflicted:
+                lines.append(
+                    "  %s: conflicted, the record stores "
+                    "two different values for this axis" % axis)
+            else:
+                lines.append("  %s: uncompared" % axis)
+        for axis in conflicted:
+            if axis in stated:
+                continue
+            stated.add(axis)
+            lines.append(
+                "  %s: conflicted, the record stores two "
+                "different values for this axis" % axis)
         changed = row.get("changed_axes") or []
         if changed:
             lines.append(
                 "  changed axes: %s" % ", ".join(
                     str(axis) for axis in changed))
+        if uncompared:
+            lines.append(
+                "  Uncompared axes: %s. No currency verdict "
+                "stands on those axes." % ", ".join(
+                    str(axis) for axis in uncompared))
         if row.get("state_note"):
             lines.append("  %s" % row["state_note"])
     lines.append(ANCHOR_LIMIT_SENTENCE)
@@ -1950,10 +2108,17 @@ def _rule_text_changed_rows(first, second, existing):
             table[entry["token"].lower()] = entry
     except Exception:
         table = {}
-    finding_pairs = {
-        (row.get("first_finding"), row.get("second_finding"))
-        for row in existing
-    }
+    # A candidate pair is already stated only where a
+    # finding row of its own token carries the same two
+    # texts. A pair another token's finding carries does
+    # not state this token's rule set change.
+    finding_pairs = {}
+    finding_pairs_any = set()
+    for row in existing:
+        finding_pairs.setdefault(row.get("token"), set()).add(
+            (row.get("first_finding"), row.get("second_finding")))
+        finding_pairs_any.add(
+            (row.get("first_finding"), row.get("second_finding")))
     seen = {
         (row.get("token"), row.get("first_finding"),
          row.get("second_finding"))
@@ -2010,7 +2175,15 @@ def _rule_text_changed_rows(first, second, existing):
                 continue
             if after is not None and after in eff_first:
                 continue
-            if (before, after) in finding_pairs:
+            # The wildcard group supplies every table row,
+            # so a pair the finding rows state on any row
+            # already states the wildcard candidate, the
+            # governed form the S17-R1X-036 reconciliation
+            # records. A named token is judged on its own
+            # rows alone.
+            stated = finding_pairs_any if display == "*" \
+                else finding_pairs.get(display, ())
+            if (before, after) in stated:
                 continue
             key = (display, before, after)
             if key in seen:
@@ -2161,8 +2334,25 @@ def assemble_robots_preview(first, second, evaluated_page_path="/",
         "Changes to other evaluation fields are not shown "
         "as changed rows.")
     outside = {}
-    for name in ("crawl_delay_observation",
-                 "sitemap_line_presence_count"):
+    # Any evaluation field outside the diff scope that
+    # differs stands named, not only two named fields.
+    # The fields the artefact itself carries in another
+    # form stand outside this record: the findings and
+    # the group rule texts are the diff scope itself, the
+    # snapshot hashes and asserted capture dates stand
+    # named in the artefact in their own fields, and the
+    # evaluated path, its defaulted flag, and the finding
+    # counts are the same call's own inputs and figures.
+    outside_excluded = {
+        "findings", "groups", "parsed_groups", "group_rules",
+        "rules", "wildcard_rules", "robots_snapshot_sha256",
+        "robots_snapshot_asserted_capture_date",
+        "evaluated_page_path", "path_defaulted",
+        "finding_count",
+    }
+    for name in sorted(set(first) | set(second)):
+        if name in outside_excluded:
+            continue
         if first.get(name) != second.get(name):
             outside[name] = [first.get(name), second.get(name)]
     if outside:

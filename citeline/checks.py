@@ -37,7 +37,9 @@ Seams honoured here, as the design plan states them:
 
 import datetime
 import re
+import unicodedata
 from decimal import Decimal, ROUND_HALF_UP
+from urllib.parse import unquote
 
 __all__ = [
     "STATUS_VALUES",
@@ -177,7 +179,7 @@ def _term_pattern(term):
         return None
     body = r"\s+".join(parts)
     return re.compile(
-        r"(?<![A-Za-z0-9])" + body + r"(?![A-Za-z0-9])",
+        r"(?<![^\W_])" + body + r"(?![^\W_])",
         re.IGNORECASE,
     )
 
@@ -241,6 +243,42 @@ def _link_parts(link):
     return target, text_value, start, end
 
 
+_DOT_SEPARATORS = ("\uff0e", "\u3002", "\uff61")
+
+
+def _normalise_host(raw_host):
+    """The host reading items 42, 148, 149, and 150 state.
+
+    Percent sequences decode exactly once, the non ASCII
+    dot separators map to a full stop, the result is case
+    folded with one trailing dot stripped and compared in
+    its A label form. A host holding an empty label is
+    malformed and stands as None, counting no citation.
+    """
+    text = unquote(str(raw_host))
+    for separator in _DOT_SEPARATORS:
+        text = text.replace(separator, ".")
+    text = unicodedata.normalize("NFC", text).strip()
+    if text.endswith("."):
+        text = text[:-1]
+    text = text.casefold().lower()
+    if not text:
+        return None
+    labels = []
+    for label in text.split("."):
+        if not label:
+            return None
+        try:
+            label.encode("ascii")
+            labels.append(label)
+        except UnicodeEncodeError:
+            try:
+                labels.append(label.encode("idna").decode("ascii"))
+            except (UnicodeError, ValueError):
+                labels.append(label)
+    return ".".join(labels)
+
+
 def _host_of(target):
     match = re.match(r"^[A-Za-z][A-Za-z0-9+.-]*://([^/?#]+)", target or "")
     if not match:
@@ -248,20 +286,87 @@ def _host_of(target):
     host = match.group(1)
     host = host.rsplit("@", 1)[-1]
     host = host.split(":", 1)[0]
-    host = host.lower()
-    if host.endswith("."):
-        host = host[:-1]
-    return host
+    return _normalise_host(host)
+
+
+_UNRESERVED = (
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+    "0123456789-._~"
+)
+_HEXDIGITS = "0123456789abcdefABCDEF"
+
+
+def _syntax_normalise_path(path):
+    """Path syntax normalisation, item 40 limb (1).
+
+    A percent triplet for an unreserved character decodes
+    to that character and any other triplet stands with
+    upper case hex digits. Dot segments are then removed
+    and empty segments collapse, as the detection
+    canonical form states the same operations.
+    """
+    if not path:
+        return "/"
+    out = []
+    index = 0
+    while index < len(path):
+        char = path[index]
+        if (char == "%" and index + 2 < len(path)
+                and path[index + 1] in _HEXDIGITS
+                and path[index + 2] in _HEXDIGITS):
+            decoded = chr(int(path[index + 1:index + 3], 16))
+            if decoded in _UNRESERVED:
+                out.append(decoded)
+            else:
+                out.append("%" + path[index + 1:index + 3].upper())
+            index += 3
+        else:
+            out.append(char)
+            index += 1
+    decoded_path = "".join(out)
+    segments = []
+    for segment in decoded_path.split("/"):
+        if segment in ("", "."):
+            continue
+        if segment == "..":
+            if segments:
+                segments.pop()
+            continue
+        segments.append(segment)
+    result = "/" + "/".join(segments)
+    if decoded_path.endswith("/") and segments:
+        result += "/"
+    return result
+
+
+def _normalise_query(query):
+    """Query handling, item 40 limb (5): sorted by name
+    then value, duplicates kept, and a valueless parameter
+    sorted with an empty value."""
+    if not query:
+        return ""
+    pairs = []
+    for part in query.split("&"):
+        if "=" in part:
+            name, value = part.split("=", 1)
+        else:
+            name, value = part, ""
+        pairs.append((name, value))
+    pairs.sort(key=lambda pair: (pair[0], pair[1]))
+    return "&".join(name + "=" + value for name, value in pairs)
 
 
 def _canonical_target(target):
     """The canonical form of one citation target.
 
-    Brief Section 5.7 items 33, 42, and 43: no fragment,
-    a trailing slash removed except for the root path,
-    http and https merged, and the host case folded with
-    one trailing dot stripped. Two written forms of one
-    target share one canonical form and count once.
+    Brief Section 5.7 items 33 and 40, in full: scheme and
+    host normalised under items 42 and 43 with http and
+    https merged and a default port dropped, the path
+    under the syntax normalisation of limb (1) with a
+    trailing slash removed except for the root path, the
+    query under limb (5), and no fragment. This is the
+    same form the detection canonical form builds, so two
+    stated equivalent forms share one key and count once.
     """
     match = re.match(
         r"^[A-Za-z][A-Za-z0-9+.-]*://([^/?#]+)([^?#]*)"
@@ -270,22 +375,26 @@ def _canonical_target(target):
     )
     if not match:
         return target
-    authority = match.group(1).lower()
-    if "@" in authority:
-        authority = authority.rsplit("@", 1)[-1]
-    if ":" in authority:
-        host_part, _, port_part = authority.partition(":")
-        if host_part.endswith("."):
-            host_part = host_part[:-1]
-        authority = host_part + ":" + port_part
-    elif authority.endswith("."):
-        authority = authority[:-1]
-    path = match.group(2) or "/"
+    authority = match.group(1).rsplit("@", 1)[-1]
+    host_part, _, port_part = authority.partition(":")
+    host = _normalise_host(host_part)
+    if host is None:
+        return target
+    authority = host
+    if port_part:
+        try:
+            port = int(port_part)
+        except ValueError:
+            port = None
+        if port is not None and port not in (80, 443):
+            authority = host + ":" + str(port)
+    path = _syntax_normalise_path(match.group(2) or "/")
     if path != "/" and path.endswith("/"):
         path = path[:-1]
     key = authority + path
-    if match.group(3):
-        key += "?" + match.group(3)
+    query = _normalise_query(match.group(3) or "")
+    if query:
+        key += "?" + query
     return key
 
 
@@ -296,7 +405,8 @@ _TEXT_URL_PATTERN = re.compile(
 
 def _citation_analysis(page, facts):
     text = _page_text(page)
-    domain = (facts.get("domain") or "").lower() or None
+    domain = _normalise_host(facts.get("domain") or "") \
+        if facts.get("domain") else None
     counted = {}
     occurrences = []
     self_seen = False
@@ -428,7 +538,12 @@ def _mask(text, spans):
 
 
 _QUOTED_SPAN_PATTERN = re.compile(
-    r'"[^"\n]*"|“[^”\n]*”'
+    r'"[^"\n]*"|"[^"\n]*”|“[^"\n]*"|“[^”\n]*”'
+    r"|«[^»\n]*»|„[^“\n]*“|‘[^’\n]*’"
+)
+
+_ANY_SCHEME_URL_PATTERN = re.compile(
+    r"[A-Za-z][A-Za-z0-9+.-]*://[^\s<>\"'()\[\]{}]+"
 )
 
 _MONTH_ABBREVIATIONS = (
@@ -454,7 +569,7 @@ def _statistic_analysis(page):
         masked,
         [
             (m.start(), m.end())
-            for m in _TEXT_URL_PATTERN.finditer(masked)
+            for m in _ANY_SCHEME_URL_PATTERN.finditer(masked)
         ],
     )
     for link in _get(page, "links", []) or []:
@@ -526,6 +641,31 @@ def _statistic_analysis(page):
             )
         ],
     )
+    # The same exclusion in its remaining written forms:
+    # case variants of every month form, a month first
+    # form with no comma, a year first form with a month
+    # name, two digit years, hyphenated forms, and the
+    # ISO datetime form. Month names match case folded
+    # here, as a reader reads them in any case.
+    month_alt = month_names + "|" + _MONTH_ABBREVIATIONS
+    for date_pattern in (
+        r"\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2})?\b",
+        r"\b(?:" + month_alt + r")\.?\s+\d{1,2},\s+\d{2,4}\b",
+        r"\b(?:" + month_alt + r")\.?\s+\d{1,2}\s+\d{2,4}\b",
+        r"\b\d{4}\s+(?:" + month_alt + r")\.?\s+\d{1,2}\b",
+        r"\b\d{1,2}\s+(?:" + month_alt + r")\.?\s+\d{2,4}\b",
+        r"\b\d{1,2}-(?:" + month_alt + r")\.?-\d{2,4}\b",
+        r"\b(?:" + month_alt + r")\.?-\d{1,2}-\d{2,4}\b",
+        r"\bT\d{2}:\d{2}(?::\d{2})?\b",
+    ):
+        masked = _mask(
+            masked,
+            [
+                (m.start(), m.end())
+                for m in re.finditer(date_pattern, masked,
+                                      re.IGNORECASE)
+            ],
+        )
     # A version string counts nothing.
     masked = _mask(
         masked,
@@ -877,7 +1017,7 @@ def _freshness(page, audit_date):
 
 
 def _word_set(text_value):
-    return set(re.findall(r"[a-z0-9]+", (text_value or "").lower()))
+    return set(re.findall(r"[^\W_]+", (text_value or "").casefold()))
 
 
 def _description_consistency(page, facts):
@@ -889,7 +1029,7 @@ def _description_consistency(page, facts):
     # string must stand with a word boundary at each end,
     # so a line glued inside longer words earns nothing.
     verbatim = re.search(
-        r"(?<![A-Za-z0-9])" + re.escape(canonical) + r"(?![A-Za-z0-9])",
+        r"(?<![^\W_])" + re.escape(canonical) + r"(?![^\W_])",
         text,
     )
     if verbatim is not None:

@@ -71,7 +71,7 @@ def wilson_interval(rate, effective_n):
     try:
         rate_value = float(rate)
         n = float(effective_n)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return None
     if not math.isfinite(rate_value) or not math.isfinite(n):
         return None
@@ -102,7 +102,7 @@ def tier_for(effective_n):
         return "count only"
     try:
         n_value = float(effective_n)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return "count only"
     if not math.isfinite(n_value) or n_value < 5:
         return "count only"
@@ -128,7 +128,7 @@ def rates_separated(first_interval, second_interval):
         second_low, second_high = second_interval
         bounds = [float(value) for value in (
             first_low, first_high, second_low, second_high)]
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return False
     if any(value is None for value in (
             first_low, first_high, second_low, second_high)):
@@ -163,6 +163,171 @@ def _texts_similar(first, second):
     if not union:
         return first_norm == second_norm
     return len(first_set & second_set) / len(union) >= 0.80
+
+
+def _chained_pair_loop(unique_sets, weights):
+    """Chained determination over distinct shingle sets by a
+    pair loop that stores no per pair result. The loop stops
+    as soon as the outcome is settled: the similarity graph
+    stands connected and both a similar pair and a pair that
+    is not similar stand found."""
+    count = len(unique_sets)
+    parent = list(range(count))
+
+    def find(node):
+        while parent[node] != node:
+            parent[node] = parent[parent[node]]
+            node = parent[node]
+        return node
+
+    roots = count
+    similar_found = any(weight > 1 for weight in weights)
+    nonsimilar_found = False
+    for first in range(count):
+        first_set = unique_sets[first]
+        for second in range(first + 1, count):
+            second_set = unique_sets[second]
+            shared = len(first_set & second_set)
+            union_size = len(first_set) + len(second_set) - shared
+            if union_size > 0 and shared / union_size >= 0.80:
+                similar_found = True
+                root_first, root_second = find(first), find(second)
+                if root_first != root_second:
+                    parent[root_first] = root_second
+                    roots -= 1
+            else:
+                nonsimilar_found = True
+            if roots == 1 and similar_found and nonsimilar_found:
+                return True
+    return roots == 1 and similar_found and nonsimilar_found
+
+
+def _chained_d1_nonsimilar(unique_sets, size):
+    """Whether a non similar pair stands among equal size sets
+    whose size leaves one deletion, judged exactly. Every set
+    similar to the first set differs from it in one element at
+    most, so each such set is the first set with one element
+    swapped out for one outside value. Two sets from different
+    swap classes are similar exactly where their outside
+    values agree."""
+    first_set = unique_sets[0]
+    for other in unique_sets[1:]:
+        if len(first_set & other) < size - 1:
+            return True
+    combos = []
+    for other in unique_sets[1:]:
+        missing = first_set - other
+        if len(missing) != 1:
+            continue
+        combos.append((next(iter(missing)),
+                       next(iter(other - first_set))))
+    if len({item[0] for item in combos}) < 2:
+        return False
+    first_combo = combos[0]
+    for combo in combos:
+        if combo[0] != first_combo[0] and combo[1] != first_combo[1]:
+            return True
+    for combo in combos:
+        if combo[0] == first_combo[0] and combo[1] != first_combo[1]:
+            for other in combos:
+                if other[0] != first_combo[0]:
+                    return True
+    return False
+
+
+def _chained_scan_nonsimilar(unique_sets, alpha):
+    """Whether a non similar pair stands among equal size
+    sets, by counting shared shingles per set through an
+    inverted index rather than storing pair results."""
+    postings = {}
+    for index, shingle_set in enumerate(unique_sets):
+        for shingle in shingle_set:
+            postings.setdefault(shingle, []).append(index)
+    total = len(unique_sets)
+    for index, shingle_set in enumerate(unique_sets):
+        counts = {}
+        for shingle in shingle_set:
+            for other in postings[shingle]:
+                if other != index:
+                    counts[other] = counts.get(other, 0) + 1
+        if len(counts) < total - 1:
+            return True
+        if any(value < alpha for value in counts.values()):
+            return True
+    return False
+
+
+def _cluster_chained(shingle_sets):
+    """Whether one cluster stands chained, on the cost shape
+    the round cap requires. No structure in this computation
+    grows with the number of pairs: duplicate sets are
+    grouped first, equal size sets are joined through shared
+    subsets of the size a similar pair must share, and the
+    remaining shapes run a pair loop that stores nothing and
+    stops when its outcome is settled."""
+    import itertools
+
+    if len(shingle_sets) < 2:
+        return False
+    if any(not shingle_set for shingle_set in shingle_sets):
+        # A member with an empty shingle set is similar only
+        # to a member with an empty set and an identical
+        # normalised text, so such a member either forms the
+        # whole cluster with every pair similar, or stands
+        # apart from the rest. Neither shape is chained.
+        return False
+    unique = {}
+    weights = []
+    unique_sets = []
+    for shingle_set in shingle_sets:
+        key = frozenset(shingle_set)
+        if key not in unique:
+            unique[key] = len(unique_sets)
+            unique_sets.append(key)
+            weights.append(0)
+        weights[unique[key]] += 1
+    if len(unique_sets) == 1:
+        return False
+    sizes = {len(shingle_set) for shingle_set in unique_sets}
+    if len(sizes) != 1:
+        return _chained_pair_loop(unique_sets, weights)
+    size = sizes.pop()
+    alpha = -(-8 * size // 9)
+    deletions = size - alpha
+    if deletions == 0:
+        return False
+    if len(unique_sets) <= 400:
+        return _chained_pair_loop(unique_sets, weights)
+    if math.comb(size, deletions) > 2000:
+        return _chained_pair_loop(unique_sets, weights)
+    parent = list(range(len(unique_sets)))
+
+    def find(node):
+        while parent[node] != node:
+            parent[node] = parent[parent[node]]
+            node = parent[node]
+        return node
+
+    similar_found = any(weight > 1 for weight in weights)
+    by_subset = {}
+    for index, shingle_set in enumerate(unique_sets):
+        for subset in itertools.combinations(
+                sorted(shingle_set), alpha):
+            by_subset.setdefault(subset, []).append(index)
+    for members in by_subset.values():
+        if len(members) > 1:
+            similar_found = True
+        for other in members[1:]:
+            root_first, root_other = find(members[0]), find(other)
+            if root_first != root_other:
+                parent[root_first] = root_other
+    if len({find(index) for index in range(len(unique_sets))}) != 1:
+        return False
+    if not similar_found:
+        return False
+    if deletions == 1:
+        return _chained_d1_nonsimilar(unique_sets, size)
+    return _chained_scan_nonsimilar(unique_sets, alpha)
 
 
 def _rate_block(answers, key, effective_n):
@@ -258,12 +423,25 @@ def _validate_answer_shape(item):
         if isinstance(value, float) and (
                 not math.isfinite(value) or value != int(value)):
             raise ValueError(name + " must be a whole count")
-    entries = _get(item, "per_competitor", None)
-    if entries is None:
-        entries = _get(item, "competitors", None)
-    if entries is not None and not isinstance(
-            entries, (list, tuple, dict)):
-        raise ValueError("per_competitor must be a list or a mapping")
+    for field_name in ("per_competitor", "competitors"):
+        entries = _get(item, field_name, None)
+        if entries is None:
+            continue
+        if not isinstance(entries, (list, tuple, dict)):
+            raise ValueError(
+                "per_competitor must be a list or a mapping")
+        if isinstance(entries, dict):
+            for key in entries:
+                if not isinstance(key, str):
+                    raise ValueError(
+                        "per_competitor names must be strings")
+            continue
+        for entry in entries:
+            entry_name = _get(entry, "name", None)
+            if entry_name is not None and not isinstance(
+                    entry_name, str):
+                raise ValueError(
+                    "per_competitor name must be a string")
 
 
 def round_metrics(answers, kind, frame=None, datum=None,
@@ -290,6 +468,18 @@ def round_metrics(answers, kind, frame=None, datum=None,
         for alias in aliases:
             if not isinstance(alias, str):
                 raise ValueError("aliases must hold strings only")
+    if competitors is not None:
+        if isinstance(competitors, (str, bytes)):
+            raise ValueError("competitors must be a list of competitors")
+        try:
+            competitors = list(competitors)
+        except TypeError:
+            raise ValueError("competitors must be a list of competitors")
+        for comp in competitors:
+            comp_name = comp if isinstance(comp, str) else _get(
+                comp, "name", None)
+            if comp_name is not None and not isinstance(comp_name, str):
+                raise ValueError("competitor name must be a string")
 
     by_kind = []
     for item in answers:
@@ -335,59 +525,22 @@ def round_metrics(answers, kind, frame=None, datum=None,
             continue
         texts = [(_get(item, "text", "") or "") for item in members]
         normalised = [_normalised_text(text) for text in texts]
+        shingle_ids = {}
         shingle_sets = []
         for norm_text in normalised:
             words = norm_text.split()
             if len(words) < 5:
                 shingle_sets.append(set())
             else:
-                shingle_sets.append(
-                    {" ".join(words[i:i + 5])
-                     for i in range(len(words) - 4)})
-
-        def similar_cached(i, j):
-            first_set = shingle_sets[i]
-            second_set = shingle_sets[j]
-            if not first_set or not second_set:
-                return normalised[i] == normalised[j]
-            shared = len(first_set & second_set)
-            union_size = len(first_set) + len(second_set) - shared
-            if not union_size:
-                return normalised[i] == normalised[j]
-            return shared / union_size >= 0.80
-
-        similar_pairs = 0
-        pair_count = 0
-        similarity = []
-        for i in range(len(texts)):
-            for j in range(i + 1, len(texts)):
-                pair_count += 1
-                outcome = similar_cached(i, j)
-                similarity.append((i, j, outcome))
-                if outcome:
-                    similar_pairs += 1
-        if pair_count and 0 < similar_pairs < pair_count:
-            # A cluster held together by some similar pairs,
-            # while at least one pair is not similar, stands
-            # chained, provided its similar pairs link every
-            # member. Reachability is checked on the graph,
-            # over the similarity results already computed.
-            parent = list(range(len(texts)))
-
-            def find(x):
-                while parent[x] != x:
-                    parent[x] = parent[parent[x]]
-                    x = parent[x]
-                return x
-
-            for i, j, outcome in similarity:
-                if outcome:
-                    ri, rj = find(i), find(j)
-                    if ri != rj:
-                        parent[ri] = rj
-            connected = len({find(i) for i in range(len(texts))}) == 1
-            if connected:
-                chained_cluster_count += 1
+                id_set = set()
+                for i in range(len(words) - 4):
+                    shingle = " ".join(words[i:i + 5])
+                    if shingle not in shingle_ids:
+                        shingle_ids[shingle] = len(shingle_ids)
+                    id_set.add(shingle_ids[shingle])
+                shingle_sets.append(id_set)
+        if _cluster_chained(shingle_sets):
+            chained_cluster_count += 1
 
     rates = {
         "named": _rate_block(active, "named", effective_n),
@@ -1212,6 +1365,10 @@ def round_metrics_from_journal(entries, fold_point=None, detector_version=None,
         row_kind = row.get("source_kind")
         if row_kind and row_kind not in kinds:
             kinds.append(row_kind)
+    # The kinds list stands in sorted order, grill Q13: a
+    # round report is a function of the round's answers as a
+    # set, and import order is not an input of the report.
+    kinds = sorted(kinds, key=lambda value: str(value))
     if kind is None and len(kinds) > 1:
         product = _fold_registry(entries, fold_point)
         seed_aliases_multi = []

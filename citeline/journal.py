@@ -11,6 +11,7 @@ Dates here are call inputs, never clock reads. Nothing in
 this module reads a clock for a record value.
 """
 
+import base64
 import copy
 import fcntl
 import hashlib
@@ -18,6 +19,7 @@ import json
 import math
 import os
 import re
+import threading
 from decimal import Decimal, InvalidOperation
 
 from citeline.errors import ConfigError, JournalError
@@ -29,6 +31,7 @@ __all__ = [
     "append_cost",
     "append_entries_atomic",
     "append_entry",
+    "recover_interrupted_batch",
     "canonical_bytes",
     "config_keys",
     "config_path",
@@ -502,10 +505,26 @@ def _is_plausible_entry_prefix(partial):
         text = partial.decode("utf-8")
     except UnicodeDecodeError:
         return False
+    # Every canonical entry opens with an object brace and
+    # a quoted key, and the canonical rendering carries no
+    # space and no character outside a string except the
+    # structural characters, the number characters, and the
+    # letters of the three literal values. Text standing
+    # outside that form anywhere is no prefix of any
+    # canonical entry, so the test does not pass vacuously
+    # over plain words or digits (Step 17 round 2 entry
+    # S17-R2-003).
+    if not text.startswith("{"):
+        return False
+    if len(text) > 1 and text[1] != '"':
+        return False
     stack = []
     in_string = False
     escaped = False
+    closed = False
     for char in text:
+        if closed:
+            return False
         if in_string:
             if escaped:
                 escaped = False
@@ -526,9 +545,58 @@ def _is_plausible_entry_prefix(partial):
             opener = stack.pop()
             if (opener == "{") != (char == "}"):
                 return False
-        elif ord(char) < 0x20:
+            if not stack:
+                closed = True
+        elif char in ":,.0123456789-+truefalsn":
+            continue
+        else:
             return False
     return True
+
+
+def _raise_value_in_range(payload):
+    """Whether a limit_raise payload carries a raise the
+    append path could have written.
+
+    The append path checks the limit member, the value
+    type, and the value range at row X-1. A supplied chain
+    is judged by the same checks at scan and at replay, so
+    a chain the append path could never write does not
+    verify and its raise does not stand in force (Step 17
+    round 2 entry S17-R2-002).
+    """
+    key = _member_to_key(payload.get("limit"))
+    if key is None:
+        return False
+    raised = payload.get("raised_value")
+    if type(raised) is not int:
+        return False
+    index = _LIMIT_INDEX[key]
+    ceiling = _LIMIT_DEFAULT[key] * 10 if index <= 40 \
+        else _LIMIT_DEFAULT[key]
+    return 1 <= raised <= ceiling
+
+
+def _correction_form_ok(payload):
+    """Whether a correction payload carries the form the
+    append path requires: a whole number supersedes value
+    and a corrected record that is a record. The form is
+    judged here, at scan and at replay, as the append path
+    judges it (Step 17 round 2 entry S17-R2-002)."""
+    if type(payload.get("supersedes_sequence")) is not int:
+        return False
+    return isinstance(payload.get("corrected_record"), dict)
+
+
+def _special_payload_reason(parsed):
+    """The scan reason a special payload form fails, or None."""
+    kind = parsed.get("entry_kind")
+    payload = parsed.get("payload") or {}
+    if kind == "limit_raise" and not _raise_value_in_range(payload):
+        return "raise_value"
+    if kind == "correction" and not _correction_form_ok(payload):
+        return "correction_form"
+    return None
 
 
 def _scan(home, partial_mode="probe"):
@@ -622,6 +690,8 @@ def _scan(home, partial_mode="probe"):
                 else:
                     if rendered != raw:
                         reason = "noncanonical"
+                    elif _special_payload_reason(parsed) is not None:
+                        reason = _special_payload_reason(parsed)
                     elif parsed.get("entry_kind") == "limit_raise":
                         # The one raise per run and limit rule
                         # is a property of the chain, not of
@@ -746,10 +816,22 @@ def _read_anchor(path):
     head_hash, sequence_token = parts
     if re.fullmatch(r"[0-9a-fA-F]{64}", head_hash) is None:
         return "malformed", {"head_hash": head_hash, "sequence": None}
-    if re.fullmatch(r"[+-]?[0-9]+", sequence_token) is None:
+    # The writer writes the sequence in plain decimal form:
+    # no sign, no leading zero padding, and a length far
+    # inside the integer conversion limit. A token in any
+    # other form reads as malformed here, and its length is
+    # judged before any conversion, so an over long token
+    # never reaches the conversion as a raw error (Step 17
+    # round 2 entry S17-R2-004).
+    if re.fullmatch(r"0|[1-9][0-9]*", sequence_token) is None \
+            or len(sequence_token) > 18:
+        return "malformed", {"head_hash": head_hash, "sequence": None}
+    try:
+        sequence = int(sequence_token)
+    except ValueError:
         return "malformed", {"head_hash": head_hash, "sequence": None}
     return "ok", {"head_hash": head_hash,
-                  "sequence": int(sequence_token)}
+                  "sequence": sequence}
 
 
 def _agreement_for(recorded, scan):
@@ -1116,70 +1198,108 @@ class _WriteLock:
         self.home = str(home)
         self.handle = None
         self._nested = False
+        self._invocation = object()
 
     def __enter__(self):
         os.makedirs(self.home, exist_ok=True)
         path = _lock_path(self.home)
-        held = _HELD_LOCKS.get(path)
-        if held is not None and held[0] is not None:
-            # A lock this process already holds for this
-            # home stands re-entered, not re-taken: a batch
-            # append (append_entries_atomic) holds the one
-            # lock across its entries, and the single entry
-            # appends inside it join that hold instead of
-            # contending with it.
-            _HELD_LOCKS[path] = (held[0], held[1] + 1)
-            self._nested = True
+        with _HELD_LOCKS_GUARD:
+            held = _HELD_LOCKS.get(path)
+            if held is not None:
+                # Re-entry is judged by invocation and by
+                # thread, not by process alone. A caller
+                # joins a standing hold only where it runs
+                # on the holder thread inside the holder
+                # invocation itself, as the single entry
+                # appends inside one batch append do. Any
+                # other caller in this process, on any other
+                # thread or in any other invocation, stands
+                # contended at row X-10 and stores nothing,
+                # exactly as a caller in another process
+                # does (Step 17 round 2 entry S17-R2-001).
+                handle, depth, owner_thread, invocation = held
+                if threading.get_ident() == owner_thread \
+                        and invocation in _active_invocations(path):
+                    _HELD_LOCKS[path] = (
+                        handle, depth + 1, owner_thread, invocation)
+                    self._nested = True
+                    return self
+                raise JournalError(
+                    "a writing invocation already holds this home",
+                    row="X-10", token="WRITE_CONTENDED")
+            try:
+                handle = open(path, "a+")
+            except OSError:
+                raise JournalError(
+                    "the write lock cannot be given on this "
+                    "filesystem", row="X-12",
+                    token="LOCK_UNAVAILABLE")
+            try:
+                fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                handle.close()
+                raise JournalError(
+                    "a writing invocation already holds this home",
+                    row="X-10", token="WRITE_CONTENDED")
+            except OSError:
+                handle.close()
+                raise JournalError(
+                    "the write lock cannot be given on this "
+                    "filesystem", row="X-12",
+                    token="LOCK_UNAVAILABLE")
+            handle.seek(0)
+            handle.truncate()
+            handle.write("holder pid %d\n" % os.getpid())
+            handle.flush()
+            self.handle = handle
+            _HELD_LOCKS[path] = (
+                handle, 1, threading.get_ident(), self._invocation)
+            _active_invocations(path).append(self._invocation)
             return self
-        try:
-            self.handle = open(path, "a+")
-        except OSError:
-            raise JournalError(
-                "the write lock cannot be given on this filesystem",
-                row="X-12", token="LOCK_UNAVAILABLE")
-        try:
-            fcntl.flock(self.handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
-            self.handle.close()
-            self.handle = None
-            raise JournalError(
-                "a writing invocation already holds this home",
-                row="X-10", token="WRITE_CONTENDED")
-        except OSError:
-            self.handle.close()
-            self.handle = None
-            raise JournalError(
-                "the write lock cannot be given on this filesystem",
-                row="X-12", token="LOCK_UNAVAILABLE")
-        self.handle.seek(0)
-        self.handle.truncate()
-        self.handle.write("holder pid %d\n" % os.getpid())
-        self.handle.flush()
-        _HELD_LOCKS[path] = (self.handle, 1)
-        return self
 
     def __exit__(self, exc_type, exc, tb):
         path = _lock_path(self.home)
         if self._nested:
-            held = _HELD_LOCKS.get(path)
-            if held is not None:
-                _HELD_LOCKS[path] = (held[0], held[1] - 1)
+            with _HELD_LOCKS_GUARD:
+                held = _HELD_LOCKS.get(path)
+                if held is not None:
+                    _HELD_LOCKS[path] = (
+                        held[0], held[1] - 1, held[2], held[3])
             self._nested = False
             return False
-        _HELD_LOCKS.pop(path, None)
         if self.handle is not None:
             try:
                 fcntl.flock(self.handle, fcntl.LOCK_UN)
             finally:
                 self.handle.close()
                 self.handle = None
+        with _HELD_LOCKS_GUARD:
+            _HELD_LOCKS.pop(path, None)
+            active = _active_invocations(path)
+            if self._invocation in active:
+                active.remove(self._invocation)
         return False
 
 
 # Locks this process holds, by lock file path, as
-# (handle, hold depth). A depth above one stands for a
-# batch append holding the lock across its entries.
+# (handle, hold depth, holder thread, holder invocation).
+# A depth above one stands for the single entry appends
+# inside one batch append joining that batch invocation
+# hold on its own thread. The guard serialises the check
+# and the registration across threads, so two threads of
+# one process cannot both read the lock as free.
 _HELD_LOCKS = {}
+_HELD_LOCKS_GUARD = threading.Lock()
+_LOCK_LOCAL = threading.local()
+
+
+def _active_invocations(path):
+    """The lock invocations active on this thread, for one path."""
+    active = getattr(_LOCK_LOCAL, "active", None)
+    if active is None:
+        active = {}
+        _LOCK_LOCAL.active = active
+    return active.setdefault(path, [])
 
 
 def _write_anchor(anchor_path, head_hash, sequence):
@@ -1193,7 +1313,14 @@ def _write_anchor(anchor_path, head_hash, sequence):
         handle.write("%s %d\n" % (head_hash, sequence))
         handle.flush()
         os.fsync(handle.fileno())
-    os.replace(temporary, anchor_path)
+    try:
+        os.replace(temporary, anchor_path)
+    except OSError:
+        try:
+            os.unlink(temporary)
+        except OSError:
+            pass
+        raise
 
 
 def _restore_journal_size(path, size):
@@ -1228,6 +1355,111 @@ def _resolve_sequence_identity(value, sequence):
     return value
 
 
+BATCH_INTENT_FILENAME = ".citeline-batch-intent.json"
+
+
+def _batch_intent_path(home):
+    return os.path.join(str(home), BATCH_INTENT_FILENAME)
+
+
+def _write_batch_intent(home, journal_size, anchor_path, anchor_bytes,
+                        count):
+    """Record one batch in flight, before its first entry lands.
+
+    The record names the journal size and the anchor content
+    the batch started from, so a batch whose process is
+    killed, which raises nothing and runs no rollback, can
+    still be rolled back whole by the next invocation that
+    finds this record standing (Step 17 round 2 entry
+    S17-R2-083, on the S17-R1-089 batch discipline). A
+    failure to record the intent degrades the batch to the
+    exception rollback alone and never bars the batch
+    itself.
+    """
+    record = {
+        "journal_size": journal_size,
+        "anchor_path": anchor_path,
+        "anchor_bytes": None if anchor_bytes is None else
+        base64.b64encode(anchor_bytes).decode("ascii"),
+        "count": count,
+    }
+    try:
+        with open(_batch_intent_path(home), "w",
+                  encoding="utf-8") as handle:
+            handle.write(json.dumps(record))
+            handle.flush()
+            os.fsync(handle.fileno())
+    except OSError:
+        pass
+
+
+def _clear_batch_intent(home):
+    try:
+        os.unlink(_batch_intent_path(home))
+    except OSError:
+        pass
+
+
+def recover_interrupted_batch(home):
+    """Roll back one batch whose process died inside it.
+
+    Where a batch intent record stands and no live holder
+    holds the home, the batch it names never completed:
+    the journal stands truncated back to the size the
+    record names, the anchor stands restored to the
+    content the record names, and the record stands
+    removed, so no partial batch stands as ordinary state
+    and the import it belonged to can be run again whole
+    (entry S17-R2-083). Returns True where a recovery
+    landed. Where the home stands held by a live batch,
+    or no record stands, nothing happens here: the live
+    batch owns its own rollback.
+    """
+    home = str(home)
+    intent_path = _batch_intent_path(home)
+    if not os.path.exists(intent_path):
+        return False
+    try:
+        with _WriteLock(home):
+            try:
+                with open(intent_path, "r",
+                          encoding="utf-8") as handle:
+                    record = json.loads(handle.read())
+                journal_size = record["journal_size"]
+                if type(journal_size) is not int or journal_size < 0:
+                    raise ValueError("batch intent holds no size")
+            except (OSError, ValueError, KeyError, TypeError):
+                # A record that does not read names no batch
+                # state to restore: it can only be the debris
+                # of a kill before the first entry landed,
+                # which appended nothing.
+                _clear_batch_intent(home)
+                return False
+            _restore_journal_size(journal_path(home), journal_size)
+            anchor_path = record.get("anchor_path")
+            if anchor_path:
+                anchor_bytes = record.get("anchor_bytes")
+                try:
+                    if anchor_bytes is None:
+                        if os.path.exists(anchor_path):
+                            os.unlink(anchor_path)
+                    else:
+                        with open(anchor_path, "wb") as handle:
+                            handle.write(base64.b64decode(
+                                anchor_bytes))
+                            handle.flush()
+                            os.fsync(handle.fileno())
+                except (OSError, ValueError):
+                    pass
+            _clear_batch_intent(home)
+            return True
+    except JournalError:
+        # A live holder stands on the home, or the lock
+        # cannot be given: the batch, if any, is not this
+        # caller's to recover.
+        return False
+
+
 def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
     """Append one entry, as one complete write, or nothing.
 
@@ -1252,6 +1484,15 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
         raise JournalError(
             "the entry nesting depth breaches its limit",
             row="X-3", token="LIMIT_EXCEEDED")
+    # A batch killed inside its appends leaves its intent
+    # record standing; the next append on this home rolls
+    # that batch back before it reads the chain, unless
+    # this append itself stands inside a batch this process
+    # holds, whose intent is its own (entry S17-R2-083).
+    with _HELD_LOCKS_GUARD:
+        _batch_held = _lock_path(home) in _HELD_LOCKS
+    if not _batch_held:
+        recover_interrupted_batch(home)
     with _WriteLock(home):
         scan = _scan(home, "torn")
         if scan.failure is not None:
@@ -1440,13 +1681,43 @@ def append_entries_atomic(home, entries, audit_date=None, run_id=None):
     written, and, where any entry of the batch fails,
     rolls the journal and the anchor back to the state
     they stood in before the batch, so no partial work
-    stands behind a failure report. Entries stand as
+    stands behind a failure report. Before the first
+    entry lands the batch records its starting state in
+    a batch intent record inside the home, so a batch
+    whose process is killed inside it, which runs no
+    rollback of its own, stands rolled back by the next
+    invocation through recover_interrupted_batch (entry
+    S17-R2-083). Entries stand as
     (entry_kind, payload) pairs in append order. Returns
     the appended entry records in order.
     """
     home = str(home)
+    # The argument form is judged before any vocabulary
+    # check inside the loop, in the form the sibling replay
+    # surface states at row U-8: the batch takes a
+    # collection of pairs, and an item that is no pair, a
+    # pair of the wrong length, or a collection that is no
+    # collection of pairs at all is a malformed call, never
+    # a raw unpacking error (Step 17 round 2 entry
+    # S17-R2-007).
+    if entries is None or isinstance(entries, (str, bytes, bytearray,
+                                               dict)):
+        raise JournalError(
+            "a batch takes a collection of entry pairs",
+            row="U-8", token="MALFORMED_CALL")
+    try:
+        items = list(entries)
+    except TypeError:
+        raise JournalError(
+            "a batch takes a collection of entry pairs",
+            row="U-8", token="MALFORMED_CALL")
     prepared = []
-    for item in entries:
+    for item in items:
+        if not isinstance(item, (list, tuple)) or len(item) != 2:
+            raise JournalError(
+                "a batch item must be one entry kind and "
+                "payload pair: %r" % (item,),
+                row="U-8", token="MALFORMED_CALL")
         entry_kind, payload = item
         if entry_kind not in ENTRY_KINDS:
             raise JournalError(
@@ -1459,6 +1730,7 @@ def append_entries_atomic(home, entries, audit_date=None, run_id=None):
         prepared.append((entry_kind, payload))
     if not prepared:
         return []
+    recover_interrupted_batch(home)
     path = journal_path(home)
     with _WriteLock(home):
         scan = _scan(home, "torn")
@@ -1489,6 +1761,8 @@ def append_entries_atomic(home, entries, audit_date=None, run_id=None):
                     anchor_bytes = handle.read()
             except OSError:
                 anchor_bytes = None
+        _write_batch_intent(home, original_size, resolved_anchor,
+                            anchor_bytes, len(prepared))
         appended = []
         try:
             for entry_kind, payload in prepared:
@@ -1496,6 +1770,7 @@ def append_entries_atomic(home, entries, audit_date=None, run_id=None):
                     home, entry_kind, payload,
                     audit_date=audit_date, run_id=run_id))
         except Exception:
+            _clear_batch_intent(home)
             _restore_journal_size(path, original_size)
             if resolved_anchor is not None:
                 try:
@@ -1510,6 +1785,7 @@ def append_entries_atomic(home, entries, audit_date=None, run_id=None):
                 except OSError:
                     pass
             raise
+        _clear_batch_intent(home)
         return appended
 
 
@@ -1642,6 +1918,8 @@ def _validate_chain_lines(lines):
             return index
         if rendered != raw:
             return index
+        if _special_payload_reason(parsed) is not None:
+            return index
         if parsed.get("entry_kind") == "limit_raise":
             payload = parsed.get("payload") or {}
             raise_key = (repr(payload.get("run_id")),
@@ -1720,15 +1998,26 @@ def replay(home, entries, resume=False):
         resolved_anchor = None
         if anchor_path:
             resolved_anchor = _resolve_anchor_path(home, anchor_path)
-            if scan.entry_count > 0:
-                anchor_state, recorded = _read_anchor(resolved_anchor)
-                if anchor_state != "ok" or _agreement_for(
-                        recorded, scan) != "matching":
-                    raise JournalError(
-                        "the anchor recording does not stand "
-                        "as the standing head; a replay stands "
-                        "barred", row="I-2",
-                        token="JOURNAL_VERIFY_FAILED")
+            # The gate is the append path gate, over every
+            # standing journal including an empty one: a
+            # malformed recording bars, a recording that
+            # does not stand as the standing head bars, and
+            # an absent recording over a standing journal
+            # bars. An empty journal is the exact state a
+            # full truncation leaves, so it skips nothing
+            # (Step 17 round 2 entry S17-R2-005).
+            anchor_state, recorded = _read_anchor(resolved_anchor)
+            if anchor_state == "malformed" or (
+                    anchor_state == "ok"
+                    and _agreement_for(recorded, scan) != "matching"
+            ) or (
+                    anchor_state == "absent" and scan.entry_count > 0
+            ):
+                raise JournalError(
+                    "the anchor recording does not stand "
+                    "as the standing head; a replay stands "
+                    "barred", row="I-2",
+                    token="JOURNAL_VERIFY_FAILED")
         candidate = (scan.lines if resume else []) + lines
         failing = _validate_chain_lines(candidate)
         if failing is not None:
@@ -1745,11 +2034,26 @@ def replay(home, entries, resume=False):
                 refusal_context="append_cap", limit_number=39)
         path = journal_path(home)
         content = b"".join(raw + b"\n" for raw in candidate)
+        try:
+            original_size = os.path.getsize(path)
+            original_exists = True
+        except OSError:
+            original_size = 0
+            original_exists = False
+
+        def rollback_write():
+            if original_exists:
+                _restore_journal_size(path, original_size)
+            else:
+                try:
+                    os.unlink(path)
+                except OSError:
+                    pass
+                for cache_key in [key for key in _scan_cache
+                                  if key[0] == path]:
+                    _scan_cache.pop(cache_key, None)
+
         if resume:
-            try:
-                original_size = os.path.getsize(path)
-            except OSError:
-                original_size = 0
             try:
                 with open(path, "ab") as handle:
                     handle.write(b"".join(
@@ -1763,12 +2067,28 @@ def replay(home, entries, resume=False):
                     "stands as it stood", row="I-2",
                     token="JOURNAL_VERIFY_FAILED")
         else:
+            # The replacing branch carries the same guard
+            # as the resume branch and the append path: a
+            # write failure reports in the vocabulary at
+            # row I-2, and its temporary file does not stand
+            # left inside the home (Step 17 round 2 entry
+            # S17-R2-006).
             temporary = path + ".replay-%d" % os.getpid()
-            with open(temporary, "wb") as handle:
-                handle.write(content)
-                handle.flush()
-                os.fsync(handle.fileno())
-            os.replace(temporary, path)
+            try:
+                with open(temporary, "wb") as handle:
+                    handle.write(content)
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                os.replace(temporary, path)
+            except OSError:
+                try:
+                    os.unlink(temporary)
+                except OSError:
+                    pass
+                raise JournalError(
+                    "the replay write failed; the journal "
+                    "stands as it stood", row="I-2",
+                    token="JOURNAL_VERIFY_FAILED")
         for cache_key in [key for key in _scan_cache
                           if key[0] == path]:
             _scan_cache.pop(cache_key, None)
@@ -1778,7 +2098,17 @@ def replay(home, entries, resume=False):
                               hashlib.sha256(candidate[-1]).hexdigest(),
                               len(candidate))
             except OSError:
-                pass
+                # An anchor write failure is not swallowed:
+                # the replay stands rolled back and the
+                # failure is reported, as the append path
+                # reports it, so no replay reports success
+                # with no anchor standing (Step 17 round 2
+                # entry S17-R2-005).
+                rollback_write()
+                raise JournalError(
+                    "the anchor write failed; the replay "
+                    "stands rolled back", row="I-2",
+                    token="JOURNAL_VERIFY_FAILED")
     if candidate:
         return hashlib.sha256(candidate[-1]).hexdigest()
     return None

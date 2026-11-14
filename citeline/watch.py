@@ -360,9 +360,16 @@ def _validate_plan(plan):
             "is 100 targets")
     seen = []
     for target in targets:
+        # The selector stands judged on its named values,
+        # not on its keys (Step 17 round 2 entry
+        # S17-R2-073): a selector key holding null names
+        # no selector, so a target whose only selector
+        # holds null names neither, and a target naming a
+        # page file beside a null round names one.
         if not isinstance(target, dict) \
                 or target.get("product") is None \
-                or ("page_file" in target) == ("round" in target):
+                or (target.get("page_file") is not None) == \
+                (target.get("round") is not None):
             _fail(
                 "MALFORMED_CALL",
                 "each picked target names a product and one "
@@ -386,6 +393,29 @@ def _validate_plan(plan):
                 _fail(
                     "MALFORMED_CALL",
                     "the target %s stands as a string" % (field,))
+        # The target path strings stand judged before any
+        # filesystem call can raise on them (Step 17 round
+        # 2 entry S17-R2-078): a page file or robots file
+        # string carrying a NUL character or a lone
+        # surrogate cannot name a path at all, and refuses
+        # at open as MALFORMED_CALL, before the identity
+        # reading below runs any path call on it.
+        for field in ("page_file", "robots_file"):
+            value = target.get(field)
+            if not isinstance(value, str):
+                continue
+            if "\x00" in value:
+                _fail(
+                    "MALFORMED_CALL",
+                    "the target %s holds a NUL character and "
+                    "names no path" % (field,))
+            try:
+                value.encode("utf-8")
+            except UnicodeEncodeError:
+                _fail(
+                    "MALFORMED_CALL",
+                    "the target %s holds a lone surrogate "
+                    "and names no path" % (field,))
         guide_flag = target.get("guide")
         if guide_flag is not None and not isinstance(
                 guide_flag, bool):
@@ -416,15 +446,37 @@ def _target_identity(target):
     product = target.get("product")
 
     def path_form(value):
-        if value is None:
+        # An empty path string orders no file at all, as
+        # an absent or null value orders none (Step 17
+        # round 2 entry S17-R2-079): the empty robots file
+        # spelling stands as the same identity as the
+        # absence it is identical to in effect, never as
+        # the working directory a realpath reading would
+        # map it to.
+        if not value:
             return None
         return os.path.realpath(str(value))
 
-    if "page_file" in target:
+    def evaluated_form(value):
+        # The evaluated page path stands compared in its
+        # normalised form (Step 17 round 2 entry
+        # S17-R2-074): a doubled slash spelling, a dot
+        # segment spelling, and a trailing slash form of
+        # one path name the same invocation to the audit,
+        # so they name one identity to this comparison.
+        if not value:
+            return None
+        import posixpath
+        form = posixpath.normpath(str(value))
+        if form.startswith("/"):
+            form = "/" + form.lstrip("/")
+        return form
+
+    if target.get("page_file") is not None:
         return (
             "audit", product, path_form(target.get("page_file")),
             path_form(target.get("robots_file")),
-            target.get("evaluated_page_path") or None,
+            evaluated_form(target.get("evaluated_page_path")),
             bool(target.get("guide")))
     return ("probe", product, target.get("round"))
 
@@ -668,10 +720,19 @@ def _cadence_interval_days(cadence):
         r"(?:every\s+)?(\d+)\s+(day|days|week|weeks|month|months"
         r"|year|years)", text)
     if match:
+        # The conversion stands bounded (Step 17 round 2
+        # entry S17-R2-093): a digit run past six digits
+        # names no cadence this product reads, and stands
+        # as no interval, instead of raising at the integer
+        # conversion limit after the round's targets have
+        # stored their records.
+        digits = match.group(1)
+        if len(digits) > 6:
+            return None
         unit_days = {"day": 1, "days": 1, "week": 7, "weeks": 7,
                      "month": 30, "months": 30, "year": 365,
                      "years": 365}
-        return int(match.group(1)) * unit_days[match.group(2)]
+        return int(digits) * unit_days[match.group(2)]
     return None
 
 
@@ -970,7 +1031,37 @@ def _write_output(result, output_path, form):
     only, the watch invocation writing no journal entry of
     its own.
     """
-    if os.path.lexists(output_path):
+    # The output path string stands judged before any
+    # filesystem call can raise on it (Step 17 round 2
+    # entry S17-R2-077): a string carrying a NUL character
+    # or a lone surrogate can name no destination, and the
+    # write step fails on it in its stated governed form
+    # alone, row X-9, DESTINATION_EXISTS, after every
+    # target completed, as every other write failure of
+    # this step does.
+    if isinstance(output_path, str) and "\x00" in output_path:
+        _fail(
+            "DESTINATION_EXISTS",
+            "the WatchRun output path names no destination "
+            "a filesystem call can state: %s"
+            % (output_path.encode(
+                "utf-8", "backslashreplace").decode("utf-8"),))
+    if isinstance(output_path, str):
+        try:
+            output_path.encode("utf-8")
+        except UnicodeEncodeError:
+            _fail(
+                "DESTINATION_EXISTS",
+                "the WatchRun output path names no "
+                "destination a filesystem call can state")
+    try:
+        occupied = os.path.lexists(output_path)
+    except (ValueError, UnicodeError, OSError):
+        _fail(
+            "DESTINATION_EXISTS",
+            "the WatchRun output path names no destination "
+            "a filesystem call can state")
+    if occupied:
         _fail(
             "DESTINATION_EXISTS",
             "the WatchRun output path stands occupied and "
@@ -992,7 +1083,7 @@ def _write_output(result, output_path, form):
             "DESTINATION_EXISTS",
             "the WatchRun output path stands occupied and "
             "stands never replaced: %s" % output_path)
-    except OSError as exc:
+    except (OSError, ValueError, UnicodeError) as exc:
         _fail(
             "DESTINATION_EXISTS",
             "the WatchRun artefact write failed: %s" % (exc,))

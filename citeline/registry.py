@@ -196,11 +196,20 @@ def _registry_lock(home):
     and is always taken after this one, never before it.
     """
     home_text = str(home)
-    os.makedirs(home_text, exist_ok=True)
-    handle = open(
-        os.path.join(home_text, ".citeline-registry.lock"), "a+")
     try:
-        fcntl.flock(handle, fcntl.LOCK_EX)
+        os.makedirs(home_text, exist_ok=True)
+        handle = open(
+            os.path.join(home_text, ".citeline-registry.lock"), "a+")
+    except OSError as exc:
+        _fail("VALIDATION_FAILED",
+              "the registry lock file cannot be opened: %s" % (exc,))
+    try:
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX)
+        except OSError as exc:
+            handle.close()
+            _fail("VALIDATION_FAILED",
+                  "the registry lock cannot be taken: %s" % (exc,))
         yield
     finally:
         try:
@@ -505,7 +514,12 @@ def find_product(home, product):
     """
     if product is None:
         return None
-    wanted = str(product)
+    # Address resolution stands at the same boundary as
+    # registration: a name input stands in NFC form before
+    # it is compared with the stored name, so the two
+    # Unicode spellings of one name name the one product
+    # here as they do at registration (brief item 151).
+    wanted = unicodedata.normalize("NFC", str(product))
     state = _fold_registry(home)
     if wanted in state:
         return state[wanted]
@@ -586,6 +600,11 @@ def _normalise_competitor(value, index=0):
         aliases = getattr(value, "aliases", [])
         competitor_id = getattr(value, "competitor_id", None)
     name = validate_name(name, "competitor name")
+    if not _slugify(name):
+        _fail("VALIDATION_FAILED",
+              "a competitor name that forms no slug forms no "
+              "competitor identity: a slug begins and ends "
+              "with a letter or a digit")
     domain = validate_domain(domain, allow_empty=True)
     aliases = _validate_aliases(aliases)
     base = competitor_id_for_name(name)
@@ -638,6 +657,9 @@ def _validate_query_set(query_set):
     for query in query_set:
         if not isinstance(query, str) or query == "":
             _fail("VALIDATION_FAILED", "a query must be a string")
+        if _has_surrogate(query):
+            _fail("VALIDATION_FAILED",
+                  "a query must carry no lone surrogate characters")
         if len(query) > 2000:
             _fail("LIMIT_EXCEEDED", "query text length limit is 2000")
         out.append(query)

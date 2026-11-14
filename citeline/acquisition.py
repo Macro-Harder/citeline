@@ -674,9 +674,46 @@ def _strip_detection_exclusions(text):
     return "\n".join(out)
 
 
+def _skip_leading_furniture(text):
+    """Step over the leading furniture of a document: HTML
+    comments and XML or processing instruction forms that
+    stand before its own content. A comment ends where the
+    parser ends it, at the two hyphen close or at the bang
+    close, and the two abrupt spellings stand as complete
+    comments. An unterminated form steps over nothing and
+    the text stands as it stood."""
+    index = 0
+    length = len(text)
+    while True:
+        while index < length and text[index] in " \t\r\n":
+            index += 1
+        if text.startswith("<!--", index):
+            if text.startswith("<!-->", index):
+                index += 5
+                continue
+            if text.startswith("<!--->", index):
+                index += 6
+                continue
+            ends = [pos for pos in (
+                text.find("-->", index + 4),
+                text.find("--!>", index + 4)) if pos >= 0]
+            if not ends:
+                return text[index:]
+            end = min(ends)
+            index = end + (4 if text.startswith("--!>", end) else 3)
+            continue
+        if text.startswith("<?", index):
+            close = text.find("?>", index + 2)
+            if close < 0:
+                return text[index:]
+            index = close + 2
+            continue
+        return text[index:]
+
+
 def _content_format(text):
     visible = _strip_detection_exclusions(text)
-    probe = visible.lstrip("\ufeff \t\r\n")
+    probe = _skip_leading_furniture(visible.lstrip("\ufeff \t\r\n"))
     low = probe.casefold()
     if low.startswith("<!doctype html") or low.startswith("<html"):
         return "html"
@@ -686,7 +723,9 @@ def _content_format(text):
                 r"dl|dt|dd|li|thead|tbody|tr|td|th|caption|"
                 r"em|strong|small|code|kbd|abbr|cite|q|time|mark|"
                 r"sub|sup|i|b|u|s|a|img|video|audio|canvas|svg|"
-                r"details|summary|address|hr|br|wbr)\b",
+                r"details|summary|address|hr|br|wbr|button|"
+                r"textarea|select|label|iframe|title|hgroup|"
+                r"legend|script|style)\b",
                 probe):
         return "html"
     for line in visible.splitlines():
@@ -699,7 +738,7 @@ def _content_format(text):
             return "markdown"
         if re.match(r"^[-*+]\s+\S", stripped):
             return "markdown"
-        if re.search(r"\[[^\]]+\]\([^)]+\)", stripped):
+        if _inline_link_spans(stripped):
             return "markdown"
         if stripped.startswith(">"):
             return "markdown"
@@ -780,6 +819,106 @@ def detect_format(content, declared_format=None, filename=None, **kwargs):
 # structure, outside any fence and outside any blockquote.
 # ----------------------------------------------------------------
 
+def _scan_tag_end(text, start):
+    """The index of the bracket that closes the tag standing
+    at start, read as the parser reads a tag: a bracket
+    inside a quoted attribute value does not close the tag.
+    Returns -1 where no closing bracket stands."""
+    quote = None
+    index = start + 1
+    while index < len(text):
+        ch = text[index]
+        if quote is not None:
+            if ch == quote:
+                quote = None
+        elif ch in ("\"", "'"):
+            quote = ch
+        elif ch == ">":
+            return index
+        index += 1
+    return -1
+
+
+def _leading_structure(text):
+    """Read the file's own leading structure as markup.
+
+    Returns the doctype declarations that stand before the
+    root element, each read whole across quoted brackets,
+    and the root element opening tag, read whole on the
+    same terms, or None where no root element stands. A
+    spelling inside a comment, inside a declaration, or
+    inside the raw text of a script, style, textarea, or
+    title element is not structure: it claims no root
+    position and shadows nothing, and a marker spelling in
+    those places counts for nothing. The scan walks the
+    file once, in file order."""
+    doctypes = []
+    index = 0
+    length = len(text)
+    while index < length:
+        lt = text.find("<", index)
+        if lt < 0:
+            break
+        if text.startswith("<!--", lt):
+            if text.startswith("<!-->", lt):
+                index = lt + 5
+                continue
+            if text.startswith("<!--->", lt):
+                index = lt + 6
+                continue
+            ends = [pos for pos in (
+                text.find("-->", lt + 4),
+                text.find("--!>", lt + 4)) if pos >= 0]
+            if not ends:
+                break
+            end = min(ends)
+            index = end + (4 if text.startswith("--!>", end) else 3)
+            continue
+        if text.startswith("<![CDATA[", lt):
+            end = text.find("]]>", lt + 9)
+            if end < 0:
+                break
+            index = end + 3
+            continue
+        if text.startswith("<!", lt) or text.startswith("<?", lt):
+            end = _scan_tag_end(text, lt)
+            if end < 0:
+                break
+            chunk = text[lt:end + 1]
+            if chunk.casefold().startswith("<!doctype"):
+                doctypes.append(chunk)
+            index = end + 1
+            continue
+        match = re.match(r"<(/?)([A-Za-z][A-Za-z0-9]*)", text[lt:])
+        if not match:
+            index = lt + 1
+            continue
+        end = _scan_tag_end(text, lt)
+        if end < 0:
+            break
+        chunk = text[lt:end + 1]
+        closing = match.group(1) == "/"
+        name = match.group(2).casefold()
+        if not closing and name == "html":
+            return doctypes, chunk
+        self_closed = chunk[:-1].rstrip().endswith("/")
+        if not closing and not self_closed and name in (
+                "script", "style", "textarea", "title"):
+            close_match = re.search(
+                r"</%s(?=[\s/>])" % name, text[end + 1:],
+                flags=re.I)
+            if close_match is None:
+                break
+            close_start = end + 1 + close_match.start()
+            close_end = text.find(">", close_start)
+            if close_end < 0:
+                break
+            index = close_end + 1
+            continue
+        index = end + 1
+    return doctypes, None
+
+
 def _check_containers(raw, text):
     visible = _strip_detection_exclusions(text)
     # The container rule reads the file's own leading
@@ -790,13 +929,18 @@ def _check_containers(raw, text):
     # container, the header block that runs to the first
     # blank line. No fixed character window bounds any of
     # those, so padding inside the leading structure
-    # cannot push a marker past the rule.
-    root = re.search(r"(?is)<html\b([^>]*)>", visible)
-    leading = visible[:root.start()] if root else visible
-    if re.search(r"(?is)<!doctype[^>]*xhtml", leading):
-        _fail("PAGE_EXTRACTION_FAILED",
-              "container failure: the file stands marked as XHTML")
-    if root and "http://www.w3.org/1999/xhtml" in root.group(1):
+    # cannot push a marker past the rule. The structure
+    # stands read as markup, on the file's own structure:
+    # tags stand read whole across quoted brackets, and a
+    # spelling inside a comment or inside raw text is not
+    # the file's doctype and is not its root element.
+    doctypes, root_tag = _leading_structure(visible)
+    for doctype in doctypes:
+        if "xhtml" in doctype.casefold():
+            _fail("PAGE_EXTRACTION_FAILED",
+                  "container failure: the file stands marked as XHTML")
+    if root_tag is not None \
+            and "http://www.w3.org/1999/xhtml" in root_tag:
         _fail("PAGE_EXTRACTION_FAILED",
               "container failure: the file stands marked as XHTML")
     header_block = re.split(r"\r?\n[ \t]*\r?\n", visible,
@@ -820,7 +964,17 @@ def _check_containers(raw, text):
 # of at most one, and one read of the opened handle.
 # ----------------------------------------------------------------
 
-def _read_supplied_file(page_path):
+def _read_supplied_file(page_path, size_limit_bytes=None):
+    # The page file size limit in force over the run, in
+    # bytes, where the caller states one (Step 17 round 2
+    # entry S17-R2-085): one reading of the limits in force
+    # governs this gate and the service preflight gate, so
+    # the brief default constant stands only where no
+    # value in force reaches this reading.
+    limit_bytes = size_limit_bytes if isinstance(
+        size_limit_bytes, (int, float)) else _PAGE_FILE_LIMIT
+    limit_label = "%s MiB" % (
+        "%g" % (limit_bytes / (1024 * 1024)),)
     path_text = str(page_path)
     if "\x00" in path_text:
         _fail("SUPPLIED_PATH_UNSAFE",
@@ -870,10 +1024,10 @@ def _read_supplied_file(page_path):
             _fail("SUPPLIED_PATH_UNSAFE",
                   "a supplied file with a hard link count above 1 "
                   "is rejected")
-        if opened.st_size > _PAGE_FILE_LIMIT:
+        if opened.st_size > limit_bytes:
             _fail("LIMIT_EXCEEDED",
-                  "page file size limit is 2 MiB, with rejection "
-                  "and no partial record")
+                  "page file size limit is %s, with rejection "
+                  "and no partial record" % (limit_label,))
         chunks = []
         total = 0
         while True:
@@ -882,10 +1036,11 @@ def _read_supplied_file(page_path):
                 break
             chunks.append(chunk)
             total += len(chunk)
-            if total > _PAGE_FILE_LIMIT:
+            if total > limit_bytes:
                 _fail("LIMIT_EXCEEDED",
-                      "page file size limit is 2 MiB, with "
-                      "rejection and no partial record")
+                      "page file size limit is %s, with "
+                      "rejection and no partial record"
+                      % (limit_label,))
         return b"".join(chunks)
     finally:
         os.close(descriptor)
@@ -986,35 +1141,56 @@ _BLOCK_ELEMENTS = {
 _HEADING_TAGS = {"h1", "h2", "h3", "h4", "h5", "h6"}
 
 
+class _ScriptStyleScanner(HTMLParser):
+    """Count script and style elements as the parser reads
+    them. The parser itself decides what stands inside a
+    comment, what stands inside a quoted attribute value,
+    where a comment ends, which closing spellings close an
+    element, and where the raw text of an open element
+    ends, so the count and the extraction parser can no
+    longer read the same material two ways."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.open_tag = None
+        self.stray = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag in ("script", "style") and self.open_tag is None:
+            self.open_tag = tag
+
+    def handle_startendtag(self, tag, attrs):
+        # A self closed element is complete with no body
+        # and no closing tag: it counts as no opening.
+        pass
+
+    def handle_endtag(self, tag):
+        if tag in ("script", "style"):
+            if self.open_tag == tag:
+                self.open_tag = None
+            else:
+                self.stray.append(tag)
+
+
 def _check_script_style(text):
-    # Tag spellings inside an HTML comment are not tags:
-    # the parser never treats them as opening or closing
-    # the element, so they stand removed before any count.
-    # A self closed element (its opening spelling ending
-    # in "/>") is complete with no body and no closing
-    # tag, so it does not count as an opening either.
-    visible = re.sub(r"<!--.*?(?:-->|\Z)", "", text, flags=re.S)
-    low = visible.casefold()
-    for tag in ("script", "style"):
-        opens = 0
-        for match in re.finditer(r"<%s(\s[^>]*)?>" % tag, low):
-            if match.group(0).endswith("/>"):
-                continue
-            opens += 1
-        closes = len(re.findall(r"</%s\s*>" % tag, low))
-        if opens > closes:
-            _fail("PAGE_EXTRACTION_FAILED",
-                  "an unclosed %s element fails closed" % tag)
-        if closes > opens:
-            _fail("PAGE_EXTRACTION_FAILED",
-                  "content inside a %s element stands ambiguous "
-                  "and fails closed" % tag)
-        # A closing tag inside a script or style body, in a
-        # string or otherwise, leaves the body ambiguous
-        # where material follows the first close and then a
-        # second close stands. The count rule above covers
-        # that case; a lone close with trailing markup and
-        # no second close stands read as written.
+    # The count reads the elements in file order, through
+    # the same parser the extraction reads: an element the
+    # parser leaves open at the end of the file stands
+    # unclosed, and a closing spelling the parser reads
+    # with no element open for it leaves the content
+    # ambiguous, as a closing tag standing inside a script
+    # body does when a second closing spelling follows it.
+    scanner = _ScriptStyleScanner()
+    scanner.feed(text)
+    scanner.close()
+    if scanner.open_tag is not None:
+        _fail("PAGE_EXTRACTION_FAILED",
+              "an unclosed %s element fails closed"
+              % scanner.open_tag)
+    if scanner.stray:
+        _fail("PAGE_EXTRACTION_FAILED",
+              "content inside a %s element stands ambiguous "
+              "and fails closed" % scanner.stray[0])
 
 
 class _PageHTMLParser(HTMLParser):
@@ -1748,8 +1924,28 @@ def _build_extracted(fmt, text, notes,
 
 def _extract_inner(home, product_id, page_path, declared_format,
                    audit_date, evaluated_page_path,
-                   capture_date_asserted, capture_method_asserted):
-    raw = _read_supplied_file(page_path)
+                   capture_date_asserted, capture_method_asserted,
+                   run_id=None):
+    # One reading of the limits in force for this run
+    # governs every extraction gate below (Step 17 round 2
+    # entry S17-R2-085): the reading stands taken under
+    # the run identity the service states for the run, so
+    # a raise for that run and a config value both reach
+    # the page size gate and the extracted text gate here,
+    # as they reach the service preflight.
+    limits_in_force = {}
+    try:
+        from citeline import journal as journal_module
+        limits_in_force = journal_module.effective_limits(
+            str(home), run_id=run_id) or {}
+    except Exception:
+        limits_in_force = {}
+    page_size_value = (
+        limits_in_force.get("page_file_size") or {}).get("value")
+    size_limit_bytes = page_size_value * 1024 * 1024 if isinstance(
+        page_size_value, (int, float)) else None
+    raw = _read_supplied_file(
+        page_path, size_limit_bytes=size_limit_bytes)
     notes = []
     if raw.startswith(b"\xef\xbb\xbf"):
         notes.append("bom_stripped")
@@ -1778,13 +1974,12 @@ def _extract_inner(home, product_id, page_path, declared_format,
     # be read, the brief default constant governs, as
     # before.
     extracted_text_limit = _EXTRACTED_TEXT_LIMIT
-    try:
-        from citeline import journal as journal_module
-        extracted_text_limit = journal_module.effective_limits(
-            str(home))[
-                "extracted_text_length_per_page_or_answer"]["value"]
-    except Exception:
-        pass
+    stated_text_limit = (
+        limits_in_force.get(
+            "extracted_text_length_per_page_or_answer")
+        or {}).get("value")
+    if isinstance(stated_text_limit, (int, float)):
+        extracted_text_limit = stated_text_limit
     extracted = _build_extracted(
         fmt, text, notes, extracted_text_limit=extracted_text_limit)
     running = extracted["running_text"]
@@ -1794,9 +1989,17 @@ def _extract_inner(home, product_id, page_path, declared_format,
     else:
         outcome = "ok"
         reason_code = None
-    sequence = _next_sequence(home)
+    # The snapshot identity derives from the journal
+    # sequence of the entry that stores the record, on the
+    # plan identifier derivation table: the marker stands
+    # in the payload in place of any count read taken here,
+    # and the journal append resolves it under its write
+    # lock at the moment the sequence stands assigned, in
+    # the form the S17-R1-077 cure established for the
+    # answer and run limbs, so no count read outside the
+    # lock can mint an identity another append also mints.
     snapshot = {
-        "snapshot_id": "snap-%d" % sequence,
+        "snapshot_id": "snap-{sequence}",
         "product_id": product_id,
         "supplied_path": str(page_path),
         "evaluated_page_path": evaluated_page_path or "/",
@@ -1842,11 +2045,32 @@ def extract_page(home, product_id=None, page_path=None, audit_date=None,
         home, product_id, page_path, declared_format, audit_date,
         evaluated_page_path,
         kwargs.get("capture_date_asserted"),
-        kwargs.get("capture_method_asserted"))
+        kwargs.get("capture_method_asserted"),
+        run_id=kwargs.get("run_id"))
     snapshot = result["snapshot"]
+    if kwargs.get("register_snapshot", True) is False:
+        # The caller registers the snapshot itself, in the
+        # same batch as the record the snapshot belongs to
+        # (Step 17 round 2 entry S17-R2-072): the snapshot
+        # stands returned with its sequence marker
+        # unresolved, for the caller's batch append to
+        # resolve under its lock.
+        return result
     if _journal_or_none() is not None:
-        _journal_append(home, "snapshot_registered",
-                        dict(snapshot), audit_date)
+        appended = _journal_append(home, "snapshot_registered",
+                                   dict(snapshot), audit_date)
+        stored = appended.get("payload") \
+            if isinstance(appended, dict) else None
+        if isinstance(stored, dict) and stored.get("snapshot_id"):
+            # The returned snapshot is the stored record, so
+            # the identity it carries is the one the append
+            # resolved from its storing sequence.
+            result = {"snapshot": dict(stored),
+                      "extracted": result["extracted"]}
+        else:
+            snapshot["snapshot_id"] = "snap-%d" % _next_sequence(home)
+    else:
+        snapshot["snapshot_id"] = "snap-%d" % _next_sequence(home)
     return result
 
 

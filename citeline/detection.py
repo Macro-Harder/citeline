@@ -30,6 +30,7 @@ no wrapper outcome is produced for a wrapped target, which is
 recorded as the target as written.
 """
 
+import math
 import re
 import unicodedata
 from urllib.parse import urlsplit
@@ -61,8 +62,15 @@ _REF_ENTRY_RE = re.compile(
     r"^\s*(?:[-*+]\s*)?\[?(\d+)\]?\s*[.)]\s+(\S+)(?:\s+.*)?$")
 _BARE_DOMAIN_TOKEN_RE = re.compile(
     r"(?<![A-Za-z0-9._-])(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}"
-    r"(?:[/?#]\S*)?")
+    r"(?::[0-9]+)?\.?(?:[/?#]\S*)?")
 _REFERENCE_DEFINITION_RE = re.compile(r"^\s{0,3}\[[^\]]+\]:\s*\S+")
+_REF_DEF_START_RE = re.compile(r"^\s{0,3}\[[^\]]+\]:\s*(.*)$")
+_SETEXT_UNDERLINE_RE = re.compile(r"^\s{0,3}(=+|-+)\s*$")
+_REF_ENTRY_HEAD_RE = re.compile(
+    r"^\s*(?:[-*+]\s*)?(?:\[(\d+)\]\s*(?:[.)]\s*)?|(\d+)\s*[.)]\s+)"
+    r"(.+)$")
+_BARE_ENTRY_TARGET_RE = re.compile(
+    r"^(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}(?::[0-9]+)?$")
 
 
 def _target_is_valid(target):
@@ -93,16 +101,46 @@ def _mask_non_answer_text(text):
     spans = []
     start = text.find("<!--")
     while start >= 0:
-        close = text.find("-->", start + 4)
-        end = len(text) if close < 0 else close + 3
+        end = len(text)
+        if text.startswith("<!-->", start):
+            end = start + 5
+        elif text.startswith("<!--->", start):
+            end = start + 6
+        else:
+            close = text.find("-->", start + 4)
+            bang = text.find("--!>", start + 4)
+            ends = []
+            if close >= 0:
+                ends.append(close + 3)
+            if bang >= 0:
+                ends.append(bang + 4)
+            if ends:
+                end = min(ends)
         spans.append((start, end))
         start = text.find("<!--", end)
     masked = _mask_spans(text, spans)
     lines = masked.split("\n")
+    masked_line_indexes = set()
+    for idx, line in enumerate(lines):
+        match = _REF_DEF_START_RE.match(line)
+        if not match:
+            continue
+        masked_line_indexes.add(idx)
+        following = idx + 1
+        if not match.group(1).strip():
+            if following < len(lines) and lines[following].strip():
+                masked_line_indexes.add(following)
+                following += 1
+        if following < len(lines):
+            title = lines[following]
+            stripped = title.strip()
+            if (title[:1] in (" ", "\t") and stripped[:1]
+                    in ("\"", "'", "(")):
+                masked_line_indexes.add(following)
     position = 0
     line_spans = []
-    for line in lines:
-        if _REFERENCE_DEFINITION_RE.match(line):
+    for idx, line in enumerate(lines):
+        if idx in masked_line_indexes:
             line_spans.append((position, position + len(line)))
         position += len(line) + 1
     return _mask_spans(masked, line_spans)
@@ -336,12 +374,37 @@ def _masked_for_mentions(text):
     length, item 46, so masking shifts no later offset."""
     spans = []
     for match in _LINK_RE.finditer(text):
-        open_paren = match.group(0).index("(") + match.start()
+        # The target opening parenthesis is the one standing
+        # at the link delimiter, judged from the link's own
+        # target parenthesis. A parenthesis inside the link
+        # text stands before it and is not the mask start, so
+        # link text after such a parenthesis stays searched.
+        delimiter = match.group(0).find("](")
+        if delimiter >= 0:
+            open_paren = match.start() + delimiter + 1
+        else:
+            open_paren = match.group(0).rindex("(") + match.start()
         spans.append((open_paren, match.end()))
     masked = _mask_spans(text, spans)
     url_spans = [(start, end) for start, end, _
                  in _bare_url_spans(masked, [])]
     return _mask_spans(masked, url_spans)
+
+
+def _fold_with_map(text):
+    """Case fold a text one character at a time, keeping a map
+    from each folded position to the position of its source
+    character in the supplied text. A character whose fold is
+    longer than one character, such as a sharp s folding to
+    two letters, would otherwise shift every later position
+    when folded positions are read as supplied positions."""
+    folded_parts = []
+    mapping = []
+    for index, char in enumerate(text):
+        piece = char.casefold()
+        folded_parts.append(piece)
+        mapping.extend([index] * len(piece))
+    return "".join(folded_parts), mapping
 
 
 def _scan_mentions(masked_text, names):
@@ -353,7 +416,8 @@ def _scan_mentions(masked_text, names):
     search runs case insensitively for all names. Returns a
     list of (offset, registered name) in file order.
     """
-    folded_text = unicodedata.normalize("NFC", masked_text).casefold()
+    supplied_text = unicodedata.normalize("NFC", masked_text)
+    folded_text, fold_map = _fold_with_map(supplied_text)
     prepared = []
     for position, name in enumerate(names):
         if not name:
@@ -375,13 +439,16 @@ def _scan_mentions(masked_text, names):
                 continue
             if folded_text[index:end] != folded_name:
                 continue
-            if index > 0 and (folded_text[index - 1].isalpha()
-                              or folded_text[index - 1].isdigit()):
+            origin = fold_map[index]
+            origin_end = fold_map[end - 1] + 1 if end > index else origin
+            if origin > 0 and (supplied_text[origin - 1].isalpha()
+                               or supplied_text[origin - 1].isdigit()):
                 continue
-            if end < length and (folded_text[end].isalpha()
-                                 or folded_text[end].isdigit()):
+            if origin_end < len(supplied_text) and (
+                    supplied_text[origin_end].isalpha()
+                    or supplied_text[origin_end].isdigit()):
                 continue
-            matched = (index, name, end)
+            matched = (origin, name, end)
             break
         if matched is None:
             index += 1
@@ -394,26 +461,52 @@ def _scan_mentions(masked_text, names):
 def _domain_offsets(masked_text, domain):
     if not domain:
         return []
-    needle = str(domain).casefold()
+    needle = unicodedata.normalize("NFC", str(domain)).casefold()
     found = []
     start = 0
-    folded_text = masked_text.casefold()
+    supplied_text = unicodedata.normalize("NFC", masked_text)
+    folded_text, fold_map = _fold_with_map(supplied_text)
     while True:
         index = folded_text.find(needle, start)
         if index < 0:
             return found
         end = index + len(needle)
-        before_char = masked_text[index - 1] if index > 0 else ""
-        after_char = masked_text[end] if end < len(masked_text) else ""
+        origin = fold_map[index]
+        origin_end = fold_map[end - 1] + 1 if end > index else origin
+        before_char = supplied_text[origin - 1] if origin > 0 else ""
+        after_char = (supplied_text[origin_end]
+                      if origin_end < len(supplied_text) else "")
         before_ok = not (
             before_char.isalpha() or before_char.isdigit()
             or before_char in ("-", "@"))
-        after_ok = not (
-            after_char.isalpha() or after_char.isdigit()
-            or after_char in ("-", "."))
+        if after_char == ".":
+            # The boundary is judged on what follows the dot.
+            # A label character after the dot continues the
+            # host, as in a lookalike host, and bars the hit.
+            # Anything else, a space, a slash, or the end of
+            # the text, means the dot ends the sentence, the
+            # line, or the host itself, and the hit stands.
+            following = (supplied_text[origin_end + 1]
+                         if origin_end + 1 < len(supplied_text) else "")
+            after_ok = not (
+                following.isalpha() or following.isdigit()
+                or following == "-")
+        else:
+            after_ok = not (
+                after_char.isalpha() or after_char.isdigit()
+                or after_char == "-")
         if before_ok and after_ok:
-            found.append(index)
+            found.append(origin)
         start = index + 1
+
+
+def _clean_heading_text(text):
+    """Clean a heading's text for the closed set comparison:
+    trailing punctuation of any kind is ignored, item 160."""
+    cleaned = text.strip()
+    while cleaned and not cleaned[-1].isalnum():
+        cleaned = cleaned[:-1]
+    return cleaned.strip().casefold()
 
 
 def _split_sections(text):
@@ -437,20 +530,34 @@ def _split_sections(text):
         offsets.append(position)
         position += len(line) + 1
     headings = {}
+    setext_underlines = set()
     for idx, line in enumerate(lines):
         match = _HEADING_RE.match(line)
         if match:
             cleaned = match.group(2).strip().rstrip("#").strip()
-            cleaned = cleaned.rstrip(".:;!").strip().casefold()
+            cleaned = _clean_heading_text(cleaned)
             headings[idx] = (len(match.group(1)),
                              cleaned in REFERENCES_HEADINGS)
             continue
+        if line.strip() and idx + 1 < len(lines):
+            underline = _SETEXT_UNDERLINE_RE.match(lines[idx + 1])
+            if underline:
+                cleaned = _clean_heading_text(line.strip())
+                level = 1 if underline.group(1).startswith("=") else 2
+                headings[idx] = (level,
+                                 cleaned in REFERENCES_HEADINGS)
+                setext_underlines.add(idx + 1)
     ref_lines = set()
     governing = {}
     current_ref = False
     current_level = None
     current_heading = None
     for idx in range(len(lines)):
+        if idx in setext_underlines:
+            governing[idx] = current_heading
+            if current_ref:
+                ref_lines.add(idx)
+            continue
         if idx in headings:
             level, is_ref = headings[idx]
             if current_level is None or level <= current_level:
@@ -517,13 +624,67 @@ def _is_item_line(line):
     return False
 
 
+def _entry_target(rest):
+    """The target an entry gives, in its stated entry forms:
+    a markdown link gives its destination, an angle bracket
+    form gives the target inside the brackets, and any other
+    form gives its first token."""
+    rest = rest.strip()
+    if not rest:
+        return ""
+    link = _LINK_RE.search(rest)
+    if link:
+        return link.group(2)
+    angle = re.search(r"<([^>\s]+)>", rest)
+    if angle:
+        return angle.group(1)
+    return _clean_target(rest.split()[0].strip("<>"))
+
+
 def _reference_entries(references_text):
     entries = {}
     for line in references_text.split("\n"):
-        match = _REF_ENTRY_RE.match(line)
-        if match:
-            entries[match.group(1)] = _clean_target(match.group(2))
+        match = _REF_ENTRY_HEAD_RE.match(line)
+        if not match:
+            continue
+        number = match.group(1) or match.group(2)
+        try:
+            key = str(int(number))
+        except ValueError:
+            key = number
+        target = _entry_target(match.group(3))
+        if target:
+            entries[key] = target
     return entries
+
+
+def _bracket_number_key(number):
+    try:
+        return str(int(number))
+    except (TypeError, ValueError):
+        return number
+
+
+def _resolved_target_cited(target, domain):
+    """Whether a resolved references entry target counts as a
+    citation to the domain, item 31 with item 1. A target in
+    URL form stands under the ordinary validity gate. A bare
+    domain target in a reference position counts as cited to
+    its own host."""
+    if not target or not domain:
+        return False
+    text = str(target).strip().strip("<>")
+    if "://" in text:
+        scheme, host = _host_of(text)
+        return scheme in ("http", "https") \
+            and _target_is_valid(text) \
+            and _host_matches_domain(host, domain)
+    host_part = re.split(r"[/?#]", text, maxsplit=1)[0]
+    host_part = host_part.rsplit("@", 1)[-1]
+    if not _BARE_ENTRY_TARGET_RE.match(host_part):
+        return False
+    host = host_part.split(":", 1)[0]
+    return _host_matches_domain(host, domain)
 
 
 def _entity_outcome(chunk_masked_source, chunk_text, entity):
@@ -606,13 +767,10 @@ def detect_answer(text, product, competitors):
     for match in _BRACKET_RE.finditer(prose_text):
         if prose_text[match.end():match.end() + 1] == "(":
             continue
-        number = match.group(1)
+        number = _bracket_number_key(match.group(1))
         if number in entries:
-            scheme, host = _host_of(entries[number])
             domain = _get(product, "domain", "") or ""
-            if scheme in ("http", "https") \
-                    and _target_is_valid(entries[number]) \
-                    and _host_matches_domain(host, domain):
+            if _resolved_target_cited(entries[number], domain):
                 cited = True
         else:
             unresolved += 1
@@ -624,12 +782,12 @@ def detect_answer(text, product, competitors):
         comp_domain = _get(competitor, "domain", "") or ""
         if not comp_cited:
             for match in _BRACKET_RE.finditer(prose_text):
-                number = match.group(1)
+                if prose_text[match.end():match.end() + 1] == "(":
+                    continue
+                number = _bracket_number_key(match.group(1))
                 if number in entries:
-                    scheme, host = _host_of(entries[number])
-                    if scheme in ("http", "https") \
-                            and _target_is_valid(entries[number]) \
-                            and _host_matches_domain(host, comp_domain):
+                    if _resolved_target_cited(
+                            entries[number], comp_domain):
                         comp_cited = True
                         break
         if comp_domain == "":
@@ -720,16 +878,59 @@ def cluster_answers(texts):
             parent[max(root_first, root_second)] = min(
                 root_first, root_second)
 
-    for first in range(len(texts)):
-        for second in range(first + 1, len(texts)):
-            first_set = shingle_sets[first]
-            second_set = shingle_sets[second]
+    # Identical shingle sets are similar, and for an empty set
+    # the normalised text decides, so answers are first grouped
+    # by the pair of both and the pair work runs over groups.
+    groups = {}
+    group_of = []
+    for index in range(len(texts)):
+        key = (frozenset(shingle_sets[index]),
+               normalised[index] if not shingle_sets[index] else None)
+        if key not in groups:
+            groups[key] = []
+        groups[key].append(index)
+        group_of.append(key)
+    keys = list(groups)
+    for key in keys:
+        members = groups[key]
+        for index in members[1:]:
+            union(members[0], index)
+    if not any(not key[0] for key in keys):
+        sizes = {len(key[0]) for key in keys}
+        if len(sizes) == 1 and keys:
+            size = sizes.pop()
+            alpha = -(-8 * size // 9)
+            deletions = size - alpha
+            import itertools
+            if size and math.comb(size, deletions) <= 2000:
+                # Two sets of this size are similar exactly
+                # where they share a subset of alpha shingles,
+                # so grouping by those subsets joins every
+                # similar pair without storing one result
+                # per pair.
+                by_subset = {}
+                for group_index, key in enumerate(keys):
+                    ordered = sorted(key[0], key=hash)
+                    for subset in itertools.combinations(
+                            ordered, alpha):
+                        by_subset.setdefault(subset, []).append(
+                            group_index)
+                for members in by_subset.values():
+                    for other in members[1:]:
+                        union(groups[keys[members[0]]][0],
+                              groups[keys[other]][0])
+                return [find(index) for index in range(len(texts))]
+    for first in range(len(keys)):
+        for second in range(first + 1, len(keys)):
+            first_set = keys[first][0]
+            second_set = keys[second][0]
             if not first_set or not second_set:
-                similar = normalised[first] == normalised[second]
+                similar = normalised[groups[keys[first]][0]] == \
+                    normalised[groups[keys[second]][0]]
             else:
                 shared = len(first_set & second_set)
-                union_size = len(first_set | second_set)
+                union_size = len(first_set) + len(second_set) - shared
                 similar = union_size > 0 and shared / union_size >= 0.80
             if similar:
-                union(first, second)
+                union(groups[keys[first]][0], groups[keys[second]][0])
     return [find(index) for index in range(len(texts))]

@@ -31,9 +31,15 @@ import os
 import re
 import stat
 import unicodedata
-from datetime import date
+from datetime import date, datetime
 
 ENGINE_LABEL_LIMIT = 200
+CAPTURE_METHOD_LIMIT = 2000
+ERROR_MESSAGE_LIMIT = 500
+FRONT_MATTER_BLOCK_LIMIT = 16 * 1024
+FRONT_MATTER_KEY_LIMIT = 100
+FRONT_MATTER_VALUE_LIMIT = 4096
+FRONT_MATTER_JSON_DEPTH_LIMIT = 100
 ANSWER_FILE_LIMIT = 1024 * 1024
 CONTROL_CAP = 5
 KINDS = ("real_sample", "fixture")
@@ -66,6 +72,15 @@ class ProbeImportError(Exception):
         self.error_value = error_value
         message = error_value if not detail else (
             error_value + ": " + detail)
+        # The error message length limit (limit 33, 500
+        # characters) binds every surface the product emits,
+        # the message raised to a library caller included, not
+        # only the recorded and printed forms (entry
+        # S17-R2-088). The token stands at the head of the
+        # message, so bounding the message keeps the token and
+        # the opening of the detail standing.
+        if len(message) > ERROR_MESSAGE_LIMIT:
+            message = message[:ERROR_MESSAGE_LIMIT]
         super().__init__(message)
 
 
@@ -86,6 +101,16 @@ def normalise_engine_label(label):
 
 
 def _parse_date(value, field_name):
+    if isinstance(value, datetime):
+        # A datetime is a date subclass, but it is not the
+        # date form the contract states, and comparing one
+        # against a plain date raises a raw TypeError on the
+        # worksheet seam, outside the recorded vocabulary
+        # (entry S17-R2-041). It refuses here, in the
+        # vocabulary, on every route alike.
+        _fail("IMPORT_VALIDATION_FAILED",
+              field_name + " must stand as ISO date text in the "
+              "form YYYY-MM-DD or as a date, not as a datetime")
     if isinstance(value, date):
         return value
     if not isinstance(value, str):
@@ -182,6 +207,35 @@ def _delimited_test(text):
     return len({len(record) for record in rows}) == 1
 
 
+def _is_head_char(char):
+    """One character of head material the form tests skip.
+
+    Byte order marks, control bytes, whitespace, and zero
+    width format characters stand in this set. The head
+    reading removes them in any interleaving and in any
+    number, so a mark standing after a control byte or a
+    space, a third mark, and a zero width space shield
+    nothing behind them (entry S17-R2-033, completing the
+    S17-R1-032 cure, which removed one mark and then the
+    control bytes in that order and only at the very
+    start).
+    """
+    return (
+        char == "\ufeff"
+        or ord(char) < 0x20
+        or ord(char) == 0x7f
+        or char in " \t\n\r\f"
+        or unicodedata.category(char) == "Cf")
+
+
+def _strip_head(text):
+    """The text past any interleaved head material."""
+    index = 0
+    while index < len(text) and _is_head_char(text[index]):
+        index += 1
+    return text[index:]
+
+
 def _detection_text(text):
     """The text the form tests read, at the head of a file.
 
@@ -192,37 +246,51 @@ def _detection_text(text):
     The stored text keeps its own form; only the tests read
     through this head.
     """
-    stripped = text
-    if stripped.startswith("\ufeff"):
-        stripped = stripped[1:]
-    index = 0
-    while index < len(stripped) and (
-            ord(stripped[index]) < 0x20 or ord(stripped[index]) == 0x7f
-            or stripped[index] in " \t\n\r\f"):
-        index += 1
-    return stripped[index:]
+    return _strip_head(text)
+
+
+# The byte forms of the head characters the text reading
+# skips, for the raw magic tests: the byte order mark, the
+# zero width space, joiner, and non joiner, the word
+# joiner, the soft hyphen, and the Mongolian vowel
+# separator, beside the single byte control range.
+_HEAD_BYTE_SEQUENCES = (
+    b"\xef\xbb\xbf",
+    b"\xe2\x80\x8b",
+    b"\xe2\x80\x8c",
+    b"\xe2\x80\x8d",
+    b"\xe2\x81\xa0",
+    b"\xe1\xa0\x8b",
+    b"\xc2\xad",
+)
 
 
 def _raw_variants(raw_bytes):
     """The raw heads the magic tests read.
 
-    The plain bytes, the bytes past a byte order mark, and
-    the bytes past a mark and any leading control bytes, so
-    a container signature stands found wherever a mark or a
-    control byte stands in front of it.
+    The plain bytes, and the bytes past any interleaved
+    head material in front of them, so a container
+    signature stands found wherever a mark, a control
+    byte, or a zero width form stands in front of it, in
+    any order and in any number (entry S17-R2-033).
     """
     variants = [raw_bytes]
     body = raw_bytes
-    if body.startswith(b"\xef\xbb\xbf"):
-        body = body[3:]
+    while body:
+        matched = False
+        for sequence in _HEAD_BYTE_SEQUENCES:
+            if body.startswith(sequence):
+                body = body[len(sequence):]
+                matched = True
+                break
+        if matched:
+            continue
+        if body[0] < 0x20 or body[0] == 0x7f or body[0] == 0x20:
+            body = body[1:]
+            continue
+        break
+    if body != raw_bytes:
         variants.append(body)
-    index = 0
-    while index < len(body) and (
-            body[index] < 0x20 or body[index] == 0x7f
-            or body[index] in b" \t\n\r\f"):
-        index += 1
-    if index:
-        variants.append(body[index:])
     return variants
 
 
@@ -283,7 +351,7 @@ def check11_form(raw_bytes, text):
                     break
             if all_json:
                 return "json_lines"
-    delimited = _delimited_test(text)
+    delimited = _delimited_test(first)
     if delimited == "parse_failed":
         _fail("IMPORT_VALIDATION_FAILED",
               "delimited parse could not complete")
@@ -335,6 +403,61 @@ def _form_refusal(form):
               "the import accepts"))
 
 
+def _json_depth(value):
+    """The nesting depth of one parsed JSON value, counted
+    iteratively so a deep value measures without recursion."""
+    depth = 0
+    stack = [(value, 1)]
+    while stack:
+        current, level = stack.pop()
+        if isinstance(current, (dict, list)):
+            depth = max(depth, level)
+            children = current.values() if isinstance(
+                current, dict) else current
+            for child in children:
+                stack.append((child, level + 1))
+    return depth
+
+
+def _front_matter_key_value(line):
+    """One front matter line as its key and value, or None.
+
+    A key written in quotes names the same key as its plain
+    form: the quoted form and the plain form of one key are
+    one key for the duplicate control (entry S17-R2-040).
+    The key reading therefore removes one pair of matching
+    quote characters around the key, and a colon inside a
+    quoted key does not split the line.
+    """
+    text = line.strip()
+    if text[:1] in ("\"", "'"):
+        quote = text[0]
+        index = 1
+        pieces = []
+        while index < len(text):
+            char = text[index]
+            if quote == '"' and char == "\\" and index + 1 < len(text):
+                pieces.append(text[index + 1])
+                index += 2
+                continue
+            if char == quote:
+                if quote == "'" and text[index + 1:index + 2] == "'":
+                    pieces.append("'")
+                    index += 2
+                    continue
+                break
+            pieces.append(char)
+            index += 1
+        rest = text[index + 1:] if index < len(text) else ""
+        if not rest.lstrip().startswith(":"):
+            return None
+        return "".join(pieces), rest.lstrip()[1:].strip()
+    if ":" not in line:
+        return None
+    key, value = line.split(":", 1)
+    return key.strip(), value.strip()
+
+
 def extract_front_matter(text):
     """Split a head front matter block from an answer text.
 
@@ -350,9 +473,19 @@ def extract_front_matter(text):
     brief states. Returns (body_text, had_front_matter).
     A text with no head block returns itself unchanged.
     """
-    lines = text.splitlines()
+    # Head material in front of the fence (a control byte,
+    # a mark, a zero width form) does not move the block off
+    # the head: the block stands read where it stands once
+    # that material is skipped, as the check 11 tests read
+    # through the same head (entry S17-R2-033, front matter
+    # limb). A text whose head holds no fence after that
+    # material returns itself unchanged, head included.
+    working = _strip_head(text)
+    lines = working.splitlines()
     if not lines or lines[0].strip() != "---":
         return text, False
+    text = working
+    lines = text.splitlines()
     closing = None
     for index in range(1, len(lines)):
         if lines[index].strip() in ("---", "..."):
@@ -365,6 +498,21 @@ def extract_front_matter(text):
               "then import the file again")
     block_lines = lines[1:closing]
     block = "\n".join(block_lines).strip()
+    # The Section 5.11 size family of the same control set
+    # stands enforced here, in both front matter forms and
+    # in worksheet slot bodies, which run through this same
+    # reading (entry S17-R2-037): limit 11, block size
+    # 16 KiB, measured in bytes as the page side measures
+    # it; limit 12, key count 100; limit 17, value length
+    # 4,096 characters; and limit 18, JSON nesting depth
+    # 100 on the JSON form. The adapter receives no home,
+    # so the brief values govern here, as they govern the
+    # answer file size at this same seam.
+    if len("\n".join(block_lines).encode("utf-8")) \
+            > FRONT_MATTER_BLOCK_LIMIT:
+        _fail("LIMIT_EXCEEDED",
+              "front matter block size limit is 16 KiB, with "
+              "rejection and no partial record")
     if block.startswith("{"):
         def _no_duplicates(pairs):
             seen = set()
@@ -391,20 +539,52 @@ def extract_front_matter(text):
                   "the front matter block in JSON form does "
                   "not read as one JSON object; fix the block "
                   "or remove it, then import the file again")
+        if len(parsed) > FRONT_MATTER_KEY_LIMIT:
+            _fail("LIMIT_EXCEEDED",
+                  "front matter key count limit is 100, with "
+                  "rejection and no partial record")
+        if _json_depth(parsed) > FRONT_MATTER_JSON_DEPTH_LIMIT:
+            _fail("LIMIT_EXCEEDED",
+                  "JSON nesting depth limit is 100, with "
+                  "rejection and no partial record")
+        for value in parsed.values():
+            if isinstance(value, str):
+                measured = len(value)
+            elif isinstance(value, (dict, list)):
+                measured = len(json.dumps(
+                    value, ensure_ascii=False))
+            else:
+                measured = 0
+            if measured > FRONT_MATTER_VALUE_LIMIT:
+                _fail("LIMIT_EXCEEDED",
+                      "front matter value length limit is "
+                      "4,096 characters, with rejection and "
+                      "no partial record")
     else:
         seen_keys = set()
+        key_count = 0
         for block_line in block_lines:
             if not block_line.strip() or block_line.lstrip() \
                     .startswith("#"):
                 continue
             if block_line[0] in " \t":
                 continue
-            if ":" not in block_line:
+            pair = _front_matter_key_value(block_line)
+            if pair is None:
                 _fail("IMPORT_VALIDATION_FAILED",
                       "a front matter line holds no key and "
                       "value: " + block_line.strip()[:60])
-            key = block_line.split(":", 1)[0].strip()
-            value = block_line.split(":", 1)[1].strip()
+            key, value = pair
+            key_count += 1
+            if key_count > FRONT_MATTER_KEY_LIMIT:
+                _fail("LIMIT_EXCEEDED",
+                      "front matter key count limit is 100, "
+                      "with rejection and no partial record")
+            if len(value) > FRONT_MATTER_VALUE_LIMIT:
+                _fail("LIMIT_EXCEEDED",
+                      "front matter value length limit is "
+                      "4,096 characters, with rejection and "
+                      "no partial record")
             if not key:
                 _fail("IMPORT_VALIDATION_FAILED",
                       "a front matter line holds no key: "
@@ -528,6 +708,17 @@ def validate_adapter_inputs(*, answer_file=None, product=None,
     if len(engine_label) > ENGINE_LABEL_LIMIT:
         _fail("LIMIT_EXCEEDED",
               "engine label length limit is 200 code points")
+    if isinstance(capture_method, str) \
+            and len(capture_method) > CAPTURE_METHOD_LIMIT:
+        # Limit 31 binds the value that governs the stored
+        # record: a slot asserted capture method reaches the
+        # record through this validation, so the limit stands
+        # checked here, on the asserted value itself, and not
+        # only on the value the call carries at the service
+        # seam (entry S17-R2-038).
+        _fail("LIMIT_EXCEEDED",
+              "capture method text length limit is 2,000 "
+              "code points")
     return {
         "answer_file": answer_file,
         "product": product,
@@ -796,7 +987,8 @@ def _record_from_body(validated, *, body_text, raw_bytes,
                       round, product_id=None, round_id=None,
                       answer_id=None,
                       registry_version_at_import=None,
-                      detector_version_at_import=None):
+                      detector_version_at_import=None,
+                      standing_id_resolver=None):
     """Build one AnswerRecord from one answer body.
 
     The body stands already split from any front matter.
@@ -835,6 +1027,13 @@ def _record_from_body(validated, *, body_text, raw_bytes,
               "would count it twice and stands refused")
     if outcome == "contradiction":
         standing_id = _record_field(standing, "answer_id")
+        if standing_id is not None and standing_id_resolver is not None:
+            # The refusal names the standing answer by the
+            # identity it stands under in the journal, never
+            # by an unresolved marker the batch append would
+            # have resolved at its storing sequence (entry
+            # S17-R2-097).
+            standing_id = standing_id_resolver(standing_id)
         name = (" (standing answer " + str(standing_id) + ")"
                 if standing_id is not None else "")
         _fail("CONTRADICTORY_IMPORT",
@@ -861,17 +1060,48 @@ _SLOT_FIELDS = ("query", "engine_label", "kind", "captured_on",
                "capture_method")
 
 
+def _worksheet_lines(text):
+    """The lines of a worksheet text, past its head material.
+
+    A blank line or a control byte saved in front of the
+    header does not move the sheet off its head: leading
+    lines that hold nothing but head material stand
+    skipped, and head material standing on the header line
+    itself stands stripped, so the sheet reads as the
+    sheet it is (entry S17-R2-034). The header line stands
+    first in the returned list, where one stands.
+    """
+    lines = text.splitlines()
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        if line.strip(" \t") == "" and all(
+                _is_head_char(char) for char in line):
+            index += 1
+            continue
+        stripped = line
+        cut = 0
+        while cut < len(stripped) and _is_head_char(stripped[cut]):
+            cut += 1
+        lines[index] = stripped[cut:]
+        break
+    return lines[index:]
+
+
 def is_worksheet_text(text):
     """True where a text is a capture worksheet.
 
     The worksheet carries its own header line, written by
     the export in this module. That header is the mark the
-    import route reads a returned sheet by.
+    import route reads a returned sheet by. A sheet
+    standing behind a blank line or a control byte reads
+    as a sheet here, so it meets the worksheet route or
+    its refusal, and never the plain answer path (entry
+    S17-R2-034).
     """
     if not isinstance(text, str):
         return False
-    stripped = text[1:] if text.startswith("\ufeff") else text
-    lines = stripped.splitlines()
+    lines = _worksheet_lines(text)
     return bool(lines) and lines[0].strip() == WORKSHEET_HEADER
 
 
@@ -940,26 +1170,42 @@ def parse_worksheet(text):
     asserts none) and the body text standing below its
     slot line, up to the next slot line.
     """
-    lines = text.splitlines()
+    lines = _worksheet_lines(text)
     sheet = {"product": None, "round": None, "queries": [],
              "engines": [], "slots": []}
     section = None
     current = None
+    slots_open = False
+    expected_index = 1
     for line in lines[1:]:
-        slot_match = re.match(r"^slot (\d+):", line)
-        if slot_match:
-            parsed = _parse_slot_line(line)
-            if parsed is None:
-                _fail("IMPORT_VALIDATION_FAILED",
-                      "a slot line on the worksheet does not "
-                      "carry its fields in the exported "
-                      "order; re-export the worksheet and "
-                      "fill the fresh sheet")
-            current = {"index": parsed["index"],
-                       "fields": parsed["fields"], "body_lines": []}
-            sheet["slots"].append(current)
+        if line.startswith("slots to fill"):
             section = "slots"
+            slots_open = True
+            if current is not None:
+                current["body_lines"].append(line)
             continue
+        slot_match = re.match(r"^slot (\d+):", line)
+        if slot_match and slots_open:
+            # Slot lines stand judged against the sheet the
+            # export wrote (entry S17-R2-036): a slot line
+            # the export wrote stands in the slots section,
+            # carries its five fields in the exported order,
+            # and carries the next index in the sequence the
+            # export wrote. A line in slot form that meets
+            # none of that stands as answer text where a
+            # slot body stands open, and as no slot anywhere
+            # else, so captured text can neither forge a
+            # slot nor destroy the sheet for standing in
+            # slot form.
+            parsed = _parse_slot_line(line)
+            if parsed is not None and parsed["index"] == expected_index:
+                current = {"index": parsed["index"],
+                           "fields": parsed["fields"],
+                           "body_lines": []}
+                sheet["slots"].append(current)
+                section = "slots"
+                expected_index += 1
+                continue
         if current is not None:
             current["body_lines"].append(line)
             continue
@@ -992,7 +1238,8 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
                              control_count=0, product_id=None,
                              round_id=None, answer_id_prefix=None,
                              registry_version_at_import=None,
-                             detector_version_at_import=None):
+                             detector_version_at_import=None,
+                             answer_sequence_base=None):
     """Validate one returned worksheet and build its records.
 
     The sheet binds the import: its stated product and
@@ -1077,6 +1324,18 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
         answer_id = None
         if answer_id_prefix is not None:
             answer_id = "%s-%d" % (answer_id_prefix, len(records) + 1)
+
+        def resolve_standing_id(value, _base=answer_sequence_base):
+            text = str(value)
+            if _base is None or "{sequence}" not in text:
+                return text
+            match = re.search(r"-(\d+)$", text)
+            if not match:
+                return text
+            slot_number = int(match.group(1))
+            return text.replace(
+                "{sequence}", str(_base + slot_number - 1))
+
         record = _record_from_body(
             slot_validated, body_text=body, raw_bytes=body_bytes,
             content_hash=hashlib.sha256(body_bytes).hexdigest(),
@@ -1084,7 +1343,8 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
             round=round, product_id=product_id, round_id=round_id,
             answer_id=answer_id,
             registry_version_at_import=registry_version_at_import,
-            detector_version_at_import=detector_version_at_import)
+            detector_version_at_import=detector_version_at_import,
+            standing_id_resolver=resolve_standing_id)
         records.append(record)
         running_standing.append(record)
         if record.get("control_flag"):
@@ -1176,8 +1436,35 @@ def probe_import(*, answer_file=None, product=None, round=None,
               + str(error))
 
 
+def _worksheet_limits_in_force(home):
+    """The worksheet count bounds in force for one home.
+
+    Returns (answers bound, queries bound) for limits 22
+    and 27 as the home states them, through the journal
+    limits in force, or the brief defaults where no home
+    stands named or its limits cannot be read (entry
+    S17-R2-084).
+    """
+    answers = WORKSHEET_ANSWERS_LIMIT
+    queries = WORKSHEET_QUERIES_LIMIT
+    if home is None:
+        return answers, queries
+    try:
+        from citeline import journal
+        limits = journal.effective_limits(str(home))
+    except Exception:
+        return answers, queries
+    try:
+        answers = int(limits["answers_per_round"]["value"])
+        queries = int(limits["queries_per_product"]["value"])
+    except Exception:
+        return WORKSHEET_ANSWERS_LIMIT, WORKSHEET_QUERIES_LIMIT
+    return answers, queries
+
+
 def build_worksheet_text(*, product=None, round=None, queries=(),
-                         engine_labels=(), planned_answers=0):
+                         engine_labels=(), planned_answers=0,
+                         answers_limit=None):
     """The capture worksheet text for one named round.
 
     One slot stands per planned answer, and each slot carries
@@ -1197,10 +1484,13 @@ def build_worksheet_text(*, product=None, round=None, queries=(),
         _fail("MALFORMED_CALL",
               "planned_answers must stand as a whole non "
               "negative count")
-    if planned_answers > WORKSHEET_ANSWERS_LIMIT:
+    if answers_limit is None:
+        answers_limit = WORKSHEET_ANSWERS_LIMIT
+    if planned_answers > answers_limit:
         _fail("LIMIT_EXCEEDED",
               "planned_answers stands past the bound of "
-              "limit 22, answers per round, which is 10,000")
+              "limit 22, answers per round, which is "
+              + format(answers_limit, ","))
     lines = [
         "Citeline capture worksheet",
         "product: " + _sheet_line_text(product),
@@ -1245,7 +1535,13 @@ def _sheet_line_text(value):
     out = []
     for char in text:
         if ord(char) < 0x20 or ord(char) == 0x7f or unicodedata.category(
-                char) in ("Cc", "Cf"):
+                char) in ("Cc", "Cf", "Zl", "Zp"):
+            # The separator categories stand replaced beside
+            # the control and format categories: the line
+            # separator and the paragraph separator are line
+            # breaks to the worksheet parser, so a value
+            # carrying one would otherwise write a new sheet
+            # line of its own (entry S17-R2-035).
             out.append(" ")
         else:
             out.append(char)
@@ -1253,7 +1549,8 @@ def _sheet_line_text(value):
 
 
 def _validate_worksheet_inputs(*, output_path, queries,
-                               engine_labels, planned_answers):
+                               engine_labels, planned_answers,
+                               answers_limit=None, queries_limit=None):
     """Validate the export inputs in recorded error values.
 
     The destination must stand stated as one sane path,
@@ -1288,10 +1585,15 @@ def _validate_worksheet_inputs(*, output_path, queries,
         _fail("MALFORMED_CALL",
               "planned_answers must stand as a non negative "
               "count, not a negative one")
-    if planned_answers > WORKSHEET_ANSWERS_LIMIT:
+    if answers_limit is None:
+        answers_limit = WORKSHEET_ANSWERS_LIMIT
+    if queries_limit is None:
+        queries_limit = WORKSHEET_QUERIES_LIMIT
+    if planned_answers > answers_limit:
         _fail("LIMIT_EXCEEDED",
               "planned_answers stands past the bound of "
-              "limit 22, answers per round, which is 10,000")
+              "limit 22, answers per round, which is "
+              + format(answers_limit, ","))
     if isinstance(queries, (str, bytes)) \
             or not isinstance(queries, (list, tuple)):
         _fail("MALFORMED_CALL",
@@ -1307,10 +1609,11 @@ def _validate_worksheet_inputs(*, output_path, queries,
                   "every query and engine label must stand "
                   "as text, not as a value of type "
                   + type(value).__name__)
-    if len(queries) > WORKSHEET_QUERIES_LIMIT:
+    if len(queries) > queries_limit:
         _fail("LIMIT_EXCEEDED",
               "the query list stands past the bound of "
-              "limit 27, queries per product, which is 1,000")
+              "limit 27, queries per product, which is "
+              + format(queries_limit, ","))
     return output_path
 
 
@@ -1330,13 +1633,24 @@ def export_capture_worksheet(*, output_path=None, product=None,
     the cause named, never the occupied token (entries
     S17-R1X-023 and S17-R1X-025).
     """
+    # The count bounds read the limits in force for the
+    # home the sheet is written for, in both directions, as
+    # the import side of the same limits reads them (entry
+    # S17-R2-084). With no home named, the brief defaults
+    # govern, as they governed before this plumbing.
+    answers_limit, queries_limit = _worksheet_limits_in_force(home)
     output_text = _validate_worksheet_inputs(
         output_path=output_path, queries=queries,
         engine_labels=engine_labels,
-        planned_answers=planned_answers)
+        planned_answers=planned_answers,
+        answers_limit=answers_limit, queries_limit=queries_limit)
     if home is not None:
-        home_abs = os.path.abspath(str(home))
-        target_abs = os.path.abspath(output_text)
+        # The destination stands judged on its resolved
+        # path: a symbolic link in a parent component that
+        # lands inside the home stands inside the home
+        # (entry S17-R2-039).
+        home_abs = os.path.realpath(str(home))
+        target_abs = os.path.realpath(output_text)
         if target_abs == home_abs or target_abs.startswith(
                 home_abs + os.sep):
             _fail("MALFORMED_CALL",
@@ -1349,7 +1663,8 @@ def export_capture_worksheet(*, output_path=None, product=None,
               "not a file")
     text = build_worksheet_text(
         product=product, round=round, queries=queries,
-        engine_labels=engine_labels, planned_answers=planned_answers)
+        engine_labels=engine_labels, planned_answers=planned_answers,
+        answers_limit=answers_limit)
     if os.path.lexists(output_text):
         _fail("DESTINATION_EXISTS",
               "the worksheet output path stands occupied and "
