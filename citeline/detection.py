@@ -58,7 +58,54 @@ _MARKER_RE = re.compile(r"^(?:[-*+]|\d+[.)]|[A-Za-z][.)])\s+(.+)$")
 _BARE_HOST_RE = re.compile(
     r"^(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}(?:/\S*)?$")
 _REF_ENTRY_RE = re.compile(
-    r"^\s*(?:[-*+]\s*)?\[?(\d+)\]?\s*[.)]\s+(\S+)\s*$")
+    r"^\s*(?:[-*+]\s*)?\[?(\d+)\]?\s*[.)]\s+(\S+)(?:\s+.*)?$")
+_BARE_DOMAIN_TOKEN_RE = re.compile(
+    r"(?<![A-Za-z0-9._-])(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}"
+    r"(?:[/?#]\S*)?")
+_REFERENCE_DEFINITION_RE = re.compile(r"^\s{0,3}\[[^\]]+\]:\s*\S+")
+
+
+def _target_is_valid(target):
+    """A target counts only where it parses with a host and a
+    well formed port, plan Section 10.4 primitive P4 and brief
+    item 155: a malformed port or a missing host makes the
+    target malformed, and it counts no citation."""
+    try:
+        parts = urlsplit(str(target).strip())
+    except ValueError:
+        return False
+    if (parts.scheme or "").casefold() not in ("http", "https"):
+        return False
+    if not parts.hostname:
+        return False
+    try:
+        _ = parts.port
+    except ValueError:
+        return False
+    return True
+
+
+def _mask_non_answer_text(text):
+    """Mask text that item 131 keeps out of answer text: HTML
+    comments and reference definitions, at equal length so
+    offsets stay aligned. An unclosed comment masks to the
+    end of the text."""
+    spans = []
+    start = text.find("<!--")
+    while start >= 0:
+        close = text.find("-->", start + 4)
+        end = len(text) if close < 0 else close + 3
+        spans.append((start, end))
+        start = text.find("<!--", end)
+    masked = _mask_spans(text, spans)
+    lines = masked.split("\n")
+    position = 0
+    line_spans = []
+    for line in lines:
+        if _REFERENCE_DEFINITION_RE.match(line):
+            line_spans.append((position, position + len(line)))
+        position += len(line) + 1
+    return _mask_spans(masked, line_spans)
 
 
 def _get(entity, name, default=None):
@@ -306,24 +353,33 @@ def _scan_mentions(masked_text, names):
     search runs case insensitively for all names. Returns a
     list of (offset, registered name) in file order.
     """
-    ordered = sorted(names, key=lambda name: (-len(name), names.index(name)))
-    folded = [(name, name.casefold()) for name in ordered if name]
+    folded_text = unicodedata.normalize("NFC", masked_text).casefold()
+    prepared = []
+    for position, name in enumerate(names):
+        if not name:
+            continue
+        folded_name = unicodedata.normalize("NFC", str(name)).casefold()
+        if folded_name:
+            prepared.append((name, folded_name, position))
+    ordered = sorted(
+        prepared, key=lambda item: (-len(item[1]), item[2]))
+    folded = [(name, folded_name) for name, folded_name, _ in ordered]
     found = []
     index = 0
-    length = len(masked_text)
+    length = len(folded_text)
     while index < length:
         matched = None
         for name, folded_name in folded:
-            end = index + len(name)
+            end = index + len(folded_name)
             if end > length:
                 continue
-            if masked_text[index:end].casefold() != folded_name:
+            if folded_text[index:end] != folded_name:
                 continue
-            if index > 0 and (masked_text[index - 1].isalpha()
-                              or masked_text[index - 1].isdigit()):
+            if index > 0 and (folded_text[index - 1].isalpha()
+                              or folded_text[index - 1].isdigit()):
                 continue
-            if end < length and (masked_text[end].isalpha()
-                                 or masked_text[end].isdigit()):
+            if end < length and (folded_text[end].isalpha()
+                                 or folded_text[end].isdigit()):
                 continue
             matched = (index, name, end)
             break
@@ -347,11 +403,14 @@ def _domain_offsets(masked_text, domain):
         if index < 0:
             return found
         end = index + len(needle)
-        before_ok = index == 0 or not (
-            masked_text[index - 1].isalpha()
-            or masked_text[index - 1].isdigit())
-        after_ok = end >= len(masked_text) or not (
-            masked_text[end].isalpha() or masked_text[end].isdigit())
+        before_char = masked_text[index - 1] if index > 0 else ""
+        after_char = masked_text[end] if end < len(masked_text) else ""
+        before_ok = not (
+            before_char.isalpha() or before_char.isdigit()
+            or before_char in ("-", "@"))
+        after_ok = not (
+            after_char.isalpha() or after_char.isdigit()
+            or after_char in ("-", "."))
         if before_ok and after_ok:
             found.append(index)
         start = index + 1
@@ -386,10 +445,6 @@ def _split_sections(text):
             headings[idx] = (len(match.group(1)),
                              cleaned in REFERENCES_HEADINGS)
             continue
-        stripped = line.strip()
-        cleaned = stripped.rstrip(".:;!").strip().casefold()
-        if cleaned in REFERENCES_HEADINGS:
-            headings[idx] = (1, True)
     ref_lines = set()
     governing = {}
     current_ref = False
@@ -481,7 +536,10 @@ def _entity_outcome(chunk_masked_source, chunk_text, entity):
     names = _names_of(entity)
     domain = _get(entity, "domain", "") or ""
     masked = _masked_for_mentions(chunk_text)
-    mentions = _scan_mentions(masked, names)
+    mention_masked = _mask_spans(masked, [
+        (match.start(), match.end())
+        for match in _BARE_DOMAIN_TOKEN_RE.finditer(masked)])
+    mentions = _scan_mentions(mention_masked, names)
     domain_hits = _domain_offsets(masked, domain) if domain else []
     if domain_hits and mentions:
         domain_spans = [(offset, offset + len(str(domain)))
@@ -503,8 +561,8 @@ def _entity_outcome(chunk_masked_source, chunk_text, entity):
     cited = False
     for target in _extract_targets(chunk_text):
         scheme, host = _host_of(target)
-        if scheme in ("http", "https") and _host_matches_domain(
-                host, domain):
+        if scheme in ("http", "https") and _target_is_valid(target) \
+                and _host_matches_domain(host, domain):
             cited = True
             break
     return {
@@ -528,6 +586,7 @@ def detect_answer(text, product, competitors):
     if text is None:
         text = ""
     text = unicodedata.normalize("NFC", str(text))
+    text = _mask_non_answer_text(text)
     product = product or {}
     competitors = competitors or []
     prose_text, references_text = _split_sections(text)
@@ -551,8 +610,9 @@ def detect_answer(text, product, competitors):
         if number in entries:
             scheme, host = _host_of(entries[number])
             domain = _get(product, "domain", "") or ""
-            if scheme in ("http", "https") and _host_matches_domain(
-                    host, domain):
+            if scheme in ("http", "https") \
+                    and _target_is_valid(entries[number]) \
+                    and _host_matches_domain(host, domain):
                 cited = True
         else:
             unresolved += 1
@@ -567,8 +627,9 @@ def detect_answer(text, product, competitors):
                 number = match.group(1)
                 if number in entries:
                     scheme, host = _host_of(entries[number])
-                    if scheme in ("http", "https") and _host_matches_domain(
-                            host, comp_domain):
+                    if scheme in ("http", "https") \
+                            and _target_is_valid(entries[number]) \
+                            and _host_matches_domain(host, comp_domain):
                         comp_cited = True
                         break
         if comp_domain == "":
@@ -590,13 +651,13 @@ def detect_answer(text, product, competitors):
     domain = _get(product, "domain", "") or ""
     for target in ref_targets:
         scheme, host = _host_of(target)
-        if scheme in ("http", "https") and _host_matches_domain(
-                host, domain):
+        if scheme in ("http", "https") and _target_is_valid(target) \
+                and _host_matches_domain(host, domain):
             ref_cited_count += 1
     inline_canonical = {canonical_form(target) for target in prose_targets
-                         if _host_of(target)[0] in ("http", "https")}
+                         if _target_is_valid(target)}
     ref_canonical = {canonical_form(target) for target in ref_targets
-                      if _host_of(target)[0] in ("http", "https")}
+                      if _target_is_valid(target)}
 
     return {
         "named": named,

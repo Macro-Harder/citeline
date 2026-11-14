@@ -22,6 +22,7 @@ Dates are call inputs (the audit_date argument), never
 clock reads.
 """
 
+import bisect
 import hashlib
 import os
 import re
@@ -215,6 +216,45 @@ _ABBREVIATIONS = ("e.g.", "i.e.", "Dr.", "Mr.", "Mrs.", "Ms.", "St.", "vs.")
 _CLOSING_MARKS = ('"', "'", "”", "’", ")", "]")
 
 
+def _paren_matches(text):
+    """Balanced parenthesis matches over one text, in one
+    pass: a map from each opening parenthesis position to
+    the position of the closing parenthesis that balances
+    it. A backslash escaped character stands outside the
+    balance, and a parenthesis inside a quoted span that
+    opens after a space inside parentheses stands outside
+    it, on the same terms the link target scan states.
+    An opening parenthesis with no entry in the map has
+    no balanced close anywhere in the text.
+    """
+    matches = {}
+    stack = []
+    quote = None
+    index = 0
+    length = len(text)
+    while index < length:
+        ch = text[index]
+        if ch == "\\" and index + 1 < length:
+            index += 2
+            continue
+        if quote is not None:
+            if ch == quote:
+                quote = None
+            index += 1
+            continue
+        if ch in ("\"", "'") and stack and index > 0 \
+                and text[index - 1] in (" ", "\t"):
+            quote = ch
+            index += 1
+            continue
+        if ch == "(":
+            stack.append(index)
+        elif ch == ")" and stack:
+            matches[stack.pop()] = index
+        index += 1
+    return matches
+
+
 def _inline_link_spans(text):
     """Inline link and image spans with balanced targets.
 
@@ -232,6 +272,17 @@ def _inline_link_spans(text):
     spans = []
     index = 0
     length = len(text)
+    # The closing bracket positions and the balanced
+    # parenthesis matches stand computed once, in one
+    # pass each, before the scan. A bracket whose label
+    # never closes, and a target whose opening parenthesis
+    # has no balanced close, are then decided in one
+    # lookup each, so a line of unmatched opening brackets
+    # costs one pass over the line, not one rescan of the
+    # remainder per bracket.
+    close_positions = [pos for pos, ch in enumerate(text)
+                       if ch == "]"]
+    paren_matches = _paren_matches(text)
     while index < length:
         is_image = False
         label_start = index
@@ -242,37 +293,20 @@ def _inline_link_spans(text):
         if text[label_start] != "[":
             index += 1
             continue
-        label_end = text.find("]", label_start + 1)
-        if label_end < 0 or label_end + 1 >= length \
+        bracket_pos = bisect.bisect_left(
+            close_positions, label_start + 1)
+        if bracket_pos >= len(close_positions):
+            break
+        label_end = close_positions[bracket_pos]
+        if label_end + 1 >= length \
                 or text[label_end + 1] != "(":
             index = label_start + 1
             continue
-        depth = 1
-        cursor = label_end + 2
-        quote = None
-        while cursor < length and depth:
-            ch = text[cursor]
-            if ch == "\\" and cursor + 1 < length:
-                cursor += 2
-                continue
-            if quote is not None:
-                if ch == quote:
-                    quote = None
-                cursor += 1
-                continue
-            if ch in ("\"", "'") and cursor > 0 \
-                    and text[cursor - 1] in (" ", "\t"):
-                quote = ch
-                cursor += 1
-                continue
-            if ch == "(":
-                depth += 1
-            elif ch == ")":
-                depth -= 1
-            cursor += 1
-        if depth:
+        close_paren = paren_matches.get(label_end + 1)
+        if close_paren is None:
             index = label_start + 1
             continue
+        cursor = close_paren + 1
         content = text[label_end + 2:cursor - 1]
         stripped = content.strip()
         target = stripped.split()[0] if stripped.split() else ""
@@ -286,14 +320,61 @@ def _inline_link_spans(text):
     return spans
 
 
+def _reference_link_spans(text, allow_empty_label=False):
+    """Reference style link spans, found in one scan.
+
+    Returns a list of (start, end, label, reference,
+    reference_start, reference_end), where start and end
+    bound the whole span. The search walks closing
+    bracket positions by bisection rather than by a
+    pattern that rescans the remainder of the text from
+    every opening bracket, so a text of unmatched opening
+    brackets costs one pass, not one rescan per bracket.
+    The span form is the one the pattern form states: a
+    label of one or more non bracket characters, then a
+    reference in brackets, the reference possibly empty.
+    """
+    close_positions = [pos for pos, ch in enumerate(text)
+                       if ch == "]"]
+    spans = []
+    index = 0
+    length = len(text)
+    while index < length:
+        if text[index] != "[":
+            index += 1
+            continue
+        label_pos = bisect.bisect_left(close_positions, index + 1)
+        if label_pos >= len(close_positions):
+            break
+        label_end = close_positions[label_pos]
+        if (label_end == index + 1 and not allow_empty_label) \
+                or label_end + 1 >= length \
+                or text[label_end + 1] != "[":
+            index += 1
+            continue
+        ref_pos = bisect.bisect_left(
+            close_positions, label_end + 2)
+        if ref_pos >= len(close_positions):
+            index += 1
+            continue
+        ref_end = close_positions[ref_pos]
+        spans.append((index, ref_end + 1,
+                      text[index + 1:label_end],
+                      text[label_end + 2:ref_end],
+                      label_end + 2, ref_end))
+        index = ref_end + 1
+    return spans
+
+
 def _mask_spans(text, fmt):
     chars = list(text)
     spans = []
     if fmt == "markdown":
         for span in _inline_link_spans(text):
             spans.append((span[5], span[6]))
-        for match in re.finditer(r"\[[^\]]*\]\[([^\]]*)\]", text):
-            spans.append((match.start(1), match.end(1)))
+        for span in _reference_link_spans(
+                text, allow_empty_label=True):
+            spans.append((span[4], span[5]))
     for match in re.finditer(r"https?://[^\s<>\)\]]+", text):
         spans.append((match.start(), match.end()))
     for start, end in spans:
@@ -384,7 +465,8 @@ def _clean_markdown_line(line):
         stripped = " ".join(cells)
     for span in reversed(_inline_link_spans(stripped)):
         stripped = stripped[:span[0]] + span[2] + stripped[span[1]:]
-    stripped = re.sub(r"\[([^\]]+)\]\[[^\]]*\]", r"\1", stripped)
+    for span in reversed(_reference_link_spans(stripped)):
+        stripped = stripped[:span[0]] + span[2] + stripped[span[1]:]
     stripped = re.sub(r"`+[^`]*`+", "", stripped)
     stripped = re.sub(r"\*\*([^*]+)\*\*", r"\1", stripped)
     stripped = re.sub(r"__([^_]+)__", r"\1", stripped)
@@ -598,7 +680,13 @@ def _content_format(text):
     low = probe.casefold()
     if low.startswith("<!doctype html") or low.startswith("<html"):
         return "html"
-    if re.match(r"(?is)<(head|body|div|p|h[1-6]|table|ul|ol|span|a)\b",
+    if re.match(r"(?is)<(head|body|div|p|h[1-6]|table|ul|ol|span|a|"
+                r"section|article|main|aside|nav|header|footer|"
+                r"blockquote|pre|figure|figcaption|form|fieldset|"
+                r"dl|dt|dd|li|thead|tbody|tr|td|th|caption|"
+                r"em|strong|small|code|kbd|abbr|cite|q|time|mark|"
+                r"sub|sup|i|b|u|s|a|img|video|audio|canvas|svg|"
+                r"details|summary|address|hr|br|wbr)\b",
                 probe):
         return "html"
     for line in visible.splitlines():
@@ -694,21 +782,32 @@ def detect_format(content, declared_format=None, filename=None, **kwargs):
 
 def _check_containers(raw, text):
     visible = _strip_detection_exclusions(text)
-    head = visible[:4096]
-    if re.search(r"(?is)<!doctype[^>]*xhtml", head):
+    # The container rule reads the file's own leading
+    # structure, however long that structure stands: a
+    # doctype declaration in the material before the root
+    # element, the root element opening tag itself (whose
+    # attributes may run to any length), and, for a mail
+    # container, the header block that runs to the first
+    # blank line. No fixed character window bounds any of
+    # those, so padding inside the leading structure
+    # cannot push a marker past the rule.
+    root = re.search(r"(?is)<html\b([^>]*)>", visible)
+    leading = visible[:root.start()] if root else visible
+    if re.search(r"(?is)<!doctype[^>]*xhtml", leading):
         _fail("PAGE_EXTRACTION_FAILED",
               "container failure: the file stands marked as XHTML")
-    root = re.search(r"(?is)<html\b([^>]*)>", head)
     if root and "http://www.w3.org/1999/xhtml" in root.group(1):
         _fail("PAGE_EXTRACTION_FAILED",
               "container failure: the file stands marked as XHTML")
-    low_head = head.casefold()
-    if ("multipart/" in low_head
-            and ("mime-version:" in low_head
-                 or "content-type: multipart" in low_head)):
+    header_block = re.split(r"\r?\n[ \t]*\r?\n", visible,
+                            maxsplit=1)[0]
+    low_header = header_block.casefold()
+    if ("multipart/" in low_header
+            and ("mime-version:" in low_header
+                 or "content-type: multipart" in low_header)):
         _fail("PAGE_EXTRACTION_FAILED",
               "container failure: the file is an MHTML container")
-    if text.startswith("WARC/"):
+    if visible.lstrip(" \t\r\n").startswith("WARC/"):
         _fail("PAGE_EXTRACTION_FAILED",
               "container failure: the file is a WARC container")
 
@@ -723,9 +822,13 @@ def _check_containers(raw, text):
 
 def _read_supplied_file(page_path):
     path_text = str(page_path)
+    if "\x00" in path_text:
+        _fail("SUPPLIED_PATH_UNSAFE",
+              "a supplied path holding a NUL byte cannot be "
+              "stated and is rejected")
     try:
         pre = os.lstat(path_text)
-    except OSError as exc:
+    except (OSError, ValueError) as exc:
         _fail("SUPPLIED_PATH_UNSAFE",
               "supplied path cannot be stated: %s" % (exc,))
     if stat.S_ISLNK(pre.st_mode):
@@ -751,7 +854,7 @@ def _read_supplied_file(page_path):
         flags |= os.O_NONBLOCK
     try:
         descriptor = os.open(path_text, flags)
-    except OSError as exc:
+    except (OSError, ValueError) as exc:
         _fail("SUPPLIED_PATH_UNSAFE",
               "supplied path cannot be opened: %s" % (exc,))
     try:
@@ -884,9 +987,20 @@ _HEADING_TAGS = {"h1", "h2", "h3", "h4", "h5", "h6"}
 
 
 def _check_script_style(text):
-    low = text.casefold()
+    # Tag spellings inside an HTML comment are not tags:
+    # the parser never treats them as opening or closing
+    # the element, so they stand removed before any count.
+    # A self closed element (its opening spelling ending
+    # in "/>") is complete with no body and no closing
+    # tag, so it does not count as an opening either.
+    visible = re.sub(r"<!--.*?(?:-->|\Z)", "", text, flags=re.S)
+    low = visible.casefold()
     for tag in ("script", "style"):
-        opens = len(re.findall(r"<%s(\s[^>]*)?>" % tag, low))
+        opens = 0
+        for match in re.finditer(r"<%s(\s[^>]*)?>" % tag, low):
+            if match.group(0).endswith("/>"):
+                continue
+            opens += 1
         closes = len(re.findall(r"</%s\s*>" % tag, low))
         if opens > closes:
             _fail("PAGE_EXTRACTION_FAILED",
@@ -1538,16 +1652,21 @@ def _markdown_inline(text, links, references, notes, offset):
         pieces.append(text[cursor:])
         text = "".join(pieces)
 
-    def ref_repl(match):
-        label, ref = match.group(1), match.group(2)
+    pieces = []
+    cursor = 0
+    for span in _reference_link_spans(text):
+        label, ref = span[2], span[3]
         key = ref if ref else label
+        pieces.append(text[cursor:span[0]])
         if key in references:
             links.append({"text": label, "target": references[key]})
+            pieces.append(label)
         else:
             notes.append("unresolved_markdown_reference")
-        return match.group(0) if key not in references else label
-
-    text = re.sub(r"\[([^\]]+)\]\[([^\]]*)\]", ref_repl, text)
+            pieces.append(text[span[0]:span[1]])
+        cursor = span[1]
+    pieces.append(text[cursor:])
+    text = "".join(pieces)
     text = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)
     text = re.sub(r"__([^_]+)__", r"\1", text)
     text = re.sub(r"(?<!\w)\*([^*]+)\*(?!\w)", r"\1", text)
@@ -1577,7 +1696,8 @@ def _extract_text(text, notes):
 # Extraction end states and the page operations.
 # ----------------------------------------------------------------
 
-def _build_extracted(fmt, text, notes):
+def _build_extracted(fmt, text, notes,
+                     extracted_text_limit=_EXTRACTED_TEXT_LIMIT):
     if fmt == "html":
         parts = _extract_html(text, notes)
     elif fmt == "markdown":
@@ -1585,10 +1705,11 @@ def _build_extracted(fmt, text, notes):
     else:
         parts = _extract_text(text, notes)
     running_text = parts["running_text"]
-    if len(running_text) > _EXTRACTED_TEXT_LIMIT:
+    if len(running_text) > extracted_text_limit:
         _fail("LIMIT_EXCEEDED",
-              "extracted text length per page limit is 500,000 "
-              "characters, with rejection and no partial record")
+              "extracted text length per page limit is %s "
+              "characters, with rejection and no partial record"
+              % (extracted_text_limit,))
     if len(parts["links"]) > _LINK_COUNT_LIMIT:
         _fail("LIMIT_EXCEEDED",
               "link count per page limit is 10,000, with "
@@ -1648,7 +1769,24 @@ def _extract_inner(home, product_id, page_path, declared_format,
     if declared is not None and declared != fmt:
         notes.append("format_disagreement")
     text = _front_matter(text, fmt, notes)
-    extracted = _build_extracted(fmt, text, notes)
+    # The extracted text limit in force over this home
+    # governs the extraction, not only the brief default:
+    # a config set value reaches this path through the
+    # journal limits in force (Step 17 entry S17-R1-080,
+    # cured at the service seam in seat F7 with this one
+    # reading in the extraction path). Where no limit can
+    # be read, the brief default constant governs, as
+    # before.
+    extracted_text_limit = _EXTRACTED_TEXT_LIMIT
+    try:
+        from citeline import journal as journal_module
+        extracted_text_limit = journal_module.effective_limits(
+            str(home))[
+                "extracted_text_length_per_page_or_answer"]["value"]
+    except Exception:
+        pass
+    extracted = _build_extracted(
+        fmt, text, notes, extracted_text_limit=extracted_text_limit)
     running = extracted["running_text"]
     if running.strip() == "":
         outcome = "empty"

@@ -1,0 +1,10 @@
+Citeline capture worksheet
+product: Acme Ledger
+round: round-1
+queries to attempt:
+query: What is Acme Ledger?
+engine labels to attempt:
+engine: Engine A
+slots to fill by hand, one answer per slot:
+| slot | answer text stands below its slot line |
+slot 1: query= (the query this slot answers; example What is Acme Ledger?) engine_label= (the label as asserted, up to 200 code points; example Fixture Engine) kind= (real_sample or fixture; example fixture) captured_on= (an ISO date in the form YYYY-MM-DD, a real calendar date not in the future; example 2026-08-16) capture_method= (not empty, up to 2,000 code points; example manual copy)

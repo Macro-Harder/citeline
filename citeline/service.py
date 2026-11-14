@@ -30,6 +30,7 @@ import copy
 import hashlib
 import inspect
 import os
+import time
 
 from citeline import errors
 
@@ -105,7 +106,7 @@ def recorded_error(exc):
         entry = errors.error_for_row(row)
     record = {
         "error_value": token if token is not None else str(exc),
-        "message": str(exc),
+        "message": _bounded_message(exc),
     }
     if entry is not None:
         record["row"] = entry["row"]
@@ -124,6 +125,29 @@ def _fail(token, message):
     raise errors.CitelineError(message, token=token)
 
 
+def _clock():
+    """The wall clock reading for the backstop checks.
+
+    Stated as one seam so the per run wall clock backstop
+    (limit 41) and the per file parse time backstop
+    (limit 42) read the clock in one place.
+    """
+    return time.monotonic()
+
+
+# The error message length limit (limit 33), in the brief
+# default form this seam applies: no recorded error
+# message the service layer states stands past it.
+_ERROR_MESSAGE_LIMIT = 500
+
+
+def _bounded_message(message):
+    text = str(message)
+    if len(text) > _ERROR_MESSAGE_LIMIT:
+        return text[:_ERROR_MESSAGE_LIMIT]
+    return text
+
+
 def _journal():
     from citeline import journal
     return journal
@@ -140,10 +164,11 @@ def _get(record, name, default=None):
     return getattr(record, name, default)
 
 
-def _fold(home):
+def _fold(home, apply_corrections=False):
     journal = _journal()
     try:
-        entries = journal.fold(str(home))
+        entries = journal.fold(
+            str(home), apply_corrections=apply_corrections)
     except Exception:
         return []
     return list(entries or [])
@@ -193,18 +218,31 @@ def _validate_audit_date(audit_date):
     before any record is built or stored from it. A date
     object stands accepted as a date; None stands as no
     date supplied and is left to each route's own default.
+
+    The validator returns the date in the one form the
+    product stores, the ISO text form: a date or datetime
+    object is recorded as its ISO date text, and an
+    integer in the basic ISO form is normalised to the
+    same text, so no stored record carries a date in a
+    form no other record carries (Step 17 entries
+    S17-R1X-026 and S17-R1X-033). Every route assigns the
+    returned value back over its input before any record
+    is built or stored from it.
     """
     if audit_date is None:
-        return
+        return None
     import datetime
+    if isinstance(audit_date, datetime.datetime):
+        return audit_date.date().isoformat()
     if isinstance(audit_date, datetime.date):
-        return
+        return audit_date.isoformat()
     try:
-        datetime.date.fromisoformat(str(audit_date))
+        parsed = datetime.date.fromisoformat(str(audit_date))
     except ValueError:
         _fail(
             "VALIDATION_FAILED",
             "audit_date is not an ISO date: %s" % (audit_date,))
+    return parsed.isoformat()
 
 
 def _find_product(home, product):
@@ -225,7 +263,7 @@ def _require_product(home, product):
 
 def _rounds(home, product_id):
     rounds = []
-    for entry in _fold(home):
+    for entry in _fold(home, apply_corrections=True):
         if _get(entry, "entry_kind") != "round_named":
             continue
         payload = _payload(entry)
@@ -236,11 +274,21 @@ def _rounds(home, product_id):
 
 def _round_record(home, product_record, round_label):
     product_id = product_record.get("product_id")
-    standing = None
+    # The standing record of one round is its last
+    # round_named payload: the first import stamp append
+    # supersedes the naming entry for the same round, and
+    # a correction of the standing entry governs the
+    # label the round resolves under (Step 17 entry
+    # S17-R1X-027, extending S17-R1-086).
+    standing_by_id = {}
     for payload in _rounds(home, product_id):
+        round_id = payload.get("round_id")
+        if round_id is not None:
+            standing_by_id[round_id] = payload
+    for payload in standing_by_id.values():
         if payload.get("round_label") == round_label:
-            standing = payload
-    return standing
+            return payload
+    return None
 
 
 def _require_round(home, product_record, round_label):
@@ -255,7 +303,7 @@ def _require_round(home, product_record, round_label):
 
 def _answers(home, round_id):
     answers = []
-    for entry in _fold(home):
+    for entry in _fold(home, apply_corrections=True):
         if _get(entry, "entry_kind") != "answer_imported":
             continue
         payload = _payload(entry)
@@ -333,17 +381,76 @@ def _bounds_computed():
     return bounds
 
 
-def _limits_in_force(home):
+def _limits_in_force(home, run_id=None):
+    """The limits in force statement of one home or one run.
+
+    The statement reads the journal limits in force for
+    the run identity named, so a limit_raise entry for
+    that run stands stated in it with source raise, and
+    the operations of that run append under the same
+    identity (Step 17 entry S17-R1X-011, extending
+    S17-R1-080). Where no run stands named, the statement
+    states plainly that it reports no run: a raise stands
+    in force only for the run it names, and no raise is
+    claimed for a reporting surface that names none.
+    """
     journal = _journal()
     try:
-        run = journal.start_run(str(home))
-        limits = run.get("limits_in_force") or {}
+        limits = journal.effective_limits(str(home), run_id=run_id)
     except Exception:
         limits = {}
     raised = any(
         isinstance(value, dict) and value.get("source") == "raise"
         for value in limits.values())
-    return {"raised_limits": bool(raised), "by_limit": limits}
+    result = {
+        "raised_limits": bool(raised),
+        "by_limit": limits,
+        "run_id": run_id,
+    }
+    if run_id is None:
+        result["run_reported"] = (
+            "no run: this statement reports no run, and a "
+            "limit raise stands in force only for the run "
+            "it names")
+    return result
+
+
+def _limit_value(home, key, run_id=None):
+    """The value of one limit in force over a home or run.
+
+    Read from the journal limits in force, so a config
+    value and a raise for the run reach the path that
+    enforces the limit (Step 17 entries S17-R1-038 and
+    S17-R1-080). Where no value can be read, None stands
+    and the caller applies no bound of its own.
+    """
+    try:
+        journal = _journal()
+        limits = journal.effective_limits(str(home), run_id=run_id)
+        entry = limits.get(key) or {}
+        value = entry.get("value")
+        return value if isinstance(value, (int, float)) else None
+    except Exception:
+        return None
+
+
+def _require_typed_field(record, field, kinds, owner):
+    """Refuse a stored field of a type its readers cannot use.
+
+    A chain valid stored entry can carry a field in a
+    swapped type (the writer the anchor limit sentence
+    names). A reader that consumes the field validates
+    its type first and refuses in the recorded vocabulary
+    instead of crashing on the value (Step 17 entry
+    S17-R1-075).
+    """
+    value = record.get(field)
+    if value is not None and not isinstance(value, kinds):
+        _fail(
+            "VALIDATION_FAILED",
+            "the stored %s record carries %s in a form its "
+            "readers cannot use: %r" % (owner, field, value))
+    return value
 
 
 # ----------------------------------------------------------------
@@ -426,6 +533,7 @@ def status(*, home):
                 "no average stands: no imported answer size "
                 "stands recorded in this home")
     result["capacity_outlook"] = outlook
+    result["limits_in_force"] = _limits_in_force(home)
     result["anchor_limit"] = _anchor_limit_sentence()
     result["anchor_limit_sentence"] = _anchor_limit_sentence()
     result["honesty_sentence"] = _honesty_sentence()
@@ -552,8 +660,36 @@ def _version_in_force(axis, product_record):
     return None
 
 
+def _stamp_form(value):
+    """The checked form of one stored version stamp.
+
+    A stamp stands in version form where it is an integer
+    or a string. The string integer form, the form this
+    product itself uses for its ruleset stamps, normalises
+    to the integer it names, so a stamp in that form
+    compares against an integer version in force on equal
+    terms. A boolean, a float, or any other shape stands
+    in no version form and reads as malformed. Two values
+    in string form compare as strings, as the ruleset
+    stamps of the product compare.
+    """
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return ("int", value)
+    if isinstance(value, str):
+        text = value.strip()
+        digits = text[1:] if text[:1] in ("+", "-") else text
+        if digits and all(
+                char in "0123456789" for char in digits):
+            return ("int", int(text))
+        return ("str", value)
+    return None
+
+
 def _bound_versions(payload, axes, extra_payloads=()):
-    """The bound versions one stored record reads.
+    """The bound versions one stored record reads, and the
+    axes it stores in conflict.
 
     An axis stands bound only where the record itself, or
     a payload the landing joins to it (a round's answers),
@@ -562,22 +698,49 @@ def _bound_versions(payload, axes, extra_payloads=()):
     stamps object the record carries. An audit run's
     crawler table version may stand inside its robots
     summary. No value is inferred from another record.
+
+    Where the record's own places store one axis with two
+    different values, the axis stands in conflict and
+    binds no value: no silent first found choice stands.
+    The joined payloads stand outside that discipline,
+    because a round's answers bind at their first import
+    on the landing's own rule.
     """
-    sources = [payload]
+    own_sources = [payload]
     stamps = payload.get("version_stamps")
     if isinstance(stamps, dict):
-        sources.append(stamps)
+        own_sources.append(stamps)
     summary = payload.get("robots_summary")
     if isinstance(summary, dict):
-        sources.append(summary)
-    sources.extend(extra_payloads)
+        own_sources.append(summary)
+    joined_sources = list(extra_payloads)
     for extra in extra_payloads:
         extra_stamps = extra.get("version_stamps")
         if isinstance(extra_stamps, dict):
-            sources.append(extra_stamps)
+            joined_sources.append(extra_stamps)
     bound = {}
+    conflicts = []
     for axis, fields, _is_break in axes:
-        for source in sources:
+        stored = []
+        stored_forms = []
+        for source in own_sources:
+            for field in fields:
+                value = source.get(field)
+                if value is None:
+                    continue
+                form = _stamp_form(value)
+                marker = form if form is not None else (
+                    "raw", repr(value))
+                if marker not in stored_forms:
+                    stored_forms.append(marker)
+                    stored.append(value)
+        if len(stored) > 1:
+            conflicts.append(axis)
+            continue
+        if stored:
+            bound[axis] = stored[0]
+            continue
+        for source in joined_sources:
             value = None
             for field in fields:
                 if source.get(field) is not None:
@@ -586,21 +749,76 @@ def _bound_versions(payload, axes, extra_payloads=()):
             if value is not None:
                 bound[axis] = value
                 break
-    return bound
+    return bound, conflicts
+
+
+# The uncompared state's wording, stated once: it states
+# that no currency verdict stands on the axes named, and
+# claims nothing about the record beyond that.
+STALENESS_UNCOMPARED_NOTE = (
+    "One or more bound axes of this record stand "
+    "uncompared, because the version in force could not "
+    "be read or the stored stamp stands in no version "
+    "form, so no currency verdict stands on those axes.")
 
 
 def _staleness_row(record_kind, record_id, payload, axes,
                    not_recorded, product_record, extra_payloads=()):
-    bound = _bound_versions(payload, axes, extra_payloads)
+    bound, conflicts = _bound_versions(
+        payload, axes, extra_payloads)
     in_force = {}
     changed = []
+    uncompared = []
+    malformed = []
     break_changed = False
+    not_recorded_axes = list(not_recorded)
     for axis, _fields, is_break in axes:
+        if axis in conflicts:
+            # The record stores this axis in conflict, so
+            # it binds no value and stands uncompared,
+            # stated through the not recorded mechanism
+            # beside its conflict field.
+            uncompared.append(axis)
+            if axis not in not_recorded_axes:
+                not_recorded_axes.append(axis)
+            continue
         if axis not in bound:
+            # A mapped axis this record binds no value
+            # for stands listed as not recorded, beside
+            # the axes its class does not store (Step 17
+            # entries S17-R1-111 and S17-R1X-041): the
+            # lexicon axis on every real record, the
+            # crawler table axis of an audit run with no
+            # robots file, and every axis of a round named
+            # and never imported into, none of them
+            # vanishing from the row in silence.
+            if axis not in not_recorded_axes:
+                not_recorded_axes.append(axis)
             continue
         current = _version_in_force(axis, product_record)
         in_force[axis] = current
-        if current is not None and bound[axis] != current:
+        if current is None:
+            # The version in force cannot be read, so the
+            # axis stands uncompared, never as unchanged:
+            # it is stated through the not recorded
+            # mechanism beside its uncompared field.
+            uncompared.append(axis)
+            if axis not in not_recorded_axes:
+                not_recorded_axes.append(axis)
+            continue
+        bound_form = _stamp_form(bound[axis])
+        current_form = _stamp_form(current)
+        if bound_form is None or current_form is None:
+            # A stamp in no version form marks its axis
+            # malformed and uncompared, rather than
+            # converting silently into a currency verdict
+            # in either direction.
+            malformed.append(axis)
+            uncompared.append(axis)
+            if axis not in not_recorded_axes:
+                not_recorded_axes.append(axis)
+            continue
+        if bound_form != current_form:
             changed.append(axis)
             if is_break:
                 break_changed = True
@@ -608,6 +826,8 @@ def _staleness_row(record_kind, record_id, payload, axes,
         state = "across a break"
     elif changed:
         state = "stale"
+    elif uncompared:
+        state = "uncompared"
     else:
         state = "current"
     row = {
@@ -616,14 +836,22 @@ def _staleness_row(record_kind, record_id, payload, axes,
         "product_id": payload.get("product_id"),
         "bound_versions": bound,
         "versions_in_force": in_force,
-        "not_recorded_axes": list(not_recorded),
+        "not_recorded_axes": not_recorded_axes,
         "changed_axes": changed,
+        "uncompared_axes": uncompared,
+        "malformed_axes": malformed,
+        "conflicted_axes": conflicts,
         "state": state,
     }
     if payload.get("round_label") is not None:
         row["round_label"] = payload.get("round_label")
+    notes = []
     if state == "stale":
-        row["state_note"] = STALENESS_STALE_NOTE
+        notes.append(STALENESS_STALE_NOTE)
+    if uncompared and state != "stale":
+        notes.append(STALENESS_UNCOMPARED_NOTE)
+    if notes:
+        row["state_note"] = " ".join(notes)
     return row
 
 
@@ -694,11 +922,31 @@ def staleness_view(*, home):
             round_payloads[record_id] = (entry, payload)
     for record_id in round_order:
         entry, payload = round_payloads[record_id]
+        extras = list(answers_by_round.get(record_id, ()))
+        # The round's query set axis binds from the
+        # product record as it stood at the round's first
+        # import (Step 17 entry S17-R1-111): no round
+        # record stores the axis itself, so the bound
+        # record of the first import basis joins the
+        # round's answers as a joined payload, and the
+        # axis stands reported and compared instead of
+        # omitted.
+        standing = products.get(payload.get("product_id"))
+        bound_record = _bound_product_record(
+            home,
+            standing if standing is not None else {
+                "product_id": payload.get("product_id")},
+            payload)
+        if bound_record is not None and bound_record.get(
+                "query_set_version") is not None:
+            extras.append({
+                "query_set_version": bound_record[
+                    "query_set_version"]})
         rows.append((entry, _staleness_row(
             "round", record_id, payload, _ROUND_AXES,
             ("crawler_table_version",),
             products.get(payload.get("product_id")),
-            extra_payloads=answers_by_round.get(record_id, ()))))
+            extra_payloads=extras)))
     rows.sort(key=lambda pair: _get(pair[0], "sequence", 0) or 0)
     records = [row for _entry, row in rows]
     result = {
@@ -722,7 +970,17 @@ def staleness_view(*, home):
 def add_product(*, home, name, canonical_line, domain,
                 competitors=None, aliases=None, query_set=None,
                 audit_date=None):
-    _validate_audit_date(audit_date)
+    audit_date = _validate_audit_date(audit_date)
+    _require_home(home)
+    # Limit 23, products per home, enforced at this seam
+    # against the value in force (Step 17 entry
+    # S17-R1-038).
+    limit = _limit_value(home, "products_per_home")
+    if limit is not None and len(list_products(home=home)) >= limit:
+        _fail(
+            "LIMIT_EXCEEDED",
+            "products per home limit is %s, with rejection "
+            "and no partial record" % (limit,))
     registry = _registry()
     return registry.add_product(
         home=str(home), name=name, canonical_line=canonical_line,
@@ -731,7 +989,8 @@ def add_product(*, home, name, canonical_line, domain,
 
 
 def set_canonical_line(*, home, product, line, audit_date=None):
-    _validate_audit_date(audit_date)
+    audit_date = _validate_audit_date(audit_date)
+    _require_home(home)
     registry = _registry()
     return registry.set_canonical_line(
         home=str(home), product=product, line=line,
@@ -739,7 +998,8 @@ def set_canonical_line(*, home, product, line, audit_date=None):
 
 
 def set_competitors(*, home, product, competitors, audit_date=None):
-    _validate_audit_date(audit_date)
+    audit_date = _validate_audit_date(audit_date)
+    _require_home(home)
     registry = _registry()
     return registry.set_competitors(
         home=str(home), product=product, competitors=competitors,
@@ -747,7 +1007,8 @@ def set_competitors(*, home, product, competitors, audit_date=None):
 
 
 def set_aliases(*, home, product, aliases, audit_date=None):
-    _validate_audit_date(audit_date)
+    audit_date = _validate_audit_date(audit_date)
+    _require_home(home)
     registry = _registry()
     return registry.set_aliases(
         home=str(home), product=product, aliases=aliases,
@@ -755,7 +1016,8 @@ def set_aliases(*, home, product, aliases, audit_date=None):
 
 
 def set_query_set(*, home, product, query_set, audit_date=None):
-    _validate_audit_date(audit_date)
+    audit_date = _validate_audit_date(audit_date)
+    _require_home(home)
     registry = _registry()
     return registry.set_query_set(
         home=str(home), product=product, query_set=query_set,
@@ -779,7 +1041,8 @@ def set_category(*, home, product, category_terms=None, category=None,
     bind.
     """
     terms = category_terms if category_terms is not None else category
-    _validate_audit_date(audit_date)
+    audit_date = _validate_audit_date(audit_date)
+    _require_home(home)
     registry = _registry()
     return registry.set_category(
         home=str(home), product=product, category=terms,
@@ -796,17 +1059,39 @@ set_category.__signature__ = inspect.Signature(parameters=[
 
 
 def register_page(*, home, product, snapshot, audit_date=None):
-    _validate_audit_date(audit_date)
+    audit_date = _validate_audit_date(audit_date)
+    _require_home(home)
     registry = _registry()
-    return registry.register_page(
-        home=str(home), product=product, snapshot=snapshot,
-        audit_date=audit_date)
+    try:
+        return registry.register_page(
+            home=str(home), product=product, snapshot=snapshot,
+            audit_date=audit_date)
+    except errors.CitelineError as exc:
+        # The operator explanation this route owes (Step
+        # 17 entry S17-R1-102): the snapshot input is an
+        # identifier, where that identifier comes from,
+        # and what to run first.
+        if "unknown snapshot" in str(exc):
+            _fail(
+                getattr(exc, "token", None) or "VALIDATION_FAILED",
+                "%s The snapshot input is a snapshot "
+                "identifier, not a page file: run an audit "
+                "of the product page first, and take the "
+                "snapshot_id the audit record carries, "
+                "because an audit is what creates a "
+                "snapshot. A snapshot belongs to the product "
+                "that audit ran for, so where two products "
+                "share a canonical line, the audit record "
+                "product_id states which product a snapshot "
+                "belongs to." % (exc,))
+        raise
 
 
 def name_round(*, home, product, round_label,
                importer_declaration, supplier_relation,
                audit_date=None):
-    _validate_audit_date(audit_date)
+    audit_date = _validate_audit_date(audit_date)
+    _require_home(home)
     registry = _registry()
     return registry.name_round(
         home=str(home), product=product, round_label=round_label,
@@ -824,19 +1109,22 @@ def list_products(*, home):
     registration entries stand.
     """
     journal = _journal()
-    try:
-        state = journal.fold_registry(str(home))
-        if isinstance(state, dict) and state:
-            return [dict(value) for value in state.values()
-                    if isinstance(value, dict)]
-        if isinstance(state, (list, tuple)) and state:
-            return [dict(value) for value in state
-                    if isinstance(value, dict)]
-    except Exception:
-        pass
+    # A journal that does not parse stands signalled in
+    # the governed value its sibling readers give, never
+    # as an empty home (Step 17 entry S17-R1X-030): the
+    # fold failure reaches the caller as it stands.
+    state = journal.fold_registry(str(home))
+    if isinstance(state, dict) and state:
+        return [dict(value) for value in state.values()
+                if isinstance(value, dict)]
+    if isinstance(state, (list, tuple)) and state:
+        return [dict(value) for value in state
+                if isinstance(value, dict)]
     registry = _registry()
     try:
         records = list(registry.list_products(str(home)) or [])
+    except errors.CitelineError:
+        raise
     except Exception:
         return []
     order = []
@@ -869,7 +1157,7 @@ def estate_grounds(*, home, product):
     page_path = None
     rounds = []
     seen_rounds = []
-    for entry in _fold(home):
+    for entry in _fold(home, apply_corrections=True):
         kind = _get(entry, "entry_kind")
         payload = _payload(entry)
         if kind == "snapshot_registered" \
@@ -996,13 +1284,57 @@ def robots(*, home, robots_file, evaluated_page_path=None,
     requested form, as every report home of this layer
     does.
     """
-    _validate_audit_date(audit_date)
+    audit_date = _validate_audit_date(audit_date)
+    _require_home(home)
+    _barred_check(home)
     evaluation = _robots_evaluation(
         home=home, robots_file=robots_file,
         evaluated_page_path=evaluated_page_path,
         audit_date=audit_date)
     from citeline import reporting
     return reporting.render(evaluation, form=form or "advanced")
+
+
+def _validate_capture_date(value, audit_date, name):
+    """Normalise one asserted capture date of a preview.
+
+    A capture date stands supplied only as a real
+    calendar date, in ISO form or as a date object, and
+    not after the call audit date where one stands
+    supplied. An empty string stands as no date
+    supplied. Any other value refuses VALIDATION_FAILED.
+    Returns the ISO string form, or None where no date
+    stands supplied.
+    """
+    if value is None or value == "":
+        return None
+    import datetime
+    if isinstance(value, datetime.datetime):
+        value = value.date()
+    if isinstance(value, datetime.date):
+        return value.isoformat()
+    if not isinstance(value, str):
+        _fail(
+            "VALIDATION_FAILED",
+            "%s is not an ISO date: %r" % (name, value))
+    try:
+        parsed = datetime.date.fromisoformat(value)
+    except ValueError:
+        _fail(
+            "VALIDATION_FAILED",
+            "%s is not a real calendar date: %s" % (name, value))
+    if audit_date is not None:
+        try:
+            audit_value = datetime.date.fromisoformat(str(audit_date)) \
+                if not isinstance(audit_date, datetime.date) \
+                else audit_date
+        except ValueError:
+            audit_value = None
+        if audit_value is not None and parsed > audit_value:
+            _fail(
+                "VALIDATION_FAILED",
+                "%s stands after the audit date: %s" % (name, value))
+    return parsed.isoformat()
 
 
 def _with_group_rules(evaluation, robots_file):
@@ -1052,22 +1384,38 @@ def robots_preview(*, home, first_robots_file, second_robots_file,
     reporting pipeline rendering of the assembly in the
     requested form.
     """
-    _validate_audit_date(audit_date)
+    audit_date = _validate_audit_date(audit_date)
     if first_capture_date is None:
         first_capture_date = first_captured_on
     if second_capture_date is None:
         second_capture_date = second_captured_on
+    _require_home(home)
+    first_capture_date = _validate_capture_date(
+        first_capture_date, audit_date, "first_capture_date")
+    second_capture_date = _validate_capture_date(
+        second_capture_date, audit_date, "second_capture_date")
     _barred_check(home)
-    first = _robots_evaluation(
-        home=home, robots_file=first_robots_file,
-        evaluated_page_path=evaluated_page_path,
-        audit_date=audit_date)
-    second = _robots_evaluation(
-        home=home, robots_file=second_robots_file,
-        evaluated_page_path=evaluated_page_path,
-        audit_date=audit_date)
-    first = _with_group_rules(first, first_robots_file)
-    second = _with_group_rules(second, second_robots_file)
+    try:
+        first = _robots_evaluation(
+            home=home, robots_file=first_robots_file,
+            evaluated_page_path=evaluated_page_path,
+            audit_date=audit_date)
+        second = _robots_evaluation(
+            home=home, robots_file=second_robots_file,
+            evaluated_page_path=evaluated_page_path,
+            audit_date=audit_date)
+        first = _with_group_rules(first, first_robots_file)
+        second = _with_group_rules(second, second_robots_file)
+    except Exception as exc:
+        # The preview landing's one exception to its
+        # stores nothing rule: a failure record stands
+        # appended where the chain accepts appends when
+        # the preview itself fails, on item M2 terms, in
+        # the appending discipline the other routes use.
+        _append_failure_record(
+            home, "robots preview", exc, first_robots_file,
+            audit_date)
+        raise
     from citeline import reporting
     return reporting.robots_preview(
         first, second, form=form or "advanced",
@@ -1103,9 +1451,116 @@ robots_preview.__signature__ = inspect.Signature(parameters=[
 # Audit: assembly over acquisition, checks, and robots.
 # ----------------------------------------------------------------
 
-def audit(*, home, page_file=None, robots_file=None,
-          evaluated_page_path=None, audit_date=None,
-          product=None, run_id=None):
+def _front_matter_key_count(page_file):
+    """The top level key count of one page's front matter block.
+
+    Reads only the head of the file: where the first line
+    is not a front matter fence, no block stands and None
+    stands returned. Keys are the block's top level lines
+    in key form, the same lines the extraction front
+    matter reading counts as keys.
+    """
+    try:
+        with open(str(page_file), "rb") as handle:
+            raw = handle.read(64 * 1024)
+    except OSError:
+        return None
+    text = raw.decode("utf-8", errors="ignore")
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return None
+    count = 0
+    for line in lines[1:]:
+        if line.strip() == "---":
+            break
+        if line and not line[0].isspace() and not line.startswith(
+                "#") and ":" in line:
+            count += 1
+    return count
+
+
+def _audit_preflight_limits(home, page_file, start_limits):
+    """The audit seam limit checks, against the limits in force.
+
+    Limit 1, page file size, and limit 12, front matter
+    key count, stand enforced here before any extraction
+    runs, at the values in force for the run the service
+    assigns (Step 17 entries S17-R1-038 and S17-R1-080):
+    a config set value governs the audit path, not the
+    hardcoded default of the component below.
+    """
+    by_limit = (start_limits or {}).get("by_limit") or {}
+    size_entry = by_limit.get("page_file_size") or {}
+    size_limit = size_entry.get("value")
+    if isinstance(size_limit, (int, float)):
+        try:
+            size = os.path.getsize(str(page_file))
+        except OSError:
+            size = None
+        if size is not None and size > size_limit * 1024 * 1024:
+            _fail(
+                "LIMIT_EXCEEDED",
+                "page file size limit is %s MiB in force "
+                "for this run, with rejection and no "
+                "partial record" % (size_limit,))
+    key_entry = by_limit.get("front_matter_key_count") or {}
+    key_limit = key_entry.get("value")
+    if isinstance(key_limit, (int, float)):
+        count = _front_matter_key_count(page_file)
+        if count is not None and count > key_limit:
+            _fail(
+                "LIMIT_EXCEEDED",
+                "front matter key count limit is %s, with "
+                "rejection and no partial record" % (key_limit,))
+
+
+def _cap_evidence_spans(check_results, by_limit):
+    """The evidence limits on one audit's check results.
+
+    Limits 19, 20, and 21 (evidence excerpt length,
+    evidence spans per check, evidence spans per report)
+    stand enforced on the record the audit stores, at the
+    values in force for its run (Step 17 entry
+    S17-R1-038): excerpts stand cut at the excerpt
+    length, each check keeps at most its span count, and
+    the record keeps at most the report span count in
+    total, in check order.
+    """
+    def value_of(key, default):
+        entry = (by_limit or {}).get(key) or {}
+        value = entry.get("value")
+        return value if isinstance(value, (int, float)) else default
+
+    per_check = int(value_of("evidence_spans_per_check", 20))
+    excerpt_limit = int(value_of("evidence_excerpt_length", 120))
+    remaining = int(value_of("evidence_spans_per_report", 200))
+    capped = []
+    for result in check_results:
+        if not isinstance(result, dict):
+            capped.append(result)
+            continue
+        spans = result.get("evidence_spans")
+        if isinstance(spans, list):
+            keep = []
+            for span in spans[:per_check]:
+                if remaining <= 0:
+                    break
+                if isinstance(span, dict) and isinstance(
+                        span.get("excerpt"), str) and len(
+                        span["excerpt"]) > excerpt_limit:
+                    span = dict(span)
+                    span["excerpt"] = span["excerpt"][:excerpt_limit]
+                keep.append(span)
+                remaining -= 1
+            result = dict(result)
+            result["evidence_spans"] = keep
+        capped.append(result)
+    return capped
+
+
+def _audit_impl(*, home, page_file=None, robots_file=None,
+                evaluated_page_path=None, audit_date=None,
+                product=None, run_id=None):
     """One audit, assembled as caller over its components.
 
     A call naming a standing run by its run_id stands as a
@@ -1155,8 +1610,39 @@ def audit(*, home, page_file=None, robots_file=None,
     product stands named, the first listed product of the
     home stands as the record product, as before.
     """
-    _validate_audit_date(audit_date)
+    audit_date = _validate_audit_date(audit_date)
     _barred_check(home)
+    _require_home(home)
+    run_started = _clock()
+    run_candidate = None
+    start_limits = None
+    if run_id is None and page_file is not None:
+        # The run identity the service assigns this audit:
+        # the snapshot entry the extraction appends stands
+        # first and the audit record second, so the record
+        # sequence stands two past the standing count. The
+        # run's limits in force stand read under that
+        # identity at the run's start, so a raise for the
+        # run reaches its appends and its record states the
+        # limits the run started under (Step 17 entries
+        # S17-R1-080, S17-R1X-011, and S17-R1X-016).
+        run_candidate = "run-%d" % (_entry_count(home) + 2)
+        start_limits = _limits_in_force(home, run_candidate)
+        # The audit appends twice, a snapshot entry during
+        # extraction and its audit record after: where the
+        # journal holds room for fewer than both, the call
+        # stands refused before either stands written, in
+        # the multi append discipline of entry S17-R1-089.
+        try:
+            cap = ((start_limits.get("by_limit") or {}).get(
+                "journal_length") or {}).get("value")
+            if cap is not None and _entry_count(home) + 2 > cap:
+                raise _preflight_refusal(39)
+        except errors.CitelineError:
+            raise
+        except Exception:
+            pass
+        _audit_preflight_limits(home, page_file, start_limits)
     if run_id is not None:
         fresh_named = [
             name for name, value in (
@@ -1175,7 +1661,7 @@ def audit(*, home, page_file=None, robots_file=None,
                 "form request on the standing run nor a "
                 "fresh audit" % ", ".join(fresh_named))
         standing = None
-        for entry in _fold(home):
+        for entry in _fold(home, apply_corrections=True):
             if _get(entry, "entry_kind") != "audit_record":
                 continue
             payload = _payload(entry)
@@ -1212,6 +1698,9 @@ def audit(*, home, page_file=None, robots_file=None,
             product_record = _require_product(home, product)
     if product_record is None and products:
         product_record = products[0]
+    if product_record is not None:
+        _require_typed_field(
+            product_record, "canonical_line", str, "product")
     product_id = (
         product_record.get("product_id") if product_record else None)
     from citeline import acquisition
@@ -1219,6 +1708,18 @@ def audit(*, home, page_file=None, robots_file=None,
         str(home), product_id=product_id, page_path=str(page_file),
         audit_date=audit_date,
         evaluated_page_path=evaluated_page_path)
+    # Limit 42, the per file parse time backstop, read
+    # over the extraction this run performed (Step 17
+    # entry S17-R1-038).
+    parse_limit = ((start_limits or {}).get("by_limit") or {}).get(
+        "per_file_parse_time", {}).get("value")
+    if isinstance(parse_limit, (int, float)) and \
+            _clock() - run_started > parse_limit:
+        _fail(
+            "LIMIT_EXCEEDED",
+            "per file parse time backstop is %s seconds in "
+            "force for this run, and the parse of this page "
+            "passed it" % (parse_limit,))
     snapshot = extraction["snapshot"]
     extracted = extraction["extracted"]
     facts = {
@@ -1244,6 +1745,8 @@ def audit(*, home, page_file=None, robots_file=None,
     check_results = checks_module.run_checks(
         extracted, facts, audit_date=audit_date)
     score = checks_module.compute_score(check_results)
+    check_results = _cap_evidence_spans(
+        check_results, (start_limits or {}).get("by_limit"))
     robots_summary = None
     if robots_file is not None:
         robots_summary = _robots_evaluation(
@@ -1251,8 +1754,12 @@ def audit(*, home, page_file=None, robots_file=None,
             evaluated_page_path=snapshot.get("evaluated_page_path"),
             audit_date=audit_date,
             path_defaulted=snapshot.get("path_defaulted"))
-    sequence = _entry_count(home) + 1
-    run_id = "run-%d" % sequence
+    # The run identity derives from the journal sequence
+    # of the entry that stores this record, resolved by
+    # the append itself under its write lock (Step 17
+    # entry S17-R1-077): the marker stands in the payload
+    # in place of any count read taken here.
+    run_id = "run-{sequence}"
     # The guide's trigger codes name the check by the stem
     # the guide's closed list states. Three checks carry a
     # stem shorter than their check id: description
@@ -1288,6 +1795,33 @@ def audit(*, home, page_file=None, robots_file=None,
             counts = _get(result, "detail_counts") or {}
             if isinstance(counts, dict):
                 cited_count = counts.get("distinct_target_count")
+    # The record states the limits in force at the run's
+    # start, under the run identity the service assigned.
+    # Where the config changed during the run, the change
+    # stands recorded beside them, in the limits the
+    # record was read under at its assembly, so the run
+    # can show the change (Step 17 entry S17-R1X-016).
+    limits_record = start_limits if start_limits is not None \
+        else _limits_in_force(home, run_candidate)
+    current_limits = _limits_in_force(home, run_candidate)
+    if current_limits.get("by_limit") != limits_record.get(
+            "by_limit"):
+        limits_record = dict(limits_record)
+        limits_record["config_changed_during_run"] = {
+            "limits_at_record": current_limits.get("by_limit"),
+        }
+    # Limit 41, the per run wall clock backstop, read over
+    # the whole run before its record stands appended
+    # (Step 17 entry S17-R1-038).
+    run_limit = ((start_limits or {}).get("by_limit") or {}).get(
+        "per_run_wall_clock_backstop", {}).get("value")
+    if isinstance(run_limit, (int, float)) and \
+            _clock() - run_started > run_limit:
+        _fail(
+            "LIMIT_EXCEEDED",
+            "per run wall clock backstop is %s seconds in "
+            "force for this run, and this run passed it"
+            % (run_limit,))
     record = {
         "run_id": run_id,
         "product_id": product_id,
@@ -1303,7 +1837,7 @@ def audit(*, home, page_file=None, robots_file=None,
         "audit_date": audit_date,
         "audit_date_defaulted": audit_date_defaulted,
         "audit_date_is_run_date": True,
-        "limits_in_force": _limits_in_force(home),
+        "limits_in_force": limits_record,
         "registry_version": (
             product_record.get("registry_version", 1)
             if product_record else 1),
@@ -1325,13 +1859,46 @@ def audit(*, home, page_file=None, robots_file=None,
         "trigger_codes": triggers,
         "distinct_cited_target_count": cited_count,
     }
-    journal.append_entry(
+    appended = journal.append_entry(
         str(home), "audit_record", copy.deepcopy(record),
-        audit_date=audit_date)
-    result = dict(record)
+        audit_date=audit_date, run_id=run_candidate)
+    stored = _payload(appended) or record
+    result = dict(stored)
     result["snapshot"] = snapshot
-    result["audit_run"] = dict(record)
+    result["audit_run"] = dict(stored)
     return result
+
+
+def audit(*, home, page_file=None, robots_file=None,
+          evaluated_page_path=None, audit_date=None,
+          product=None, run_id=None):
+    """One audit: the public route over the assembly above.
+
+    A failed audit over a healthy chain far below cap
+    appends exactly one failure record, as the failure
+    record claim of brief Section 5.2 states for reading
+    and non appending operations as for writing ones
+    (Step 17 entry S17-R1-085); the barred chain, cap,
+    and contention exceptions stand in the appending
+    helper, as they stand for the import route.
+    """
+    audit_date = _validate_audit_date(audit_date)
+    try:
+        return _audit_impl(
+            home=home, page_file=page_file,
+            robots_file=robots_file,
+            evaluated_page_path=evaluated_page_path,
+            audit_date=audit_date, product=product,
+            run_id=run_id)
+    except errors.CitelineError as exc:
+        if getattr(exc, "token", None) != "MALFORMED_CALL" \
+                and getattr(exc, "token", None) \
+                not in _LOOKUP_REFUSAL_CODES:
+            _append_failure_record(
+                home, "audit", exc,
+                page_file if page_file is not None else run_id,
+                audit_date)
+        raise
 
 
 def _detector_version():
@@ -1345,6 +1912,71 @@ def _detector_version():
 # ----------------------------------------------------------------
 # Probe import, report, and trend: calls over their components.
 # ----------------------------------------------------------------
+
+def _preflight_refusal(limit_number):
+    return errors.CitelineError(
+        "the journal holds no room for the entries this "
+        "import would append, so the import stands refused "
+        "before any part of it is attempted",
+        row="I-1", token="JOURNAL_CAP_EXCEEDED",
+        refusal_context="import_preflight",
+        limit_number=limit_number)
+
+
+def _import_preflight(home, answer_file, extra_entries):
+    """The import preflight gate, row I-1.
+
+    Before any byte of the incoming file is read, the
+    stated cost of the import (the file size as stat
+    states it, beside the journal entries the import
+    would append: its answer entry and the first import
+    round stamp where one would stand) stands
+    checked against limits 39 and 40. Where the cost
+    does not fit, the import stands refused here with
+    refusal_context import_preflight, in the integrity
+    class, ahead of every usage class validation the
+    file would otherwise meet (entries S17-R1-037 and
+    S17-R1-034).
+    """
+    journal = _journal()
+    try:
+        limits = journal.effective_limits(str(home))
+    except Exception:
+        return
+    count = _entry_count(home)
+    needed = 1 + int(extra_entries)
+    if count + needed > limits["journal_length"]["value"]:
+        raise _preflight_refusal(39)
+    try:
+        snapshot = journal.status_snapshot(str(home))
+        size_remaining = snapshot.get("total_home_size_remaining")
+        file_size = 0
+        if answer_file is not None:
+            try:
+                file_size = os.path.getsize(str(answer_file))
+            except OSError:
+                file_size = 0
+        if size_remaining is not None and file_size + 4096 > (
+                size_remaining):
+            raise _preflight_refusal(40)
+    except errors.CitelineError:
+        raise
+    except Exception:
+        pass
+
+
+def _first_import_extra(home, product, round_label):
+    """One where this import would write the round stamps."""
+    try:
+        product_record = _require_product(home, product)
+        round_record = _require_round(home, product_record,
+                                      round_label)
+    except Exception:
+        return 0
+    if round_record.get("registry_version_at_first_import") is None:
+        return 1
+    return 0
+
 
 def probe_import(*, home, answer_file=None, product=None,
                  round=None, engine_label=None, query=None,
@@ -1374,23 +2006,68 @@ def probe_import(*, home, answer_file=None, product=None,
     level check fires ahead of the lookup that owns it.
     """
     _barred_check(home)
+    _require_home(home)
+    run_started = _clock()
     journal = _journal()
     from citeline import probe_import as import_module
     try:
-        import_module.probe_import(
-            answer_file=answer_file, product=product, round=round,
-            engine_label=engine_label, query=query, kind=kind,
-            captured_on=captured_on, capture_method=capture_method,
-            control_designation=control_designation,
-            audit_date=audit_date, known_round=True,
-            query_set=None, standing_records=(), control_count=0,
-            product_id=None, round_id=None, answer_id=None,
-            registry_version_at_import=None,
-            detector_version_at_import=None)
+        _import_preflight(
+            home, answer_file,
+            _first_import_extra(home, product, round))
+        # Limits 31 and 3's seam companions, enforced at
+        # the values in force before the file's validation
+        # runs (Step 17 entries S17-R1-038 and
+        # S17-R1-080): the capture method text length
+        # stands checked here, in code points, as the
+        # engine label length stands checked in the
+        # adapter.
+        method_limit = _limit_value(
+            home, "capture_method_text_length")
+        if isinstance(capture_method, str) \
+                and method_limit is not None \
+                and len(capture_method) > method_limit:
+            _fail(
+                "LIMIT_EXCEEDED",
+                "capture method text length limit is %s "
+                "code points, with rejection and no partial "
+                "record" % (method_limit,))
     except Exception as exc:
         _append_failure_record(
             home, "probe import", exc, answer_file, audit_date)
         raise
+    worksheet = bool(answer_file) and import_module.is_worksheet_file(
+        str(answer_file))
+    if worksheet:
+        try:
+            import_module.validate_adapter_inputs(
+                answer_file=answer_file, product=product,
+                round=round, engine_label=engine_label,
+                query=query, kind=kind, captured_on=captured_on,
+                capture_method=capture_method,
+                control_designation=control_designation,
+                audit_date=audit_date, known_round=True,
+                query_set=None, control_count=0)
+        except Exception as exc:
+            _append_failure_record(
+                home, "probe import", exc, answer_file, audit_date)
+            raise
+    else:
+        try:
+            import_module.probe_import(
+                answer_file=answer_file, product=product,
+                round=round, engine_label=engine_label,
+                query=query, kind=kind, captured_on=captured_on,
+                capture_method=capture_method,
+                control_designation=control_designation,
+                audit_date=audit_date, known_round=True,
+                query_set=None, standing_records=(), control_count=0,
+                product_id=None, round_id=None, answer_id=None,
+                registry_version_at_import=None,
+                detector_version_at_import=None)
+        except Exception as exc:
+            _append_failure_record(
+                home, "probe import", exc, answer_file, audit_date)
+            raise
     try:
         product_record = _require_product(home, product)
         round_record = _require_round(home, product_record, round)
@@ -1401,43 +2078,148 @@ def probe_import(*, home, answer_file=None, product=None,
     product_id = product_record.get("product_id")
     round_id = round_record.get("round_id")
     standing = _answers(home, round_id)
-    control_count = sum(
-        1 for item in standing
-        if item.get("control_flag") and item.get("kind") == kind)
     sequence = _entry_count(home) + 1
     from citeline import probe_import as import_module
     try:
-        record = import_module.prepare_import(
-            answer_file=str(answer_file), product=product,
-            round=round, engine_label=engine_label, query=query,
-            kind=kind, captured_on=captured_on,
-            capture_method=capture_method,
-            control_designation=control_designation,
-            audit_date=audit_date, known_round=True,
-            query_set=list(product_record.get("query_set") or []),
-            standing_records=standing,
-            control_count=control_count,
-            product_id=product_id, round_id=round_id,
-            answer_id="ans-%d" % sequence,
-            registry_version_at_import=product_record.get(
-                "registry_version", 1),
-            detector_version_at_import=_detector_version())
+        if worksheet:
+            control_count = sum(
+                1 for item in standing
+                if item.get("control_flag"))
+            records = import_module.prepare_worksheet_import(
+                answer_file=str(answer_file), product=product,
+                round=round, engine_label=engine_label,
+                query=query, kind=kind, captured_on=captured_on,
+                capture_method=capture_method,
+                control_designation=control_designation,
+                audit_date=audit_date, known_round=True,
+                query_set=list(product_record.get("query_set") or []),
+                standing_records=standing,
+                control_count=control_count,
+                product_id=product_id, round_id=round_id,
+                answer_id_prefix="ans-{sequence}",
+                registry_version_at_import=product_record.get(
+                    "registry_version", 1),
+                detector_version_at_import=_detector_version())
+        else:
+            control_count = sum(
+                1 for item in standing
+                if item.get("control_flag")
+                and item.get("kind") == kind)
+            records = [import_module.prepare_import(
+                answer_file=str(answer_file), product=product,
+                round=round, engine_label=engine_label, query=query,
+                kind=kind, captured_on=captured_on,
+                capture_method=capture_method,
+                control_designation=control_designation,
+                audit_date=audit_date, known_round=True,
+                query_set=list(product_record.get("query_set") or []),
+                standing_records=standing,
+                control_count=control_count,
+                product_id=product_id, round_id=round_id,
+                answer_id="ans-{sequence}",
+                registry_version_at_import=product_record.get(
+                    "registry_version", 1),
+                detector_version_at_import=_detector_version())]
     except Exception as exc:
         _append_failure_record(
             home, "probe import", exc, answer_file, audit_date)
         raise
-    journal.append_entry(
-        str(home), "answer_imported", copy.deepcopy(record),
-        audit_date=audit_date)
+    try:
+        # The seam limits on the prepared records, at the
+        # values in force, before anything stands stored
+        # (Step 17 entries S17-R1-038 and S17-R1-080):
+        # limit 3, extracted text length per answer;
+        # limit 22, answers per round; and the two
+        # backstops, limit 42 over the preparation and
+        # limit 41 over the whole run.
+        text_limit = _limit_value(
+            home, "extracted_text_length_per_page_or_answer")
+        if text_limit is not None:
+            for item in records:
+                text = item.get("answer_text")
+                if isinstance(text, str) and len(text) > text_limit:
+                    _fail(
+                        "LIMIT_EXCEEDED",
+                        "extracted text length per answer "
+                        "limit is %s characters, with "
+                        "rejection and no partial record"
+                        % (text_limit,))
+        round_limit = _limit_value(home, "answers_per_round")
+        if round_limit is not None and len(standing) + len(
+                records) > round_limit:
+            _fail(
+                "LIMIT_EXCEEDED",
+                "answers per round limit is %s, with "
+                "rejection and no partial record"
+                % (round_limit,))
+        parse_limit = _limit_value(home, "per_file_parse_time")
+        if parse_limit is not None and \
+                _clock() - run_started > parse_limit:
+            _fail(
+                "LIMIT_EXCEEDED",
+                "per file parse time backstop is %s seconds "
+                "in force, and the preparation of this file "
+                "passed it" % (parse_limit,))
+        run_limit = _limit_value(
+            home, "per_run_wall_clock_backstop")
+        if run_limit is not None and \
+                _clock() - run_started > run_limit:
+            _fail(
+                "LIMIT_EXCEEDED",
+                "per run wall clock backstop is %s seconds "
+                "in force, and this run passed it"
+                % (run_limit,))
+    except Exception as exc:
+        _append_failure_record(
+            home, "probe import", exc, answer_file, audit_date)
+        raise
+    batch = [("answer_imported", copy.deepcopy(item))
+             for item in records]
     if round_record.get("registry_version_at_first_import") is None:
         stamped = dict(round_record)
-        stamped["registry_version_at_first_import"] = record.get(
+        stamped["registry_version_at_first_import"] = records[0].get(
             "registry_version_at_import")
-        stamped["detector_version_at_first_import"] = record.get(
+        stamped["detector_version_at_first_import"] = records[0].get(
             "detector_version_at_import")
-        journal.append_entry(
-            str(home), "round_named", stamped, audit_date=audit_date)
-    return record
+        batch.append(("round_named", stamped))
+    appended = journal.append_entries_atomic(
+        str(home), batch, audit_date=audit_date)
+    # The identities the appends assigned stand read back
+    # from the appended entries themselves, so the record
+    # the caller receives names the identity that stands
+    # stored (Step 17 entry S17-R1-077).
+    appended_answers = [
+        _payload(entry) for entry in appended
+        if _get(entry, "entry_kind") == "answer_imported"]
+    result_records = []
+    for index, item in enumerate(records):
+        shown = dict(item)
+        if index < len(appended_answers) and appended_answers[
+                index].get("answer_id") is not None:
+            shown["answer_id"] = appended_answers[index][
+                "answer_id"]
+        if not str(shown.get("answer_text") or "").strip():
+            shown["import_warning"] = (
+                "Empty answer warning: the file held no "
+                "answer text, and the empty answer stands "
+                "imported and counted in its round. If the "
+                "empty file was the wrong file, import the "
+                "right file under a different capture date")
+        result_records.append(shown)
+    if len(result_records) == 1:
+        return result_records[0]
+    return result_records
+
+
+# The audit route's form request stands apart: a run
+# identity that names no standing run is refused as
+# UNKNOWN_ROUND and stores nothing, on the Step 16
+# E-05 pin. The reporting and guide routes hold no such
+# pin, and their lookup refusals append a failure
+# record like any other governed failure, on the
+# worked cases of Step 17 entry S17-R1-085.
+_LOOKUP_REFUSAL_CODES = frozenset({
+    "UNKNOWN_ROUND", "NO_SUCH_PRODUCT"})
 
 
 def _append_failure_record(home, operation, exc, subject, audit_date):
@@ -1467,21 +2249,103 @@ def _append_failure_record(home, operation, exc, subject, audit_date):
         pass
 
 
-def _round_entries(home, product_record, round_record):
+def _bound_product_record(home, product_record, round_record):
+    """The product record as it stood at a round's first import.
+
+    The binding of brief item 29: a registry change
+    recorded after a round's first import does not bind
+    the round. The record that governs the round is the
+    last registry record standing at or before the
+    round's first imported answer, or, where the round
+    holds no answer, the last standing at or before the
+    round's own naming. Where no such record stands, the
+    standing product record stands returned. The choice
+    for a change landing between imports of one round
+    stands as the governed carry S17-R1-115 states, and
+    this reading does not cure past it.
+    """
+    entries = _fold(home, apply_corrections=True)
     product_id = product_record.get("product_id")
     round_id = round_record.get("round_id")
+    first_import = None
+    round_sequence = None
+    for entry in entries:
+        payload = _payload(entry)
+        sequence = _get(entry, "sequence")
+        if _get(entry, "entry_kind") == "answer_imported" \
+                and payload.get("round_id") == round_id \
+                and isinstance(sequence, int):
+            if first_import is None or sequence < first_import:
+                first_import = sequence
+        if _get(entry, "entry_kind") == "round_named" \
+                and payload.get("round_id") == round_id \
+                and isinstance(sequence, int):
+            round_sequence = sequence
+    bound = first_import if first_import is not None \
+        else round_sequence
+    if bound is None:
+        return product_record
+    standing = None
+    for entry in entries:
+        payload = _payload(entry)
+        sequence = _get(entry, "sequence")
+        if _get(entry, "entry_kind") in (
+                "product_registered", "registry_change") \
+                and payload.get("product_id") == product_id \
+                and isinstance(sequence, int) \
+                and sequence <= bound:
+            standing = payload
+    return standing if standing is not None else product_record
+
+
+def _round_entries(home, product_record, round_record):
+    """The entries one round's computation reads.
+
+    The fold stands corrections aware, as the registry
+    readers are (Step 17 entry S17-R1-086), and bound to
+    the round's first import basis (Step 17 entry
+    S17-R1-082): registry entries recorded after the
+    round's first imported answer do not reach the
+    computation, on the item 29 binding, stopping at the
+    governed carry S17-R1-115 for a change landing
+    between imports of the round.
+    """
+    product_id = product_record.get("product_id")
+    round_id = round_record.get("round_id")
+    entries = _fold(home, apply_corrections=True)
+    first_import = None
+    round_sequence = None
+    for entry in entries:
+        payload = _payload(entry)
+        sequence = _get(entry, "sequence")
+        if _get(entry, "entry_kind") == "answer_imported" \
+                and payload.get("round_id") == round_id \
+                and isinstance(sequence, int):
+            if first_import is None or sequence < first_import:
+                first_import = sequence
+        if _get(entry, "entry_kind") == "round_named" \
+                and payload.get("round_id") == round_id \
+                and isinstance(sequence, int):
+            round_sequence = sequence
+    bound = first_import if first_import is not None \
+        else round_sequence
     selected = []
-    for entry in _fold(home):
+    for entry in entries:
         kind = _get(entry, "entry_kind")
         payload = _payload(entry)
+        sequence = _get(entry, "sequence")
         if kind in ("product_registered", "registry_change"):
-            if payload.get("product_id") == product_id:
+            if payload.get("product_id") == product_id and (
+                    bound is None or not isinstance(
+                        sequence, int) or sequence <= bound):
                 selected.append(entry)
         elif kind == "round_named":
             if payload.get("round_id") == round_id:
                 selected.append(entry)
         elif kind == "answer_imported":
             if payload.get("round_id") == round_id:
+                _require_typed_field(
+                    payload, "answer_text", str, "answer")
                 selected.append(entry)
     return selected
 
@@ -1506,7 +2370,25 @@ def _round_datum(entries, product_record, round_record):
         "detector_version_at_first_import")
     if detector_version is not None:
         datum["detector_version"] = detector_version
-    query_set_version = product_record.get("query_set_version")
+    # The query set version stands as it stood at the
+    # round's first import (Step 17 entry S17-R1-082, its
+    # stamp limb): the bound record of _round_entries'
+    # binding, not the standing product record at report
+    # time. The bound record travels as the last selected
+    # registry entry of the round.
+    bound_record = None
+    for entry in entries:
+        payload = _payload(entry)
+        if _get(entry, "entry_kind") in (
+                "product_registered", "registry_change") and \
+                payload.get("product_id") == product_record.get(
+                    "product_id"):
+            bound_record = payload
+    query_set_version = (
+        bound_record.get("query_set_version")
+        if bound_record is not None else None)
+    if query_set_version is None:
+        query_set_version = product_record.get("query_set_version")
     if query_set_version is not None:
         datum["query_set_version"] = query_set_version
     # The importer declaration recorded at round naming
@@ -1586,16 +2468,27 @@ def probe_report(*, home, product, round, form=None,
     record in the requested form, the prose walk in the
     Simple form and the record object or its envelope in
     the structured forms, never the raw assembly.
+
+    A failed report over a healthy chain far below cap
+    appends exactly one failure record (Step 17 entry
+    S17-R1-085), as the audit route states.
     """
-    _validate_audit_date(audit_date)
-    _require_home(home)
-    _barred_check(home)
-    product_record = _require_product(home, product)
-    round_record = _require_round(home, product_record, round)
-    result = _probe_report_record(
-        home, product_record, round_record, audit_date=audit_date)
-    from citeline import reporting
-    return reporting.render(result, form=form or "advanced")
+    audit_date = _validate_audit_date(audit_date)
+    try:
+        _require_home(home)
+        _barred_check(home)
+        product_record = _require_product(home, product)
+        round_record = _require_round(home, product_record, round)
+        result = _probe_report_record(
+            home, product_record, round_record,
+            audit_date=audit_date)
+        from citeline import reporting
+        return reporting.render(result, form=form or "advanced")
+    except errors.CitelineError as exc:
+        if getattr(exc, "token", None) != "MALFORMED_CALL":
+            _append_failure_record(
+                home, "probe report", exc, round, audit_date)
+        raise
 
 
 def _trend_frame(metrics_record):
@@ -1646,47 +2539,54 @@ def probe_trend(*, home, product, round_a, round_b, form=None,
     the assembled trend in the requested form, as the
     probe report home does.
     """
-    _validate_audit_date(audit_date)
-    _require_home(home)
-    _barred_check(home)
-    product_record = _require_product(home, product)
-    first = _require_round(home, product_record, round_a)
-    second = _require_round(home, product_record, round_b)
-    if round_a == round_b:
-        repeated = errors.CitelineError(
-            "a trend naming the same round twice stands "
-            "refused: %r" % (round_a,),
-            token="ROUND_REPEATED")
-        _append_failure_record(
-            home, "probe trend", repeated, round_a, audit_date)
-        raise repeated
-    from citeline import metrics
-    first_metrics = _round_metrics(home, product_record, first)
-    second_metrics = _round_metrics(home, product_record, second)
-    trend = metrics.compute_trend(
-        {"metrics": first_metrics, "frame": _trend_frame(first_metrics)},
-        {"metrics": second_metrics,
-         "frame": _trend_frame(second_metrics)})
-    result = dict(trend) if isinstance(trend, dict) else {
-        "trend": trend}
-    result["product_id"] = product_record.get("product_id")
-    result["product"] = product_record.get("name")
-    result["round_a"] = round_a
-    result["round_b"] = round_b
-    result["first_round"] = _probe_report_record(
-        home, product_record, first, audit_date=audit_date,
-        metrics_record=first_metrics)
-    result["second_round"] = _probe_report_record(
-        home, product_record, second, audit_date=audit_date,
-        metrics_record=second_metrics)
-    result["audit_date"] = audit_date
-    # The trend assembly carries the honesty sentence at
-    # trend level, as the standalone probe report carries
-    # it, whether or not the trend computation printed a
-    # delta with its own comparability line.
-    result["honesty_sentence"] = _honesty_sentence()
-    from citeline import reporting
-    return reporting.render(result, form=form or "advanced")
+    audit_date = _validate_audit_date(audit_date)
+    try:
+        _require_home(home)
+        _barred_check(home)
+        product_record = _require_product(home, product)
+        first = _require_round(home, product_record, round_a)
+        second = _require_round(home, product_record, round_b)
+        if round_a == round_b:
+            raise errors.CitelineError(
+                "a trend naming the same round twice stands "
+                "refused: %r" % (round_a,),
+                token="ROUND_REPEATED")
+        from citeline import metrics
+        first_metrics = _round_metrics(home, product_record, first)
+        second_metrics = _round_metrics(home, product_record, second)
+        trend = metrics.compute_trend(
+            {"metrics": first_metrics,
+             "frame": _trend_frame(first_metrics)},
+            {"metrics": second_metrics,
+             "frame": _trend_frame(second_metrics)})
+        result = dict(trend) if isinstance(trend, dict) else {
+            "trend": trend}
+        result["product_id"] = product_record.get("product_id")
+        result["product"] = product_record.get("name")
+        result["round_a"] = round_a
+        result["round_b"] = round_b
+        result["first_round"] = _probe_report_record(
+            home, product_record, first, audit_date=audit_date,
+            metrics_record=first_metrics)
+        result["second_round"] = _probe_report_record(
+            home, product_record, second, audit_date=audit_date,
+            metrics_record=second_metrics)
+        result["audit_date"] = audit_date
+        # The trend assembly carries the honesty sentence at
+        # trend level, as the standalone probe report carries
+        # it, whether or not the trend computation printed a
+        # delta with its own comparability line.
+        result["honesty_sentence"] = _honesty_sentence()
+        from citeline import reporting
+        return reporting.render(result, form=form or "advanced")
+    except errors.CitelineError as exc:
+        # A failed trend appends exactly one failure
+        # record, the repeated round refusal included
+        # (Step 17 entry S17-R1-085).
+        if getattr(exc, "token", None) != "MALFORMED_CALL":
+            _append_failure_record(
+                home, "probe trend", exc, round_a, audit_date)
+        raise
 
 
 def query_set_report(*, home, product, form=None, audit_date=None):
@@ -1695,36 +2595,68 @@ def query_set_report(*, home, product, form=None, audit_date=None):
     The home returns the reporting pipeline rendering of
     the derived report in the requested form.
     """
-    _validate_audit_date(audit_date)
-    _require_home(home)
-    _barred_check(home)
-    product_record = _require_product(home, product)
-    from citeline import reporting
-    return reporting.query_set_report(
-        product_record, form=form or "advanced")
+    audit_date = _validate_audit_date(audit_date)
+    try:
+        _require_home(home)
+        _barred_check(home)
+        product_record = _require_product(home, product)
+        from citeline import reporting
+        return reporting.query_set_report(
+            product_record, form=form or "advanced")
+    except errors.CitelineError as exc:
+        if getattr(exc, "token", None) != "MALFORMED_CALL":
+            _append_failure_record(
+                home, "query set report", exc, product,
+                audit_date)
+        raise
 
 
 def export_capture_worksheet(*, home, product, round, queries=None,
                              engine_labels=None, planned_answers=0,
                              output_path=None, audit_date=None):
-    """One capture worksheet written from a named round definition."""
-    _validate_audit_date(audit_date)
+    """One capture worksheet written from a named round definition.
+
+    The worksheet stands written from the named round
+    definition: where the call names no query list, the
+    product query set for the round stands as the list,
+    and a named query that stands in no query set of the
+    product stands refused here, before any file stands
+    written (entry S17-R1X-021). The inputs travel to the
+    worksheet writer as they stand, with no string or
+    integer coercion at this seam, so a malformed input
+    meets the writer validation in its own form and
+    refuses in a recorded error value (entry S17-R1X-023).
+    """
+    audit_date = _validate_audit_date(audit_date)
     product_record = _require_product(home, product)
     _require_round(home, product_record, round)
+    if queries is None:
+        queries = list(product_record.get("query_set") or [])
+    elif isinstance(queries, (list, tuple)):
+        known = list(product_record.get("query_set") or [])
+        for value in queries:
+            if value not in known:
+                _fail(
+                    "VALIDATION_FAILED",
+                    "a worksheet query stands in no query "
+                    "set for the product: %r; the worksheet "
+                    "stands written from the named round "
+                    "definition, whose queries are the "
+                    "product query set" % (value,))
     from citeline import probe_import as import_module
     return import_module.export_capture_worksheet(
-        output_path=str(output_path), product=product, round=round,
-        queries=list(queries or []),
-        engine_labels=list(engine_labels or []),
-        planned_answers=int(planned_answers or 0))
+        output_path=output_path, product=product, round=round,
+        queries=queries,
+        engine_labels=() if engine_labels is None else engine_labels,
+        planned_answers=planned_answers, home=str(home))
 
 
 # ----------------------------------------------------------------
 # Guide: calls over the guide component, stored as guide_record.
 # ----------------------------------------------------------------
 
-def guide(*, home, run_id=None, product=None, round_label=None,
-          audit_date=None):
+def _guide_impl(*, home, run_id=None, product=None,
+                round_label=None, audit_date=None):
     """One guide draft, from one audit record or one round.
 
     The draft stands computed by the guide component from
@@ -1744,7 +2676,7 @@ def guide(*, home, run_id=None, product=None, round_label=None,
     vocabulary holds no run specific token, and the joined
     table assigns guide its missing references at U-4.
     """
-    _validate_audit_date(audit_date)
+    audit_date = _validate_audit_date(audit_date)
     _barred_check(home)
     if run_id is not None and (
             product is not None or round_label is not None):
@@ -1763,7 +2695,7 @@ def guide(*, home, run_id=None, product=None, round_label=None,
     from citeline import guide as guide_module
     if run_id is not None:
         audit_record = None
-        for entry in _fold(home):
+        for entry in _fold(home, apply_corrections=True):
             if _get(entry, "entry_kind") != "audit_record":
                 continue
             payload = _payload(entry)
@@ -1774,6 +2706,8 @@ def guide(*, home, run_id=None, product=None, round_label=None,
                 "UNKNOWN_ROUND",
                 "no completed audit record stands under the "
                 "identity given: %r" % (run_id,))
+        _require_typed_field(
+            audit_record, "sentences", list, "audit")
         product_record = None
         for candidate in list_products(home=home):
             if candidate.get("product_id") == audit_record.get(
@@ -1810,9 +2744,11 @@ def guide(*, home, run_id=None, product=None, round_label=None,
         from citeline import metrics
         entries = _round_entries(home, product_record, round_record)
         answers = metrics.answer_metrics_from_journal(entries)
+        bound_record = _bound_product_record(
+            home, product_record, round_record)
         draft = guide_module.draft_from_round(
             round_record,
-            canonical_line=product_record.get("canonical_line"),
+            canonical_line=bound_record.get("canonical_line"),
             audit_date=audit_date,
             answers=answers)
     entry = journal.append_entry(
@@ -1824,6 +2760,31 @@ def guide(*, home, run_id=None, product=None, round_label=None,
         sequence = _entry_count(home)
     result["guide_id"] = "guide-%d" % int(sequence)
     return result
+
+
+def guide(*, home, run_id=None, product=None, round_label=None,
+          audit_date=None):
+    """One guide draft: the public route over the assembly above.
+
+    A failed guide call over a healthy chain far below
+    cap appends exactly one failure record (Step 17 entry
+    S17-R1-085), as the audit route states.
+    """
+    audit_date = _validate_audit_date(audit_date)
+    try:
+        return _guide_impl(
+            home=home, run_id=run_id, product=product,
+            round_label=round_label, audit_date=audit_date)
+    except errors.CitelineError as exc:
+        # Every governed failure of this route appends,
+        # the unknown run identity and the both selectors
+        # malformed call included, on the worked cases of
+        # Step 17 entry S17-R1-085.
+        _append_failure_record(
+            home, "guide", exc,
+            run_id if run_id is not None else round_label,
+            audit_date)
+        raise
 
 
 __all__ = [

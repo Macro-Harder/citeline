@@ -293,7 +293,24 @@ def install(location=None, home=None, **_ignored):
     as a warning and is not an install failure, on brief
     Section 3.5 point 5, so the call succeeds and the
     warning stands in the report for the caller to print.
+
+    A filesystem failure on the install route stands
+    reported as a governed recorded error, never as a raw
+    operating system error reaching the caller (Step 17
+    entry S17-R1-065): the wrapping below carries every
+    OSError the route raises into the InstallError form,
+    whose code stands in the item 126 exit table.
     """
+    try:
+        return _install_impl(location=location, home=home)
+    except OSError as exc:
+        raise InstallError(
+            "DESTINATION_EXISTS",
+            "the install filesystem operation failed: %s"
+            % (exc,))
+
+
+def _install_impl(location=None, home=None):
     if location is None or home is None:
         raise InstallError(
             "MALFORMED_CALL",
@@ -308,19 +325,41 @@ def install(location=None, home=None, **_ignored):
             _fail(
                 "the install location path stands as a file, "
                 "not a directory: %s" % location)
+    if os.path.lexists(home):
+        # One created item, the product home, must stand
+        # as a directory at the end of a completed
+        # install: a home path standing as a file is
+        # refused, as the location path standing as a
+        # file is refused (Step 17 entry S17-R1-066).
+        info = os.lstat(home)
+        if not stat.S_ISDIR(info.st_mode):
+            _fail(
+                "the product home path stands as a file, "
+                "not a directory: %s" % home)
     config_file = os.path.join(location, CONFIG_FILE_NAME)
     config_warnings = []
     if os.path.lexists(config_file):
-        info = os.lstat(config_file)
-        if stat.S_ISREG(info.st_mode):
-            valid, config_warnings = _config_check(
-                config_file, home)
-            if not valid:
-                raise InstallError(
-                    "CONFIG_INVALID",
-                    "an existing config file that is itself "
-                    "invalid fails the install, with the file "
-                    "still left untouched: %s" % config_file)
+        # A config path that stands but is not a regular
+        # file (a directory at the path) holds no config
+        # file that parses, and fails the install at row
+        # X-1 as an invalid config (Step 17 entry
+        # S17-R1-067); a link to a regular file stands
+        # checked through the link, as a file.
+        if not os.path.isfile(config_file):
+            raise InstallError(
+                "CONFIG_INVALID",
+                "the config path stands but is not a "
+                "regular file, so no config file that "
+                "parses stands at the location: %s"
+                % config_file)
+        valid, config_warnings = _config_check(
+            config_file, home)
+        if not valid:
+            raise InstallError(
+                "CONFIG_INVALID",
+                "an existing config file that is itself "
+                "invalid fails the install, with the file "
+                "still left untouched: %s" % config_file)
     if not os.path.lexists(location):
         os.makedirs(location)
         created_items.append(location)
@@ -346,8 +385,7 @@ def install(location=None, home=None, **_ignored):
             handle.write(product_text)
         created_items.append(product_file)
     if os.path.lexists(config_file):
-        info = os.lstat(config_file)
-        if stat.S_ISREG(info.st_mode) and _is_installer_config(
+        if os.path.isfile(config_file) and _is_installer_config(
                 config_file):
             config_state = "installer config standing"
         else:
@@ -380,8 +418,21 @@ def uninstall(location=None, home=None, **_ignored):
     The location and the home directories stand removed
     only where they stand empty after those removals.
     A repeat call over a part removed state completes the
-    list and reports completion.
+    list and reports completion. A filesystem failure on
+    the route stands reported as a governed recorded
+    error, as on the install route (Step 17 entry
+    S17-R1-065).
     """
+    try:
+        return _uninstall_impl(location=location, home=home)
+    except OSError as exc:
+        raise InstallError(
+            "DESTINATION_EXISTS",
+            "the uninstall filesystem operation failed: %s"
+            % (exc,))
+
+
+def _uninstall_impl(location=None, home=None):
     if location is None or home is None:
         raise InstallError(
             "MALFORMED_CALL",
@@ -509,6 +560,17 @@ def main(argv=None):
     except InstallError as exc:
         print("install: %s" % (exc,), file=sys.stderr)
         return exc.exit_code
+    except OSError as exc:
+        # The entry point backstop of the same discipline:
+        # no filesystem failure of either route reaches
+        # the operator as a traceback at a code the table
+        # assigns to no outcome.
+        wrapped = InstallError(
+            "DESTINATION_EXISTS",
+            "the install filesystem operation failed: %s"
+            % (exc,))
+        print("install: %s" % (wrapped,), file=sys.stderr)
+        return wrapped.exit_code
     return 0
 
 

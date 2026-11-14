@@ -19,7 +19,10 @@ Dates are call inputs (the audit_date argument), never
 clock reads.
 """
 
+import contextlib
 import copy
+import fcntl
+import os
 import re
 import unicodedata
 
@@ -177,6 +180,35 @@ def _fold_registry(home):
     return records
 
 
+@contextlib.contextmanager
+def _registry_lock(home):
+    """Serialise one registry read, edit, append cycle.
+
+    Contract C6 states an atomic registry write. The
+    journal write lock covers a single append only, so a
+    setter that reads the standing record, edits its own
+    copy, and appends the whole record can silently lose
+    a concurrent update whose cycle overlaps its own.
+    This advisory lock, on its own file inside the home,
+    is held for the whole cycle, so a concurrent registry
+    cycle waits and then reads the record the earlier
+    cycle committed. The journal lock stands separate
+    and is always taken after this one, never before it.
+    """
+    home_text = str(home)
+    os.makedirs(home_text, exist_ok=True)
+    handle = open(
+        os.path.join(home_text, ".citeline-registry.lock"), "a+")
+    try:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        yield
+    finally:
+        try:
+            fcntl.flock(handle, fcntl.LOCK_UN)
+        finally:
+            handle.close()
+
+
 def _as_record(value):
     if isinstance(value, dict):
         return copy.deepcopy(value)
@@ -207,16 +239,33 @@ def _has_control(text):
     return any(unicodedata.category(ch) == "Cc" for ch in text)
 
 
+def _has_surrogate(text):
+    return any(0xD800 <= ord(ch) <= 0xDFFF for ch in text)
+
+
 def validate_name(value, what="name"):
-    """A name is 1 to 200 code points, no control characters."""
+    """A name is 1 to 200 code points, no control characters.
+
+    Name text is normalised to Unicode NFC before case
+    folding (brief item 151), and the normalised form is
+    the form stored and the form identity is formed from,
+    so one name in its two Unicode forms is one name at
+    this boundary. A lone surrogate is not encodable text
+    and fails validation here, in the closed vocabulary,
+    rather than at journal encoding.
+    """
     if not isinstance(value, str):
         _fail("VALIDATION_FAILED", "%s must be a string" % what)
+    value = unicodedata.normalize("NFC", value)
     if len(value) < 1 or len(value) > 200:
         _fail("VALIDATION_FAILED",
               "%s must be 1 to 200 code points" % what)
     if _has_control(value):
         _fail("VALIDATION_FAILED",
               "%s must carry no control characters" % what)
+    if _has_surrogate(value):
+        _fail("VALIDATION_FAILED",
+              "%s must carry no lone surrogate characters" % what)
     return value
 
 
@@ -245,6 +294,9 @@ def validate_alias(value):
     if _has_control(value):
         _fail("VALIDATION_FAILED",
               "alias must carry no control characters")
+    if _has_surrogate(value):
+        _fail("VALIDATION_FAILED",
+              "alias must carry no lone surrogate characters")
     return value
 
 
@@ -288,7 +340,35 @@ def validate_domain(value, allow_empty=False):
               "domain must hold no trailing dot")
     if value != value.strip() or " " in value or _has_control(value):
         _fail("VALIDATION_FAILED", "domain form is not a host string")
-    return _normalise_domain(value)
+    # Item 149 dot separators map to a full stop before the
+    # host form is judged, and name text stands in NFC, so a
+    # decomposed accented label is judged in composed form.
+    text = unicodedata.normalize("NFC", value)
+    for separator in ("\u3002", "\uff0e", "\uff61"):
+        text = text.replace(separator, ".")
+    if text.endswith("."):
+        _fail("VALIDATION_FAILED",
+              "domain must hold no trailing dot")
+    # A host label holds letters, digits, and hyphens only,
+    # and neither begins nor ends with a hyphen (items 50
+    # and 148). An invisible format character is refused,
+    # never silently rewritten into a different domain.
+    for label in text.split("."):
+        if not label:
+            _fail("VALIDATION_FAILED", "domain holds an empty label")
+        if label.startswith("-") or label.endswith("-"):
+            _fail("VALIDATION_FAILED",
+                  "domain label must not begin or end with a hyphen")
+        for ch in label:
+            if unicodedata.category(ch) in ("Cf", "Cs"):
+                _fail("VALIDATION_FAILED",
+                      "domain must hold no invisible format "
+                      "character")
+            if not (ch.isalnum() or ch == "-"):
+                _fail("VALIDATION_FAILED",
+                      "domain label holds a character that is "
+                      "not a host character: %r" % ch)
+    return _normalise_domain(text)
 
 
 def _validate_canonical_line(value):
@@ -297,7 +377,67 @@ def _validate_canonical_line(value):
     if len(value) > 200:
         _fail("VALIDATION_FAILED",
               "canonical line must be at most 200 code points")
+    if _has_surrogate(value):
+        _fail("VALIDATION_FAILED",
+              "canonical line must carry no lone surrogate "
+              "characters")
     return value
+
+
+_UNRESERVED = frozenset(
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+    "0123456789-._~")
+
+
+def _syntax_normalise_path(value):
+    """Item 40 limb (1) syntax normalisation on a path.
+
+    A percent encoded triplet standing for an unreserved
+    character is decoded to that character, a triplet for
+    any other character stands encoded with upper case hex
+    digits, and the percent decoding runs first. Dot
+    segments are then removed: a single dot segment is
+    dropped and a double dot segment removes the segment
+    before it, a leading double dot segment with no
+    segment before it being dropped. The path letter case
+    stands as written.
+    """
+    out = []
+    index = 0
+    while index < len(value):
+        ch = value[index]
+        if ch == "%" and index + 2 < len(value) + 0 \
+                and index + 2 <= len(value) - 1:
+            pair = value[index + 1:index + 3]
+            try:
+                decoded = chr(int(pair, 16))
+            except ValueError:
+                decoded = None
+            if decoded is not None:
+                if decoded in _UNRESERVED:
+                    out.append(decoded)
+                else:
+                    out.append("%" + pair.upper())
+                index += 3
+                continue
+        out.append(ch)
+        index += 1
+    segments = []
+    for segment in "".join(out).split("/"):
+        if segment == ".":
+            continue
+        if segment == "..":
+            # The stack leading entry is the empty segment
+            # before the leading slash; a double dot with
+            # only that before it is dropped.
+            if len(segments) > 1:
+                segments.pop()
+            continue
+        segments.append(segment)
+    result = "/".join(segments)
+    if not result.startswith("/"):
+        result = "/" + result
+    return result
 
 
 def _validate_path_prefix(value):
@@ -314,6 +454,10 @@ def _validate_path_prefix(value):
         _fail("VALIDATION_FAILED",
               "path prefix must hold no scheme, no host, no query, "
               "and no fragment")
+    if _has_control(value) or _has_surrogate(value):
+        _fail("VALIDATION_FAILED",
+              "path prefix must hold no control characters")
+    value = _syntax_normalise_path(value)
     if value != "/" and value.endswith("/"):
         value = value.rstrip("/")
         if value == "":
@@ -326,7 +470,8 @@ def _validate_path_prefix(value):
 # ----------------------------------------------------------------
 
 def _slugify(text):
-    slug = re.sub(r"[^a-z0-9]+", "-", str(text).casefold())
+    text = unicodedata.normalize("NFC", str(text))
+    slug = re.sub(r"[^a-z0-9]+", "-", text.casefold())
     return slug.strip("-")
 
 
@@ -440,7 +585,7 @@ def _normalise_competitor(value, index=0):
         domain = getattr(value, "domain", "")
         aliases = getattr(value, "aliases", [])
         competitor_id = getattr(value, "competitor_id", None)
-    validate_name(name, "competitor name")
+    name = validate_name(name, "competitor name")
     domain = validate_domain(domain, allow_empty=True)
     aliases = _validate_aliases(aliases)
     base = competitor_id_for_name(name)
@@ -458,9 +603,23 @@ def _normalise_competitor(value, index=0):
     }
 
 
+def _require_list(value, what):
+    """A list valued input stands as a list or a tuple.
+
+    Any other form, a plain string included, fails
+    validation in the closed vocabulary: a string is
+    never a list of its own characters, and a non list
+    is never iterated into one.
+    """
+    if not isinstance(value, (list, tuple)):
+        _fail("VALIDATION_FAILED", "%s must be a list" % what)
+    return value
+
+
 def _validate_aliases(aliases):
     if aliases is None:
         return []
+    _require_list(aliases, "aliases")
     out = []
     for alias in aliases:
         validate_alias(alias)
@@ -474,6 +633,7 @@ def _validate_aliases(aliases):
 def _validate_query_set(query_set):
     if query_set is None:
         return []
+    _require_list(query_set, "query_set")
     out = []
     for query in query_set:
         if not isinstance(query, str) or query == "":
@@ -489,10 +649,10 @@ def _validate_query_set(query_set):
 def _validate_category(category):
     if category is None:
         return []
+    _require_list(category, "category")
     out = []
     for term in category:
-        validate_name(term, "category term")
-        out.append(term)
+        out.append(validate_name(term, "category term"))
     return out
 
 
@@ -574,12 +734,19 @@ def add_product(home, name=None, canonical_line=None, domain=None,
         "category": category is not None,
         "path_prefix": path_prefix is not None,
     }
-    validate_name(name, "name")
+    name = validate_name(name, "name")
+    if not _slugify(name):
+        _fail("VALIDATION_FAILED",
+              "a name that forms no slug forms no product "
+              "identity: a slug begins and ends with a letter "
+              "or a digit")
     _validate_canonical_line(canonical_line)
     domain = validate_domain(domain)
     path_prefix = _validate_path_prefix(path_prefix)
     if "slug" in kwargs and kwargs.get("slug") is not None:
         validate_slug(kwargs["slug"])
+    if competitors is not None:
+        _require_list(competitors, "competitors")
     competitor_records = []
     seen_ids = {}
     for index, competitor in enumerate(competitors or []):
@@ -604,41 +771,42 @@ def add_product(home, name=None, canonical_line=None, domain=None,
             _fail("VALIDATION_FAILED",
                   "a stated product_id must match the identity "
                   "formed from the product name")
-    existing = find_product(home, name)
-    if existing is None:
-        # A standing record under the formed identity with a
-        # different name is still a re-add case, not a new
-        # product: identity is decided once.
-        existing = find_product(home, candidate["product_id"])
-    if existing is not None:
-        same = (
-            existing.get("name") == candidate["name"]
-            and existing.get("canonical_line") == candidate["canonical_line"]
-            and existing.get("domain") == candidate["domain"]
-            and (not stated["competitors"]
-                 or existing.get("competitors", [])
-                 == candidate["competitors"])
-            and (not stated["aliases"]
-                 or existing.get("aliases", []) == candidate["aliases"])
-            and (not stated["query_set"]
-                 or existing.get("query_set", [])
-                 == candidate["query_set"])
-            and (not stated["category"]
-                 or existing.get("category", []) == candidate["category"])
-            and (not stated["path_prefix"]
-                 or existing.get("path_prefix") == candidate["path_prefix"])
-        )
-        if same:
-            return _public_product(existing)
-        _fail(
-            "PRODUCT_READD_CHANGED",
-            "re-adding a product with any change is refused; "
-            "allowed values: name %s, canonical_line %s, domain %s"
-            % (existing.get("name"), existing.get("canonical_line"),
-               existing.get("domain")))
-    _append(home, "product_registered", _payload_product(candidate),
-            audit_date)
-    return _public_product(candidate)
+    with _registry_lock(home):
+        existing = find_product(home, name)
+        if existing is None:
+            # A standing record under the formed identity with a
+            # different name is still a re-add case, not a new
+            # product: identity is decided once.
+            existing = find_product(home, candidate["product_id"])
+        if existing is not None:
+            same = (
+                existing.get("name") == candidate["name"]
+                and existing.get("canonical_line") == candidate["canonical_line"]
+                and existing.get("domain") == candidate["domain"]
+                and (not stated["competitors"]
+                     or existing.get("competitors", [])
+                     == candidate["competitors"])
+                and (not stated["aliases"]
+                     or existing.get("aliases", []) == candidate["aliases"])
+                and (not stated["query_set"]
+                     or existing.get("query_set", [])
+                     == candidate["query_set"])
+                and (not stated["category"]
+                     or existing.get("category", []) == candidate["category"])
+                and (not stated["path_prefix"]
+                     or existing.get("path_prefix") == candidate["path_prefix"])
+            )
+            if same:
+                return _public_product(existing)
+            _fail(
+                "PRODUCT_READD_CHANGED",
+                "re-adding a product with any change is refused; "
+                "allowed values: name %s, canonical_line %s, domain %s"
+                % (existing.get("name"), existing.get("canonical_line"),
+                   existing.get("domain")))
+        _append(home, "product_registered", _payload_product(candidate),
+                audit_date)
+        return _public_product(candidate)
 
 
 def set_canonical_line(home, product=None, line=None, audit_date=None,
@@ -649,15 +817,18 @@ def set_canonical_line(home, product=None, line=None, audit_date=None,
     if line is not None and len(line) > 200:
         _fail("VALIDATION_FAILED",
               "canonical line must be at most 200 code points")
-    record = _require_product(home, product)
-    record["canonical_line"] = line
-    return _store_change(home, record, audit_date)
+    _require_product(home, product)
+    with _registry_lock(home):
+        record = _require_product(home, product)
+        record["canonical_line"] = line
+        return _store_change(home, record, audit_date)
 
 
 def set_competitors(home, product=None, competitors=None,
                     audit_date=None, **kwargs):
     if competitors is None:
         competitors = kwargs.get("competitor_change", [])
+    _require_list(competitors, "competitors")
     records = []
     seen_ids = {}
     for index, competitor in enumerate(competitors or []):
@@ -670,9 +841,11 @@ def set_competitors(home, product=None, competitors=None,
         records.append(record_in)
     if len(records) > _LIMIT_COMPETITORS:
         _fail("LIMIT_EXCEEDED", "competitors per product limit is 100")
-    record = _require_product(home, product)
-    record["competitors"] = records
-    return _store_change(home, record, audit_date)
+    _require_product(home, product)
+    with _registry_lock(home):
+        record = _require_product(home, product)
+        record["competitors"] = records
+        return _store_change(home, record, audit_date)
 
 
 def set_aliases(home, product=None, aliases=None, audit_date=None,
@@ -680,18 +853,23 @@ def set_aliases(home, product=None, aliases=None, audit_date=None,
     if aliases is None:
         aliases = kwargs.get("alias_change", [])
     alias_list = _validate_aliases(aliases)
-    record = _require_product(home, product)
-    record["aliases"] = alias_list
-    return _store_change(home, record, audit_date)
+    _require_product(home, product)
+    with _registry_lock(home):
+        record = _require_product(home, product)
+        record["aliases"] = alias_list
+        return _store_change(home, record, audit_date)
 
 
 def set_query_set(home, product=None, query_set=None, audit_date=None,
                   **kwargs):
     query_list = _validate_query_set(query_set)
-    record = _require_product(home, product)
-    record["query_set"] = query_list
-    record["query_set_version"] = int(record.get("query_set_version", 1)) + 1
-    return _store_change(home, record, audit_date)
+    _require_product(home, product)
+    with _registry_lock(home):
+        record = _require_product(home, product)
+        record["query_set"] = query_list
+        record["query_set_version"] = int(
+            record.get("query_set_version", 1)) + 1
+        return _store_change(home, record, audit_date)
 
 
 def set_category(home, product=None, category=None, audit_date=None,
@@ -699,9 +877,11 @@ def set_category(home, product=None, category=None, audit_date=None,
     if category is None:
         category = kwargs.get("category_terms", kwargs.get("category_list"))
     category_list = _validate_category(category)
-    record = _require_product(home, product)
-    record["category"] = category_list
-    return _store_change(home, record, audit_date)
+    _require_product(home, product)
+    with _registry_lock(home):
+        record = _require_product(home, product)
+        record["category"] = category_list
+        return _store_change(home, record, audit_date)
 
 
 def _append_register_failure(home, token, subject, audit_date):
@@ -767,40 +947,42 @@ def register_page(home, product=None, snapshot=None, audit_date=None,
     """
     if snapshot is None:
         snapshot = kwargs.get("snapshot_id")
-    record = _require_product(home, product)
-    if isinstance(snapshot, dict):
-        snapshot_id = snapshot.get("snapshot_id")
-    else:
-        snapshot_id = snapshot
-    if not snapshot_id:
-        _append_register_failure(
-            home, "VALIDATION_FAILED", snapshot_id, audit_date)
-        _fail("VALIDATION_FAILED", "a snapshot identity is required")
-    standing = None
-    for candidate in _snapshots(home):
-        if candidate.get("snapshot_id") == snapshot_id \
-                and candidate.get("product_id") \
-                == record["product_id"]:
-            standing = candidate
-    if standing is None:
-        allowed = ", ".join(sorted(
-            str(candidate.get("snapshot_id"))
-            for candidate in _snapshots(home)
-            if candidate.get("product_id") == record["product_id"]
-            and candidate.get("snapshot_id"))) or (
-                "no standing snapshot for this product")
-        _append_register_failure(
-            home, "VALIDATION_FAILED", snapshot_id, audit_date)
-        _fail(
-            "VALIDATION_FAILED",
-            "unknown snapshot %r for product %s; allowed values: %s"
-            % (snapshot_id, record.get("name"), allowed))
-    base = copy.deepcopy(standing)
-    base["snapshot_id"] = snapshot_id
-    base["product_id"] = record["product_id"]
-    base["is_product_page"] = True
-    _append(home, "snapshot_registered", base, audit_date)
-    return copy.deepcopy(base)
+    _require_product(home, product)
+    with _registry_lock(home):
+        record = _require_product(home, product)
+        if isinstance(snapshot, dict):
+            snapshot_id = snapshot.get("snapshot_id")
+        else:
+            snapshot_id = snapshot
+        if not snapshot_id:
+            _append_register_failure(
+                home, "VALIDATION_FAILED", snapshot_id, audit_date)
+            _fail("VALIDATION_FAILED", "a snapshot identity is required")
+        standing = None
+        for candidate in _snapshots(home):
+            if candidate.get("snapshot_id") == snapshot_id \
+                    and candidate.get("product_id") \
+                    == record["product_id"]:
+                standing = candidate
+        if standing is None:
+            allowed = ", ".join(sorted(
+                str(candidate.get("snapshot_id"))
+                for candidate in _snapshots(home)
+                if candidate.get("product_id") == record["product_id"]
+                and candidate.get("snapshot_id"))) or (
+                    "no standing snapshot for this product")
+            _append_register_failure(
+                home, "VALIDATION_FAILED", snapshot_id, audit_date)
+            _fail(
+                "VALIDATION_FAILED",
+                "unknown snapshot %r for product %s; allowed values: %s"
+                % (snapshot_id, record.get("name"), allowed))
+        base = copy.deepcopy(standing)
+        base["snapshot_id"] = snapshot_id
+        base["product_id"] = record["product_id"]
+        base["is_product_page"] = True
+        _append(home, "snapshot_registered", base, audit_date)
+        return copy.deepcopy(base)
 
 
 # Round declaration values. The plan Section 5.1 values stand
@@ -898,44 +1080,46 @@ def name_round(home, product=None, round_label=None,
     """
     if round_label is None:
         round_label = kwargs.get("label", kwargs.get("round"))
-    record = _require_product(home, product)
-    if not isinstance(round_label, str) or not round_label:
-        _fail("VALIDATION_FAILED", "a round label is required")
-    if len(round_label) > 200:
-        _fail("LIMIT_EXCEEDED", "round label length limit is 200")
-    importer_key = _normal_key(importer_declaration or "")
-    if importer_key not in _IMPORTER_KEYS:
-        _fail(
-            "ROUND_FIELD_OUT_OF_SET",
-            "importer_declaration is out of set; allowed values: "
-            "all captured answers imported; a stated subset "
-            "imported; selection rule unknown")
-    supplier_key = _normal_key(supplier_relation or "")
-    if supplier_key not in _SUPPLIER_KEYS:
-        _fail(
-            "ROUND_FIELD_OUT_OF_SET",
-            "supplier_relation is out of set; allowed values: "
-            "supplied by the audited party; supplied by an "
-            "independent party; supplier relation unknown")
-    for standing in _rounds(home):
-        if (standing.get("product_id") == record["product_id"]
-                and standing.get("round_label") == round_label):
+    _require_product(home, product)
+    with _registry_lock(home):
+        record = _require_product(home, product)
+        if not isinstance(round_label, str) or not round_label:
+            _fail("VALIDATION_FAILED", "a round label is required")
+        if len(round_label) > 200:
+            _fail("LIMIT_EXCEEDED", "round label length limit is 200")
+        importer_key = _normal_key(importer_declaration or "")
+        if importer_key not in _IMPORTER_KEYS:
             _fail(
-                "ROUND_LABEL_EXISTS",
-                "round label %r already stands for product %s; "
-                "rounds are never overwritten or renamed"
-                % (round_label, record.get("name")))
-    round_record = {
-        "round_id": round_id_for(record["product_id"], round_label),
-        "product_id": record["product_id"],
-        "round_label": round_label,
-        "importer_declaration": _CANONICAL_IMPORTER[
-            _IMPORTER_KEYS[importer_key]],
-        "supplier_relation": _CANONICAL_SUPPLIER[
-            _SUPPLIER_KEYS[supplier_key]],
-        "registry_version_at_first_import": None,
-        "detector_version_at_first_import": None,
-        "created_by": "name_round",
-    }
-    _append(home, "round_named", copy.deepcopy(round_record), audit_date)
-    return copy.deepcopy(round_record)
+                "ROUND_FIELD_OUT_OF_SET",
+                "importer_declaration is out of set; allowed values: "
+                "all captured answers imported; a stated subset "
+                "imported; selection rule unknown")
+        supplier_key = _normal_key(supplier_relation or "")
+        if supplier_key not in _SUPPLIER_KEYS:
+            _fail(
+                "ROUND_FIELD_OUT_OF_SET",
+                "supplier_relation is out of set; allowed values: "
+                "supplied by the audited party; supplied by an "
+                "independent party; supplier relation unknown")
+        for standing in _rounds(home):
+            if (standing.get("product_id") == record["product_id"]
+                    and standing.get("round_label") == round_label):
+                _fail(
+                    "ROUND_LABEL_EXISTS",
+                    "round label %r already stands for product %s; "
+                    "rounds are never overwritten or renamed"
+                    % (round_label, record.get("name")))
+        round_record = {
+            "round_id": round_id_for(record["product_id"], round_label),
+            "product_id": record["product_id"],
+            "round_label": round_label,
+            "importer_declaration": _CANONICAL_IMPORTER[
+                _IMPORTER_KEYS[importer_key]],
+            "supplier_relation": _CANONICAL_SUPPLIER[
+                _SUPPLIER_KEYS[supplier_key]],
+            "registry_version_at_first_import": None,
+            "detector_version_at_first_import": None,
+            "created_by": "name_round",
+        }
+        _append(home, "round_named", copy.deepcopy(round_record), audit_date)
+        return copy.deepcopy(round_record)

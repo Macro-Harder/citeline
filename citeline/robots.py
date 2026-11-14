@@ -336,6 +336,17 @@ def decode_robots_bytes(data):
             "a byte order mark other than a single leading "
             "UTF-8 mark stands at the head of the file",
         )
+    if b"\x00" in raw:
+        # A NUL byte marks an encoding this product does
+        # not admit, such as UTF-16 saved with no byte
+        # order mark, whose bytes would otherwise decode
+        # as UTF-8 text interleaved with NUL characters
+        # and read as a file with no rules.
+        raise RobotsError(
+            "ROBOTS_DECODING_FAILED",
+            "a NUL byte stands in the file, marking an "
+            "encoding that does not decode as UTF-8 text",
+        )
     if raw.startswith(b"\xef\xbb\xbf"):
         raw = raw[len(b"\xef\xbb\xbf"):]
         notes.append("bom_stripped")
@@ -396,7 +407,7 @@ def parse_robots(text):
         unknown_seen.add(key)
         unknown_tokens.append(agent)
 
-    for raw_line in text.splitlines():
+    for raw_line in re.split(r"\r\n|\r|\n", text):
         line = raw_line.rstrip("\r")
         if len(line) > ROBOTS_LINE_LIMIT:
             raise RobotsError(
@@ -485,6 +496,44 @@ def parse_robots(text):
 # Evaluation
 
 
+def _wildcard_match(pattern, text, anchored):
+    """Star matching with no backtracking blowup.
+
+    A star matches any sequence of characters and every
+    other character matches itself. The scan keeps one
+    star to resume from, so its cost grows with the two
+    lengths together, never combinatorially: a rule of
+    many repeated star segments against a near matching
+    path completes at once. Where anchored stands false
+    the pattern need only match a prefix of the text.
+    """
+    p = 0
+    t = 0
+    star_p = -1
+    star_t = 0
+    while t < len(text):
+        if p < len(pattern) and pattern[p] == "*":
+            star_p = p
+            star_t = t
+            p += 1
+        elif p < len(pattern) and pattern[p] == text[t]:
+            p += 1
+            t += 1
+        elif star_p >= 0:
+            p = star_p + 1
+            star_t += 1
+            t = star_t
+        else:
+            return False
+        if not anchored and p >= len(pattern):
+            return True
+    while p < len(pattern) and pattern[p] == "*":
+        p += 1
+    if p >= len(pattern):
+        return True
+    return False
+
+
 def _rule_matches(rule_path, evaluated_path):
     """Prefix matching on the path as written.
 
@@ -496,16 +545,7 @@ def _rule_matches(rule_path, evaluated_path):
     """
     anchored = rule_path.endswith("$")
     pattern = rule_path[:-1] if anchored else rule_path
-    regex_parts = []
-    for char in pattern:
-        if char == "*":
-            regex_parts.append(".*")
-        else:
-            regex_parts.append(re.escape(char))
-    regex = "^" + "".join(regex_parts)
-    if anchored:
-        regex += "$"
-    return re.match(regex, evaluated_path, re.DOTALL) is not None
+    return _wildcard_match(pattern, evaluated_path, anchored)
 
 
 def _winning_rule(rules, evaluated_path):
@@ -644,6 +684,29 @@ def _build_report(text, sha256_value, evaluated_path,
         "unknown_token_count": len(parsed["unknown_tokens"]),
         "finding_count": len(findings),
     }
+    if not parsed["groups"]:
+        # A file holding no group at all, such as an HTML
+        # error page saved under a robots name, states
+        # that plainly at the head of the report, so its
+        # all allowed result does not read as a deliberate
+        # allow all policy.
+        report["directive_notice"] = (
+            "No robots directive was found in the supplied "
+            "file. The file may not be a robots file. Every "
+            "row stands allowed because no rule applies."
+        )
+    if parsed["orphan_rule_count"]:
+        # Rules that stood before any group, commonly
+        # because the group header line was misspelt and
+        # counted as no group, took no effect. The report
+        # warns in plain words rather than leaving the
+        # loss visible only in a count.
+        report["unparsed_lines_warning"] = (
+            "Warning: %d rule line(s) in the supplied file "
+            "were not understood as part of any group and "
+            "took no effect. Those rules do not apply to "
+            "any crawler." % parsed["orphan_rule_count"]
+        )
     if parsed["unknown_tokens"]:
         # The names of the unlisted tokens are carried
         # with the count, each in the spelling the
@@ -663,6 +726,14 @@ def _resolve_path(evaluated_page_path, path_defaulted):
     if path_defaulted is None:
         path_defaulted = False
     path = str(evaluated_page_path)
+    # Matching is on the path only, at brief Section
+    # 5.10 item 92: no query and no fragment enters the
+    # comparison, so both come off the supplied value
+    # before any rule is tested against it.
+    for marker in ("?", "#"):
+        cut = path.find(marker)
+        if cut >= 0:
+            path = path[:cut]
     if len(path) > ROBOTS_PATH_LIMIT:
         raise RobotsError(
             "LIMIT_EXCEEDED", "robots path argument over limit"
@@ -689,10 +760,31 @@ def evaluate_robots_text(text, evaluated_page_path=None,
                          asserted_capture_date=None,
                          audit_date=None, **_ignored):
     """Evaluate one supplied robots file given as text."""
+    # The text route applies the same decoding and size
+    # enforcement the file route applies, so one content
+    # stands refused or accepted alike on either route.
+    if len(text.encode("utf-8")) > ROBOTS_FILE_LIMIT_BYTES:
+        raise RobotsError(
+            "LIMIT_EXCEEDED",
+            "robots file total size over 512 KiB",
+        )
+    if "\x00" in text:
+        raise RobotsError(
+            "ROBOTS_DECODING_FAILED",
+            "a NUL character stands in the file text",
+        )
+    body = text
+    if body.startswith("\ufeff"):
+        body = body[1:]
+    if "\ufeff" in body:
+        raise RobotsError(
+            "ROBOTS_DECODING_FAILED",
+            "a byte order mark stands inside the file",
+        )
     sha256_value = hashlib.sha256(text.encode("utf-8")).hexdigest()
     path, defaulted = _resolve_path(evaluated_page_path, path_defaulted)
     return _build_report(
-        text, sha256_value, path, defaulted, asserted_capture_date
+        body, sha256_value, path, defaulted, asserted_capture_date
     )
 
 

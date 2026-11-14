@@ -217,8 +217,15 @@ def _open_plan(plan_file):
             "size bound of 1 MiB at W-2: refused at open, "
             "before any round runs")
     try:
-        plan = json.loads(raw.decode("utf-8"))
-    except (UnicodeDecodeError, ValueError) as exc:
+        plan = json.loads(
+            raw.decode("utf-8"),
+            object_pairs_hook=_pairs_no_duplicates)
+    except (UnicodeDecodeError, ValueError, RecursionError) as exc:
+        # A duplicate key stands refused outright, as at
+        # the sibling JSON intakes (Step 17 entry
+        # S17-R1-074), and a plan nested past the parser
+        # depth stands refused in the same value, not as a
+        # raw crash (the WatchPlan limb of S17-R1-033).
         _fail(
             "MALFORMED_CALL",
             "the WatchPlan file does not parse: %s" % (exc,))
@@ -227,20 +234,104 @@ def _open_plan(plan_file):
     return plan, hashlib.sha256(raw).hexdigest()
 
 
+def _pairs_no_duplicates(pairs):
+    """The plan object pairs hook: duplicate keys refuse.
+
+    Both sibling JSON intakes (journal lines, config)
+    refuse duplicate keys outright; the WatchPlan intake
+    stands under the same discipline (Step 17 entry
+    S17-R1-074), at every object depth of the plan.
+    """
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate key in WatchPlan: %r" % (key,))
+        result[key] = value
+    return result
+
+
+# The plan keys the WatchPlan shape states, and the
+# target keys it states: a key outside these sets stands
+# named in the round's plan warnings (Step 17 entry
+# S17-R1-109), never silently ignored.
+_PLAN_KEYS = ("home", "scope", "targets", "form", "audit_date",
+              "output", "cadence", "second_round", "second_rounds")
+_TARGET_KEYS = ("product", "page_file", "round", "robots_file",
+                "evaluated_page_path", "guide", "second_round")
+
+
+def _plan_warnings(plan, targets):
+    """The warnings a round states for its plan's unknown keys."""
+    warnings = []
+    for key in plan:
+        if key not in _PLAN_KEYS:
+            warnings.append(
+                "unknown WatchPlan key: %s; the key names "
+                "nothing the plan shape states and the round "
+                "runs without it" % (key,))
+    for target in targets or []:
+        if not isinstance(target, dict):
+            continue
+        for key in target:
+            if key not in _TARGET_KEYS:
+                warnings.append(
+                    "unknown WatchPlan target key: %s; the "
+                    "key names nothing the target shape "
+                    "states and the target runs without it"
+                    % (key,))
+    return warnings
+
+
 def _validate_plan(plan):
     scope = plan.get("scope")
     if scope not in ("picked", "estate"):
         _fail(
             "MALFORMED_CALL",
             "the WatchPlan scope stands as picked or estate")
-    form = plan.get("form") or "simple"
-    if form not in _FORMS:
+    # The WatchPlan shape states each field's type, and a
+    # value outside its field's type stands refused at
+    # open as MALFORMED_CALL, as the other shape refusals
+    # stand (Step 17 entries S17-R1-069 and S17-R1-072):
+    # no field stands coerced into a form no one stated.
+    form = plan.get("form")
+    if form is not None and form not in _FORMS:
         _fail(
             "MALFORMED_CALL",
             "the WatchPlan form stands outside the three "
             "stated values: simple, advanced, agentic")
     if plan.get("home") is None:
         _fail("MALFORMED_CALL", "the WatchPlan names no home")
+    if not isinstance(plan.get("home"), str):
+        _fail(
+            "MALFORMED_CALL",
+            "the WatchPlan home stands as a path string")
+    audit_date = plan.get("audit_date")
+    if audit_date is not None:
+        if not isinstance(audit_date, str):
+            _fail(
+                "MALFORMED_CALL",
+                "the WatchPlan audit_date stands as an ISO "
+                "date string")
+        import datetime
+        try:
+            datetime.date.fromisoformat(audit_date)
+        except ValueError:
+            _fail(
+                "MALFORMED_CALL",
+                "the WatchPlan audit_date is not an ISO "
+                "date: %s" % (audit_date,))
+    output = plan.get("output")
+    if output is not None and not isinstance(output, str):
+        _fail(
+            "MALFORMED_CALL",
+            "the WatchPlan output stands as an output path "
+            "string")
+    cadence = plan.get("cadence")
+    if cadence is not None and not isinstance(cadence, str):
+        _fail(
+            "MALFORMED_CALL",
+            "the WatchPlan cadence stands as a cadence in "
+            "words")
     targets = plan.get("targets")
     if scope == "estate":
         if targets:
@@ -276,7 +367,32 @@ def _validate_plan(plan):
                 "MALFORMED_CALL",
                 "each picked target names a product and one "
                 "of a page file or a named round")
-        marker = json.dumps(target, sort_keys=True, default=str)
+        # The target field types the shape states (Step
+        # 17 entries S17-R1-069 and S17-R1-072): a product
+        # names a product, and product names are strings
+        # everywhere in the product; a non string product
+        # stands refused at open, before any round runs,
+        # not as a raw crash part way through it.
+        if not isinstance(target.get("product"), str) \
+                or not target.get("product"):
+            _fail(
+                "MALFORMED_CALL",
+                "each picked target names its product as a "
+                "string")
+        for field in ("page_file", "round", "robots_file",
+                      "evaluated_page_path"):
+            value = target.get(field)
+            if value is not None and not isinstance(value, str):
+                _fail(
+                    "MALFORMED_CALL",
+                    "the target %s stands as a string" % (field,))
+        guide_flag = target.get("guide")
+        if guide_flag is not None and not isinstance(
+                guide_flag, bool):
+            _fail(
+                "MALFORMED_CALL",
+                "the target guide flag stands as a boolean")
+        marker = _target_identity(target)
         if marker in seen:
             _fail(
                 "WATCH_DUPLICATE_TARGET",
@@ -284,6 +400,33 @@ def _validate_plan(plan):
                 "twice stands refused at open")
         seen.append(marker)
     return targets
+
+
+def _target_identity(target):
+    """The identity of one target, on the invocation it orders.
+
+    The duplicate refusal of row U-12 compares the
+    invocation each target orders, not the serialisation
+    of the whole target object (Step 17 entry
+    S17-R1-070): a key the shape gives no effect to, a
+    false guide flag, a null field, and a path alias
+    spelling of the same file name the same invocation
+    as the target without them.
+    """
+    product = target.get("product")
+
+    def path_form(value):
+        if value is None:
+            return None
+        return os.path.realpath(str(value))
+
+    if "page_file" in target:
+        return (
+            "audit", product, path_form(target.get("page_file")),
+            path_form(target.get("robots_file")),
+            target.get("evaluated_page_path") or None,
+            bool(target.get("guide")))
+    return ("probe", product, target.get("round"))
 
 
 def _page_age_days(record, audit_date):
@@ -469,7 +612,7 @@ def _standing_product_page_snapshot_count(home, products):
         from citeline import journal
         entries = journal.fold(str(home))
     except Exception:
-        return 0
+        return 0, set()
     latest = {}
     order = []
     for entry in entries or []:
@@ -489,13 +632,16 @@ def _standing_product_page_snapshot_count(home, products):
             order.append(snapshot_id)
         latest[snapshot_id] = payload
     count = 0
+    paths = set()
     for snapshot_id in order:
         payload = latest[snapshot_id]
         if payload.get("is_product_page") \
                 and payload.get("supplied_path") \
                 and payload.get("product_id") in product_ids:
             count += 1
-    return count
+            paths.add(os.path.realpath(
+                str(payload.get("supplied_path"))))
+    return count, paths
 
 
 def _cadence_interval_days(cadence):
@@ -583,8 +729,9 @@ def run_watch(*, plan_file):
             "stands failed before any target runs, and no "
             "WatchRun artefact stands produced")
     products = service.list_products(home=home)
-    standing_snapshot_count = \
+    standing_snapshot_count, standing_snapshot_paths = \
         _standing_product_page_snapshot_count(home, products)
+    audited_snapshot_paths = set()
     entries = []
     trend_no_pair_count = 0
     # The append cost of one target, on the S0 append cost
@@ -656,8 +803,11 @@ def run_watch(*, plan_file):
         for target in targets:
             product = target["product"]
             if "page_file" in target:
-                entries.append(
-                    _audit_entry(home, plan, product, target))
+                entry = _audit_entry(home, plan, product, target)
+                entries.append(entry)
+                if entry.get("outcome") == "completed":
+                    audited_snapshot_paths.add(os.path.realpath(
+                        str(target["page_file"])))
             else:
                 grounds = service.estate_grounds(
                     home=home, product=product)
@@ -699,8 +849,12 @@ def run_watch(*, plan_file):
                     "skip_reason": "no page on file",
                 })
             else:
-                entries.append(_audit_entry(
-                    home, plan, name, {"page_file": page_path}))
+                entry = _audit_entry(
+                    home, plan, name, {"page_file": page_path})
+                entries.append(entry)
+                if entry.get("outcome") == "completed":
+                    audited_snapshot_paths.add(
+                        os.path.realpath(str(page_path)))
             if not rounds:
                 entries.append({
                     "product": name,
@@ -724,10 +878,22 @@ def run_watch(*, plan_file):
                 row["outcome"], 0) + 1
     for value in ("completed", "failed", "skipped", "stopped"):
         outcome_counts.setdefault(value, 0)
+    # The coverage assembly builds every count from the
+    # population its figure names (Step 17 entry
+    # S17-R1-071): products with an audit target counts
+    # registered products only, over the registered
+    # denominator, and snapshots audited counts the
+    # standing product page snapshots the round audited,
+    # over that same standing population, never the fresh
+    # snapshots the round itself created.
+    registered_names = {
+        record.get("name") for record in products
+        if isinstance(record, dict)}
     audited_products = {
         entry["product"] for entry in entries
         if entry["target_kind"] == "audit"
-        and entry["outcome"] != "skipped"}
+        and entry["outcome"] != "skipped"
+        and entry["product"] in registered_names}
     only_skips = []
     for product_record in products:
         name = product_record.get("name")
@@ -744,10 +910,8 @@ def run_watch(*, plan_file):
             "count": standing_snapshot_count,
             "denominator": len(products)},
         "snapshots_audited": {
-            "count": sum(
-                1 for e in entries
-                if e["target_kind"] == "audit"
-                and e["outcome"] == "completed"),
+            "count": len(
+                standing_snapshot_paths & audited_snapshot_paths),
             "denominator": standing_snapshot_count},
         "products_with_only_skips": {
             "count": len(only_skips), "denominator": len(products)},
@@ -784,6 +948,7 @@ def run_watch(*, plan_file):
         "channel_outcome_counts": channel_counts,
         "trend_no_pair_count": trend_no_pair_count,
         "coverage_statement": coverage,
+        "plan_warnings": _plan_warnings(plan, targets),
         "freshness_view": freshness,
         "capacity_projection": projection,
         "honesty_sentence": _honesty_sentence(),
@@ -791,7 +956,7 @@ def run_watch(*, plan_file):
     }
     output = plan.get("output")
     if output:
-        _write_output(result, str(output), form)
+        _write_output(result, output, form)
     return result
 
 

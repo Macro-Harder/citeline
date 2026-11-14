@@ -248,7 +248,45 @@ def _host_of(target):
     host = match.group(1)
     host = host.rsplit("@", 1)[-1]
     host = host.split(":", 1)[0]
-    return host.lower()
+    host = host.lower()
+    if host.endswith("."):
+        host = host[:-1]
+    return host
+
+
+def _canonical_target(target):
+    """The canonical form of one citation target.
+
+    Brief Section 5.7 items 33, 42, and 43: no fragment,
+    a trailing slash removed except for the root path,
+    http and https merged, and the host case folded with
+    one trailing dot stripped. Two written forms of one
+    target share one canonical form and count once.
+    """
+    match = re.match(
+        r"^[A-Za-z][A-Za-z0-9+.-]*://([^/?#]+)([^?#]*)"
+        r"(?:\?([^#]*))?(?:#.*)?$",
+        target or "",
+    )
+    if not match:
+        return target
+    authority = match.group(1).lower()
+    if "@" in authority:
+        authority = authority.rsplit("@", 1)[-1]
+    if ":" in authority:
+        host_part, _, port_part = authority.partition(":")
+        if host_part.endswith("."):
+            host_part = host_part[:-1]
+        authority = host_part + ":" + port_part
+    elif authority.endswith("."):
+        authority = authority[:-1]
+    path = match.group(2) or "/"
+    if path != "/" and path.endswith("/"):
+        path = path[:-1]
+    key = authority + path
+    if match.group(3):
+        key += "?" + match.group(3)
+    return key
 
 
 _TEXT_URL_PATTERN = re.compile(
@@ -288,9 +326,10 @@ def _citation_analysis(page, facts):
         # the distinct count and the evidence spans below
         # keep one span per distinct target.
         occurrences.append(span)
-        if target in counted:
+        key = _canonical_target(target)
+        if key in counted:
             continue
-        counted[target] = span
+        counted[key] = span
     # The extraction of a markdown or plain text page carries
     # a bare or bracketed URL in the running text itself and
     # supplies no link entry for it, so a target the page
@@ -314,10 +353,11 @@ def _citation_analysis(page, facts):
         start = match.start()
         span = _span(text, start, start + len(target))
         occurrences.append(span)
-        if target in counted:
+        key = _canonical_target(target)
+        if key in counted:
             continue
-        counted[target] = span
-    spans = [counted[target] for target in counted]
+        counted[key] = span
+    spans = [counted[key] for key in counted]
     count = len(spans)
 
     sentences = _page_sentences(page)
@@ -387,15 +427,45 @@ def _mask(text, spans):
     return "".join(chars)
 
 
+_QUOTED_SPAN_PATTERN = re.compile(
+    r'"[^"\n]*"|“[^”\n]*”'
+)
+
+_MONTH_ABBREVIATIONS = (
+    "Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec"
+)
+
+
 def _statistic_analysis(page):
     text = _page_text(page)
     masked = text
-    # Any token inside a quoted span is excluded.
+    # Any token inside a quoted span is excluded, in the
+    # straight or the typographic quotation form alike.
     quoted = [
         (match.start(), match.end())
-        for match in re.finditer(r'"[^"\n]*"', masked)
+        for match in _QUOTED_SPAN_PATTERN.finditer(masked)
     ]
     masked = _mask(masked, quoted)
+    # Digits inside a link target or a bare URL are part
+    # of an address, not a figure the page presents, so
+    # link targets and bare URLs are masked, as mention
+    # detection masks them at item 46.
+    masked = _mask(
+        masked,
+        [
+            (m.start(), m.end())
+            for m in _TEXT_URL_PATTERN.finditer(masked)
+        ],
+    )
+    for link in _get(page, "links", []) or []:
+        target, link_text, start, end = _link_parts(link)
+        if start is not None and end is not None and end > start:
+            masked = _mask(masked, [(start, end)])
+        if target:
+            found = masked.find(target)
+            while found >= 0:
+                masked = _mask(masked, [(found, found + len(target))])
+                found = masked.find(target, found + len(target))
     # A date fragment counts nothing, in either date form.
     masked = _mask(
         masked,
@@ -418,6 +488,40 @@ def _statistic_analysis(page):
             (m.start(), m.end())
             for m in re.finditer(
                 r"\b(?:" + month_names + r")\s+\d{1,2},\s+\d{4}\b",
+                masked,
+            )
+        ],
+    )
+    # A date fragment counts nothing in any written form,
+    # not only in the closed freshness formats: the
+    # abbreviated month form, the year first numeric
+    # form, and the day first month name form stand
+    # masked here on the same exclusion.
+    masked = _mask(
+        masked,
+        [
+            (m.start(), m.end())
+            for m in re.finditer(
+                r"\b(?:" + _MONTH_ABBREVIATIONS + r")\.?\s+"
+                r"\d{1,2},\s+\d{4}\b",
+                masked,
+            )
+        ],
+    )
+    masked = _mask(
+        masked,
+        [
+            (m.start(), m.end())
+            for m in re.finditer(r"\b\d{4}/\d{1,2}/\d{1,2}\b", masked)
+        ],
+    )
+    masked = _mask(
+        masked,
+        [
+            (m.start(), m.end())
+            for m in re.finditer(
+                r"\b\d{1,2}\s+(?:" + month_names + r"|"
+                + _MONTH_ABBREVIATIONS + r")\.?\s+\d{4}\b",
                 masked,
             )
         ],
@@ -480,7 +584,7 @@ def _quotation_analysis(page):
     spans = []
     attributed = 0
     unattributed = 0
-    for match in re.finditer(r'"[^"\n]*"', text):
+    for match in _QUOTED_SPAN_PATTERN.finditer(text):
         inner = match.group(0)[1:-1]
         if len(inner.split()) < 4:
             continue
@@ -749,7 +853,15 @@ def _freshness(page, audit_date):
     elif isinstance(audit_date, datetime.date):
         audit_value = audit_date
     else:
-        audit_value = datetime.date.fromisoformat(str(audit_date))
+        try:
+            audit_value = datetime.date.fromisoformat(str(audit_date))
+        except ValueError:
+            # A date input outside the stated form earns
+            # no freshness credit on a direct call to this
+            # home, rather than raising a raw error with
+            # no recorded outcome. The service route
+            # refuses the same strings before this point.
+            return 0, "FRESH_NO_DATE"
     age = (audit_value - found).days
     if age < 0:
         return 0, "FRESH_FUTURE"
@@ -773,7 +885,14 @@ def _description_consistency(page, facts):
     canonical = facts.get("canonical_line")
     if not canonical:
         return 0, "DESC_MISSING"
-    if canonical in text:
+    # Verbatim means the line stands in word form: the
+    # string must stand with a word boundary at each end,
+    # so a line glued inside longer words earns nothing.
+    verbatim = re.search(
+        r"(?<![A-Za-z0-9])" + re.escape(canonical) + r"(?![A-Za-z0-9])",
+        text,
+    )
+    if verbatim is not None:
         return 1.0, "DESC_PRESENT"
     canonical_words = _word_set(canonical)
     if canonical_words:

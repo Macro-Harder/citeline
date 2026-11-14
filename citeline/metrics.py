@@ -66,9 +66,18 @@ def wilson_interval(rate, effective_n):
     the range 0 to 1. A call with effective n of 0 returns
     None, matching the null rate and null interval rule.
     """
-    if rate is None or not effective_n:
+    if rate is None or effective_n is None:
         return None
-    n = float(effective_n)
+    try:
+        rate_value = float(rate)
+        n = float(effective_n)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(rate_value) or not math.isfinite(n):
+        return None
+    if rate_value < 0.0 or rate_value > 1.0 or n <= 0:
+        return None
+    rate = rate_value
     z = Z_VALUE
     z2 = z * z
     centre = rate + z2 / (2.0 * n)
@@ -89,8 +98,15 @@ def wilson_interval(rate, effective_n):
 
 def tier_for(effective_n):
     """Return the tier label for an effective n value."""
-    if effective_n is None or effective_n < 5:
+    if effective_n is None:
         return "count only"
+    try:
+        n_value = float(effective_n)
+    except (TypeError, ValueError):
+        return "count only"
+    if not math.isfinite(n_value) or n_value < 5:
+        return "count only"
+    effective_n = n_value
     if effective_n < 20:
         return "exploratory"
     if effective_n < 50:
@@ -107,12 +123,19 @@ def rates_separated(first_interval, second_interval):
     """
     if first_interval is None or second_interval is None:
         return False
-    first_low, first_high = first_interval
-    second_low, second_high = second_interval
-    if first_low is None or first_high is None:
+    try:
+        first_low, first_high = first_interval
+        second_low, second_high = second_interval
+        bounds = [float(value) for value in (
+            first_low, first_high, second_low, second_high)]
+    except (TypeError, ValueError):
         return False
-    if second_low is None or second_high is None:
+    if any(value is None for value in (
+            first_low, first_high, second_low, second_high)):
         return False
+    if not all(math.isfinite(value) for value in bounds):
+        return False
+    first_low, first_high, second_low, second_high = bounds
     return first_high < second_low or second_high < first_low
 
 
@@ -192,6 +215,57 @@ def _competitor_outcome(answer, name):
     return None
 
 
+def _validate_answer_shape(item):
+    """Refuse an AnswerMetrics value outside its stated shape.
+
+    A field of the wrong type raises ValueError in plain
+    words naming the field, rather than crashing later with
+    a raw error or being silently counted in a wrong form,
+    as a string of aliases counted character by character.
+    """
+    try:
+        hash(_get(item, "cluster_id", None))
+    except TypeError:
+        raise ValueError("cluster_id must be a hashable value")
+    for name in ("query", "captured_on"):
+        value = _get(item, name, None)
+        if value is not None and not isinstance(value, str):
+            raise ValueError(name + " must be a string")
+    for value, name in (
+            (_first(item, ("engine_label", "engine"), None), "engine_label"),
+            (_first(item, ("capture_method", "method"), None),
+             "capture_method")):
+        if value is not None and not isinstance(value, str):
+            raise ValueError(name + " must be a string")
+    text = _get(item, "text", None)
+    if text is not None and not isinstance(text, str):
+        raise ValueError("text must be a string")
+    matched = _get(item, "matched_aliases", None)
+    if matched is not None:
+        if isinstance(matched, (str, bytes)) or not isinstance(
+                matched, (list, tuple, set, frozenset)):
+            raise ValueError("matched_aliases must be a list of strings")
+        for alias in matched:
+            if not isinstance(alias, str):
+                raise ValueError("matched_aliases must hold strings only")
+    for name in ("citation_instances", "self_citation_instances",
+                 "owner_level_cited_count"):
+        value = _get(item, name, None)
+        if value is None:
+            continue
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(name + " must be a whole count")
+        if isinstance(value, float) and (
+                not math.isfinite(value) or value != int(value)):
+            raise ValueError(name + " must be a whole count")
+    entries = _get(item, "per_competitor", None)
+    if entries is None:
+        entries = _get(item, "competitors", None)
+    if entries is not None and not isinstance(
+            entries, (list, tuple, dict)):
+        raise ValueError("per_competitor must be a list or a mapping")
+
+
 def round_metrics(answers, kind, frame=None, datum=None,
                   aliases=None, competitors=None):
     """Compute RoundMetrics for one source kind.
@@ -206,14 +280,28 @@ def round_metrics(answers, kind, frame=None, datum=None,
     answers = list(answers or [])
     frame = frame or {}
     datum = datum or {}
+    if aliases is not None:
+        if isinstance(aliases, (str, bytes)):
+            raise ValueError("aliases must be a list of strings")
+        try:
+            aliases = list(aliases)
+        except TypeError:
+            raise ValueError("aliases must be a list of strings")
+        for alias in aliases:
+            if not isinstance(alias, str):
+                raise ValueError("aliases must hold strings only")
 
     by_kind = []
     for item in answers:
         item_kind = _first(item, ("source_kind", "kind"), None)
         if item_kind == kind:
             by_kind.append(item)
+    for item in by_kind:
+        _validate_answer_shape(item)
     imported_count = len(by_kind)
-    controls = [item for item in by_kind if _first(item, ("control", "control_flag"), False)]
+    controls = [item for item in by_kind
+                if _get(item, "control", None)
+                or _get(item, "control_flag", None)]
     control_count = len(controls)
     active = [item for item in by_kind if item not in controls] if controls else list(by_kind)
     # The membership test above relies on equality. Dicts that
@@ -246,19 +334,44 @@ def round_metrics(answers, kind, frame=None, datum=None,
         if len(members) < 2:
             continue
         texts = [(_get(item, "text", "") or "") for item in members]
+        normalised = [_normalised_text(text) for text in texts]
+        shingle_sets = []
+        for norm_text in normalised:
+            words = norm_text.split()
+            if len(words) < 5:
+                shingle_sets.append(set())
+            else:
+                shingle_sets.append(
+                    {" ".join(words[i:i + 5])
+                     for i in range(len(words) - 4)})
+
+        def similar_cached(i, j):
+            first_set = shingle_sets[i]
+            second_set = shingle_sets[j]
+            if not first_set or not second_set:
+                return normalised[i] == normalised[j]
+            shared = len(first_set & second_set)
+            union_size = len(first_set) + len(second_set) - shared
+            if not union_size:
+                return normalised[i] == normalised[j]
+            return shared / union_size >= 0.80
+
         similar_pairs = 0
         pair_count = 0
-        connected = True
+        similarity = []
         for i in range(len(texts)):
             for j in range(i + 1, len(texts)):
                 pair_count += 1
-                if _texts_similar(texts[i], texts[j]):
+                outcome = similar_cached(i, j)
+                similarity.append((i, j, outcome))
+                if outcome:
                     similar_pairs += 1
         if pair_count and 0 < similar_pairs < pair_count:
             # A cluster held together by some similar pairs,
             # while at least one pair is not similar, stands
             # chained, provided its similar pairs link every
-            # member. Reachability is checked on the graph.
+            # member. Reachability is checked on the graph,
+            # over the similarity results already computed.
             parent = list(range(len(texts)))
 
             def find(x):
@@ -267,12 +380,11 @@ def round_metrics(answers, kind, frame=None, datum=None,
                     x = parent[x]
                 return x
 
-            for i in range(len(texts)):
-                for j in range(i + 1, len(texts)):
-                    if _texts_similar(texts[i], texts[j]):
-                        ri, rj = find(i), find(j)
-                        if ri != rj:
-                            parent[ri] = rj
+            for i, j, outcome in similarity:
+                if outcome:
+                    ri, rj = find(i), find(j)
+                    if ri != rj:
+                        parent[ri] = rj
             connected = len({find(i) for i in range(len(texts))}) == 1
             if connected:
                 chained_cluster_count += 1
@@ -352,6 +464,10 @@ def round_metrics(answers, kind, frame=None, datum=None,
         matched = _get(item, "matched_aliases", None) or []
         for alias in set(matched):
             per_alias_counts[alias] = per_alias_counts.get(alias, 0) + 1
+    per_alias_counts = {
+        alias: per_alias_counts[alias]
+        for alias in sorted(per_alias_counts, key=lambda value: str(value))
+    }
 
     citing_answer_count = 0
     citation_instance_count = 0
@@ -362,8 +478,10 @@ def round_metrics(answers, kind, frame=None, datum=None,
         instances = _get(item, "citation_instances", None)
         if instances is None:
             instances = 1 if _get(item, "cited") else 0
-        instances = int(instances or 0)
-        self_instances = int(_get(item, "self_citation_instances", 0) or 0)
+        instances = max(0, int(instances or 0))
+        self_instances = min(
+            instances,
+            max(0, int(_get(item, "self_citation_instances", 0) or 0)))
         citation_instance_count += instances
         self_instance_count += self_instances
         if instances > 0:
@@ -509,7 +627,8 @@ def round_metrics(answers, kind, frame=None, datum=None,
         "cited_rate_net": cited_rate_net,
         "no_name_count": no_name_count,
         "owner_level_cited_count": sum(
-            int(_get(item, "owner_level_cited_count", 0) or 0) for item in active
+            max(0, int(_get(item, "owner_level_cited_count", 0) or 0))
+            for item in active
         ),
         "version_stamps": version_stamps,
     }
@@ -1088,12 +1207,60 @@ def round_metrics_from_journal(entries, fold_point=None, detector_version=None,
     metrics_rows = answer_metrics_from_journal(
         entries, fold_point=fold_point, detector_version=detector_version
     )
+    kinds = []
+    for row in metrics_rows:
+        row_kind = row.get("source_kind")
+        if row_kind and row_kind not in kinds:
+            kinds.append(row_kind)
+    if kind is None and len(kinds) > 1:
+        product = _fold_registry(entries, fold_point)
+        seed_aliases_multi = []
+        if product.get("name"):
+            seed_aliases_multi.append(product["name"])
+        for alias in product.get("aliases") or []:
+            if alias not in seed_aliases_multi:
+                seed_aliases_multi.append(alias)
+        stamps_multi = dict(datum or {})
+        if detector_version is not None:
+            stamps_multi.setdefault("detector_version", detector_version)
+        declaration_multi = stamps_multi.get("importer_declaration")
+        ordered_multi = sorted(
+            entries, key=lambda item: _get(item, "sequence", 0) or 0)
+        for entry in ordered_multi:
+            sequence = _get(entry, "sequence", None)
+            if fold_point is not None and sequence is not None \
+                    and sequence > fold_point:
+                continue
+            if _get(entry, "entry_kind", None) != "round_named":
+                continue
+            value = _get(
+                _get(entry, "payload", None) or {},
+                "importer_declaration", None)
+            if value is not None:
+                declaration_multi = value
+        frame_multi = {}
+        if declaration_multi is not None:
+            frame_multi["importer_declaration"] = declaration_multi
+            stamps_multi.setdefault(
+                "importer_declaration", declaration_multi)
+        per_kind = {}
+        for each_kind in kinds:
+            per_kind[each_kind] = round_metrics(
+                metrics_rows, each_kind, frame=frame_multi,
+                datum=stamps_multi,
+                aliases=seed_aliases_multi,
+                competitors=list(product.get("competitors") or []),
+            )
+        return {
+            "kind": None,
+            "source_kind": None,
+            "kinds": list(kinds),
+            "per_kind": per_kind,
+            "imported_count": sum(
+                per_kind[each_kind]["imported_count"]
+                for each_kind in kinds),
+        }
     if kind is None:
-        kinds = []
-        for row in metrics_rows:
-            row_kind = row.get("source_kind")
-            if row_kind and row_kind not in kinds:
-                kinds.append(row_kind)
         kind = kinds[0] if kinds else "sampled"
     product = _fold_registry(entries, fold_point)
     seed_aliases = []

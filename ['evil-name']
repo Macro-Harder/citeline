@@ -1,0 +1,76 @@
+{
+  "audit_date": "2026-11-13",
+  "bounds": {
+    "does_not_establish": [
+      "This artefact does not establish the truth of any statement the audited page or a sampled answer makes.",
+      "Third party mentions stand outside version 1 measurement, and no figure in this artefact speaks for them."
+    ],
+    "establishes": [
+      "This artefact records one entry per target the round attempted, in run order, with its outcome."
+    ]
+  },
+  "capacity_projection": {
+    "bytes_remaining": 1073740613,
+    "entries_remaining": 99997,
+    "projected_entries": 0,
+    "projection": "fit",
+    "target_count": 0
+  },
+  "channel_outcome_counts": {},
+  "coverage_statement": {
+    "product_page_snapshots": {
+      "count": 0,
+      "denominator": 1
+    },
+    "products_with_audit_target": {
+      "count": 0,
+      "denominator": 1
+    },
+    "products_with_only_skips": {
+      "count": 1,
+      "denominator": 1
+    },
+    "registered_products": {
+      "count": 1,
+      "denominator": 1
+    },
+    "snapshots_audited": {
+      "count": 0,
+      "denominator": 0
+    }
+  },
+  "entries": [
+    {
+      "outcome": "skipped",
+      "product": "Acme Ledger",
+      "skip_reason": "no page on file",
+      "target_kind": "audit"
+    },
+    {
+      "outcome": "skipped",
+      "product": "Acme Ledger",
+      "skip_reason": "no round with answers",
+      "target_kind": "probe"
+    }
+  ],
+  "form": "advanced",
+  "freshness_view": {
+    "cadence": null,
+    "forward_count": {
+      "recorded": false,
+      "state": "not_recorded"
+    },
+    "page_ages": []
+  },
+  "home_path": "/home/hatch/.tmp/tmpasli6pe_/home",
+  "honesty_sentence": "This score is a signal index. It measures the presence of citability signals. It is not validated as a predictor of citation, and it does not verify truth.",
+  "outcome_counts": {
+    "completed": 0,
+    "failed": 0,
+    "skipped": 2,
+    "stopped": 0
+  },
+  "plan_file_sha256": "57d07d06eb618d6da68cc1069039883b185a0acf2b97cb300d60e4f10f15985c",
+  "scope": "estate",
+  "trend_no_pair_count": 0
+}

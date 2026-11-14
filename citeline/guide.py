@@ -251,9 +251,10 @@ def choose_evidence_sentence(sentences, product_name=None, aliases=(),
 
     Preference: the first quotable evidence sentence that
     passes the naming test. Fallback: the first quotable
-    evidence sentence in extracted order. Where a caller
-    supplies pre filtered evidence sentences, quotability
-    stands as supplied and only the ordering runs here.
+    evidence sentence in extracted order. Every candidate
+    stands under the quotable evidence test of item 137,
+    however it reached this module: a supplied sentence
+    that is not quotable evidence is no candidate at all.
     """
     candidates = list(sentences or [])
     if not candidates:
@@ -486,10 +487,22 @@ def draft_from_audit_record(record, canonical_line=None, audit_date=None,
     NO_REUSABLE_EVIDENCE, a null opening text, and an
     action list that still stands produced.
     """
-    if canonical_line is None:
-        canonical_line = _get(record, "canonical_line", "") or ""
-    if product_name is None:
-        product_name = _get(record, "product_name", None) or _get(record, "name", None)
+    # The draft stands on the run as stored: where the
+    # record itself carries the canonical line or the
+    # product name, those stored values govern, and a
+    # caller supplied value stands only where the record
+    # carries none. A draft assembled from a later
+    # registry state over an earlier run would stand on
+    # no page and in no record.
+    stored_line = _get(record, "canonical_line", None)
+    if stored_line:
+        canonical_line = stored_line
+    elif canonical_line is None:
+        canonical_line = ""
+    stored_name = _get(record, "product_name", None) or _get(
+        record, "name", None)
+    if stored_name:
+        product_name = stored_name
     run_id = _get(record, "run_id", None)
     product_id = _get(record, "product_id", None)
     if audit_date is None:
@@ -523,7 +536,10 @@ def draft_from_audit_record(record, canonical_line=None, audit_date=None,
         cap_operates = bool(cap_status)
 
     if evidence_sentences is not None:
-        quotable = list(evidence_sentences)
+        quotable = [
+            sentence for sentence in evidence_sentences
+            if is_quotable_evidence_sentence(sentence)
+        ]
     elif sentences is not None:
         quotable = [
             sentence for sentence in sentences
@@ -532,7 +548,10 @@ def draft_from_audit_record(record, canonical_line=None, audit_date=None,
     else:
         stored = _get(record, "evidence_sentences", None)
         if stored is not None:
-            quotable = list(stored)
+            quotable = [
+                sentence for sentence in stored
+                if is_quotable_evidence_sentence(sentence)
+            ]
         else:
             stored_sentences = _get(record, "sentences", None) or []
             quotable = [
@@ -555,6 +574,7 @@ def draft_from_audit_record(record, canonical_line=None, audit_date=None,
     refused = False
     refusal_code = None
     opening_text = None
+    selection_basis = None
     codes_for_actions = list(triggers)
 
     if not quotable and not has_cited_targets:
@@ -576,6 +596,16 @@ def draft_from_audit_record(record, canonical_line=None, audit_date=None,
         )
         if chosen:
             opening_text = canonical_line + " " + chosen
+            # The draft records the basis its selection
+            # stood on, in the form the reporting limb
+            # reads, so the fixed selection statement of
+            # the IM7-BRK-13 landing prints in every form.
+            if passes_naming_test(
+                    chosen, product_name, aliases,
+                    category_terms):
+                selection_basis = "preference"
+            else:
+                selection_basis = "fallback"
         else:
             opening_text = canonical_line
     else:
@@ -609,6 +639,12 @@ def draft_from_audit_record(record, canonical_line=None, audit_date=None,
         "standing_action": STANDING_ACTION,
         "audit_date": audit_date,
     }
+    if selection_basis is not None:
+        draft["selection_basis"] = selection_basis
+    # The run's own cap position stands on the draft, so
+    # the guide artefact can state it in the audit's words
+    # beside the worklist groups.
+    draft["cap_status"] = bool(cap_operates)
     draft.update(_stamps_from(record))
     return draft
 
@@ -781,6 +817,19 @@ def draft_from_round(round_record=None, canonical_line=None, audit_date=None,
             "a control in this round failed, and no action "
             "stands produced from this round"
         )
+    if answers is not None:
+        non_control = [
+            item for item in (answers or [])
+            if not is_control(item)]
+        if not non_control:
+            # The round holds no answers: the draft states
+            # that empty basis in plain words on its own
+            # face, so no action in it reads as a finding
+            # on evidence the round does not hold.
+            draft["empty_round_notice"] = (
+                "This round holds no answers, so the "
+                "actions in this draft rest on no answer "
+                "in the round.")
     draft.update(_stamps_from(record))
     return draft
 

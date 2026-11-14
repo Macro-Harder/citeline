@@ -45,6 +45,8 @@ dropping fields here.
 """
 
 import copy
+import math
+import re
 import unicodedata
 from decimal import Decimal, ROUND_HALF_UP
 
@@ -275,10 +277,35 @@ def _plain(value):
     unchanged. Nothing is computed and nothing is dropped except
     private attribute names on object records.
     """
+    if isinstance(value, float) and not math.isfinite(value):
+        # A figure that is not a finite number stands as
+        # no figure in every form: the JSON forms hold no
+        # token a strict parse refuses, and the Simple
+        # form prints no claim no evidence holds.
+        return None
+    if isinstance(value, Decimal) and not value.is_finite():
+        return None
     if value is None or isinstance(value, (bool, int, float, str)):
         return value
     if isinstance(value, dict):
-        return {str(key): _plain(item) for key, item in value.items()}
+        plain = {}
+        for key, item in value.items():
+            text_key = str(key)
+            if text_key in plain:
+                # Two distinct keys sharing one string form
+                # cannot both stand in a JSON object. The
+                # record is refused in the open rather than
+                # one field dropping in silence.
+                raise ValueError(
+                    "record keys %r and %r share the string "
+                    "form %r and cannot both stand in the "
+                    "rendered record" % (
+                        next(
+                            standing for standing in value
+                            if str(standing) == text_key),
+                        key, text_key))
+            plain[text_key] = _plain(item)
+        return plain
     if isinstance(value, (list, tuple)):
         return [_plain(item) for item in value]
     if hasattr(value, "_asdict"):
@@ -383,10 +410,77 @@ def bounds_for(record):
 
 
 def _apply_anchor_limit(body):
-    """Stand the anchor limit sentence beside any head hash."""
+    """Stand the anchor limit sentence beside any head hash.
+
+    The sentence is a fixed text: the fixed words stand,
+    and a stored copy under the same field never replaces
+    them.
+    """
     for obj in _walk(body):
         if obj.get("head_hash"):
-            obj.setdefault("anchor_limit", ANCHOR_LIMIT_SENTENCE)
+            obj["anchor_limit"] = ANCHOR_LIMIT_SENTENCE
+
+
+def _apply_fixed_texts(body):
+    """Hold the fixed texts fixed inside the payload.
+
+    The honesty sentence stands in its fixed words in
+    every report like payload, and the presence only
+    scope value stands as the claim type of every object
+    that carries one beside its value, with no validated
+    predictor claim standing beside it. A stored copy of
+    either text never overrides the fixed text.
+    """
+    if _is_report_like(body):
+        body["honesty_sentence"] = HONESTY_SENTENCE
+    for obj in _walk(body):
+        if "claim_type" in obj and "value" in obj:
+            obj["claim_type"] = SCOPE_VALUE
+            if obj.get("validated_predictor"):
+                obj["validated_predictor"] = False
+
+
+def _failure_record_payloads(body):
+    """The failure record payloads a record carries, in
+    the forms they travel in: a failure_records list of
+    payloads, a single failure_record payload, or journal
+    entries of the failure_record kind carrying their
+    payload, at the top level or inside an entries list.
+    """
+    payloads = []
+
+    def note(item):
+        if isinstance(item, dict) and item not in payloads:
+            payloads.append(item)
+
+    if isinstance(body, dict):
+        stated = body.get("failure_records")
+        if isinstance(stated, list):
+            for item in stated:
+                note(item)
+        single = body.get("failure_record")
+        if isinstance(single, dict):
+            note(single)
+    for obj in _walk(body):
+        if obj.get("entry_kind") == "failure_record" \
+                and isinstance(obj.get("payload"), dict):
+            note(obj["payload"])
+    return payloads
+
+
+def _apply_failure_records(body):
+    """Stand the failure record content of a record under
+    its own failure_records field, so an operator surface
+    rendering the record states that a failure occurred,
+    what operation failed, what error value it carried,
+    and what subject it named, as the stored payload
+    carries them.
+    """
+    if not isinstance(body, dict):
+        return
+    payloads = _failure_record_payloads(body)
+    if payloads:
+        body["failure_records"] = payloads
 
 
 _CITATION_ONLY_CODE = "CITATION_ONLY_NO_QUOTABLE_SENTENCE"
@@ -666,6 +760,8 @@ def _advanced_body(record):
         return body
     _apply_secondary_figure_recompute(body)
     _apply_anchor_limit(body)
+    _apply_fixed_texts(body)
+    _apply_failure_records(body)
     _apply_small_sample_warning_text(body)
     _apply_methods_note_version(body)
     _apply_trend_field_names(body)
@@ -675,7 +771,7 @@ def _advanced_body(record):
             carried["establishes"] = [
                 COMPUTED_FIGURES_ESTABLISHES]
     if _is_report_like(body):
-        body.setdefault("honesty_sentence", HONESTY_SENTENCE)
+        body["honesty_sentence"] = HONESTY_SENTENCE
         if _find_bounds(body) is None:
             body["bounds"] = bounds_for(body)
         _apply_control_failure_notice(body)
@@ -719,6 +815,48 @@ def _apply_agentic_scope(body):
                 obj["claim_type"] = SCOPE_VALUE
 
 
+def _simple_safe_text(text):
+    """One text value made safe for the Simple form, at the
+    pipeline's one escaping point.
+
+    A line break or carriage return inside a value becomes
+    a space, so a value never escapes its field and forges
+    an artefact line. Control characters, format
+    characters, and direction overrides become spaces, so
+    hostile text stands as plain text characters and never
+    acts on the display. A lone surrogate becomes the
+    replacement character, so the artefact always encodes.
+    JSON object syntax is broken by a space after the
+    opening brace, so no Simple artefact carries it.
+    """
+    cleaned = []
+    for char in text:
+        category = unicodedata.category(char)
+        if category == "Cs":
+            cleaned.append("�")
+        elif category in ("Cc", "Cf"):
+            cleaned.append(" ")
+        else:
+            cleaned.append(char)
+    joined = "".join(cleaned)
+    return re.sub(r"\{\s*\"", '{ "', joined)
+
+
+def _simple_safe(node):
+    """Every string in a plain structure, keys included,
+    passed through the Simple escaping point."""
+    if isinstance(node, str):
+        return _simple_safe_text(node)
+    if isinstance(node, dict):
+        return {
+            _simple_safe_text(str(key)): _simple_safe(item)
+            for key, item in node.items()
+        }
+    if isinstance(node, list):
+        return [_simple_safe(item) for item in node]
+    return node
+
+
 def render(record, form="advanced"):
     """Render one stored record in one reading form.
 
@@ -733,7 +871,7 @@ def render(record, form="advanced"):
     if form not in FORMS:
         raise ValueError("unknown reading form: %r" % (form,))
     if form == "simple":
-        return _render_simple(_advanced_body(record))
+        return _render_simple(_simple_safe(_advanced_body(record)))
     body = _advanced_body(record)
     _apply_agentic_scope(body)
     if form == "advanced":
@@ -954,6 +1092,8 @@ def _emit(lines, key, value, depth, suppress_anchor_bare=False,
         return
     if isinstance(value, float) and (
             key in _TREND_RATE_KEYS
+            or key in ("wilson_low", "wilson_high")
+            or key.startswith("wilson_")
             or "_rate" in key
             or key.endswith("_rate")
             or key.endswith("_share")
@@ -1110,6 +1250,22 @@ def _render_guide_simple(body):
         lines.append(REFUSAL_SENTENCE)
     elif body.get("opening_text"):
         lines.append("Opening: %s" % body["opening_text"])
+    cap_status = body.get("cap_status")
+    if not isinstance(cap_status, bool):
+        score = body.get("score")
+        if isinstance(score, dict):
+            cap_status = score.get("cap_status")
+    if cap_status is True:
+        lines.append(
+            "The evidence cap holds the score at 39 for "
+            "this run.")
+    elif cap_status is False:
+        lines.append(
+            "The evidence cap does not hold for this run.")
+    if body.get("empty_round_notice"):
+        notice = body["empty_round_notice"]
+        lines.append(notice if isinstance(notice, str) else
+                     "This round holds no answers.")
     if body.get("citation_only_sentence"):
         lines.append(body["citation_only_sentence"])
     if body.get("selection_statement"):
@@ -1161,7 +1317,8 @@ def _render_guide_simple(body):
                "citation_only_sentence", "selection_statement",
                "standing_action", "refusal_sentence",
                "honesty_sentence", "bounds",
-               "control_failure_notice"}
+               "control_failure_notice", "cap_status",
+               "empty_round_notice"}
     remainder = {k: v for k, v in body.items() if k not in handled}
     _emit_dict(lines, remainder, 0)
     return lines
@@ -1251,9 +1408,19 @@ def _render_audit_simple(body):
     if value is None:
         lines.append("The score for this run stands not recorded.")
     else:
+        if isinstance(value, (int, float)) \
+                and not isinstance(value, bool):
+            # The ScoreObject value stands rounded to one
+            # decimal place in its stored shape, and the
+            # Simple form prints it at that precision.
+            value_text = str(
+                Decimal(str(value)).quantize(
+                    Decimal("0.1"), rounding=ROUND_HALF_UP))
+        else:
+            value_text = _scalar_text(value)
         lines.append(
             "The score for this run is %s, in the %s band."
-            % (_scalar_text(value), _scalar_text(band)))
+            % (value_text, _scalar_text(band)))
         basis = score.get("applicable_basis")
         if isinstance(basis, dict):
             checks_named = basis.get("applicable_checks") or []
@@ -1280,6 +1447,14 @@ def _render_audit_simple(body):
             if isinstance(figure.get("basis"), str) and \
                     figure.get("basis"):
                 lines.append(figure["basis"])
+    if isinstance(body.get("sentences"), list) \
+            and not body.get("sentences"):
+        # The extraction outcome stands empty: the page
+        # file held no readable text, stated in plain
+        # words at the head of the artefact.
+        lines.append(
+            "The page file held no readable text, so no "
+            "check could run on it.")
     lines.append("run_id: %s" % _scalar_text(body.get("run_id")))
     if body.get("snapshot_id") is not None:
         lines.append(
@@ -1357,6 +1532,10 @@ def _render_audit_simple(body):
     facts = body.get("facts_counts")
     if _is_absence(facts):
         lines.append("facts_counts: not recorded")
+    if body.get("control_failure_notice"):
+        notice = body["control_failure_notice"]
+        lines.append(notice if isinstance(notice, str)
+                     else CONTROL_FAILURE_NOTICE)
     return lines
 
 
@@ -1463,6 +1642,18 @@ def _render_simple(body):
                     not isinstance(empty_count, bool) and \
                     empty_count != 0:
                 lines.append(EMPTY_ANSWER_WARNING % empty_count)
+    failure_records = body.get("failure_records")
+    if isinstance(failure_records, list) and failure_records:
+        lines.append("Failure records.")
+        for failure in failure_records:
+            if not isinstance(failure, dict):
+                continue
+            lines.append(
+                "  %s failed with %s, subject %s."
+                % (_scalar_text(failure.get("operation")),
+                   _scalar_text(failure.get("error_value")),
+                   _scalar_text(
+                       failure.get("subject_identity"))))
     bounds = _find_bounds(body)
     if bounds is not None and _is_report_like(body):
         lines.append("Bounds.")
@@ -1528,6 +1719,25 @@ def _classify_query(query, product_names, competitor_names):
     }
 
 
+def _collection(value, name):
+    """One collection field in its collection form.
+
+    A string value is one item, never its characters. A
+    list or tuple stands as its items. Any other shape is
+    refused in the open, as a shape the derivation cannot
+    read as a collection.
+    """
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, (list, tuple)):
+        return list(value)
+    raise ValueError(
+        "%s must stand as a list of items or as one item, "
+        "not as %s" % (name, type(value).__name__))
+
+
 def derive_query_set_report(product):
     """Derive the QuerySetReport artefact over one Product record.
 
@@ -1541,19 +1751,22 @@ def derive_query_set_report(product):
     queries = []
     query_set_version = record.get("query_set_version")
     if isinstance(query_set, dict):
-        queries = query_set.get("queries") or query_set.get("items") \
-            or []
+        queries = _collection(
+            query_set.get("queries") or query_set.get("items"),
+            "query set queries")
         query_set_version = query_set.get("query_set_version") \
             or query_set.get("version") or query_set_version
-    elif isinstance(query_set, list):
-        queries = query_set
-    product_names = [record.get("name")] + list(
-        record.get("aliases") or [])
+    elif isinstance(query_set, (list, tuple, str)):
+        queries = _collection(query_set, "query set")
+    product_names = [record.get("name")] + _collection(
+        record.get("aliases"), "product aliases")
     competitor_names = []
-    for competitor in record.get("competitors") or []:
+    for competitor in _collection(
+            record.get("competitors"), "competitors"):
         if isinstance(competitor, dict):
             competitor_names.append(competitor.get("name"))
-            competitor_names.extend(competitor.get("aliases") or [])
+            competitor_names.extend(_collection(
+                competitor.get("aliases"), "competitor aliases"))
         elif competitor:
             competitor_names.append(competitor)
     counts = {
@@ -1634,8 +1847,11 @@ def _rule_text(rule):
 
 def _group_rules(evaluation):
     """The per group rule texts an evaluation carries, keyed by
-    group token in operator spelling, in file order.
+    group token folded to lower case, as evaluation keys them.
 
+    Agent tokens combine case insensitively at evaluation,
+    so the groups stand keyed the same way here, with the
+    first spelling seen kept beside the key for display.
     The reading accepts the forms in which a robots evaluation
     can carry its files' group rules beside its findings: a
     groups list whose entries carry agents and rules, in the
@@ -1649,6 +1865,13 @@ def _group_rules(evaluation):
     groups = {}
     if not isinstance(evaluation, dict):
         return groups
+
+    def note(agent, texts):
+        key = str(agent).lower()
+        entry = groups.setdefault(
+            key, {"display": str(agent), "texts": []})
+        entry["texts"].extend(texts)
+
     stated = evaluation.get("groups") or \
         evaluation.get("parsed_groups")
     if isinstance(stated, list):
@@ -1665,7 +1888,7 @@ def _group_rules(evaluation):
                 if text is not None:
                     texts.append(text)
             for agent in agents:
-                groups.setdefault(str(agent), []).extend(texts)
+                note(agent, texts)
         return groups
     keyed = evaluation.get("group_rules")
     if isinstance(keyed, dict):
@@ -1675,7 +1898,7 @@ def _group_rules(evaluation):
                 text = _rule_text(rule)
                 if text is not None:
                     texts.append(text)
-            groups[str(token)] = texts
+            note(token, texts)
         return groups
     flat = evaluation.get("rules") or evaluation.get(
         "wildcard_rules")
@@ -1687,7 +1910,7 @@ def _group_rules(evaluation):
                 rule.get("group") or rule.get("agent") or "*"
             text = _rule_text(rule)
             if text is not None:
-                groups.setdefault(str(token), []).append(text)
+                note(token, [text])
     return groups
 
 
@@ -1695,47 +1918,107 @@ def _rule_text_changed_rows(first, second, existing):
     """Changed rows from the two files' group rule texts.
 
     A preview is a comparison of the two files, and a rule
-    that stands written differently in the second file is a
-    changed row of the preview even where that rule does not
-    win at the evaluated path, so no finding differs there.
-    One entry stands per position whose rule text differs,
-    keyed by the group token that supplies the rule. The
-    wildcard group supplies every purpose class and no one
-    class, so its purpose class stands null, and a rule text
-    row carries no defect flag change. Rows a finding
-    comparison already produced, with the same token and the
-    same two texts, are not repeated.
+    that stands in one file's rule set for a group and not
+    in the other's is a changed row of the preview even
+    where that rule does not win at the evaluated path, so
+    no finding differs there. The comparison is of rule
+    sets, never of rule positions: a rule is identified by
+    its group and its text, so a pure reorder changes
+    nothing and one inserted rule reports one row. Groups
+    stand keyed as evaluation keys them, case insensitively.
+
+    Rows stand only for the crawler table and for the
+    wildcard group: a table token row carries that row's
+    purpose class, and the wildcard group, which supplies
+    every purpose class and no one class, carries null.
+    A group naming no table token generates no finding on
+    either side and reports no row. A change the finding
+    rows already state, with the same two texts on any
+    row, is not repeated, and a rule that still stands in
+    the rule set evaluation applies for its token, because
+    its group was replaced by a group supplying the same
+    rule, is not reported as removed or added.
     """
+    from collections import Counter
     rows = []
     first_groups = _group_rules(first)
     second_groups = _group_rules(second)
+    table = {}
+    try:
+        from citeline.robots import CRAWLER_TABLE
+        for entry in CRAWLER_TABLE:
+            table[entry["token"].lower()] = entry
+    except Exception:
+        table = {}
+    finding_pairs = {
+        (row.get("first_finding"), row.get("second_finding"))
+        for row in existing
+    }
     seen = {
         (row.get("token"), row.get("first_finding"),
          row.get("second_finding"))
         for row in existing
     }
+
+    def effective(groups, key):
+        if key in groups:
+            return groups[key]["texts"]
+        if "*" in groups:
+            return groups["*"]["texts"]
+        return []
+
     tokens = list(first_groups)
     for token in second_groups:
         if token not in tokens:
             tokens.append(token)
     for token in tokens:
-        first_texts = first_groups.get(token) or []
-        second_texts = second_groups.get(token) or []
-        for index in range(max(len(first_texts),
-                               len(second_texts))):
-            before = first_texts[index] \
-                if index < len(first_texts) else None
-            after = second_texts[index] \
-                if index < len(second_texts) else None
-            if before == after:
+        if token != "*" and token not in table:
+            continue
+        first_texts = (first_groups.get(token) or {}).get(
+            "texts") or []
+        second_texts = (second_groups.get(token) or {}).get(
+            "texts") or []
+        removed = list(
+            (Counter(first_texts) - Counter(second_texts)).elements())
+        added = list(
+            (Counter(second_texts) - Counter(first_texts)).elements())
+        if not removed and not added:
+            continue
+        if token == "*":
+            display = "*"
+            purpose = None
+        else:
+            display = table[token]["token"]
+            purpose = table[token]["purpose_class"]
+        eff_first = effective(first_groups, token) \
+            if token != "*" else first_texts
+        eff_second = effective(second_groups, token) \
+            if token != "*" else second_texts
+        # Removed and added texts pair into changed rows,
+        # one row per pair, with any leftover standing as
+        # a removal or an addition on its own.
+        candidates = []
+        paired = min(len(removed), len(added))
+        for index in range(paired):
+            candidates.append((removed[index], added[index]))
+        for text in removed[paired:]:
+            candidates.append((text, None))
+        for text in added[paired:]:
+            candidates.append((None, text))
+        for before, after in candidates:
+            if before is not None and before in eff_second:
                 continue
-            key = (token, before, after)
+            if after is not None and after in eff_first:
+                continue
+            if (before, after) in finding_pairs:
+                continue
+            key = (display, before, after)
             if key in seen:
                 continue
             seen.add(key)
             rows.append({
-                "token": token,
-                "purpose_class": None,
+                "token": display,
+                "purpose_class": purpose,
                 "first_finding": before,
                 "second_finding": after,
                 "defect_flag_change": None,
@@ -1765,6 +2048,12 @@ def assemble_robots_preview(first, second, evaluated_page_path="/",
     """
     first = _plain(first)
     second = _plain(second)
+    # An empty string stands as no date supplied, never
+    # as a supplied date value.
+    if first_capture_date == "":
+        first_capture_date = None
+    if second_capture_date == "":
+        second_capture_date = None
     first_findings = first.get("findings") or []
     second_findings = second.get("findings") or []
     second_by_key = {}
@@ -1831,6 +2120,53 @@ def assemble_robots_preview(first, second, evaluated_page_path="/",
         preview["second_capture_date_omission"] = (
             "The second file asserted capture date is omitted: "
             "no date was supplied for that file.")
+    # The capture dates are operator asserted and stand
+    # shown as asserted, on the IM7-DIV-7 landing: each
+    # supplied date carries its asserted marker, and each
+    # unsupplied date carries its omission above.
+    preview["capture_dates_asserted"] = {
+        "first": {
+            "date": first_capture_date,
+            "asserted": first_capture_date is not None,
+        },
+        "second": {
+            "date": second_capture_date,
+            "asserted": second_capture_date is not None,
+        },
+    }
+    preview["capture_date_assertion"] = (
+        "Capture dates in this preview are operator "
+        "asserted dates, shown as asserted.")
+    try:
+        import datetime as _datetime
+        first_day = _datetime.date.fromisoformat(
+            str(first_capture_date))
+        second_day = _datetime.date.fromisoformat(
+            str(second_capture_date))
+        if second_day < first_day:
+            preview["capture_date_order_note"] = (
+                "The second file asserted capture date "
+                "stands before the first file asserted "
+                "capture date.")
+    except (TypeError, ValueError):
+        pass
+    # The diff's stated scope stands declared in the
+    # artefact: it covers findings and rule texts only.
+    # Evaluation fields outside that scope that differ
+    # between the two files stand named with both values,
+    # so an empty changed list never reads as no
+    # difference of any kind.
+    preview["diff_scope"] = (
+        "This diff covers findings and rule texts only. "
+        "Changes to other evaluation fields are not shown "
+        "as changed rows.")
+    outside = {}
+    for name in ("crawl_delay_observation",
+                 "sitemap_line_presence_count"):
+        if first.get(name) != second.get(name):
+            outside[name] = [first.get(name), second.get(name)]
+    if outside:
+        preview["evaluation_differences_outside_diff"] = outside
     return preview
 
 

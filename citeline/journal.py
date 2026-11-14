@@ -27,6 +27,7 @@ __all__ = [
     "ENTRY_KINDS",
     "JournalError",
     "append_cost",
+    "append_entries_atomic",
     "append_entry",
     "canonical_bytes",
     "config_keys",
@@ -216,6 +217,9 @@ _SHORT_ESCAPES = {
 def _render_string(value):
     parts = ['"']
     for char in value:
+        if 0xD800 <= ord(char) <= 0xDFFF:
+            raise JournalError(
+                "a lone surrogate cannot stand in hashed material")
         escaped = _SHORT_ESCAPES.get(char)
         if escaped is not None:
             parts.append(escaped)
@@ -298,7 +302,10 @@ def _render(value, key=None):
         scale = _scale_for(key)
         if scale is not None:
             return _quantize(Decimal(int(value)), scale)
-        return str(int(value))
+        try:
+            return str(int(value))
+        except ValueError:
+            raise JournalError("number outside the renderable range")
     if isinstance(value, float):
         return _render_float(value, key)
     if isinstance(value, Decimal):
@@ -327,7 +334,12 @@ def canonical_bytes(entry):
         raise JournalError("an entry must be an object")
     body = {name: value for name, value in entry.items()
             if name != "entry_hash"}
-    return _render(body).encode("utf-8")
+    try:
+        return _render(body).encode("utf-8")
+    except UnicodeEncodeError:
+        raise JournalError(
+            "a value that cannot encode as UTF-8 cannot stand "
+            "in hashed material")
 
 
 def entry_hash(entry):
@@ -354,13 +366,32 @@ def parse_entry(data):
 
 
 def _container_depth(value):
-    if isinstance(value, dict):
-        return 1 + max((_container_depth(item) for item in value.values()),
-                       default=0)
-    if isinstance(value, (list, tuple)):
-        return 1 + max((_container_depth(item) for item in value),
-                       default=0)
-    return 0
+    """The nesting depth of a value, counted iteratively.
+
+    The count walks an explicit stack and stops as soon as
+    the depth passes MAX_DEPTH, so a hostile depth is
+    judged by this test instead of exhausting the
+    interpreter stack inside it (Step 17 entry S17-R1-002).
+    """
+    depth = 0
+    stack = [(value, 1)]
+    while stack:
+        item, level = stack.pop()
+        if isinstance(item, dict):
+            if level > depth:
+                depth = level
+            if depth > MAX_DEPTH:
+                return depth
+            for child in item.values():
+                stack.append((child, level + 1))
+        elif isinstance(item, (list, tuple)):
+            if level > depth:
+                depth = level
+            if depth > MAX_DEPTH:
+                return depth
+            for child in item:
+                stack.append((child, level + 1))
+    return depth
 
 
 def journal_path(home):
@@ -399,7 +430,14 @@ def _stat_key(path):
         info = os.stat(path)
     except OSError:
         return None
-    return (info.st_ino, info.st_size, info.st_mtime_ns)
+    # The change time stands in the key beside the inode,
+    # the size, and the modification time: a same size edit
+    # can restore its modification time, and no ordinary
+    # call restores the change time, so a tampered file
+    # never reproduces the key of the scan it would be
+    # served from (Step 17 entry S17-R1-001).
+    return (info.st_ino, info.st_size, info.st_mtime_ns,
+            info.st_ctime_ns)
 
 
 def _lock_held_by_other(home):
@@ -434,6 +472,65 @@ def _has_partial_tail(path):
         return False
 
 
+def _partial_tail_bytes(path):
+    """The bytes after the last newline, or None where the
+    file ends with a newline or cannot be read."""
+    try:
+        with open(path, "rb") as handle:
+            data = handle.read()
+    except OSError:
+        return None
+    if not data or data.endswith(b"\n"):
+        return None
+    return data.split(b"\n")[-1]
+
+
+def _is_plausible_entry_prefix(partial):
+    """Whether partial bytes could be the standing holder
+    own entry, written in part.
+
+    Brief Section 5.12 item 138 admits a final partial line
+    as a live holder append in progress only where it is
+    the holder own partial write. Bytes that do not decode
+    as UTF-8, or whose bracket and string structure no
+    canonical entry prefix can have, are no entry prefix,
+    whoever holds the lock (Step 17 entry S17-R1-007).
+    """
+    if not partial:
+        return False
+    try:
+        text = partial.decode("utf-8")
+    except UnicodeDecodeError:
+        return False
+    stack = []
+    in_string = False
+    escaped = False
+    for char in text:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            elif ord(char) < 0x20:
+                return False
+            continue
+        if char == '"':
+            in_string = True
+        elif char in "{[":
+            stack.append(char)
+        elif char in "}]":
+            if not stack:
+                return False
+            opener = stack.pop()
+            if (opener == "{") != (char == "}"):
+                return False
+        elif ord(char) < 0x20:
+            return False
+    return True
+
+
 def _scan(home, partial_mode="probe"):
     """Read the journal as it stands and recompute its chain.
 
@@ -449,9 +546,12 @@ def _scan(home, partial_mode="probe"):
     path = journal_path(home)
     stat = _stat_key(path)
     lock_key = None
+    plausible_key = None
     if partial_mode == "probe" and _has_partial_tail(path):
         lock_key = _lock_held_by_other(home)
-    cache_key = (path, partial_mode, lock_key)
+        plausible_key = _is_plausible_entry_prefix(
+            _partial_tail_bytes(path))
+    cache_key = (path, partial_mode, lock_key, plausible_key)
     cached = _scan_cache.get(cache_key)
     if cached is not None and cached[0] == stat:
         return cached[1]
@@ -459,8 +559,17 @@ def _scan(home, partial_mode="probe"):
     try:
         with open(path, "rb") as handle:
             data = handle.read()
-    except OSError:
+    except FileNotFoundError:
         data = b""
+    except OSError:
+        # A journal path that stands but cannot be read as
+        # a file (a directory at the path, a read error) is
+        # an integrity state, not an empty journal (Step 17
+        # entry S17-R1-006).
+        scan.failure = {"position": 1, "reason": "unreadable",
+                        "row": "I-2"}
+        _scan_cache[cache_key] = (stat, scan)
+        return scan
     partial = None
     if data:
         if data.endswith(b"\n"):
@@ -475,11 +584,13 @@ def _scan(home, partial_mode="probe"):
     scan.entry_count = len(scan.lines)
     scan.parsed = [_parse_line(raw) for raw in scan.lines]
     if partial is not None:
-        if partial_mode == "probe" and _lock_held_by_other(home):
+        if partial_mode == "probe" and _lock_held_by_other(home) \
+                and _is_plausible_entry_prefix(partial):
             scan.partial_ignored = True
         elif partial_mode == "ignore":
             scan.partial_ignored = True
     previous_raw = None
+    seen_raises = set()
     for index, raw in enumerate(scan.lines, start=1):
         parsed = scan.parsed[index - 1]
         reason = None
@@ -511,6 +622,20 @@ def _scan(home, partial_mode="probe"):
                 else:
                     if rendered != raw:
                         reason = "noncanonical"
+                    elif parsed.get("entry_kind") == "limit_raise":
+                        # The one raise per run and limit rule
+                        # is a property of the chain, not of
+                        # one writing route: a supplied chain
+                        # carrying two raises for one run and
+                        # limit does not verify (Step 17 entry
+                        # S17-R1X-010).
+                        payload = parsed.get("payload") or {}
+                        raise_key = (repr(payload.get("run_id")),
+                                     repr(payload.get("limit")))
+                        if raise_key in seen_raises:
+                            reason = "duplicate_raise"
+                        else:
+                            seen_raises.add(raise_key)
         if reason is not None:
             scan.failure = {"position": index, "reason": reason,
                             "row": "I-2"}
@@ -574,21 +699,57 @@ def _home_size(home):
     return total
 
 
+def _resolve_anchor_path(home, value):
+    """Resolve an anchor_path value once, against the home.
+
+    Config validation and every anchor read and write use
+    this one resolved path, so the anchor the product uses
+    is the anchor it checked (Step 17 entry S17-R1X-003).
+    """
+    if os.path.isabs(value):
+        return os.path.normpath(value)
+    return os.path.normpath(os.path.join(str(home), value))
+
+
 def _read_anchor(path):
+    """Read one anchor recording, strictly.
+
+    Returns a pair of a state and a recording. The state
+    is "ok" only where the file holds exactly the pair the
+    product own writer writes: one 64 character hex head
+    hash and one integer sequence. An absent, emptied, or
+    directory replaced anchor reports "absent"; a standing
+    file in any other form (an undecodable byte, a missing
+    or non integer sequence, trailing extra tokens)
+    reports "malformed", and no part of it is silently
+    dropped (Step 17 entries S17-R1X-001, S17-R1X-002, and
+    S17-R1-073).
+    """
     try:
-        with open(path, "r", encoding="utf-8") as handle:
-            parts = handle.read().split()
+        with open(path, "rb") as handle:
+            raw = handle.read()
+    except FileNotFoundError:
+        return "absent", None
+    except IsADirectoryError:
+        return "absent", None
     except OSError:
-        return None
+        return "malformed", None
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return "malformed", None
+    parts = text.split()
     if not parts:
-        return None
-    sequence = None
-    if len(parts) >= 2:
-        try:
-            sequence = int(parts[1])
-        except ValueError:
-            sequence = None
-    return {"head_hash": parts[0], "sequence": sequence}
+        return "absent", None
+    if len(parts) != 2:
+        return "malformed", {"head_hash": parts[0], "sequence": None}
+    head_hash, sequence_token = parts
+    if re.fullmatch(r"[0-9a-fA-F]{64}", head_hash) is None:
+        return "malformed", {"head_hash": head_hash, "sequence": None}
+    if re.fullmatch(r"[+-]?[0-9]+", sequence_token) is None:
+        return "malformed", {"head_hash": head_hash, "sequence": None}
+    return "ok", {"head_hash": head_hash,
+                  "sequence": int(sequence_token)}
 
 
 def _agreement_for(recorded, scan):
@@ -608,8 +769,7 @@ def _agreement_for(recorded, scan):
             break
     if position is None:
         return "divergent"
-    if recorded["sequence"] is not None \
-            and recorded["sequence"] != position:
+    if recorded["sequence"] != position:
         return "divergent"
     if position == scan.entry_count:
         return "matching"
@@ -622,10 +782,17 @@ def _anchor_status(home, scan):
     if not anchor_path:
         return {"agreement": "not recorded", "recorded_head": None,
                 "recorded_sequence": None, "anchor_path": None}
-    recorded = _read_anchor(anchor_path)
-    if recorded is None:
+    state, recorded = _read_anchor(
+        _resolve_anchor_path(home, anchor_path))
+    if state == "absent":
         return {"agreement": "absent", "recorded_head": None,
                 "recorded_sequence": None, "anchor_path": anchor_path}
+    if state == "malformed":
+        return {"agreement": "divergent",
+                "recorded_head": recorded["head_hash"] if recorded
+                else None,
+                "recorded_sequence": None,
+                "anchor_path": anchor_path}
     return {
         "agreement": _agreement_for(recorded, scan),
         "recorded_head": recorded["head_hash"],
@@ -728,6 +895,13 @@ def parse_config(text, home=None):
     values = {}
     warnings = []
     seen = set()
+    if text.startswith("\ufeff"):
+        # A byte order mark at the head is an encoding
+        # prefix, not part of the first key: the page and
+        # robots intakes strip it by stated rule, and the
+        # config intake does the same (Step 17 entry
+        # S17-R1-076).
+        text = text[1:]
     lines = text.split("\n")
     if lines and lines[-1] == "":
         lines = lines[:-1]
@@ -757,7 +931,16 @@ def parse_config(text, home=None):
                 raise ConfigError(
                     "a value of the wrong form for its key: %s"
                     % (key,), row="X-1", token="CONFIG_INVALID")
-            number = int(raw_value)
+            try:
+                number = int(raw_value)
+            except ValueError:
+                # A digit string past the integer conversion
+                # limit is a value far past its hard ceiling,
+                # refused in the vocabulary, never a raw
+                # error (Step 17 entry S17-R1X-012).
+                raise ConfigError(
+                    "a config value past its hard ceiling: %s"
+                    % (key,), row="X-1", token="CONFIG_INVALID")
             index = _LIMIT_INDEX[key]
             default = _LIMIT_DEFAULT[key]
             if number < 1:
@@ -772,6 +955,14 @@ def parse_config(text, home=None):
             values[key] = number
         elif key in ("home_path", "anchor_path"):
             values[key] = raw_value
+            if key == "home_path":
+                # The home is fixed by the call that names
+                # it; this key governs nothing, and the parse
+                # says so instead of accepting it silently
+                # (Step 17 entry S17-R1X-014).
+                warnings.append(
+                    "home_path has no effect: the home is the "
+                    "directory the call names")
         else:
             warnings.append("unknown key: %s" % (key,))
     resolved = dict(_LIMIT_DEFAULT)
@@ -791,13 +982,15 @@ def parse_config(text, home=None):
             "evidence_spans_per_check",
             row="X-1", token="CONFIG_INVALID")
     if home is not None and "anchor_path" in values:
-        candidate = values["anchor_path"]
-        if not os.path.isabs(candidate):
-            candidate = os.path.join(str(home), candidate)
-        candidate = os.path.normpath(candidate)
-        home_norm = os.path.normpath(str(home))
-        if candidate == home_norm \
-                or candidate.startswith(home_norm + os.sep):
+        candidate = _resolve_anchor_path(home, values["anchor_path"])
+        # The check runs on the real location, not the
+        # lexical spelling: a path through a symlinked
+        # directory whose real location is inside the home
+        # is inside the home (Step 17 entry S17-R1X-004).
+        candidate_real = os.path.realpath(candidate)
+        home_real = os.path.realpath(str(home))
+        if candidate_real == home_real \
+                or candidate_real.startswith(home_real + os.sep):
             raise ConfigError(
                 "an anchor path inside the product home is refused",
                 row="X-2", token="ANCHOR_PATH_INSIDE_HOME")
@@ -806,17 +999,40 @@ def parse_config(text, home=None):
 
 def _read_config_values(home):
     path = config_path(home)
-    if not os.path.isfile(path):
+    if not os.path.lexists(path):
         return {}, [], False
-    with open(path, "r", encoding="utf-8") as handle:
-        text = handle.read()
+    if not os.path.isfile(path):
+        # A config path that stands but is not a file (a
+        # directory at the path) is a config failure, not
+        # an absent config (Step 17 entry S17-R1X-013).
+        raise ConfigError(
+            "the config path stands but is not a file",
+            row="X-1", token="CONFIG_INVALID")
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            text = handle.read()
+    except UnicodeDecodeError:
+        raise ConfigError(
+            "the config file does not decode as UTF-8",
+            row="X-1", token="CONFIG_INVALID")
+    except OSError:
+        raise ConfigError(
+            "the config file cannot be read",
+            row="X-1", token="CONFIG_INVALID")
     values, warnings = parse_config(text, home=str(home))
     return values, warnings, True
 
 
 def write_config(home, text):
-    """Write the config file, named config.txt, inside the home given."""
+    """Write the config file, named config.txt, inside the home given.
+
+    The writing half applies the parse the reading half
+    applies on every read, so the product cannot write a
+    config it will itself refuse to read (Step 17 entry
+    S17-R1X-015).
+    """
     home = str(home)
+    parse_config(text, home=home)
     os.makedirs(home, exist_ok=True)
     with open(config_path(home), "w", encoding="utf-8") as handle:
         handle.write(text)
@@ -844,6 +1060,11 @@ def effective_limits(home, run_id=None):
                            "unit": _LIMIT_UNIT[key]}
     if run_id is not None:
         scan = _scan(home, "probe")
+        if scan.failure is not None:
+            raise JournalError(
+                "the journal does not recompute; its limits "
+                "stand unread", row="I-2",
+                token="JOURNAL_VERIFY_FAILED")
         for entry in _entries_with_hash(scan):
             if entry.get("entry_kind") != "limit_raise":
                 continue
@@ -894,10 +1115,22 @@ class _WriteLock:
     def __init__(self, home):
         self.home = str(home)
         self.handle = None
+        self._nested = False
 
     def __enter__(self):
         os.makedirs(self.home, exist_ok=True)
         path = _lock_path(self.home)
+        held = _HELD_LOCKS.get(path)
+        if held is not None and held[0] is not None:
+            # A lock this process already holds for this
+            # home stands re-entered, not re-taken: a batch
+            # append (append_entries_atomic) holds the one
+            # lock across its entries, and the single entry
+            # appends inside it join that hold instead of
+            # contending with it.
+            _HELD_LOCKS[path] = (held[0], held[1] + 1)
+            self._nested = True
+            return self
         try:
             self.handle = open(path, "a+")
         except OSError:
@@ -922,9 +1155,18 @@ class _WriteLock:
         self.handle.truncate()
         self.handle.write("holder pid %d\n" % os.getpid())
         self.handle.flush()
+        _HELD_LOCKS[path] = (self.handle, 1)
         return self
 
     def __exit__(self, exc_type, exc, tb):
+        path = _lock_path(self.home)
+        if self._nested:
+            held = _HELD_LOCKS.get(path)
+            if held is not None:
+                _HELD_LOCKS[path] = (held[0], held[1] - 1)
+            self._nested = False
+            return False
+        _HELD_LOCKS.pop(path, None)
         if self.handle is not None:
             try:
                 fcntl.flock(self.handle, fcntl.LOCK_UN)
@@ -932,6 +1174,12 @@ class _WriteLock:
                 self.handle.close()
                 self.handle = None
         return False
+
+
+# Locks this process holds, by lock file path, as
+# (handle, hold depth). A depth above one stands for a
+# batch append holding the lock across its entries.
+_HELD_LOCKS = {}
 
 
 def _write_anchor(anchor_path, head_hash, sequence):
@@ -946,6 +1194,38 @@ def _write_anchor(anchor_path, head_hash, sequence):
         handle.flush()
         os.fsync(handle.fileno())
     os.replace(temporary, anchor_path)
+
+
+def _restore_journal_size(path, size):
+    """Truncate the journal back to a stated size, best effort."""
+    try:
+        with open(path, "r+b") as handle:
+            handle.truncate(size)
+            handle.flush()
+            os.fsync(handle.fileno())
+    except OSError:
+        pass
+    for cache_key in [key for key in _scan_cache if key[0] == path]:
+        _scan_cache.pop(cache_key, None)
+
+
+def _resolve_sequence_identity(value, sequence):
+    """Resolve the {sequence} identity marker in one payload.
+
+    Every string value in the payload, at any depth, has
+    the marker replaced by the sequence the append assigns,
+    in decimal form. Values carrying no marker stand as
+    they stand.
+    """
+    if isinstance(value, str):
+        return value.replace("{sequence}", str(sequence))
+    if isinstance(value, dict):
+        return {name: _resolve_sequence_identity(item, sequence)
+                for name, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_resolve_sequence_identity(item, sequence)
+                for item in value]
+    return value
 
 
 def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
@@ -968,6 +1248,10 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
         raise JournalError(
             "an entry payload must be an object",
             row="U-8", token="MALFORMED_CALL")
+    if _container_depth(payload) + 2 > MAX_DEPTH:
+        raise JournalError(
+            "the entry nesting depth breaches its limit",
+            row="X-3", token="LIMIT_EXCEEDED")
     with _WriteLock(home):
         scan = _scan(home, "torn")
         if scan.failure is not None:
@@ -976,10 +1260,25 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
                 row="I-2", token="JOURNAL_VERIFY_FAILED")
         values, _warnings, _present = _read_config_values(home)
         anchor_path = values.get("anchor_path")
+        resolved_anchor = None
         if anchor_path:
-            recorded = _read_anchor(anchor_path)
-            if recorded is not None \
-                    and _agreement_for(recorded, scan) == "divergent":
+            resolved_anchor = _resolve_anchor_path(home, anchor_path)
+            anchor_state, recorded = _read_anchor(resolved_anchor)
+            # A configured anchor that is absent, emptied,
+            # unreadable, malformed, stale, or divergent
+            # over a standing journal is an integrity state
+            # that bars the append: the append is the act
+            # that would rewrite the anchor and erase the
+            # signal (Step 17 entries S17-R1X-001, S17-R1X-002,
+            # and S17-R1X-006). Over an empty journal an
+            # absent anchor bars nothing: the first append
+            # establishes it.
+            if anchor_state == "malformed" or (
+                    anchor_state == "ok"
+                    and _agreement_for(recorded, scan) != "matching"
+            ) or (
+                    anchor_state == "absent" and scan.entry_count > 0
+            ):
                 raise JournalError(
                     "the anchor recording does not stand as the "
                     "standing head; appends stand barred",
@@ -991,6 +1290,19 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
                     "a limit raise names no limit: %r"
                     % (payload.get("limit"),),
                     row="U-8", token="MALFORMED_CALL")
+            raised = payload.get("raised_value")
+            if type(raised) is not int:
+                raise JournalError(
+                    "a limit raise value must be a whole number: %r"
+                    % (raised,), row="U-8", token="MALFORMED_CALL")
+            index = _LIMIT_INDEX[key]
+            ceiling = _LIMIT_DEFAULT[key] * 10 if index <= 40 \
+                else _LIMIT_DEFAULT[key]
+            if raised < 1 or raised > ceiling:
+                raise JournalError(
+                    "a limit raise outside the range a config "
+                    "value for the same limit must stand in: %r"
+                    % (raised,), row="X-1", token="CONFIG_INVALID")
             for entry in _entries_with_hash(scan):
                 if entry.get("entry_kind") != "limit_raise":
                     continue
@@ -1001,6 +1313,31 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
                         "a second limit raise for the same limit in "
                         "the same run is refused",
                         row="X-11", token="LIMIT_RAISE_REPEATED")
+        if entry_kind == "correction":
+            # A correction is validated at append, as the
+            # other special payload kind is: its target must
+            # be a whole sequence naming a standing entry
+            # that is not itself a correction, and its
+            # corrected record must be a record (Step 17
+            # entry S17-R1X-028).
+            supersedes = payload.get("supersedes_sequence")
+            corrected = payload.get("corrected_record")
+            if type(supersedes) is not int \
+                    or supersedes < 1 \
+                    or supersedes > scan.entry_count \
+                    or not isinstance(corrected, dict):
+                raise JournalError(
+                    "a correction names no standing record it "
+                    "can govern: %r" % (payload,),
+                    row="U-8", token="MALFORMED_CALL")
+            target = scan.parsed[supersedes - 1]
+            if not isinstance(target, dict) \
+                    or target.get("entry_kind") == "correction":
+                raise JournalError(
+                    "a correction of a correction stands "
+                    "refused: the fold governs records, not "
+                    "corrections",
+                    row="U-8", token="MALFORMED_CALL")
         limits = effective_limits(home, run_id=run_id)
         if scan.entry_count + 1 > limits["journal_length"]["value"]:
             raise JournalError(
@@ -1014,6 +1351,18 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
             "payload": copy.deepcopy(payload),
             "previous_hash": scan.head_hash,
         }
+        # Identity derivation, on the plan identifier
+        # derivation table: a payload string carrying the
+        # {sequence} marker stands for the identity derived
+        # from the journal sequence of the entry that stores
+        # the record, and the marker is resolved here, under
+        # the write lock, at the moment the sequence stands
+        # assigned, so no caller side count read can mint an
+        # identity another append also mints (Step 17 entry
+        # S17-R1-077, cured at the service seam in seat F7
+        # with this one mechanism in the append path).
+        entry["payload"] = _resolve_sequence_identity(
+            entry["payload"], entry["sequence"])
         if _container_depth(entry) > MAX_DEPTH:
             raise JournalError(
                 "the entry nesting depth breaches its limit",
@@ -1026,10 +1375,28 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
                 "the total home size cap stands reached",
                 row="I-1", token="JOURNAL_CAP_EXCEEDED",
                 refusal_context="append_cap", limit_number=40)
-        with open(journal_path(home), "ab") as handle:
-            handle.write(canonical + b"\n")
-            handle.flush()
-            os.fsync(handle.fileno())
+        path = journal_path(home)
+        try:
+            original_size = os.path.getsize(path)
+        except OSError:
+            original_size = 0
+        try:
+            with open(path, "ab") as handle:
+                handle.write(canonical + b"\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+        except OSError:
+            # A write that fails part way stands rolled
+            # back to the size the journal stood at, so the
+            # append is one complete write or nothing, and
+            # the failure reaches the caller in the recorded
+            # vocabulary, never as a bare OSError over a
+            # torn tail (Step 17 entry S17-R1-090).
+            _restore_journal_size(path, original_size)
+            raise JournalError(
+                "the entry write failed; the journal stands "
+                "as it stood", row="I-2",
+                token="JOURNAL_VERIFY_FAILED")
         entry["entry_hash"] = hashlib.sha256(canonical).hexdigest()
         extended = _Scan()
         extended.lines = scan.lines + [canonical]
@@ -1038,17 +1405,112 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
         extended.verified = scan.verified + 1
         extended.head_hash = entry["entry_hash"]
         extended.entry_count = scan.entry_count + 1
-        stat = _stat_key(journal_path(home))
+        stat = _stat_key(path)
         for mode in ("probe", "torn"):
-            _scan_cache[(journal_path(home), mode, None)] = (
-                stat, extended)
-        if anchor_path:
+            _scan_cache[(path, mode, None, None)] = (stat, extended)
+        if resolved_anchor is not None:
             try:
-                _write_anchor(anchor_path, entry["entry_hash"],
+                _write_anchor(resolved_anchor, entry["entry_hash"],
                               entry["sequence"])
             except OSError:
-                pass
+                # An anchor write that fails is not swallowed:
+                # the append stands rolled back and the
+                # failure is reported, so no append reports
+                # success with no anchor standing (Step 17
+                # entry S17-R1X-005).
+                _restore_journal_size(path, original_size)
+                for cache_key in [key for key in _scan_cache
+                                  if key[0] == path]:
+                    _scan_cache.pop(cache_key, None)
+                raise JournalError(
+                    "the anchor write failed; the append "
+                    "stands rolled back", row="I-2",
+                    token="JOURNAL_VERIFY_FAILED")
         return entry
+
+
+def append_entries_atomic(home, entries, audit_date=None, run_id=None):
+    """Append a batch of entries as one invocation, or none.
+
+    The batch is the multi append discipline (Step 17
+    entry S17-R1-089): an invocation that appends more
+    than one entry holds the write lock across the whole
+    batch, checks the whole batch cost against the
+    journal length cap before the first entry stands
+    written, and, where any entry of the batch fails,
+    rolls the journal and the anchor back to the state
+    they stood in before the batch, so no partial work
+    stands behind a failure report. Entries stand as
+    (entry_kind, payload) pairs in append order. Returns
+    the appended entry records in order.
+    """
+    home = str(home)
+    prepared = []
+    for item in entries:
+        entry_kind, payload = item
+        if entry_kind not in ENTRY_KINDS:
+            raise JournalError(
+                "an unknown entry kind: %r" % (entry_kind,),
+                row="U-8", token="MALFORMED_CALL")
+        if not isinstance(payload, dict):
+            raise JournalError(
+                "an entry payload must be an object",
+                row="U-8", token="MALFORMED_CALL")
+        prepared.append((entry_kind, payload))
+    if not prepared:
+        return []
+    path = journal_path(home)
+    with _WriteLock(home):
+        scan = _scan(home, "torn")
+        if scan.failure is not None:
+            raise JournalError(
+                "the journal does not recompute; appends "
+                "stand barred", row="I-2",
+                token="JOURNAL_VERIFY_FAILED")
+        limits = effective_limits(home, run_id=run_id)
+        if scan.entry_count + len(prepared) > limits[
+                "journal_length"]["value"]:
+            raise JournalError(
+                "the journal length cap stands reached",
+                row="I-1", token="JOURNAL_CAP_EXCEEDED",
+                refusal_context="append_cap", limit_number=39)
+        try:
+            original_size = os.path.getsize(path)
+        except OSError:
+            original_size = 0
+        values, _warnings, _present = _read_config_values(home)
+        anchor_path = values.get("anchor_path")
+        resolved_anchor = None
+        anchor_bytes = None
+        if anchor_path:
+            resolved_anchor = _resolve_anchor_path(home, anchor_path)
+            try:
+                with open(resolved_anchor, "rb") as handle:
+                    anchor_bytes = handle.read()
+            except OSError:
+                anchor_bytes = None
+        appended = []
+        try:
+            for entry_kind, payload in prepared:
+                appended.append(append_entry(
+                    home, entry_kind, payload,
+                    audit_date=audit_date, run_id=run_id))
+        except Exception:
+            _restore_journal_size(path, original_size)
+            if resolved_anchor is not None:
+                try:
+                    if anchor_bytes is None:
+                        if os.path.exists(resolved_anchor):
+                            os.unlink(resolved_anchor)
+                    else:
+                        with open(resolved_anchor, "wb") as handle:
+                            handle.write(anchor_bytes)
+                            handle.flush()
+                            os.fsync(handle.fileno())
+                except OSError:
+                    pass
+            raise
+        return appended
 
 
 def fold(home, kinds=None, to_sequence=None, apply_corrections=False):
@@ -1064,6 +1526,14 @@ def fold(home, kinds=None, to_sequence=None, apply_corrections=False):
     itself stays readable in the plain fold.
     """
     scan = _scan(home, "probe")
+    if scan.failure is not None:
+        # The reader family runs the barred check its own
+        # append path runs: a chain that fails verify is
+        # not consumed as state, in whole or in prefix
+        # (Step 17 entry S17-R1-004).
+        raise JournalError(
+            "the journal does not recompute; reads stand barred",
+            row="I-2", token="JOURNAL_VERIFY_FAILED")
     for parsed in scan.parsed:
         if parsed is None or not isinstance(parsed, dict):
             raise JournalError(
@@ -1079,7 +1549,9 @@ def fold(home, kinds=None, to_sequence=None, apply_corrections=False):
             continue
         if apply_corrections and entry.get("entry_kind") == "correction":
             payload = entry.get("payload") or {}
-            target = by_sequence.get(payload.get("supersedes_sequence"))
+            supersedes = payload.get("supersedes_sequence")
+            target = by_sequence.get(supersedes) \
+                if type(supersedes) is int else None
             if target is not None \
                     and isinstance(payload.get("corrected_record"), dict):
                 target["payload"] = copy.deepcopy(
@@ -1119,12 +1591,66 @@ def fold_registry(home, to_sequence=None):
 def read_entry(home, sequence):
     """Read one complete entry by its sequence."""
     scan = _scan(home, "probe")
+    if scan.failure is not None:
+        raise JournalError(
+            "the journal does not recompute; reads stand barred",
+            row="I-2", token="JOURNAL_VERIFY_FAILED")
     for entry in _entries_with_hash(scan):
         if entry.get("sequence") == sequence:
             return entry
     raise JournalError(
         "no entry stands at sequence %r" % (sequence,),
         row="I-2", token="JOURNAL_VERIFY_FAILED")
+
+
+def _validate_chain_lines(lines):
+    """Validate stated lines as one chain, in scan terms.
+
+    Returns the position of the first failing line, or
+    None where the lines form a chain that recomputes.
+    The checks are the scan checks: parse, form version,
+    depth, entry kind, payload form, sequence, genesis and
+    link hashes, canonical rendering, and the duplicate
+    limit raise discipline.
+    """
+    previous_raw = None
+    seen_raises = set()
+    for index, raw in enumerate(lines, start=1):
+        parsed = _parse_line(raw)
+        if parsed is None or not isinstance(parsed, dict):
+            return index
+        if type(parsed.get("form_version")) is not int \
+                or parsed.get("form_version") != FORM_VERSION:
+            return index
+        if _container_depth(parsed) > MAX_DEPTH:
+            return index
+        if parsed.get("entry_kind") not in ENTRY_KINDS:
+            return index
+        if not isinstance(parsed.get("payload"), dict):
+            return index
+        if type(parsed.get("sequence")) is not int \
+                or parsed.get("sequence") != index:
+            return index
+        if index == 1 and parsed.get("previous_hash") is not None:
+            return index
+        if index > 1 and parsed.get("previous_hash") != \
+                hashlib.sha256(previous_raw).hexdigest():
+            return index
+        try:
+            rendered = canonical_bytes(parsed)
+        except (JournalError, ValueError, ArithmeticError):
+            return index
+        if rendered != raw:
+            return index
+        if parsed.get("entry_kind") == "limit_raise":
+            payload = parsed.get("payload") or {}
+            raise_key = (repr(payload.get("run_id")),
+                         repr(payload.get("limit")))
+            if raise_key in seen_raises:
+                return index
+            seen_raises.add(raise_key)
+        previous_raw = raw
+    return None
 
 
 def replay(home, entries, resume=False):
@@ -1134,30 +1660,128 @@ def replay(home, entries, resume=False):
     resume, the stated lines stand appended to the chain
     as it stands, so a replay from a mid chain state
     reaches the same head as the full replay.
+
+    The replay validates before it writes (Step 17 entries
+    S17-R1-005 and S17-R1X-029): the entries argument must
+    be a collection of entry lines (a single string, a
+    bytes object, a mapping, and a non line element are
+    each refused as a malformed call, before anything is
+    written), the resulting chain must recompute, the
+    journal length cap must admit it, and the anchor gate
+    the append path runs must pass. A replay without
+    resume over a standing journal stands refused: it
+    would destroy the standing entries with no record.
     """
     home = str(home)
+    if entries is None or isinstance(entries, (str, bytes, bytearray,
+                                               dict)):
+        raise JournalError(
+            "a replay takes a collection of entry lines",
+            row="U-8", token="MALFORMED_CALL")
+    try:
+        iterator = iter(entries)
+    except TypeError:
+        raise JournalError(
+            "a replay takes a collection of entry lines",
+            row="U-8", token="MALFORMED_CALL")
     lines = []
-    for raw in entries:
+    for raw in iterator:
         if isinstance(raw, str):
-            raw = raw.encode("utf-8")
-        raw = bytes(raw)
+            try:
+                raw = raw.encode("utf-8")
+            except UnicodeEncodeError:
+                raise JournalError(
+                    "a replay line must be one entry line",
+                    row="U-8", token="MALFORMED_CALL")
+        elif isinstance(raw, (bytes, bytearray)):
+            raw = bytes(raw)
+        else:
+            raise JournalError(
+                "a replay line must be one entry line",
+                row="U-8", token="MALFORMED_CALL")
         if raw.endswith(b"\n"):
             raw = raw[:-1]
         lines.append(raw)
     with _WriteLock(home):
-        mode = "ab" if resume else "wb"
-        with open(journal_path(home), mode) as handle:
-            for raw in lines:
-                handle.write(raw + b"\n")
-            handle.flush()
-            os.fsync(handle.fileno())
+        scan = _scan(home, "torn")
+        if scan.failure is not None:
+            raise JournalError(
+                "the journal does not recompute; a replay "
+                "stands barred", row="I-2",
+                token="JOURNAL_VERIFY_FAILED")
+        if not resume and scan.entry_count > 0:
+            raise JournalError(
+                "a replay without resume over a standing "
+                "journal stands refused: it would destroy "
+                "the standing entries",
+                row="U-8", token="MALFORMED_CALL")
+        values, _warnings, _present = _read_config_values(home)
+        anchor_path = values.get("anchor_path")
+        resolved_anchor = None
+        if anchor_path:
+            resolved_anchor = _resolve_anchor_path(home, anchor_path)
+            if scan.entry_count > 0:
+                anchor_state, recorded = _read_anchor(resolved_anchor)
+                if anchor_state != "ok" or _agreement_for(
+                        recorded, scan) != "matching":
+                    raise JournalError(
+                        "the anchor recording does not stand "
+                        "as the standing head; a replay stands "
+                        "barred", row="I-2",
+                        token="JOURNAL_VERIFY_FAILED")
+        candidate = (scan.lines if resume else []) + lines
+        failing = _validate_chain_lines(candidate)
+        if failing is not None:
+            raise JournalError(
+                "the stated lines do not recompute as a "
+                "chain; the failing line stands at position "
+                "%d" % failing, row="I-2",
+                token="JOURNAL_VERIFY_FAILED")
+        limits = effective_limits(home)
+        if len(candidate) > limits["journal_length"]["value"]:
+            raise JournalError(
+                "the journal length cap stands reached",
+                row="I-1", token="JOURNAL_CAP_EXCEEDED",
+                refusal_context="append_cap", limit_number=39)
+        path = journal_path(home)
+        content = b"".join(raw + b"\n" for raw in candidate)
+        if resume:
+            try:
+                original_size = os.path.getsize(path)
+            except OSError:
+                original_size = 0
+            try:
+                with open(path, "ab") as handle:
+                    handle.write(b"".join(
+                        raw + b"\n" for raw in lines))
+                    handle.flush()
+                    os.fsync(handle.fileno())
+            except OSError:
+                _restore_journal_size(path, original_size)
+                raise JournalError(
+                    "the replay write failed; the journal "
+                    "stands as it stood", row="I-2",
+                    token="JOURNAL_VERIFY_FAILED")
+        else:
+            temporary = path + ".replay-%d" % os.getpid()
+            with open(temporary, "wb") as handle:
+                handle.write(content)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temporary, path)
         for cache_key in [key for key in _scan_cache
-                          if key[0] == journal_path(home)]:
+                          if key[0] == path]:
             _scan_cache.pop(cache_key, None)
-    if lines:
-        return hashlib.sha256(lines[-1]).hexdigest()
-    scan = _scan(home, "probe")
-    return scan.head_hash
+        if resolved_anchor is not None and candidate:
+            try:
+                _write_anchor(resolved_anchor,
+                              hashlib.sha256(candidate[-1]).hexdigest(),
+                              len(candidate))
+            except OSError:
+                pass
+    if candidate:
+        return hashlib.sha256(candidate[-1]).hexdigest()
+    return None
 
 
 def append_cost():
