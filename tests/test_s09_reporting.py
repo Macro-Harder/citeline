@@ -763,7 +763,7 @@ class TestReverseTrace(ReportingBase):
         capture date standing null, because the standalone
         robots call supplies no asserted capture date and the
         date may stand null only in that absent sense (brief
-        item 135); the shipped table at version value 1 and
+        item 135); the shipped table at version value 2 and
         snapshot date 2026-11-12; the crawl delay observation
         standing null, because the fixture carries no
         Crawl-delay line; one sitemap line; no line counted in
@@ -771,7 +771,18 @@ class TestReverseTrace(ReportingBase):
         a group, a rule, or the recognised sitemap line; no
         unknown token, the fixture's one group token standing
         as the wildcard; and the finding count at the table
-        size of 25."""
+        size of 25. Superseded at Step 16 under defect E-04:
+        the earlier form of this test asserted table_version 1.
+        The Step 16 round 2 disposition, ruling on the brief
+        Section 5.6 version rule on the S4 seat reading,
+        displaces that form: the round 1 fix wave changed the
+        evidence label value on four shipped rows and restored
+        two stated fields across the shipped rows in one
+        published revision, and the rule counts one bump per
+        published table revision with no field change exempt,
+        so the stamp stands at 2. This form asserts
+        table_version 2, with the snapshot date unchanged at
+        2026-11-12."""
         robots = service.robots(
             home=str(self.home), robots_file=str(ROBOTS_A),
             form="advanced", audit_date=AUDIT_DATE)
@@ -781,7 +792,7 @@ class TestReverseTrace(ReportingBase):
             hashlib.sha256(ROBOTS_A.read_bytes()).hexdigest())
         self.assertIsNone(
             field(body, "robots_snapshot_asserted_capture_date"))
-        self.assertEqual(field(body, "table_version"), 1)
+        self.assertEqual(field(body, "table_version"), 2)
         self.assertEqual(str(field(body, "table_snapshot_date")),
                          "2026-11-12")
         record = self.seed_audit()
@@ -1512,7 +1523,21 @@ class TestRobotsPreview(ReportingBase):
         preview stores nothing, so the journal entry count stands
         unchanged across the call, and the artefact's fields stand
         on its own list, carrying no RobotsReport only field such
-        as next_refresh_due_date."""
+        as next_refresh_due_date. Superseded at Step 16 under
+        defect E-04, on its literal table_version assertion only:
+        the earlier form of this test asserted table_version 1.
+        The Step 16 round 2 disposition, ruling on the brief
+        Section 5.6 version rule on the S4 seat reading,
+        displaces that form: the round 1 fix wave changed the
+        evidence label value on four shipped rows and restored
+        two stated fields across the shipped rows in one
+        published revision, and the rule counts one bump per
+        published table revision with no field change exempt,
+        so the stamp stands at 2. This form asserts
+        table_version 2, with the snapshot date unchanged at
+        2026-11-12. The assertion below binding the preview
+        table_version to the shipped report table_version stands
+        unamended and passes at 2."""
         before = field(service.status(home=str(self.home)),
                        "entry_count")
         body = payload(self.preview())
@@ -1525,7 +1550,7 @@ class TestRobotsPreview(ReportingBase):
         self.assertFalse(keys & self.ROBOTS_REPORT_ONLY)
         for name in self.PREVIEW_FIELDS:
             self.assertTrue(name in keys or name in body, name)
-        self.assertEqual(field(body, "table_version"), 1)
+        self.assertEqual(field(body, "table_version"), 2)
         self.assertEqual(str(field(body, "table_snapshot_date")),
                          "2026-11-12")
         shipped = payload(service.robots(

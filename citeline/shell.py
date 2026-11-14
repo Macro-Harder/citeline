@@ -104,6 +104,8 @@ _SURFACE = {
          "audit_date")),
     "verify": ("verify", ("home", "form")),
     "status": ("status", ("home", "form")),
+    "staleness-view": (
+        "staleness_view", ("home", "form")),
 }
 
 # Flag spellings that name a differently named input of
@@ -212,6 +214,7 @@ def help_text():
         "--audit_date --form",
         "verify --home --form",
         "status --home --form",
+        "staleness-view --home --form",
         "help",
         "watch --plan --form",
         "install: python install.py [location]",
@@ -640,6 +643,35 @@ def main(argv=None):
             home=inputs.get("home"),
             operation=subcommand,
             audit_date=inputs.get("audit_date"))
+    if operation == "audit" and "run_id" in inputs:
+        # A run identity stands alone in an audit call: any
+        # fresh audit input named beside it stands refused
+        # here, in the standing shell outcome, before the
+        # service call can disregard it. A named audit date
+        # that is not a date stands left to the service
+        # call, whose non date refusal governs that value.
+        fresh_named = [
+            name for name in ("page_file", "robots_file",
+                              "evaluated_page_path",
+                              "audit_date")
+            if name in inputs]
+        date_names_fresh = "audit_date" not in fresh_named
+        if "audit_date" in fresh_named:
+            import datetime
+            try:
+                datetime.date.fromisoformat(
+                    str(inputs["audit_date"]))
+                date_names_fresh = True
+            except ValueError:
+                date_names_fresh = False
+        if fresh_named and date_names_fresh:
+            return _usage_error(
+                "an audit call naming a run identity names "
+                "no fresh audit input beside it; the call "
+                "also names %s" % ", ".join(fresh_named),
+                home=inputs.get("home"),
+                operation=subcommand,
+                audit_date=inputs.get("audit_date"))
     if "home" not in inputs:
         inputs["home"] = _default_home()
     call = dict(inputs)

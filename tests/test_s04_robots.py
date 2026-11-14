@@ -181,12 +181,23 @@ class TestCrawlerTableAndFindings(unittest.TestCase):
 
     def test_table_version_and_snapshot_date_and_refresh_due(self):
         """Pins S4 table stamps. Oracle: brief Section 5.6 (version
-        value 1, snapshot date 2026-11-12, 25 rows, 25 directly
+        value 2, snapshot date 2026-11-12, 25 rows, 25 directly
         verified, purpose prose caveat for rows 12 to 14 kept) and
         item 82 next refresh due date 2027-02-10 in the window
-        between ship and the first post ship refresh."""
+        between ship and the first post ship refresh. Superseded
+        at Step 16 under defect E-04: the earlier form of this
+        test asserted table_version 1. The Step 16 round 2
+        disposition, ruling on the brief Section 5.6 version
+        rule on the S4 seat reading, displaces that form: the
+        round 1 fix wave changed the evidence label value on
+        four shipped rows and restored two stated fields across
+        the shipped rows in one published revision, and the rule
+        counts one bump per published table revision with no
+        field change exempt, so the stamp stands at 2. This form
+        asserts table_version 2, with the snapshot date unchanged
+        at 2026-11-12."""
         report = evaluate(self, FIXTURES / "w4-robots-basic.txt", "/")
-        self.assertEqual(field(report, "table_version"), 1)
+        self.assertEqual(field(report, "table_version"), 2)
         self.assertEqual(str(field(report, "table_snapshot_date")),
                          "2026-11-12")
         self.assertEqual(str(field(report, "next_refresh_due_date")),

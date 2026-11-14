@@ -455,24 +455,34 @@ def _is_references_heading(text):
 def _sections_from_headings(text, headings):
     """Headings carry text, and a start offset where one stands.
 
-    A heading with no start stands located by its text in
-    order, which is a reading of the heading list only.
+    A heading carrying a start stands located by that start:
+    the start is the position of its own heading block in the
+    text under segmentation, carried in extraction order, and
+    it governs over any earlier standing of the same words in
+    body prose. A heading with no start stands located by its
+    text in order, which is a reading of the heading list only.
     """
     sections = []
     cursor = 0
     normalised = []
     for heading in headings:
+        carried = None
         if isinstance(heading, dict):
             htext = heading.get("text", heading.get("heading_text", ""))
+            carried = heading.get("start")
         else:
             htext = str(heading)
-        # A heading stands located by its text in the text
-        # under segmentation, in order. Offsets a caller
-        # carried from another text do not govern here,
-        # because what a thing is stands decided in the
-        # text segmentation actually runs over.
-        found = text.find(str(htext), cursor) if htext else -1
-        hstart = found if found >= 0 else cursor
+        hstart = None
+        if carried is not None:
+            try:
+                candidate = int(carried)
+            except (TypeError, ValueError):
+                candidate = None
+            if candidate is not None and 0 <= candidate <= len(text):
+                hstart = candidate
+        if hstart is None:
+            found = text.find(str(htext), cursor) if htext else -1
+            hstart = found if found >= 0 else cursor
         normalised.append((str(htext), int(hstart)))
         cursor = int(hstart) + len(str(htext))
     for index, (htext, hstart) in enumerate(normalised):
@@ -528,7 +538,7 @@ class TextSegmentation:
                     headings.append({
                         "text": match.group(2).strip(),
                         "level": len(match.group(1)),
-                        "start": match.start(),
+                        "start": match.start(2),
                     })
             elif fmt == "html":
                 for match in re.finditer(
@@ -537,7 +547,7 @@ class TextSegmentation:
                     headings.append({
                         "text": " ".join(inner.split()),
                         "level": int(match.group(1)),
-                        "start": match.start(),
+                        "start": match.start(2),
                     })
         sections = _sections_from_headings(clean, headings)
         return {
@@ -1084,6 +1094,7 @@ class _PageHTMLParser(HTMLParser):
                 self.headings.append({
                     "text": text,
                     "level": self._heading["level"],
+                    "_block_index": len(self.blocks),
                 })
             self._heading = None
         elif tag == "a" and self._link is not None:
@@ -1173,11 +1184,24 @@ def _extract_html(text, notes):
     parser._flush_block()
     notes.extend(parser.notes)
     running_text = "\n\n".join(parser.blocks)
+    block_starts = []
+    block_cursor = 0
+    for block in parser.blocks:
+        block_starts.append(block_cursor)
+        block_cursor += len(block) + 2
     headings = []
     cursor = 0
     for heading in parser.headings:
-        found = running_text.find(heading["text"], cursor)
-        start = found if found >= 0 else cursor
+        start = None
+        block_index = heading.get("_block_index")
+        if block_index is not None and 0 <= block_index < len(parser.blocks):
+            block_text = parser.blocks[block_index]
+            within = block_text.find(heading["text"])
+            start = block_starts[block_index] + (
+                within if within >= 0 else 0)
+        if start is None:
+            found = running_text.find(heading["text"], cursor)
+            start = found if found >= 0 else cursor
         headings.append({
             "text": heading["text"],
             "level": heading["level"],
@@ -1296,12 +1320,27 @@ def _extract_markdown(text, notes):
     # the supplied file, which the pinned before checks
     # rule requires.
     current_block = []
+    heading_positions = {}
+    current_block_headings = []
 
     def flush_block():
-        nonlocal current_block
+        nonlocal current_block, current_block_headings
         if current_block:
+            block_index = len(blocks)
+            element_starts = []
+            element_cursor = 0
+            for element in current_block:
+                element_starts.append(element_cursor)
+                element_cursor += len(element) + 1
+            for heading_index, element_index, within in \
+                    current_block_headings:
+                if 0 <= element_index < len(element_starts):
+                    heading_positions[heading_index] = (
+                        block_index,
+                        element_starts[element_index] + within)
             blocks.append("\n".join(current_block))
         current_block = []
+        current_block_headings = []
 
     skip_until = -1
     for idx, line in enumerate(lines):
@@ -1333,11 +1372,16 @@ def _extract_markdown(text, notes):
                 links.append({"text": html_link["text"],
                               "target": html_link["target"]})
             for html_heading in html_parts["headings"]:
+                heading_index = len(headings)
                 headings.append({
                     "text": html_heading["text"],
                     "level": html_heading["level"],
                     "start": line_offsets[idx],
                 })
+                if html_parts["running_text"]:
+                    current_block_headings.append((
+                        heading_index, len(current_block),
+                        html_heading["start"]))
             blockquotes.extend(html_parts["blockquotes"])
             lists.extend(html_parts["lists"])
             tables.extend(html_parts["tables"])
@@ -1353,12 +1397,14 @@ def _extract_markdown(text, notes):
             htext = _markdown_inline(
                 heading.group(2).strip(), links, references, notes,
                 line_offsets[idx])
+            heading_index = len(headings)
             headings.append({
                 "text": htext,
                 "level": len(heading.group(1)),
                 "start": line_offsets[idx],
             })
             blocks.append(htext)
+            heading_positions[heading_index] = (len(blocks) - 1, 0)
             continue
         if re.match(r"^\s{0,3}\[[^\]]+\]:\s*\S+", line):
             continue
@@ -1404,23 +1450,36 @@ def _extract_markdown(text, notes):
     running_text = "\n\n".join(blocks)
     # Heading offsets stand in extracted text coordinates,
     # as every neighbouring positional field does: a heading
-    # entry start locates its heading text in the running
-    # text, read in order after the blocks stand joined, and
-    # not in the supplied source file, whose Markdown marks
+    # entry start locates its own heading block in the running
+    # text. Each heading carries the position of the block it
+    # stood in, recorded in extraction order as the blocks
+    # were walked, so an earlier standing of the same words
+    # in body prose never locates a heading. The start is not
+    # read in the supplied source file, whose Markdown marks
     # the running text does not carry.
+    block_starts = []
+    block_cursor = 0
+    for block in blocks:
+        block_starts.append(block_cursor)
+        block_cursor += len(block) + 2
     ordered_headings = []
     cursor = 0
-    for heading in headings:
-        found = running_text.find(heading["text"], cursor) \
-            if heading["text"] else -1
-        start = found if found >= 0 else cursor
+    for heading_index, heading in enumerate(headings):
+        start = None
+        if heading_index in heading_positions:
+            block_index, within = heading_positions[heading_index]
+            if 0 <= block_index < len(block_starts):
+                start = block_starts[block_index] + within
+        if start is None:
+            found = running_text.find(heading["text"], cursor) \
+                if heading["text"] else -1
+            start = found if found >= 0 else cursor
         ordered_headings.append({
             "text": heading["text"],
             "level": heading["level"],
             "start": start,
         })
-        if found >= 0:
-            cursor = start + len(heading["text"])
+        cursor = start + len(heading["text"])
     headings = ordered_headings
     # Link offsets stand read against the running text, in
     # order, after the blocks stand joined.

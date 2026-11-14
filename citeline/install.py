@@ -194,16 +194,49 @@ def _config_parses(path):
         return False
 
 
-def _config_valid(path, home):
-    """True where a standing config file parses in full.
+# The keys the installer config form itself carries: the
+# home key the installer writes into the config it creates,
+# and the created_by marker key that names an installer
+# config. The journal config parse reports both as unknown,
+# because they are not journal config keys; on this surface
+# they stand known, so their warnings stand not surfaced.
+_INSTALLER_CONFIG_KEYS = ("home", "created_by")
+
+
+def _surface_warnings(warnings):
+    """The parse warnings this surface reports, in parse form.
+
+    A warning the parse formed stands surfaced as it
+    stands, naming its key, except a warning naming one of
+    the installer config keys above, which this surface
+    itself writes and reads.
+    """
+    surfaced = []
+    for warning in warnings:
+        text = str(warning)
+        key = text.rsplit(":", 1)[-1].strip() \
+            if ":" in text else text
+        if key in _INSTALLER_CONFIG_KEYS:
+            continue
+        surfaced.append(text)
+    return surfaced
+
+
+def _config_check(path, home):
+    """A pair of validity and the warnings the parse formed.
 
     The parse is the config parse itself, at journal
     strength: a file that cannot be parsed, holds a value
     of the wrong form, or holds a duplicate key stands
-    invalid, on plan config rule 5. Where the package
-    journal cannot stand imported, the local line test
-    above stands as the floor and the duplicate and wrong
-    form limbs are checked here in the same terms.
+    invalid, on plan config rule 5. An unknown key stands
+    valid and stands in the warnings pair, on brief
+    Section 3.5 point 5 and plan Section 3.2 rule 4, so
+    the caller can report it as a warning instead of the
+    warning standing computed and discarded. Where the
+    package journal cannot stand imported, the local line
+    test above stands as the floor and the duplicate and
+    wrong form limbs are checked here in the same terms;
+    that floor forms no warnings.
     """
     journal = None
     try:
@@ -218,28 +251,35 @@ def _config_valid(path, home):
             with open(path, "r", encoding="utf-8") as handle:
                 text = handle.read()
         except OSError:
-            return False
+            return False, []
         try:
-            journal.parse_config(text, home=str(home))
-            return True
+            _values, warnings = journal.parse_config(
+                text, home=str(home))
+            return True, _surface_warnings(warnings)
         except Exception:
-            return False
+            return False, []
     try:
         with open(path, "r", encoding="utf-8") as handle:
             text = handle.read()
     except OSError:
-        return False
+        return False, []
     seen = set()
     for line in text.split("\n"):
         if not line or line.startswith("#"):
             continue
         parts = line.split(" = ")
         if len(parts) != 2 or not parts[0] or not parts[1]:
-            return False
+            return False, []
         if parts[0] in seen:
-            return False
+            return False, []
         seen.add(parts[0])
-    return _config_parses(path)
+    return _config_parses(path), []
+
+
+def _config_valid(path, home):
+    """True where a standing config file parses in full."""
+    valid, _warnings = _config_check(path, home)
+    return valid
 
 
 def install(location=None, home=None, **_ignored):
@@ -247,7 +287,12 @@ def install(location=None, home=None, **_ignored):
 
     Returns a report naming the location, the home, the
     config state, and the created items as they stand after
-    the call.
+    the call. The report also carries, under warnings, each
+    warning the parse of a standing config file formed, in
+    parse form naming its key: an unknown key is reported
+    as a warning and is not an install failure, on brief
+    Section 3.5 point 5, so the call succeeds and the
+    warning stands in the report for the caller to print.
     """
     if location is None or home is None:
         raise InstallError(
@@ -264,15 +309,18 @@ def install(location=None, home=None, **_ignored):
                 "the install location path stands as a file, "
                 "not a directory: %s" % location)
     config_file = os.path.join(location, CONFIG_FILE_NAME)
+    config_warnings = []
     if os.path.lexists(config_file):
         info = os.lstat(config_file)
-        if stat.S_ISREG(info.st_mode) and not _config_valid(
-                config_file, home):
-            raise InstallError(
-                "CONFIG_INVALID",
-                "an existing config file that is itself "
-                "invalid fails the install, with the file "
-                "still left untouched: %s" % config_file)
+        if stat.S_ISREG(info.st_mode):
+            valid, config_warnings = _config_check(
+                config_file, home)
+            if not valid:
+                raise InstallError(
+                    "CONFIG_INVALID",
+                    "an existing config file that is itself "
+                    "invalid fails the install, with the file "
+                    "still left untouched: %s" % config_file)
     if not os.path.lexists(location):
         os.makedirs(location)
         created_items.append(location)
@@ -316,6 +364,7 @@ def install(location=None, home=None, **_ignored):
         "location": location,
         "home": home,
         "config": config_state,
+        "warnings": config_warnings,
         "created_items": created_items,
         "complete": True,
     }
@@ -453,6 +502,8 @@ def main(argv=None):
             print("location: %s" % report["location"])
             print("home: %s" % report["home"])
             print("config: %s" % report["config"])
+            for warning in report.get("warnings") or []:
+                print("warning: %s" % warning)
             for created in report.get("created_items") or []:
                 print("created: %s" % created)
     except InstallError as exc:

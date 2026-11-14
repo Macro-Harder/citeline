@@ -46,6 +46,7 @@ dropping fields here.
 
 import copy
 import unicodedata
+from decimal import Decimal, ROUND_HALF_UP
 
 __all__ = [
     "HONESTY_SENTENCE",
@@ -128,6 +129,49 @@ EMPTY_ANSWER_WARNING = (
 
 GROUP_NO_ACTION_LINE = (
     "No action stands in this group for this run."
+)
+
+# The importer declaration in its three values in words, as
+# brief Section 5.8 item 19 guard G1 states them, keyed by the
+# stored code form. The Simple form states the declaration in
+# these words, marked as asserted, because the declaration is
+# operator asserted metadata; the Advanced code form carries
+# the stored code unchanged.
+DECLARATION_WORDS = {
+    "all_captured": "all captured answers imported",
+    "all_captured_answers_imported": "all captured answers imported",
+    "all_captured_answers": "all captured answers imported",
+    "all_answers_imported": "all captured answers imported",
+    "operator": "all captured answers imported",
+    "stated_subset": "a stated subset imported",
+    "a_stated_subset": "a stated subset imported",
+    "a_stated_subset_imported": "a stated subset imported",
+    "stated_subset_imported": "a stated subset imported",
+    "subset": "a stated subset imported",
+    "selection_rule_unknown": "selection rule unknown",
+    "unknown": "selection rule unknown",
+}
+DECLARATION_WORDS.update({
+    "all captured answers imported": "all captured answers imported",
+    "a stated subset imported": "a stated subset imported",
+    "selection rule unknown": "selection rule unknown",
+})
+
+DECLARATION_UNVERIFIABLE_STATEMENT = (
+    "The declaration is unverifiable by the tool."
+)
+
+# The basis statement of the secondary figure on the not
+# applicable as zero basis, in the words the IM7-BRK-3
+# landing and the stored figure object both carry.
+SECONDARY_FIGURE_BASIS = (
+    "Computed on a different basis from the headline "
+    "score: the headline score is computed on the "
+    "applicable checks with not applicable weight "
+    "redistributed, and this figure is computed on the "
+    "total weight of 100 with not applicable checks "
+    "earning 0. Neither figure ranks against a score "
+    "on another basis."
 )
 
 FALLBACK_STATEMENT = "The evidence sentence does not name the product."
@@ -539,12 +583,88 @@ def _apply_trend_field_names(body):
             }
 
 
+def _recomputed_secondary_figure(score, checks):
+    """The secondary figure recomputed at rendering, in the
+    F6 form: an object holding the figure under value, the
+    total weight of 100, and the basis statement.
+
+    The IM7-BRK-3 landing states the figure is not stored:
+    it recomputes at rendering from the stored CheckResults,
+    so a record written before the figure stood in the
+    ScoreObject renders it on the same terms, and no not
+    recorded case stands for it. The numerator is the sum of
+    earned times weight over the applicable checks, summed
+    in exact decimal and rounded half up to one decimal
+    place on the total weight of 100, exactly as the stored
+    computation forms it. The evidence cap caps the figure
+    at 39.0 on the same trigger as the headline, read here
+    from the stored cap status. The figure stands only where
+    at least one check stands not applicable and at least
+    one check stands applicable, and never beside the
+    absence form of the headline.
+    """
+    if not isinstance(checks, list) or not checks:
+        return None
+    if not isinstance(score, dict) or score.get("value") is None:
+        return None
+    applicable = []
+    has_not_applicable = False
+    for item in checks:
+        if not isinstance(item, dict):
+            continue
+        if item.get("status") == "not_applicable":
+            has_not_applicable = True
+        else:
+            applicable.append(item)
+    if not has_not_applicable or not applicable:
+        return None
+    weighted = sum(
+        Decimal(str(item.get("earned") or 0))
+        * Decimal(str(item.get("weight") or 0))
+        for item in applicable)
+    value = float(
+        (weighted / Decimal(100) * 100).quantize(
+            Decimal("0.1"), rounding=ROUND_HALF_UP))
+    if score.get("cap_status") and value > 39.0:
+        value = 39.0
+    return {
+        "value": value,
+        "total_weight": 100,
+        "basis": SECONDARY_FIGURE_BASIS,
+    }
+
+
+def _apply_secondary_figure_recompute(body):
+    """Stand the recomputed secondary figure beside any
+    headline score whose stored ScoreObject lacks it.
+
+    This act stands at rendering only, on the deep copy the
+    pipeline renders from: the stored record and the journal
+    gain no field, and the figure is never written back. A
+    ScoreObject that already carries the figure renders it
+    as stored.
+    """
+    for node in list(_walk(body)):
+        if not isinstance(node, dict):
+            continue
+        score = node.get("score")
+        if not isinstance(score, dict):
+            continue
+        if score.get("secondary_figure") is not None:
+            continue
+        figure = _recomputed_secondary_figure(
+            score, node.get("checks"))
+        if figure is not None:
+            score["secondary_figure"] = figure
+
+
 def _advanced_body(record):
     """The Advanced payload: the stored record, with the common
     carry stood beside the values it travels with."""
     body = copy.deepcopy(_plain(record))
     if not isinstance(body, dict):
         return body
+    _apply_secondary_figure_recompute(body)
     _apply_anchor_limit(body)
     _apply_small_sample_warning_text(body)
     _apply_methods_note_version(body)
@@ -805,7 +925,8 @@ def _rate_line(name, node):
     return with_warning(line)
 
 
-def _emit(lines, key, value, depth, suppress_anchor_bare=False):
+def _emit(lines, key, value, depth, suppress_anchor_bare=False,
+          suppress_none=False):
     pad = "  " * depth
     if _is_absence(value):
         lines.append("%s%s: not recorded" % (pad, key))
@@ -819,21 +940,26 @@ def _emit(lines, key, value, depth, suppress_anchor_bare=False):
             if line is not None:
                 lines.append(pad + line)
         lines.append("%s%s:" % (pad, key))
-        _emit_dict(lines, value, depth + 1, top=False)
+        _emit_dict(lines, value, depth + 1, top=False,
+                   suppress_none=suppress_none)
         return
     if isinstance(value, list):
         lines.append("%s%s:" % (pad, key))
         for item in value:
             if isinstance(item, (dict, list)):
-                _emit(lines, "item", item, depth + 1)
+                _emit(lines, "item", item, depth + 1,
+                      suppress_none=suppress_none)
             else:
                 lines.append("%s  %s" % (pad, _scalar_text(item)))
         return
     if isinstance(value, float) and (
             key in _TREND_RATE_KEYS
+            or "_rate" in key
             or key.endswith("_rate")
             or key.endswith("_share")
-            or key.endswith("_percent")):
+            or key.endswith("_percent")
+            or key.endswith("_gross")
+            or key.endswith("_net")):
         lines.append("%s%s: %s" % (pad, key, _rate_value_text(value)))
         return
     lines.append("%s%s: %s" % (pad, key, _scalar_text(value)))
@@ -841,8 +967,80 @@ def _emit(lines, key, value, depth, suppress_anchor_bare=False):
         lines.append("%s%s" % (pad, ANCHOR_LIMIT_SENTENCE))
 
 
+def _declaration_words(value):
+    """The G1 words for one stored importer declaration value,
+    or None where the value names none of the three values.
+    A declaration carried as a record names its value under
+    a value or code member; that member is read here."""
+    if isinstance(value, dict):
+        for key in ("value", "code", "declaration",
+                    "importer_declaration"):
+            if value.get(key) is not None:
+                return _declaration_words(value[key])
+        return None
+    if not isinstance(value, str):
+        return None
+    if value in DECLARATION_WORDS:
+        return DECLARATION_WORDS[value]
+    normalised = "_".join(value.strip().casefold().replace(
+        "-", " ").split())
+    return DECLARATION_WORDS.get(normalised)
+
+
+def _selection_rule_text(node, value):
+    """The selection rule text a stated subset declaration
+    carries as asserted, where the record carries one: on
+    the declaration record itself, or beside it on the frame
+    under a selection rule member. No text is invented: a
+    declaration carrying no rule text renders its G1 words
+    alone."""
+    if isinstance(value, dict):
+        for key in ("selection_rule", "selection_rule_text",
+                    "rule"):
+            if isinstance(value.get(key), str) and value[key]:
+                return value[key]
+    if isinstance(node, dict):
+        for key in ("selection_rule", "selection_rule_text"):
+            if isinstance(node.get(key), str) and node[key]:
+                return node[key]
+    return None
+
+
+def _declaration_line(node, value):
+    """The Simple sampling frame declaration line: the
+    declaration stated in its G1 words, marked as asserted,
+    with a stated subset carrying its selection rule text as
+    asserted."""
+    words = _declaration_words(value)
+    if words is None:
+        return "Importer declaration, as asserted: %s." % (
+            _scalar_text(value))
+    line = "Importer declaration, as asserted: %s" % words
+    if words == "a stated subset imported":
+        rule = _selection_rule_text(node, value)
+        if rule:
+            line += ", with the selection rule as asserted: %s" % rule
+    return line + "."
+
+
+_SELECTION_RULE_KEYS = ("selection_rule", "selection_rule_text")
+
+
+def _is_probe_like(body):
+    """True where the artefact is a probe report or a probe
+    trend, the surfaces defect E-10 names: a record carrying
+    a sampling frame or a gross cited rate anywhere inside
+    it, including inside an embedded trend round block."""
+    for obj in _walk(body):
+        if isinstance(obj, dict) and (
+                "sampling_frame" in obj
+                or "cited_rate_gross" in obj):
+            return True
+    return False
+
+
 def _emit_dict(lines, node, depth, top=True, top_suppress=None,
-               suppress_anchor_bare=False):
+               suppress_anchor_bare=False, suppress_none=False):
     """Walk one record level in the Simple form.
 
     The path defaulted companion sentence stands beside the
@@ -861,7 +1059,28 @@ def _emit_dict(lines, node, depth, top=True, top_suppress=None,
     has_path = "evaluated_page_path" in node
     has_flag = "path_defaulted" in node
     for key, value in node.items():
-        if key in _NONE_SILENT_KEYS and value is None:
+        if value is None and (
+                suppress_none or key in _NONE_SILENT_KEYS):
+            # On the probe and trend surfaces no none value
+            # prints as a field value: a field holding no
+            # value prints nothing. The two named trend
+            # fields stand silent on every surface, as the
+            # D-28 cure stood.
+            continue
+        if key == "importer_declaration":
+            pad = "  " * depth
+            lines.append("%s%s" % (pad, _declaration_line(node, value)))
+            continue
+        if key == "declaration_unverifiable":
+            if value is True:
+                pad = "  " * depth
+                lines.append(
+                    "%s%s" % (pad, DECLARATION_UNVERIFIABLE_STATEMENT))
+            continue
+        if key in _SELECTION_RULE_KEYS and \
+                "importer_declaration" in node:
+            # The selection rule text stands inside the
+            # declaration line above, as asserted.
             continue
         if key == "path_defaulted" and has_path:
             continue
@@ -872,7 +1091,8 @@ def _emit_dict(lines, node, depth, top=True, top_suppress=None,
             continue
         _emit(lines, key, value, depth,
               suppress_anchor_bare=bool(
-                  suppress_anchor_bare and key == "head_hash"))
+                  suppress_anchor_bare and key == "head_hash"),
+              suppress_none=suppress_none)
         if key == "evaluated_page_path" and has_flag and top:
             pad = "  " * depth
             if node.get("path_defaulted"):
@@ -1050,6 +1270,16 @@ def _render_audit_simple(body):
         else:
             lines.append(
                 "The evidence cap does not hold for this run.")
+        figure = score.get("secondary_figure")
+        if isinstance(figure, dict) and \
+                figure.get("value") is not None:
+            lines.append(
+                "The score on the not applicable as zero "
+                "basis is %s. This figure is not a second "
+                "score." % _scalar_text(figure.get("value")))
+            if isinstance(figure.get("basis"), str) and \
+                    figure.get("basis"):
+                lines.append(figure["basis"])
     lines.append("run_id: %s" % _scalar_text(body.get("run_id")))
     if body.get("snapshot_id") is not None:
         lines.append(
@@ -1130,9 +1360,66 @@ def _render_audit_simple(body):
     return lines
 
 
+def _is_staleness_view(body):
+    return isinstance(body, dict) and "records" in body \
+        and "record_count" in body and "home_path" in body \
+        and "chain_result" in body
+
+
+def _render_staleness_simple(body):
+    """The Simple form of the staleness view.
+
+    One line names each stored record and its state, with
+    its bound versions and the versions in force listed
+    under it, the changed axes named where any axis
+    differs, and the axes the record class does not store
+    stated as not recorded. Over a home with no stored
+    record the absence form stands: the words no entries
+    beside the anchor limit sentence.
+    """
+    lines = ["Staleness view."]
+    lines.append(
+        "home_path: %s" % _scalar_text(body.get("home_path")))
+    if body.get("absence") is not None or not body.get("records"):
+        lines.append(
+            "no entries. %s" % ANCHOR_LIMIT_SENTENCE)
+        return lines
+    for row in body.get("records") or []:
+        if not isinstance(row, dict):
+            continue
+        kind = row.get("record_kind")
+        label = "audit run" if kind == "audit_run" else "round"
+        lines.append(
+            "Record %s (%s): state %s." % (
+                _scalar_text(row.get("record_id")), label,
+                _scalar_text(row.get("state"))))
+        bound = row.get("bound_versions") or {}
+        in_force = row.get("versions_in_force") or {}
+        for axis in bound:
+            lines.append(
+                "  %s: bound %s, in force %s" % (
+                    axis, _scalar_text(bound.get(axis)),
+                    _scalar_text(in_force.get(axis))))
+        for axis in row.get("not_recorded_axes") or []:
+            lines.append("  %s: not recorded" % axis)
+        changed = row.get("changed_axes") or []
+        if changed:
+            lines.append(
+                "  changed axes: %s" % ", ".join(
+                    str(axis) for axis in changed))
+        if row.get("state_note"):
+            lines.append("  %s" % row["state_note"])
+    lines.append(ANCHOR_LIMIT_SENTENCE)
+    return lines
+
+
 def _render_simple(body):
     if not isinstance(body, dict):
         return _scalar_text(body)
+    if _is_staleness_view(body):
+        lines = _render_staleness_simple(body)
+        lines.append(HONESTY_SENTENCE)
+        return "\n".join(lines) + "\n"
     if _is_guide(body):
         lines = _render_guide_simple(body)
     elif _is_query_set_report(body):
@@ -1168,7 +1455,8 @@ def _render_simple(body):
             top_suppress.update(
                 ("evaluated_page_path", "path_defaulted"))
         _emit_dict(lines, body, 0, top_suppress=top_suppress,
-                   suppress_anchor_bare=suppress_anchor_bare)
+                   suppress_anchor_bare=suppress_anchor_bare,
+                   suppress_none=_is_probe_like(body))
         if "rates" in body and "empty_answer_count" in body:
             empty_count = body.get("empty_answer_count")
             if isinstance(empty_count, int) and \

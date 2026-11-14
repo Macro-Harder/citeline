@@ -286,13 +286,24 @@ class TestD29StandingAuditForm(F7Base):
         self.assertIn("schema_stamp", parsed)
 
     def test_service_second_form_renders_stored_record(self):
+        """Supersession recorded (Step 16 supplementary wave,
+        defect E-05, on the F3 pattern): as first written this
+        test named the page file and the audit date beside the
+        run identity in the second form call, which is the
+        defective form E-05 cures: a call naming run_id with
+        any fresh audit input beside it now refuses
+        MALFORMED_CALL at row U-8. The second form call here
+        now names the run identity alone. Its name, intent,
+        and assertions stand unchanged: a form request on a
+        standing audit renders the stored record and appends
+        nothing."""
         record = service.audit(
             home=str(self.home), page_file=str(PAGE),
             audit_date=AUDIT_DATE)
         before = self.entry_count()
         again = service.audit(
-            home=str(self.home), page_file=str(PAGE),
-            run_id=record["run_id"], audit_date=AUDIT_DATE)
+            home=str(self.home),
+            run_id=record["run_id"])
         self.assertEqual(self.entry_count(), before)
         self.assertEqual(again["run_id"], record["run_id"])
         self.assertEqual(again["checks"], record["checks"])

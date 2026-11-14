@@ -760,6 +760,10 @@ def register_page(home, product=None, snapshot=None, audit_date=None,
     value, so the registry validation row governs this
     caller correctable identifier failure, as it already
     governs a missing snapshot identity in this operation.
+    Both identifier failures of this operation, the missing
+    or empty identity and the non-standing identity, append
+    their failure record through the one helper above,
+    before the refusal is raised.
     """
     if snapshot is None:
         snapshot = kwargs.get("snapshot_id")
@@ -769,6 +773,8 @@ def register_page(home, product=None, snapshot=None, audit_date=None,
     else:
         snapshot_id = snapshot
     if not snapshot_id:
+        _append_register_failure(
+            home, "VALIDATION_FAILED", snapshot_id, audit_date)
         _fail("VALIDATION_FAILED", "a snapshot identity is required")
     standing = None
     for candidate in _snapshots(home):

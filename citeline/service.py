@@ -459,12 +459,259 @@ def verify(*, home):
         result["capacity_outlook"] = snapshot.get("capacity_outlook")
         result["anchor"] = snapshot.get("anchor")
         result["head"] = snapshot.get("head")
+        result["config_warnings"] = snapshot.get("config_warnings")
     except Exception:
         pass
     result["anchor_limit"] = _anchor_limit_sentence()
     result["anchor_limit_sentence"] = _anchor_limit_sentence()
     result["honesty_sentence"] = _honesty_sentence()
     result["bounds"] = _bounds_computed()
+    return result
+
+
+# ----------------------------------------------------------------
+# Staleness view: the derived graph over the stored records
+# of one home, on the IM7-ANA-5 landing and contract C9.
+# ----------------------------------------------------------------
+
+# The stale state's wording, stated once: it states
+# comparability only, and never presents staleness as
+# invalidating the record or as a defect in it.
+STALENESS_STALE_NOTE = (
+    "This record stands as the record of its run. The "
+    "versions it is bound to have been superseded on the "
+    "axes named, which states comparability only: the "
+    "record is not invalidated by its staleness and its "
+    "staleness is not a defect in it.")
+
+# The axis map, per record class, in the order the landing
+# names the axes of the class. Each row names the axis, the
+# payload fields the class stores that axis under, and
+# whether the axis is a break axis for the class on the
+# item 130 break axes. For a round every mapped axis is a
+# break axis. For an AuditRun the break axes are registry,
+# detector, and lexicon; the ruleset and crawler table axes
+# stand outside that break set, so a difference on those
+# axes alone stands as stale.
+_AUDIT_AXES = (
+    ("ruleset_version",
+     ("ruleset_version", "score_ruleset_version"), False),
+    ("registry_version", ("registry_version",), True),
+    ("detector_version", ("detector_version",), True),
+    ("lexicon_version", ("lexicon_version",), True),
+    ("crawler_table_version",
+     ("crawler_table_version", "table_version"), False),
+)
+
+_ROUND_AXES = (
+    ("registry_version",
+     ("registry_version", "registry_version_at_first_import",
+      "registry_version_at_import"), True),
+    ("detector_version",
+     ("detector_version", "detector_version_at_first_import",
+      "detector_version_at_import"), True),
+    ("lexicon_version", ("lexicon_version",), True),
+    ("query_set_version", ("query_set_version",), True),
+)
+
+
+def _version_in_force(axis, product_record):
+    """The version in force on one axis, at view time.
+
+    The registry and query set versions in force are the
+    standing product record's versions, read from the
+    home's current state in this invocation. The detector
+    version in force is the shipped detector version, and
+    the lexicon version is recorded in the detector
+    version, on the item 145 mechanic, so the lexicon
+    version in force is the detector version in force. The
+    ruleset version in force is the shipped score ruleset
+    version, and the crawler table version in force is the
+    shipped crawler table version.
+    """
+    if axis == "registry_version":
+        return (product_record or {}).get("registry_version")
+    if axis == "query_set_version":
+        return (product_record or {}).get("query_set_version")
+    if axis == "detector_version":
+        return _detector_version()
+    if axis == "lexicon_version":
+        return _detector_version()
+    if axis == "ruleset_version":
+        try:
+            from citeline import checks as checks_module
+            return checks_module.SCORE_RULESET_VERSION
+        except Exception:
+            return None
+    if axis == "crawler_table_version":
+        try:
+            from citeline import robots as robots_module
+            return robots_module.TABLE_VERSION
+        except Exception:
+            return None
+    return None
+
+
+def _bound_versions(payload, axes, extra_payloads=()):
+    """The bound versions one stored record reads.
+
+    An axis stands bound only where the record itself, or
+    a payload the landing joins to it (a round's answers),
+    stores a value for it, under any of the field names the
+    axis row states, at the top level or inside a version
+    stamps object the record carries. An audit run's
+    crawler table version may stand inside its robots
+    summary. No value is inferred from another record.
+    """
+    sources = [payload]
+    stamps = payload.get("version_stamps")
+    if isinstance(stamps, dict):
+        sources.append(stamps)
+    summary = payload.get("robots_summary")
+    if isinstance(summary, dict):
+        sources.append(summary)
+    sources.extend(extra_payloads)
+    for extra in extra_payloads:
+        extra_stamps = extra.get("version_stamps")
+        if isinstance(extra_stamps, dict):
+            sources.append(extra_stamps)
+    bound = {}
+    for axis, fields, _is_break in axes:
+        for source in sources:
+            value = None
+            for field in fields:
+                if source.get(field) is not None:
+                    value = source.get(field)
+                    break
+            if value is not None:
+                bound[axis] = value
+                break
+    return bound
+
+
+def _staleness_row(record_kind, record_id, payload, axes,
+                   not_recorded, product_record, extra_payloads=()):
+    bound = _bound_versions(payload, axes, extra_payloads)
+    in_force = {}
+    changed = []
+    break_changed = False
+    for axis, _fields, is_break in axes:
+        if axis not in bound:
+            continue
+        current = _version_in_force(axis, product_record)
+        in_force[axis] = current
+        if current is not None and bound[axis] != current:
+            changed.append(axis)
+            if is_break:
+                break_changed = True
+    if break_changed:
+        state = "across a break"
+    elif changed:
+        state = "stale"
+    else:
+        state = "current"
+    row = {
+        "record_kind": record_kind,
+        "record_id": record_id,
+        "product_id": payload.get("product_id"),
+        "bound_versions": bound,
+        "versions_in_force": in_force,
+        "not_recorded_axes": list(not_recorded),
+        "changed_axes": changed,
+        "state": state,
+    }
+    if payload.get("round_label") is not None:
+        row["round_label"] = payload.get("round_label")
+    if state == "stale":
+        row["state_note"] = STALENESS_STALE_NOTE
+    return row
+
+
+def staleness_view(*, home):
+    """The staleness view over the stored records of one home.
+
+    On the IM7-ANA-5 landing at brief Section 5.12 and
+    contract C9 in brief Section 11 and plan Section 9:
+    the view is derived and stores nothing, recomputes no
+    outcome, and prints no new rate or score. It recomputes
+    the chain in its own invocation before reading, through
+    the barred check every reading operation runs, and over
+    a journal that does not recompute it produces no graph
+    and fails with the recorded error JOURNAL_VERIFY_FAILED
+    at row I-2. A missing home refuses HOME_MISSING at row
+    U-6, as every read only invocation over a missing home
+    does. The view appends nothing and offers no rebuild,
+    refresh, or recompute action.
+
+    For each stored AuditRun and Round record the view
+    lists the bound versions that record class stores, the
+    versions in force as read from the home's current state
+    at the moment of the view, and one of three states,
+    current, stale with the changed axes named, or across
+    a break, on the item 130 break axes; a Round record
+    takes only current and across a break, because every
+    axis mapped for a round is a break axis. An axis a
+    record class does not store stands as not recorded for
+    that class: the query set axis for an AuditRun, and the
+    crawler table axis for a Round.
+
+    Over a home holding no stored AuditRun or Round record
+    the view carries the absence form in the status manner:
+    the words no entries beside the anchor limit sentence,
+    not an error and not an empty graph reading as current.
+    """
+    _require_home(home)
+    _barred_check(home)
+    entries = _fold(home)
+    products = {}
+    for record in list_products(home=home):
+        if record.get("product_id") is not None:
+            products[record["product_id"]] = record
+    answers_by_round = {}
+    for entry in entries:
+        if _get(entry, "entry_kind") != "answer_imported":
+            continue
+        payload = _payload(entry)
+        if payload.get("round_id") is not None:
+            answers_by_round.setdefault(
+                payload["round_id"], []).append(payload)
+    rows = []
+    round_order = []
+    round_payloads = {}
+    for entry in entries:
+        kind = _get(entry, "entry_kind")
+        payload = _payload(entry)
+        if kind == "audit_record":
+            record_id = payload.get("run_id")
+            rows.append((entry, _staleness_row(
+                "audit_run", record_id, payload, _AUDIT_AXES,
+                ("query_set_version",),
+                products.get(payload.get("product_id")))))
+        elif kind == "round_named":
+            record_id = payload.get("round_id")
+            if record_id not in round_payloads:
+                round_order.append(record_id)
+            round_payloads[record_id] = (entry, payload)
+    for record_id in round_order:
+        entry, payload = round_payloads[record_id]
+        rows.append((entry, _staleness_row(
+            "round", record_id, payload, _ROUND_AXES,
+            ("crawler_table_version",),
+            products.get(payload.get("product_id")),
+            extra_payloads=answers_by_round.get(record_id, ()))))
+    rows.sort(key=lambda pair: _get(pair[0], "sequence", 0) or 0)
+    records = [row for _entry, row in rows]
+    result = {
+        "home_path": str(home),
+        "chain_result": "chain verifies",
+        "record_count": len(records),
+        "records": records,
+        "anchor_limit": _anchor_limit_sentence(),
+        "anchor_limit_sentence": _anchor_limit_sentence(),
+        "bounds": _bounds_computed(),
+    }
+    if not records:
+        result["absence"] = "no entries"
     return result
 
 
@@ -866,11 +1113,30 @@ def audit(*, home, page_file=None, robots_file=None,
     mapping: it returns the stored audit record of that run
     and appends nothing, so a second form of a standing
     audit renders the stored record and runs no new audit.
-    A call naming no run stands as a fresh audit and creates
-    a new run, as below. An unknown run identity fails with
+    The run identity stands alone in such a call: a call
+    naming run_id together with any fresh audit input, a
+    page file, a robots file, an audit date, an evaluated
+    page path, or a product, refuses as a malformed call at
+    row U-8, token MALFORMED_CALL, usage class, exit 2, and
+    no named input is silently disregarded. A call naming
+    no run stands as a fresh audit and creates a new run,
+    as below. An unknown run identity fails with
     the recorded value for an unknown round identity, the
     value the guide route already returns for a missing
     audit record identity.
+
+    The audit date of a fresh audit stands under brief
+    Section 6.2, M1: where no audit date stands supplied,
+    the date defaults to the current date in UTC, that
+    date is the date the run runs on, and the stored
+    record carries it in audit_date with
+    audit_date_defaulted true beside it, naming the date
+    used; a supplied date is recorded as supplied, with
+    audit_date_defaulted false. Where the date was
+    defaulted, audit_date_is_run_date is true by
+    construction, because the default audit date is the
+    current date in UTC; the stored boolean otherwise
+    stands exactly as it stood before this recording.
 
     The snapshot stands produced by the acquisition
     component, the checks and the score by the checks
@@ -892,6 +1158,22 @@ def audit(*, home, page_file=None, robots_file=None,
     _validate_audit_date(audit_date)
     _barred_check(home)
     if run_id is not None:
+        fresh_named = [
+            name for name, value in (
+                ("page_file", page_file),
+                ("robots_file", robots_file),
+                ("evaluated_page_path", evaluated_page_path),
+                ("audit_date", audit_date),
+                ("product", product),
+            ) if value is not None]
+        if fresh_named:
+            _fail(
+                "MALFORMED_CALL",
+                "an audit call naming a run identity names "
+                "no fresh audit input beside it; the call "
+                "also names %s, so it stands as neither a "
+                "form request on the standing run nor a "
+                "fresh audit" % ", ".join(fresh_named))
         standing = None
         for entry in _fold(home):
             if _get(entry, "entry_kind") != "audit_record":
@@ -912,6 +1194,11 @@ def audit(*, home, page_file=None, robots_file=None,
             "VALIDATION_FAILED",
             "an audit call names no page file and no standing "
             "run identity")
+    audit_date_defaulted = audit_date is None
+    if audit_date_defaulted:
+        import datetime
+        audit_date = datetime.datetime.now(
+            datetime.timezone.utc).date().isoformat()
     journal = _journal()
     products = list_products(home=home)
     product_record = None
@@ -1014,6 +1301,7 @@ def audit(*, home, page_file=None, robots_file=None,
         "facts_counts": {"recorded": False, "state": "not_recorded"},
         "robots_summary": robots_summary,
         "audit_date": audit_date,
+        "audit_date_defaulted": audit_date_defaulted,
         "audit_date_is_run_date": True,
         "limits_in_force": _limits_in_force(home),
         "registry_version": (

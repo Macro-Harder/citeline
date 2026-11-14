@@ -642,10 +642,17 @@ def status_snapshot(home):
     link recomputes, or the distinct absence forms, and it
     returns 0 in every case. The service home wraps this
     snapshot as its status result.
+
+    The warnings the home config parse formed stand in the
+    snapshot as config_warnings, in the parse form (an
+    unknown key warning names its key), so a warning the
+    parse computes reaches the routes built on this
+    snapshot instead of standing discarded at this reader.
     """
     home = str(home)
     scan = _scan(home, "probe")
     limits = effective_limits(home)
+    _values, config_warnings, _present = _read_config_values(home)
     size = _home_size(home)
     length_remaining = limits["journal_length"]["value"] - scan.entry_count
     size_cap = limits["total_home_size"]["value"] * _SIZE_MULTIPLIERS[
@@ -674,6 +681,7 @@ def status_snapshot(home):
             "bytes_remaining": size_remaining,
         },
         "anchor": _anchor_status(home, scan),
+        "config_warnings": list(config_warnings),
         "chain_fails": scan.failure is not None,
         "exit_code": 0,
     }
