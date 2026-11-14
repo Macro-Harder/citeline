@@ -149,10 +149,19 @@ def seed_product(home, queries=None):
         competitors=[{"name": "Rival", "domain": "rival.example",
                       "aliases": []}],
         audit_date=AUDIT_DATE)
-    if queries is not None:
-        service.set_query_set(
-            home=str(home), product=PRODUCT, query_set=queries,
-            audit_date=AUDIT_DATE)
+    # Step 16 reconciliation under D-17: where the caller names
+    # no query set, the seed registers the file query as the
+    # product query set through the governed set_query_set
+    # route before any probe import, so the imported query
+    # stands in the product query set already, as brief item
+    # 132 and the adapter contract order. A caller naming a
+    # query set stands unchanged. No assertion in this file
+    # changes.
+    if queries is None:
+        queries = [QUERY]
+    service.set_query_set(
+        home=str(home), product=PRODUCT, query_set=queries,
+        audit_date=AUDIT_DATE)
 
 
 def audit_page(home, page, **extra):

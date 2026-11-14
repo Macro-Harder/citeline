@@ -37,6 +37,7 @@ Seams honoured here, as the design plan states them:
 
 import datetime
 import re
+from decimal import Decimal, ROUND_HALF_UP
 
 __all__ = [
     "STATUS_VALUES",
@@ -108,6 +109,18 @@ def _get(record, name, default=None):
 
 def _round3(value):
     return round(float(value) + 0.0, 3)
+
+
+def _round_score(value):
+    """Round a Decimal score value to one decimal place.
+
+    The rounding is half up on the exact decimal value,
+    the rounding the score formula states, applied alike
+    to the headline score and to the secondary figure.
+    """
+    return float(
+        value.quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+    )
 
 
 def assign_status(check_id, applicable=True, empty=False):
@@ -247,6 +260,7 @@ def _citation_analysis(page, facts):
     text = _page_text(page)
     domain = (facts.get("domain") or "").lower() or None
     counted = {}
+    occurrences = []
     self_seen = False
     for link in _get(page, "links", []) or []:
         target, link_text, start, end = _link_parts(link)
@@ -262,15 +276,21 @@ def _citation_analysis(page, facts):
         if domain and (host == domain or host.endswith("." + domain)):
             self_seen = True
             continue
-        if target in counted:
-            continue
         if start is None or start < 0:
             start = text.find(link_text or target)
         if start is None or start < 0:
             start = 0
         if end is None or end <= start:
             end = start + len(link_text or target)
-        counted[target] = _span(text, start, end)
+        span = _span(text, start, end)
+        # Coverage runs over paragraph occurrences: every
+        # standing of a counted target is kept here, while
+        # the distinct count and the evidence spans below
+        # keep one span per distinct target.
+        occurrences.append(span)
+        if target in counted:
+            continue
+        counted[target] = span
     # The extraction of a markdown or plain text page carries
     # a bare or bracketed URL in the running text itself and
     # supplies no link entry for it, so a target the page
@@ -291,10 +311,12 @@ def _citation_analysis(page, facts):
         if domain and (host == domain or host.endswith("." + domain)):
             self_seen = True
             continue
+        start = match.start()
+        span = _span(text, start, start + len(target))
+        occurrences.append(span)
         if target in counted:
             continue
-        start = match.start()
-        counted[target] = _span(text, start, start + len(target))
+        counted[target] = span
     spans = [counted[target] for target in counted]
     count = len(spans)
 
@@ -321,7 +343,8 @@ def _citation_analysis(page, facts):
             if chunk is None:
                 chunk = chunks[-1]
             if any(
-                chunk[0] <= span["start"] < chunk[1] for span in spans
+                chunk[0] <= span["start"] < chunk[1]
+                for span in occurrences
             ):
                 holding += 1
         coverage = holding / len(long_sentences)
@@ -425,13 +448,22 @@ def _statistic_analysis(page):
     )
     spans = []
     for match in _STATISTIC_PATTERN.finditer(masked):
-        token = match.group("token")
+        # The digit pattern takes commas between digits, so
+        # a trailing sentence comma can ride on the end of a
+        # token. That comma is punctuation, not part of the
+        # figure: it comes off the token before any test on
+        # the figure itself, so a year standing alone is
+        # seen as a year whatever punctuation follows it,
+        # and a genuine figure keeps a span without the
+        # trailing comma.
+        token = match.group("token").rstrip(",")
         plain = token.strip()
         if re.fullmatch(r"\d{4}", plain):
             # A year between 1900 and 2099 standing alone.
             if 1900 <= int(plain) <= 2099:
                 continue
-        start, end = match.start("token"), match.end("token")
+        start = match.start("token")
+        end = start + len(token)
         spans.append(_span(text, start, end))
     count = len(spans)
     return {
@@ -1005,6 +1037,23 @@ def compute_score(results):
         "honesty_sentence": HONESTY_SENTENCE,
         "claim_type": "signal_presence_only",
         "validated_predictor": False,
+        # The secondary figure on the not applicable as
+        # zero basis (brief Section 5.8, IM7-BRK-3): the
+        # ScoreObject carries it in this field, in the
+        # landing stated form. It is not a second value
+        # field and it is not a ScoreObject: it is an
+        # object holding its figure under the member
+        # named value, its total weight, and its basis
+        # statement, and it carries no band of its own.
+        # The member name value matters beyond this
+        # module: the journal canonical form renders a
+        # non integer number only under a member whose
+        # scale stands defined, and value carries the
+        # score scale of one decimal place. It stands as
+        # None where it does not print: on a fully
+        # applicable page, and in the all not applicable
+        # absence case below, where it is suppressed.
+        "secondary_figure": None,
     }
     if not applicable or applicable_weight == 0:
         # SEAM-SCORE-EMPTY: the empty case carries the
@@ -1012,12 +1061,40 @@ def compute_score(results):
         score["value"] = None
         score["band"] = None
         return score
+    # Exact recomputation: the earned values stand at
+    # three decimal places and the weights are integers,
+    # so the weighted sum is exact in decimal. Binary
+    # floating point puts a sum such as 26.45 over 92
+    # just under 28.75 and rounds it the wrong way; the
+    # decimal sum rounds as the formula states.
     weighted = sum(
-        (_get(result, "earned", 0) or 0)
-        * (_get(result, "weight", 0) or 0)
+        Decimal(str(_get(result, "earned", 0) or 0))
+        * Decimal(str(_get(result, "weight", 0) or 0))
         for result in applicable
     )
-    value = round(weighted / applicable_weight * 100.0, 1)
+    value = _round_score(weighted / Decimal(applicable_weight) * 100)
+    # The secondary figure: the same numerator over the
+    # total weight of 100, times 100, rounded to one
+    # decimal place as the headline score is rounded.
+    # It prints only where at least one check stands not
+    # applicable and at least one check stands applicable.
+    has_not_applicable = len(applicable) < len(results)
+    secondary = None
+    if has_not_applicable:
+        secondary = {
+            "value": _round_score(weighted / Decimal(100) * 100),
+            "total_weight": 100,
+            "basis": (
+                "Computed on a different basis from the "
+                "headline score: the headline score is "
+                "computed on the applicable checks with "
+                "not applicable weight redistributed, and "
+                "this figure is computed on the total "
+                "weight of 100 with not applicable checks "
+                "earning 0. Neither figure ranks against "
+                "a score on another basis."
+            ),
+        }
     by_id = {_get(result, "check_id"): result for result in results}
     cap_counts = []
     for check_id, keys in (
@@ -1034,7 +1111,13 @@ def compute_score(results):
         score["cap_status"] = True
         if value > 39.0:
             value = 39.0
+        # The cap applies to the secondary figure on the
+        # same trigger as the headline score; no figure
+        # printed beside a capped headline stands uncapped.
+        if secondary is not None and secondary["value"] > 39.0:
+            secondary["value"] = 39.0
     score["value"] = value
+    score["secondary_figure"] = secondary
     if value >= 80:
         score["band"] = "strong"
     elif value >= 60:

@@ -425,16 +425,18 @@ def round_metrics(answers, kind, frame=None, datum=None,
     engine_count, engine_percent = largest_share(engine_values)
     query_count, query_percent = largest_share(query_values)
     day_count, day_percent = largest_share(day_values)
-    # Dominance stands on an axis that mixes values, where
-    # one value supplies more than half. An axis holding one
-    # value only is the frame itself, not a mixture that one
-    # part dominates, so it does not raise the note alone.
+    # Dominance, guard G3: where any one asserted engine
+    # label, query, or day supplies more than half of a
+    # round, the pooled rate carries a dominance note. The
+    # rule states no exception for an axis holding one value
+    # only, so a single value axis at 100.0 percent, its one
+    # value supplying the whole round, raises the note.
     dominance = bool(
         n
         and (
-            (len(set(engine_values)) > 1 and engine_count * 2 > n)
-            or (len(set(query_values)) > 1 and query_count * 2 > n)
-            or (len(set(day_values)) > 1 and day_count * 2 > n)
+            engine_count * 2 > n
+            or query_count * 2 > n
+            or day_count * 2 > n
         )
     )
     composition = {
@@ -1104,7 +1106,33 @@ def round_metrics_from_journal(entries, fold_point=None, detector_version=None,
     stamps = dict(datum or {})
     if detector_version is not None:
         stamps.setdefault("detector_version", detector_version)
+    # The sampling frame of guard G1 carries the importer
+    # declaration recorded at round naming. The declaration
+    # stands on the round_named entry of the journal, so the
+    # frame built here reads it from that entry, in sequence
+    # order to the fold point, and carries it into the
+    # RoundMetrics computation beside the datum, which
+    # carries the same value as its fallback.
+    declaration = stamps.get("importer_declaration")
+    ordered = sorted(
+        entries, key=lambda item: _get(item, "sequence", 0) or 0)
+    for entry in ordered:
+        sequence = _get(entry, "sequence", None)
+        if fold_point is not None and sequence is not None \
+                and sequence > fold_point:
+            continue
+        if _get(entry, "entry_kind", None) != "round_named":
+            continue
+        value = _get(
+            _get(entry, "payload", None) or {},
+            "importer_declaration", None)
+        if value is not None:
+            declaration = value
+    frame = {}
+    if declaration is not None:
+        frame["importer_declaration"] = declaration
+        stamps.setdefault("importer_declaration", declaration)
     return round_metrics(
-        metrics_rows, kind, datum=stamps,
+        metrics_rows, kind, frame=frame, datum=stamps,
         aliases=seed_aliases, competitors=seed_competitors,
     )

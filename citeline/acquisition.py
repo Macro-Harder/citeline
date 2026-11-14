@@ -1402,6 +1402,26 @@ def _extract_markdown(text, notes):
     flush_table()
     flush_block()
     running_text = "\n\n".join(blocks)
+    # Heading offsets stand in extracted text coordinates,
+    # as every neighbouring positional field does: a heading
+    # entry start locates its heading text in the running
+    # text, read in order after the blocks stand joined, and
+    # not in the supplied source file, whose Markdown marks
+    # the running text does not carry.
+    ordered_headings = []
+    cursor = 0
+    for heading in headings:
+        found = running_text.find(heading["text"], cursor) \
+            if heading["text"] else -1
+        start = found if found >= 0 else cursor
+        ordered_headings.append({
+            "text": heading["text"],
+            "level": heading["level"],
+            "start": start,
+        })
+        if found >= 0:
+            cursor = start + len(heading["text"])
+    headings = ordered_headings
     # Link offsets stand read against the running text, in
     # order, after the blocks stand joined.
     ordered_links = []

@@ -91,6 +91,14 @@ def seed_product(case, home, category=("citation software",)):
         competitors=[{"name": "Rival", "domain": "rival.example",
                       "aliases": []}],
         audit_date=AUDIT_DATE)
+    # Step 16 reconciliation under D-17: the query set stands
+    # registered through the governed set_query_set route before
+    # any probe import, so the imported query stands in the
+    # product query set already, as brief item 132 and the
+    # adapter contract order. No assertion in this file changes.
+    service.set_query_set(
+        home=str(home), product=PRODUCT, query_set=[QUERY],
+        audit_date=AUDIT_DATE)
     return home
 
 

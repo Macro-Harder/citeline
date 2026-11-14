@@ -182,6 +182,31 @@ def _require_home(home):
             "the home stands missing: %s" % (home,))
 
 
+def _validate_audit_date(audit_date):
+    """Refuse an audit date input that is not a date.
+
+    The audit date is an explicit input of every report
+    (brief Section 6.2, M1), recorded as supplied where one
+    stands supplied. A supplied value that does not parse
+    as an ISO calendar date stands refused here, at row
+    X-5, token VALIDATION_FAILED, usage class, exit 2,
+    before any record is built or stored from it. A date
+    object stands accepted as a date; None stands as no
+    date supplied and is left to each route's own default.
+    """
+    if audit_date is None:
+        return
+    import datetime
+    if isinstance(audit_date, datetime.date):
+        return
+    try:
+        datetime.date.fromisoformat(str(audit_date))
+    except ValueError:
+        _fail(
+            "VALIDATION_FAILED",
+            "audit_date is not an ISO date: %s" % (audit_date,))
+
+
 def _find_product(home, product):
     registry = _registry()
     record = registry.find_product(str(home), product)
@@ -335,7 +360,14 @@ def status(*, home):
     remaining capacity by entry kind, as a partition of the
     whole remaining figure over the kinds that stand in the
     journal, so the kind figures tally to the whole.
+
+    A missing home stands as a usage error at row U-6,
+    token HOME_MISSING, exit 2, as with verify: status is a
+    read only invocation, and row U-6 excepts no subcommand.
+    The Section 4.2 status behaviour above runs over homes
+    that stand, including barred and broken chain homes.
     """
+    _require_home(home)
     journal = _journal()
     snapshot = journal.status_snapshot(str(home))
     result = dict(snapshot)
@@ -443,6 +475,7 @@ def verify(*, home):
 def add_product(*, home, name, canonical_line, domain,
                 competitors=None, aliases=None, query_set=None,
                 audit_date=None):
+    _validate_audit_date(audit_date)
     registry = _registry()
     return registry.add_product(
         home=str(home), name=name, canonical_line=canonical_line,
@@ -451,6 +484,7 @@ def add_product(*, home, name, canonical_line, domain,
 
 
 def set_canonical_line(*, home, product, line, audit_date=None):
+    _validate_audit_date(audit_date)
     registry = _registry()
     return registry.set_canonical_line(
         home=str(home), product=product, line=line,
@@ -458,6 +492,7 @@ def set_canonical_line(*, home, product, line, audit_date=None):
 
 
 def set_competitors(*, home, product, competitors, audit_date=None):
+    _validate_audit_date(audit_date)
     registry = _registry()
     return registry.set_competitors(
         home=str(home), product=product, competitors=competitors,
@@ -465,6 +500,7 @@ def set_competitors(*, home, product, competitors, audit_date=None):
 
 
 def set_aliases(*, home, product, aliases, audit_date=None):
+    _validate_audit_date(audit_date)
     registry = _registry()
     return registry.set_aliases(
         home=str(home), product=product, aliases=aliases,
@@ -472,6 +508,7 @@ def set_aliases(*, home, product, aliases, audit_date=None):
 
 
 def set_query_set(*, home, product, query_set, audit_date=None):
+    _validate_audit_date(audit_date)
     registry = _registry()
     return registry.set_query_set(
         home=str(home), product=product, query_set=query_set,
@@ -495,6 +532,7 @@ def set_category(*, home, product, category_terms=None, category=None,
     bind.
     """
     terms = category_terms if category_terms is not None else category
+    _validate_audit_date(audit_date)
     registry = _registry()
     return registry.set_category(
         home=str(home), product=product, category=terms,
@@ -511,6 +549,7 @@ set_category.__signature__ = inspect.Signature(parameters=[
 
 
 def register_page(*, home, product, snapshot, audit_date=None):
+    _validate_audit_date(audit_date)
     registry = _registry()
     return registry.register_page(
         home=str(home), product=product, snapshot=snapshot,
@@ -520,6 +559,7 @@ def register_page(*, home, product, snapshot, audit_date=None):
 def name_round(*, home, product, round_label,
                importer_declaration, supplier_relation,
                audit_date=None):
+    _validate_audit_date(audit_date)
     registry = _registry()
     return registry.name_round(
         home=str(home), product=product, round_label=round_label,
@@ -709,6 +749,7 @@ def robots(*, home, robots_file, evaluated_page_path=None,
     requested form, as every report home of this layer
     does.
     """
+    _validate_audit_date(audit_date)
     evaluation = _robots_evaluation(
         home=home, robots_file=robots_file,
         evaluated_page_path=evaluated_page_path,
@@ -764,6 +805,7 @@ def robots_preview(*, home, first_robots_file, second_robots_file,
     reporting pipeline rendering of the assembly in the
     requested form.
     """
+    _validate_audit_date(audit_date)
     if first_capture_date is None:
         first_capture_date = first_captured_on
     if second_capture_date is None:
@@ -814,10 +856,21 @@ robots_preview.__signature__ = inspect.Signature(parameters=[
 # Audit: assembly over acquisition, checks, and robots.
 # ----------------------------------------------------------------
 
-def audit(*, home, page_file, robots_file=None,
+def audit(*, home, page_file=None, robots_file=None,
           evaluated_page_path=None, audit_date=None,
-          product=None):
+          product=None, run_id=None):
     """One audit, assembled as caller over its components.
+
+    A call naming a standing run by its run_id stands as a
+    form request on that run, on the invocation to artefact
+    mapping: it returns the stored audit record of that run
+    and appends nothing, so a second form of a standing
+    audit renders the stored record and runs no new audit.
+    A call naming no run stands as a fresh audit and creates
+    a new run, as below. An unknown run identity fails with
+    the recorded value for an unknown round identity, the
+    value the guide route already returns for a missing
+    audit record identity.
 
     The snapshot stands produced by the acquisition
     component, the checks and the score by the checks
@@ -836,7 +889,29 @@ def audit(*, home, page_file, robots_file=None,
     product stands named, the first listed product of the
     home stands as the record product, as before.
     """
+    _validate_audit_date(audit_date)
     _barred_check(home)
+    if run_id is not None:
+        standing = None
+        for entry in _fold(home):
+            if _get(entry, "entry_kind") != "audit_record":
+                continue
+            payload = _payload(entry)
+            if payload.get("run_id") == run_id:
+                standing = payload
+        if standing is None:
+            _fail(
+                "UNKNOWN_ROUND",
+                "no completed audit record stands under the "
+                "identity given: %r" % (run_id,))
+        result = copy.deepcopy(standing)
+        result["audit_run"] = copy.deepcopy(standing)
+        return result
+    if page_file is None:
+        _fail(
+            "VALIDATION_FAILED",
+            "an audit call names no page file and no standing "
+            "run identity")
     journal = _journal()
     products = list_products(home=home)
     product_record = None
@@ -1051,8 +1126,7 @@ def probe_import(*, home, answer_file=None, product=None,
             capture_method=capture_method,
             control_designation=control_designation,
             audit_date=audit_date, known_round=True,
-            query_set=list(product_record.get("query_set") or [])
-            or None,
+            query_set=list(product_record.get("query_set") or []),
             standing_records=standing,
             control_count=control_count,
             product_id=product_id, round_id=round_id,
@@ -1147,9 +1221,16 @@ def _round_datum(entries, product_record, round_record):
     query_set_version = product_record.get("query_set_version")
     if query_set_version is not None:
         datum["query_set_version"] = query_set_version
+    # The importer declaration recorded at round naming
+    # stands on the round record, and the metrics sampling
+    # frame reads it from the datum this assembly builds, so
+    # the declaration travels with the version stamps above.
+    declaration = round_record.get("importer_declaration")
+    if declaration is not None:
+        datum["importer_declaration"] = declaration
     for entry in entries:
         payload = _payload(entry)
-        for key in ("lexicon_version",):
+        for key in ("lexicon_version", "importer_declaration"):
             if payload.get(key) is not None:
                 datum.setdefault(key, payload[key])
         stamps = payload.get("version_stamps")
@@ -1199,6 +1280,10 @@ def _probe_report_record(home, product_record, round_record,
     result["detector_version_at_first_import"] = round_record.get(
         "detector_version_at_first_import")
     result["methods_note_version"] = METHODS_NOTE_VERSION
+    # The honesty sentence stands on the assembled record
+    # itself, so a round report embedded in a trend carries
+    # the sentence exactly as the standalone report does.
+    result["honesty_sentence"] = _honesty_sentence()
     return result
 
 
@@ -1214,6 +1299,7 @@ def probe_report(*, home, product, round, form=None,
     Simple form and the record object or its envelope in
     the structured forms, never the raw assembly.
     """
+    _validate_audit_date(audit_date)
     _require_home(home)
     _barred_check(home)
     product_record = _require_product(home, product)
@@ -1272,16 +1358,20 @@ def probe_trend(*, home, product, round_a, round_b, form=None,
     the assembled trend in the requested form, as the
     probe report home does.
     """
+    _validate_audit_date(audit_date)
     _require_home(home)
     _barred_check(home)
     product_record = _require_product(home, product)
     first = _require_round(home, product_record, round_a)
     second = _require_round(home, product_record, round_b)
     if round_a == round_b:
-        _fail(
-            "ROUND_REPEATED",
+        repeated = errors.CitelineError(
             "a trend naming the same round twice stands "
-            "refused: %r" % (round_a,))
+            "refused: %r" % (round_a,),
+            token="ROUND_REPEATED")
+        _append_failure_record(
+            home, "probe trend", repeated, round_a, audit_date)
+        raise repeated
     from citeline import metrics
     first_metrics = _round_metrics(home, product_record, first)
     second_metrics = _round_metrics(home, product_record, second)
@@ -1302,6 +1392,11 @@ def probe_trend(*, home, product, round_a, round_b, form=None,
         home, product_record, second, audit_date=audit_date,
         metrics_record=second_metrics)
     result["audit_date"] = audit_date
+    # The trend assembly carries the honesty sentence at
+    # trend level, as the standalone probe report carries
+    # it, whether or not the trend computation printed a
+    # delta with its own comparability line.
+    result["honesty_sentence"] = _honesty_sentence()
     from citeline import reporting
     return reporting.render(result, form=form or "advanced")
 
@@ -1312,6 +1407,7 @@ def query_set_report(*, home, product, form=None, audit_date=None):
     The home returns the reporting pipeline rendering of
     the derived report in the requested form.
     """
+    _validate_audit_date(audit_date)
     _require_home(home)
     _barred_check(home)
     product_record = _require_product(home, product)
@@ -1324,6 +1420,7 @@ def export_capture_worksheet(*, home, product, round, queries=None,
                              engine_labels=None, planned_answers=0,
                              output_path=None, audit_date=None):
     """One capture worksheet written from a named round definition."""
+    _validate_audit_date(audit_date)
     product_record = _require_product(home, product)
     _require_round(home, product_record, round)
     from citeline import probe_import as import_module
@@ -1347,8 +1444,33 @@ def guide(*, home, run_id=None, product=None, round_label=None,
     stored as one guide_record entry through the journal.
     A refusal stands as a completed outcome of the draft
     itself and carries no error value.
+
+    The selector rule (brief Section 5.12) takes exactly
+    one of run_id, or product with round label. Both
+    selectors named, neither named, or only half of the
+    product with round selector named stands as a malformed
+    call at row U-8, token MALFORMED_CALL, usage class,
+    exit 2. An unknown run identity carries the governed
+    value for a missing round at row U-4, token
+    UNKNOWN_ROUND, as the branch below states: the closed
+    vocabulary holds no run specific token, and the joined
+    table assigns guide its missing references at U-4.
     """
+    _validate_audit_date(audit_date)
     _barred_check(home)
+    if run_id is not None and (
+            product is not None or round_label is not None):
+        _fail(
+            "MALFORMED_CALL",
+            "guide takes exactly one of run_id, or product "
+            "with round label; both selectors stand named")
+    if run_id is None and not (
+            product is not None and round_label is not None):
+        _fail(
+            "MALFORMED_CALL",
+            "guide takes exactly one of run_id, or product "
+            "with round label; no complete selector stands "
+            "named")
     journal = _journal()
     from citeline import guide as guide_module
     if run_id is not None:

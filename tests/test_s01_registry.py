@@ -144,10 +144,18 @@ class TestSubcommandsAndNameRound(RegistryBase):
         self.assertEqual(field(updated, "category"), [])
 
     def test_register_page_sets_is_product_page(self):
-        """Plan Section 1.3 S1, sole writer discipline for is_product_page. Oracle: brief Section 5.12 item 136, register-page is the only operation that sets that field after creation."""
+        """Plan Section 1.3 S1, sole writer discipline for is_product_page. Oracle: brief Section 5.12 item 136, register-page is the only operation that sets that field after creation. Superseded at Step 16 under defect D-03: the earlier form of this test registered the identifier snap-1 in a home where no snapshot stood and asserted only the returned flag, which asserted the defective behaviour D-03 cures. This form registers a standing snapshot created by extraction, on the governed behaviour, and asserts the full PageSnapshot shape stands on the returned record."""
         product = self.add_default()
-        snapshot = service.register_page(home=self.home, product=PRODUCT, snapshot="snap-1", audit_date=AUDIT_DATE)
+        page = os.path.join(self.tmp.name, "page.txt")
+        with open(page, "w", encoding="utf-8") as handle:
+            handle.write("Body text stands here.\n")
+        created = acquisition.extract_page(home=self.home, product_id=field(product, "product_id"), page_path=page, audit_date=AUDIT_DATE)
+        created_snapshot = field(created, "snapshot")
+        snapshot = service.register_page(home=self.home, product=PRODUCT, snapshot=field(created_snapshot, "snapshot_id"), audit_date=AUDIT_DATE)
         self.assertTrue(field(snapshot, "is_product_page"))
+        self.assertEqual(field(snapshot, "supplied_path"), page)
+        self.assertTrue(field(snapshot, "sha256"))
+        self.assertTrue(field(snapshot, "format"))
 
     def test_register_page_second_snapshot_unregistered_until_registered(self):
         """Plan Section 1.3 S1, sole writer discipline for is_product_page, per snapshot limb. Oracle: brief Section 5.12 item 136, registration is per snapshot and must be repeated for each new snapshot of a product page. Register entry R1-024. The second snapshot stands created by extraction with is_product_page false, and stands unregistered until register page runs for it."""
@@ -234,7 +242,11 @@ class TestSubcommandsAndNameRound(RegistryBase):
         service.set_aliases(home=self.home, product=PRODUCT, aliases=["Example Prod"], audit_date=AUDIT_DATE)
         service.set_query_set(home=self.home, product=PRODUCT, query_set=["what is example product"], audit_date=AUDIT_DATE)
         service.set_category(home=self.home, product=PRODUCT, category=["tools", "guides"], audit_date=AUDIT_DATE)
-        service.register_page(home=self.home, product=PRODUCT, snapshot="snap-1", audit_date=AUDIT_DATE)
+        page = os.path.join(self.tmp.name, "timing-page.txt")
+        with open(page, "w", encoding="utf-8") as handle:
+            handle.write("Body text stands here.\n")
+        created = acquisition.extract_page(home=self.home, product_id=field(product, "product_id"), page_path=page, audit_date=AUDIT_DATE)
+        service.register_page(home=self.home, product=PRODUCT, snapshot=field(field(created, "snapshot"), "snapshot_id"), audit_date=AUDIT_DATE)
         service.name_round(home=self.home, product=PRODUCT, round_label="round-one", importer_declaration="all_captured", supplier_relation="independent", audit_date=AUDIT_DATE)
         self.assertLess(time.monotonic() - start, 2.0)
 

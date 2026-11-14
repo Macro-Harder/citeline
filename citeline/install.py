@@ -140,6 +140,36 @@ def _fail(message):
     raise InstallError("DESTINATION_EXISTS", message)
 
 
+def _is_within(path, parent):
+    """True where one resolved path stands inside another."""
+    try:
+        return os.path.commonpath([path, parent]) == parent
+    except ValueError:
+        return False
+
+
+def _check_no_overlap(location):
+    """The plan Section 8.3 overlap check, before any write.
+
+    Runs over the two resolved paths, the shipped product
+    directory and the requested or defaulted install
+    location, and refuses each overlap form with a recorded
+    error: the location equal to the product directory, the
+    location inside the product directory, and the product
+    directory inside the location. No install write stands
+    before this check passes.
+    """
+    product_dir = os.path.realpath(_PRODUCT_DIR)
+    resolved = os.path.realpath(location)
+    if resolved == product_dir or _is_within(
+            resolved, product_dir) or _is_within(
+            product_dir, resolved):
+        _fail(
+            "the install location overlaps the shipped "
+            "product directory, and the install stands "
+            "refused before any write: %s" % location)
+
+
 def _config_text(home):
     return "home = %s\n%s\n" % (home, _CONFIG_MARKER)
 
@@ -225,6 +255,7 @@ def install(location=None, home=None, **_ignored):
             "install names a location and a home")
     location = str(location)
     home = str(home)
+    _check_no_overlap(location)
     created_items = []
     if os.path.lexists(location):
         info = os.lstat(location)
@@ -389,8 +420,8 @@ def main(argv=None):
             index += 1
         elif token in ("--location", "--home"):
             if index + 1 >= len(argv):
-                print("install: %s names a value" % token,
-                      file=sys.stderr)
+                print("install: MALFORMED_CALL: %s names a value"
+                      % token, file=sys.stderr)
                 return 2
             if token == "--location":
                 location = argv[index + 1]
@@ -401,8 +432,8 @@ def main(argv=None):
             location = token
             index += 1
         else:
-            print("install: unrecognised argument: %s" % token,
-                  file=sys.stderr)
+            print("install: MALFORMED_CALL: unrecognised "
+                  "argument: %s" % token, file=sys.stderr)
             return 2
     if location is None:
         location = _default_location()

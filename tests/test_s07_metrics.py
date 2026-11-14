@@ -376,10 +376,14 @@ class TestGuardsAsComputations(unittest.TestCase):
         self.assertTrue(field(composition, "dominance_note"))
 
     def test_g3_no_dominance_at_exactly_half(self):
-        """Plan Section 1.3 S7 family, guard G3 as a computation. Oracle: brief Section 5.8 item 76, the dominance line stands at more than half of a round, so a largest share of exactly half carries no dominance note."""
+        """Plan Section 1.3 S7 family, guard G3 as a computation. Oracle: brief Section 5.8 item 76, the dominance line stands at more than half of a round, so a largest share of exactly half carries no dominance note. Superseded in its fixture at Step 16 under defect D-05: the earlier form of this test split only the engine axis at exactly half and held the query axis and the day axis single valued at four of four, which under the governed rule of brief Section 5.8 items 21 and 76 raises the dominance note on those axes, so the fixture contradicted the rule its oracle states. This form holds every axis at exactly half of the round: two answers on EngineA and two on EngineB, two on q-one and two on q-two, two captured on 2026-11-01 and two on 2026-11-02. The stated intent and the assertions stand unchanged."""
         answers = distinct_answers(4, named=True)
         answers[2]["engine_label"] = "EngineB"
         answers[3]["engine_label"] = "EngineB"
+        answers[2]["query"] = "q-two"
+        answers[3]["query"] = "q-two"
+        answers[2]["captured_on"] = "2026-11-02"
+        answers[3]["captured_on"] = "2026-11-02"
         result = metrics.round_metrics(answers, "sampled")
         composition = field(result, "composition")
         self.assertEqual(field(composition, "largest_engine_share_count"), 2)

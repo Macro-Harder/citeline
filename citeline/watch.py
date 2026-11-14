@@ -449,6 +449,55 @@ def _probe_entry(home, plan, product, round_label, scope_rounds):
     return entry, no_pair
 
 
+def _standing_product_page_snapshot_count(home, products):
+    """The standing product page snapshots of one home.
+
+    The count stands on the journal facts the round already
+    stands on, on the plan Section 5.1 WatchRun definition:
+    one per snapshot identity whose most recent
+    snapshot_registered record stands as a product page
+    (is_product_page true) and carries the PageSnapshot
+    supplied_path, for a product standing in the registry
+    at the round start. An audit entry of the round, and in
+    particular a skipped audit entry, is not a snapshot and
+    counts as none.
+    """
+    product_ids = {
+        record.get("product_id") for record in products
+        if isinstance(record, dict) and record.get("product_id")}
+    try:
+        from citeline import journal
+        entries = journal.fold(str(home))
+    except Exception:
+        return 0
+    latest = {}
+    order = []
+    for entry in entries or []:
+        if isinstance(entry, dict):
+            kind = entry.get("entry_kind")
+            payload = entry.get("payload") or {}
+        else:
+            kind = getattr(entry, "entry_kind", None)
+            payload = getattr(entry, "payload", {}) or {}
+        if kind != "snapshot_registered" \
+                or not isinstance(payload, dict):
+            continue
+        snapshot_id = payload.get("snapshot_id")
+        if not snapshot_id:
+            continue
+        if snapshot_id not in latest:
+            order.append(snapshot_id)
+        latest[snapshot_id] = payload
+    count = 0
+    for snapshot_id in order:
+        payload = latest[snapshot_id]
+        if payload.get("is_product_page") \
+                and payload.get("supplied_path") \
+                and payload.get("product_id") in product_ids:
+            count += 1
+    return count
+
+
 def _cadence_interval_days(cadence):
     """The interval in days a stated cadence names, or None.
 
@@ -534,6 +583,8 @@ def run_watch(*, plan_file):
             "stands failed before any target runs, and no "
             "WatchRun artefact stands produced")
     products = service.list_products(home=home)
+    standing_snapshot_count = \
+        _standing_product_page_snapshot_count(home, products)
     entries = []
     trend_no_pair_count = 0
     # The append cost of one target, on the S0 append cost
@@ -690,16 +741,14 @@ def run_watch(*, plan_file):
             "count": len(audited_products),
             "denominator": len(products)},
         "product_page_snapshots": {
-            "count": sum(
-                1 for e in entries
-                if e["target_kind"] == "audit"),
+            "count": standing_snapshot_count,
             "denominator": len(products)},
         "snapshots_audited": {
             "count": sum(
                 1 for e in entries
                 if e["target_kind"] == "audit"
                 and e["outcome"] == "completed"),
-            "denominator": len(products)},
+            "denominator": standing_snapshot_count},
         "products_with_only_skips": {
             "count": len(only_skips), "denominator": len(products)},
     }

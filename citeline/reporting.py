@@ -51,6 +51,8 @@ __all__ = [
     "HONESTY_SENTENCE",
     "ANCHOR_LIMIT_SENTENCE",
     "SCOPE_VALUE",
+    "SCHEMA_STAMP",
+    "AGENTIC_STATUS_OK",
     "THIRD_PARTY_SCOPE_LINE",
     "REFUSAL_SENTENCE",
     "CITATION_ONLY_SENTENCE",
@@ -58,6 +60,8 @@ __all__ = [
     "PREFERENCE_STATEMENT",
     "SMALL_SAMPLE_WARNING",
     "CONTROL_FAILURE_NOTICE",
+    "EMPTY_ANSWER_WARNING",
+    "GROUP_NO_ACTION_LINE",
     "render",
     "format_record",
     "bounds_for",
@@ -80,6 +84,16 @@ ANCHOR_LIMIT_SENTENCE = (
 )
 
 SCOPE_VALUE = "signal_presence_only"
+
+# The Agentic envelope contract fields of brief Section 5.5
+# item 122: the schema stamp naming the response schema and
+# its version, and the status token a successful response
+# carries. A failure response carries an error token from
+# the closed vocabulary in the same status field, produced
+# by the layer that raises the failure, before any rendering
+# stands.
+SCHEMA_STAMP = "citeline-agentic-1"
+AGENTIC_STATUS_OK = "ok"
 
 THIRD_PARTY_SCOPE_LINE = (
     "Third party mentions stand outside version 1 measurement, "
@@ -105,6 +119,15 @@ CONTROL_FAILURE_NOTICE = (
     "Control failure notice: a control outcome in this "
     "round contradicts its asserted kind. The notice "
     "stands in its own form and is not a warning."
+)
+
+EMPTY_ANSWER_WARNING = (
+    "Empty answer warning: %d answers in this round are "
+    "empty, with no answer text."
+)
+
+GROUP_NO_ACTION_LINE = (
+    "No action stands in this group for this run."
 )
 
 FALLBACK_STATEMENT = "The evidence sentence does not name the product."
@@ -595,11 +618,37 @@ def render(record, form="advanced"):
     _apply_agentic_scope(body)
     if form == "advanced":
         return body
-    return {
-        "report": body,
-        "honesty_sentence": HONESTY_SENTENCE,
-        "anchor_limit": ANCHOR_LIMIT_SENTENCE,
+    envelope = {
+        "schema_stamp": SCHEMA_STAMP,
+        "status": AGENTIC_STATUS_OK,
     }
+    identity = _stored_report_identity(body)
+    if identity is not None:
+        envelope["report_id"] = identity
+    envelope["report"] = body
+    envelope["honesty_sentence"] = HONESTY_SENTENCE
+    envelope["anchor_limit"] = ANCHOR_LIMIT_SENTENCE
+    return envelope
+
+
+def _stored_report_identity(body):
+    """The stored report identity of one record, where one
+    exists: the run identity of an audit record, the guide
+    identity of a guide draft, or the round identity of a
+    probe report, read from the record itself. A record with
+    no stored identity, as a status or verify record stands,
+    carries none, and its envelope omits the field, as item
+    122 states the field stands where a stored report exists.
+    """
+    if not isinstance(body, dict):
+        return None
+    for name in ("run_id", "guide_id", "round_id", "report_id"):
+        if body.get(name) is not None:
+            return body[name]
+    nested = body.get("audit_run")
+    if isinstance(nested, dict) and nested.get("run_id") is not None:
+        return nested["run_id"]
+    return None
 
 
 def format_record(record, form="advanced"):
@@ -621,6 +670,24 @@ def _scalar_text(value):
     if value is False:
         return "false"
     return str(value)
+
+
+_TREND_RATE_KEYS = ("first_value", "second_value", "delta")
+
+_NONE_SILENT_KEYS = ("honesty_line", "no_delta_statement")
+
+
+def _rate_value_text(value):
+    """A rate value in the Simple form, at four decimal places.
+
+    A stored rate is a proportion; printing it at full float
+    precision gives a sixteen decimal place figure no reader
+    can hold. Four places is the precision the product itself
+    states for its disclosed rate figures.
+    """
+    if isinstance(value, float):
+        return str(round(value, 4))
+    return _scalar_text(value)
 
 
 def _is_rate_object(node):
@@ -674,15 +741,18 @@ def _rate_line(name, node):
     clause = TIER_CLAUSES.get(tier) if isinstance(tier, str) \
         else None
     if tier == "count only":
+        count = node.get("count")
+        if count is None:
+            count = node.get("n")
         if low is None or high is None:
             return (
                 "%s: %s answers, tier count only: %s."
-                % (name, _scalar_text(node.get("n")), clause)
+                % (name, _scalar_text(count), clause)
             )
         return (
             "%s: %s answers, interval %d to %d percent, tier "
             "count only: %s."
-            % (name, _scalar_text(node.get("n")),
+            % (name, _scalar_text(count),
                round(low * 100), round(high * 100), clause)
         )
     warning = node.get("small_sample_warning")
@@ -696,7 +766,7 @@ def _rate_line(name, node):
 
     if rate is None or low is None or high is None:
         rate_part = "rate null" if rate is None else (
-            "rate %s" % _scalar_text(rate))
+            "rate %s" % _rate_value_text(rate))
         interval_part = "interval null" if (
             low is None or high is None) else (
             "interval %d to %d percent"
@@ -720,7 +790,7 @@ def _rate_line(name, node):
         line = (
             "%s: rate %s over %s answers, interval %d to %d "
             "percent, tier %s: %s."
-            % (name, _scalar_text(rate),
+            % (name, _rate_value_text(rate),
                _scalar_text(node.get("n")), low_pct, high_pct,
                _scalar_text(tier), clause)
         )
@@ -728,7 +798,7 @@ def _rate_line(name, node):
         line = (
             "%s: rate %s over %s answers, interval %d to %d "
             "percent, tier %s."
-            % (name, _scalar_text(rate),
+            % (name, _rate_value_text(rate),
                _scalar_text(node.get("n")), low_pct, high_pct,
                _scalar_text(tier))
         )
@@ -759,6 +829,13 @@ def _emit(lines, key, value, depth, suppress_anchor_bare=False):
             else:
                 lines.append("%s  %s" % (pad, _scalar_text(item)))
         return
+    if isinstance(value, float) and (
+            key in _TREND_RATE_KEYS
+            or key.endswith("_rate")
+            or key.endswith("_share")
+            or key.endswith("_percent")):
+        lines.append("%s%s: %s" % (pad, key, _rate_value_text(value)))
+        return
     lines.append("%s%s: %s" % (pad, key, _scalar_text(value)))
     if key == "head_hash" and value and not suppress_anchor_bare:
         lines.append("%s%s" % (pad, ANCHOR_LIMIT_SENTENCE))
@@ -784,6 +861,8 @@ def _emit_dict(lines, node, depth, top=True, top_suppress=None,
     has_path = "evaluated_page_path" in node
     has_flag = "path_defaulted" in node
     for key, value in node.items():
+        if key in _NONE_SILENT_KEYS and value is None:
+            continue
         if key == "path_defaulted" and has_path:
             continue
         if top and top_suppress and key in top_suppress:
@@ -824,12 +903,16 @@ def _render_guide_simple(body):
     grouped = set()
     for class_name, label in groups:
         lines.append(label)
-        for action in actions:
-            if isinstance(action, dict) and \
-                    action.get("worklist_class") == class_name:
-                grouped.add(id(action))
-                text = action.get("text") or action.get("code") or ""
-                lines.append("  %s" % text)
+        members = [
+            action for action in actions
+            if isinstance(action, dict)
+            and action.get("worklist_class") == class_name]
+        if not members:
+            lines.append("  %s" % GROUP_NO_ACTION_LINE)
+        for action in members:
+            grouped.add(id(action))
+            text = action.get("text") or action.get("code") or ""
+            lines.append("  %s" % text)
     rest = [a for a in actions if id(a) not in grouped]
     if rest:
         lines.append(
@@ -905,6 +988,148 @@ _COVERAGE_STATEMENT = (
 )
 
 
+def _is_audit_record(body):
+    return isinstance(body, dict) and "checks" in body \
+        and "score" in body and "run_id" in body
+
+
+_AUDIT_STAMP_KEYS = (
+    "registry_version", "detector_version", "query_set_version",
+    "ruleset_version", "score_ruleset_version",
+    "robots_ruleset_version", "methods_note_version",
+)
+
+
+def _render_audit_simple(body):
+    """The Simple audit artefact in its prose form.
+
+    The artefact opens with the verdict: the score and its
+    band, and what the score rests on. It then names the run
+    and the snapshot by their identifier lines, states the
+    evaluated page path with its defaulted line, and gives
+    the top adverse reasons in the order the record stores
+    the failed and warned checks, one line per check for the
+    whole check set, the next actions pointer, and a pointer
+    in words to the Advanced artefact for the same run. The
+    nested copies of the record the service carry folds in
+    (the snapshot object and the audit_run copy) and the
+    page sentences are not printed a second time: depth is
+    dropped, and the bounds and honesty lines the common
+    tail appends are never dropped.
+
+    Check identifiers, reason codes, and evidence classes
+    stand in their stored code form in the check lines. No
+    governing statement supplies plain words for that set,
+    and none is invented here.
+    """
+    lines = ["Audit report."]
+    score = body.get("score")
+    if not isinstance(score, dict):
+        score = {}
+    value = score.get("value")
+    band = score.get("band")
+    if value is None:
+        lines.append("The score for this run stands not recorded.")
+    else:
+        lines.append(
+            "The score for this run is %s, in the %s band."
+            % (_scalar_text(value), _scalar_text(band)))
+        basis = score.get("applicable_basis")
+        if isinstance(basis, dict):
+            checks_named = basis.get("applicable_checks") or []
+            weight = basis.get("applicable_weight")
+            if weight is not None:
+                lines.append(
+                    "The score rests on %d checks, with a total "
+                    "weight of %s."
+                    % (len(checks_named), _scalar_text(weight)))
+        if score.get("cap_status"):
+            lines.append(
+                "The evidence cap holds the score at 39 for "
+                "this run.")
+        else:
+            lines.append(
+                "The evidence cap does not hold for this run.")
+    lines.append("run_id: %s" % _scalar_text(body.get("run_id")))
+    if body.get("snapshot_id") is not None:
+        lines.append(
+            "snapshot_id: %s" % _scalar_text(body.get("snapshot_id")))
+    if body.get("evaluated_page_path") is not None:
+        lines.append(
+            "evaluated_page_path: %s"
+            % _scalar_text(body.get("evaluated_page_path")))
+        if "path_defaulted" in body:
+            if body.get("path_defaulted"):
+                lines.append("The evaluated page path was defaulted.")
+            else:
+                lines.append(
+                    "The evaluated page path was supplied and "
+                    "not defaulted.")
+    if body.get("audit_date") is not None:
+        lines.append(
+            "audit_date: %s" % _scalar_text(body.get("audit_date")))
+    checks = body.get("checks")
+    if not isinstance(checks, list):
+        checks = []
+    lines.append("Top adverse reasons:")
+    adverse = [
+        check for check in checks
+        if isinstance(check, dict)
+        and check.get("status") in ("fail", "warn")]
+    if adverse:
+        for check in adverse:
+            word = "failed" if check.get("status") == "fail" \
+                else "warned"
+            lines.append(
+                "  %s: %s, reason %s."
+                % (_scalar_text(check.get("check_id")), word,
+                   _scalar_text(check.get("reason_code"))))
+    else:
+        lines.append(
+            "  No check in this run carries a failed or "
+            "warned status.")
+    lines.append("Checks:")
+    for check in checks:
+        if not isinstance(check, dict):
+            continue
+        lines.append(
+            "  %s: earned %s of weight %s, status %s, reason "
+            "%s, evidence class %s."
+            % (_scalar_text(check.get("check_id")),
+               _scalar_text(check.get("earned")),
+               _scalar_text(check.get("weight")),
+               _scalar_text(check.get("status")),
+               _scalar_text(check.get("reason_code")),
+               _scalar_text(check.get("evidence_class"))))
+    lines.append("Next actions:")
+    lines.append(
+        "  The guide artefact for this run carries the actions "
+        "for this run in plain words, from the run_id above.")
+    lines.append(
+        "The full record for this run stands in the Advanced "
+        "artefact for the same run.")
+    for key in _AUDIT_STAMP_KEYS:
+        if body.get(key) is not None:
+            lines.append(
+                "%s: %s" % (key, _scalar_text(body.get(key))))
+    summary = body.get("robots_summary")
+    if isinstance(summary, dict):
+        if summary.get("finding_count") is not None:
+            lines.append(
+                "The robots summary for this run carries %s "
+                "findings, and stands in full in the Advanced "
+                "artefact for the same run."
+                % _scalar_text(summary.get("finding_count")))
+        else:
+            lines.append(
+                "A robots summary for this run stands in the "
+                "Advanced artefact for the same run.")
+    facts = body.get("facts_counts")
+    if _is_absence(facts):
+        lines.append("facts_counts: not recorded")
+    return lines
+
+
 def _render_simple(body):
     if not isinstance(body, dict):
         return _scalar_text(body)
@@ -912,6 +1137,8 @@ def _render_simple(body):
         lines = _render_guide_simple(body)
     elif _is_query_set_report(body):
         lines = _render_query_set_simple(body)
+    elif _is_audit_record(body):
+        lines = _render_audit_simple(body)
     else:
         lines = []
         top_suppress = set()
@@ -926,8 +1153,28 @@ def _render_simple(body):
             if "anchor_limit" in body or \
                     "anchor_limit_sentence" in body:
                 suppress_anchor_bare = True
+        if "evaluated_page_path" in body:
+            lines.append(
+                "evaluated_page_path: %s"
+                % _scalar_text(body.get("evaluated_page_path")))
+            if "path_defaulted" in body:
+                if body.get("path_defaulted"):
+                    lines.append(
+                        "The evaluated page path was defaulted.")
+                else:
+                    lines.append(
+                        "The evaluated page path was supplied "
+                        "and not defaulted.")
+            top_suppress.update(
+                ("evaluated_page_path", "path_defaulted"))
         _emit_dict(lines, body, 0, top_suppress=top_suppress,
                    suppress_anchor_bare=suppress_anchor_bare)
+        if "rates" in body and "empty_answer_count" in body:
+            empty_count = body.get("empty_answer_count")
+            if isinstance(empty_count, int) and \
+                    not isinstance(empty_count, bool) and \
+                    empty_count != 0:
+                lines.append(EMPTY_ANSWER_WARNING % empty_count)
     bounds = _find_bounds(body)
     if bounds is not None and _is_report_like(body):
         lines.append("Bounds.")

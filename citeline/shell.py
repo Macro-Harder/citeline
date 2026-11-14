@@ -14,7 +14,9 @@ invocation here, and code 1 stands unassigned as a product
 outcome and stands returned by no invocation here.
 """
 
+import inspect
 import json
+import os
 import sys
 
 from citeline import service
@@ -69,7 +71,7 @@ _SURFACE = {
     "audit": (
         "audit",
         ("home", "page_file", "robots_file",
-         "evaluated_page_path", "audit_date", "form")),
+         "evaluated_page_path", "audit_date", "form", "run_id")),
     "robots": (
         "robots",
         ("home", "robots_file", "evaluated_page_path", "form",
@@ -189,7 +191,7 @@ def help_text():
         "--importer_declaration --supplier_relation "
         "--audit_date --form",
         "audit --home --page_file --robots_file "
-        "--evaluated_page_path --audit_date --form",
+        "--evaluated_page_path --audit_date --form --run_id",
         "robots --home --robots_file --evaluated_page_path "
         "--form --audit_date",
         "robots-preview --home --first_robots_file "
@@ -276,7 +278,7 @@ def help_text():
     return "\n".join(lines) + "\n"
 
 
-def format_record(record, form="advanced"):
+def format_record(record, form="simple"):
     """Format one returned record in one reading form.
 
     The act stands as the reporting pipeline render under
@@ -296,6 +298,24 @@ def format_record(record, form="advanced"):
                         for marker in _ARTEFACT_MARKERS):
         return rendered["report"]
     return rendered
+
+
+def _render_for_print(record, form):
+    """Render one record for printing in one reading form.
+
+    The printed Agentic form stands as the item 122 envelope
+    the reporting pipeline returns, with its contract fields
+    at the top level, for every command, so no printed
+    Agentic artefact stands byte identical to its Advanced
+    artefact. The format act above keeps its own stated
+    form for a standing record rendered through it; the
+    invocation print path is the surface a caller reads as
+    the invocation response, and the envelope belongs there.
+    """
+    if form != "agentic":
+        return format_record(record, form=form)
+    from citeline import reporting
+    return reporting.format_record(record, form="agentic")
 
 
 def _exit_code_for(exc):
@@ -436,14 +456,131 @@ def _print_error(exc):
         print(str(message), file=sys.stderr)
 
 
+def _default_home():
+    """The stated default product home: a directory named
+    .citeline in the operator home directory."""
+    return os.path.join(os.path.expanduser("~"), ".citeline")
+
+
+def _extract_value(tokens, flag):
+    """The value standing after one flag spelling, or None."""
+    tokens = list(tokens or [])
+    for index, token in enumerate(tokens):
+        if token == flag and index + 1 < len(tokens):
+            return tokens[index + 1]
+    return None
+
+
+def _home_from_plan(plan_path):
+    """The home a watch plan file names, or None."""
+    if not plan_path:
+        return None
+    try:
+        with open(plan_path, "r", encoding="utf-8") as handle:
+            plan = json.load(handle)
+    except Exception:
+        return None
+    if isinstance(plan, dict):
+        home = plan.get("home")
+        if isinstance(home, str) and home:
+            return home
+    return None
+
+
+def _append_malformed_record(home, operation, audit_date=None):
+    """Append the row U-8 failure record for one malformed call.
+
+    The record stands appended only where a home stands and
+    its chain verifies, on the row U-8 terms: where the chain
+    accepts appends. Where no home stands named, or the chain
+    does not accept an append, the caller response stands as
+    the only record and nothing is created.
+    """
+    if not home or not os.path.isdir(str(home)):
+        return
+    try:
+        from citeline import journal
+        chain = journal.verify_chain(str(home))
+        if not chain.get("passed"):
+            return
+        payload = {
+            "operation": operation,
+            "error_value": "MALFORMED_CALL",
+            "subject_identity": str(operation),
+            "date": audit_date,
+            "rule_fired": "MALFORMED_CALL",
+        }
+        journal.append_entry(
+            str(home), "failure_record", payload,
+            audit_date=audit_date)
+    except Exception:
+        pass
+
+
+def _usage_error(detail, home=None, operation="citeline",
+                 audit_date=None):
+    """The governed malformed call outcome, at the shell layer.
+
+    Prints the MALFORMED_CALL value with its message to
+    standard error, reproduces the subcommand list in full
+    on standard output, appends the failure record where the
+    named home chain accepts appends, and returns the usage
+    exit code 2.
+    """
+    from citeline import errors
+    exc = errors.CitelineError(detail, token="MALFORMED_CALL")
+    _append_malformed_record(home, operation, audit_date)
+    _print_error(exc)
+    print(help_text(), end="")
+    return _USAGE
+
+
+def _missing_required(operation, inputs):
+    """The required inputs of one operation that stand absent.
+
+    The required set stands read from the service operation
+    signature: a parameter with no default stands required,
+    except the home input, whose default the shell supplies,
+    and the form input, which the shell itself carries. One
+    stated alternative stands beside the signature rule: an
+    audit call names either a page file or a standing run
+    identity, so the page file stands required exactly where
+    the call names neither.
+    """
+    try:
+        signature = inspect.signature(getattr(service, operation))
+    except Exception:
+        return []
+    present = set(inputs)
+    if operation == "set_category" and "category" in present:
+        present.add("category_terms")
+    missing = []
+    for name, parameter in signature.parameters.items():
+        if parameter.default is not inspect.Parameter.empty:
+            continue
+        if name in ("home", "form"):
+            continue
+        if name not in present:
+            missing.append(name)
+    if operation == "audit" and "page_file" not in present \
+            and "run_id" not in present:
+        missing.append("page_file")
+    return missing
+
+
 def main(argv=None):
     """Run one invocation and return its exit code."""
     argv = list(argv or [])
     if not argv:
-        return _USAGE
+        return _usage_error(
+            "the call names no subcommand in the invocation "
+            "surface list")
     if argv[0] == "help":
         if len(argv) != 1:
-            return _USAGE
+            return _usage_error(
+                "help takes no further input: %s"
+                % " ".join(argv[1:]),
+                home=_extract_value(argv, "--home"))
         print(help_text(), end="")
         return 0
     if argv[0] == "watch":
@@ -451,33 +588,76 @@ def main(argv=None):
     if argv[0] == "probe":
         if len(argv) < 2 or argv[1] not in ("import", "report",
                                             "trend"):
-            return _USAGE
+            bad = argv[1] if len(argv) > 1 else ""
+            return _usage_error(
+                "the call names no probe subcommand in the "
+                "invocation surface list: probe %s" % bad,
+                home=_extract_value(argv, "--home"),
+                operation="probe")
         subcommand = "probe " + argv[1]
         tokens = argv[2:]
     else:
         subcommand = argv[0]
         tokens = argv[1:]
     if subcommand not in _SURFACE:
-        return _USAGE
+        return _usage_error(
+            "the call names no subcommand in the invocation "
+            "surface list: %s" % subcommand,
+            home=_extract_value(argv, "--home"),
+            operation=subcommand)
     operation, allowed = _SURFACE[subcommand]
     inputs = _parse_flags(tokens, allowed, operation)
     if inputs is None:
-        return _USAGE
+        return _usage_error(
+            "the call stands malformed: its inputs stand as "
+            "named flags with a value each, from the inputs "
+            "the subcommand accepts",
+            home=_extract_value(tokens, "--home"),
+            operation=subcommand,
+            audit_date=_extract_value(tokens, "--audit_date"))
     inputs = _coerce_list_inputs(inputs)
     if inputs is None:
-        return _USAGE
+        return _usage_error(
+            "the call stands malformed: a list valued input "
+            "stands in no admitted list form",
+            home=inputs.get("home") if inputs else
+            _extract_value(tokens, "--home"),
+            operation=subcommand,
+            audit_date=_extract_value(tokens, "--audit_date"))
     form = inputs.get("form")
     if form is not None and form not in FORMS:
-        return _USAGE
+        return _usage_error(
+            "the form input stands outside the three stated "
+            "values (simple, advanced, agentic): %s" % form,
+            home=inputs.get("home"),
+            operation=subcommand,
+            audit_date=inputs.get("audit_date"))
+    missing = _missing_required(operation, inputs)
+    if missing:
+        return _usage_error(
+            "the call names no %s, which stands required"
+            % ", ".join(missing),
+            home=inputs.get("home"),
+            operation=subcommand,
+            audit_date=inputs.get("audit_date"))
+    if "home" not in inputs:
+        inputs["home"] = _default_home()
     call = dict(inputs)
     call.pop("form", None)
     try:
         record = getattr(service, operation)(**call)
+    except TypeError:
+        return _usage_error(
+            "the call stands malformed against the inputs "
+            "the subcommand accepts",
+            home=inputs.get("home"),
+            operation=subcommand,
+            audit_date=inputs.get("audit_date"))
     except Exception as exc:
         _print_error(exc)
         return _exit_code_for(exc)
     try:
-        rendered = format_record(record, form=form or "advanced")
+        rendered = _render_for_print(record, form=form or "simple")
         _print_rendered(rendered)
     except Exception:
         pass
@@ -489,19 +669,33 @@ def main(argv=None):
 def _run_watch(tokens):
     inputs = _parse_flags(tokens, ("plan", "form"), "watch")
     if inputs is None or "plan" not in inputs:
-        return _USAGE
+        return _usage_error(
+            "the watch call names no plan, which stands "
+            "required",
+            home=_home_from_plan(_extract_value(tokens, "--plan")),
+            operation="watch")
     form = inputs.get("form")
     if form is not None and form not in FORMS:
-        return _USAGE
+        return _usage_error(
+            "the form input stands outside the three stated "
+            "values (simple, advanced, agentic): %s" % form,
+            home=_home_from_plan(inputs.get("plan")),
+            operation="watch")
     from citeline import watch
     try:
         result = watch.run_watch(plan_file=inputs["plan"])
+    except TypeError:
+        return _usage_error(
+            "the watch call stands malformed against the "
+            "inputs the subcommand accepts",
+            home=_home_from_plan(inputs.get("plan")),
+            operation="watch")
     except Exception as exc:
         _print_error(exc)
         return _exit_code_for(exc)
     try:
-        rendered = format_record(
-            result, form=form or result.get("form") or "advanced")
+        rendered = _render_for_print(
+            result, form=form or result.get("form") or "simple")
         _print_rendered(rendered)
     except Exception:
         pass

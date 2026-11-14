@@ -100,7 +100,7 @@ _TABLE_ROWS = [
     (8, "Google-Extended", "Google", "control", _DIRECT, _DIRECT,
      "https://developers.google.com/search/docs/crawling-indexing/google-common-crawlers",
      "No date on page. Accessed 2026-11-12"),
-    (9, "Bingbot", "Microsoft", "search", _SECONDARY, _DIRECT,
+    (9, "Bingbot", "Microsoft", "search", _DIRECT, _DIRECT,
      "https://www.bing.com/webmasters/help/which-crawlers-does-bing-use-8c184ec0",
      "No date confirmed. Checked 2026-11-12"),
     (10, "PerplexityBot", "Perplexity", "search", _DIRECT, _DIRECT,
@@ -110,15 +110,15 @@ _TABLE_ROWS = [
      _DIRECT,
      "https://docs.perplexity.ai/docs/resources/perplexity-crawlers",
      "Page updated 2026-10-29"),
-    (12, "meta-externalagent", "Meta", "training", _SECONDARY,
+    (12, "meta-externalagent", "Meta", "training", _DIRECT,
      _SECONDARY,
      "https://developers.facebook.com/docs/sharing/webmasters/crawler",
      "Page last updated 2026-05-21, as reported. Checked 2026-11-12"),
-    (13, "meta-webindexer", "Meta", "search", _SECONDARY,
+    (13, "meta-webindexer", "Meta", "search", _DIRECT,
      _SECONDARY,
      "https://developers.facebook.com/docs/sharing/webmasters/crawler",
      "Page last updated 2026-05-21, as reported. Checked 2026-11-12"),
-    (14, "meta-externalfetcher", "Meta", "user_fetch", _SECONDARY,
+    (14, "meta-externalfetcher", "Meta", "user_fetch", _DIRECT,
      _SECONDARY,
      "https://developers.facebook.com/docs/sharing/webmasters/crawler",
      "Page last updated 2026-05-21, as reported. Checked 2026-11-12"),
@@ -206,6 +206,67 @@ _APPLICABILITY_NOTES = {
     ),
 }
 
+# The obedience statement of one row: the operator statement
+# on robots honouring as recorded for that row in the sourced
+# table work, or not documented where no statement stands
+# recorded for the row. An obedience statement is the operator
+# statement, labelled as such; no row claims behaviour in the
+# wild. Keyed by row number.
+_OBEDIENCE_STATEMENTS = {
+    1: ("OpenAI states that disallowing GPTBot indicates the "
+        "content should not be used in training its generative "
+        "AI foundation models."),
+    2: ("OpenAI states that sites opted out of OAI-SearchBot "
+        "will not be shown in ChatGPT search answers."),
+    3: ("OpenAI states that ChatGPT-User is not used for "
+        "automatic crawling, and robots rules may not apply "
+        "to it because a user initiated the action."),
+    4: ("Anthropic states that restricting ClaudeBot signals "
+        "that future materials should be excluded from "
+        "training datasets."),
+    5: ("Anthropic states that disabling Claude-SearchBot "
+        "prevents indexing for search optimisation."),
+    6: ("Anthropic states that site owners can limit "
+        "Claude-User through robots.txt, and that disabling "
+        "it prevents retrieval in response to a user query."),
+    7: ("Google states that its common crawlers always obey "
+        "robots.txt rules when crawling automatically."),
+    10: ("Perplexity states that PerplexityBot only crawls in "
+         "compliance with robots.txt."),
+    11: ("Perplexity states that Perplexity-User generally "
+         "ignores robots rules because a user requested the "
+         "fetch."),
+    15: ("Apple states that Applebot respects standard "
+         "robots.txt directives targeted at it."),
+    24: ("You.com states that YouBot fully respects robots "
+         "directives including crawl delay."),
+    25: ("Common Crawl states that CCBot checks robots.txt, "
+         "and supports Disallow and Allow combinations and "
+         "crawl delay."),
+}
+
+# The crawl delay position of one row, one of supported,
+# ignored, or not documented, as the operator documentation
+# recorded for that row states it. Keyed by row number; a row
+# with no entry stands not documented. Anthropic supports the
+# extension, Google names crawl delay as a field it does not
+# support, Applebot does not follow it, and YouBot and CCBot
+# stand recorded as respecting or obeying it. The Bingbot
+# entry rests on the secondary reporting of Microsoft
+# documentation recorded in the sourced table work, which
+# reports honouring within a bounded range; no range value
+# stands in this field.
+_CRAWL_DELAY_POSITIONS = {
+    4: "supported",
+    5: "supported",
+    6: "supported",
+    7: "ignored",
+    9: "supported",
+    15: "ignored",
+    24: "supported",
+    25: "supported",
+}
+
 CRAWLER_TABLE = [
     {
         "row": row,
@@ -216,6 +277,10 @@ CRAWLER_TABLE = [
         "purpose_prose_evidence_label": prose,
         "source_url": source,
         "source_date": source_date,
+        "obedience_statement": _OBEDIENCE_STATEMENTS.get(
+            row, "not documented"),
+        "crawl_delay_position": _CRAWL_DELAY_POSITIONS.get(
+            row, "not documented"),
         "mixed_purpose_note": (
             _MIXED_PURPOSE_NOTE if row == 12 else None
         ),

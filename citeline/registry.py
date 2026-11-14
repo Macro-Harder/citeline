@@ -704,6 +704,38 @@ def set_category(home, product=None, category=None, audit_date=None,
     return _store_change(home, record, audit_date)
 
 
+def _append_register_failure(home, token, subject, audit_date):
+    """Append one failure record for a refused register page call.
+
+    The joined entry 13 table orders a failure record for
+    row X-5 where the chain accepts appends. A barred chain,
+    a chain at cap, and any append failure leave no record,
+    and the caller response stands as the only record, on
+    the same terms the service layer applies to its failure
+    records. This helper never raises.
+    """
+    journal = _journal()
+    try:
+        chain = journal.verify_chain(str(home))
+        if not chain.get("passed"):
+            return
+    except Exception:
+        return
+    payload = {
+        "operation": "register_page",
+        "error_value": token,
+        "subject_identity": str(subject),
+        "date": audit_date,
+        "rule_fired": token,
+    }
+    try:
+        journal.append_entry(
+            str(home), "failure_record", payload,
+            audit_date=audit_date)
+    except Exception:
+        pass
+
+
 def register_page(home, product=None, snapshot=None, audit_date=None,
                   **kwargs):
     """Set is_product_page for one snapshot of one product.
@@ -712,28 +744,54 @@ def register_page(home, product=None, snapshot=None, audit_date=None,
     creation, and registration is per snapshot. It appends
     a snapshot_registered entry carrying the snapshot record
     as changed, with is_product_page true.
+
+    The snapshot input names a standing snapshot of this
+    product by its snapshot_id, on brief Section 5.12. An
+    identifier that names no standing snapshot for this
+    product stands refused, and no snapshot record stands
+    written for it: registration sets the field on the
+    standing PageSnapshot record, and fabricates no record
+    of its own. The refusal carries row X-5, token
+    VALIDATION_FAILED, usage class, exit code 2, with a
+    failure record appended where the chain accepts
+    appends, as that joined row orders. No row of the
+    joined table names an unknown snapshot as its own
+    condition, and the closed vocabulary admits no new
+    value, so the registry validation row governs this
+    caller correctable identifier failure, as it already
+    governs a missing snapshot identity in this operation.
     """
     if snapshot is None:
         snapshot = kwargs.get("snapshot_id")
     record = _require_product(home, product)
     if isinstance(snapshot, dict):
         snapshot_id = snapshot.get("snapshot_id")
-        base = copy.deepcopy(snapshot)
     else:
         snapshot_id = snapshot
-        base = {}
     if not snapshot_id:
         _fail("VALIDATION_FAILED", "a snapshot identity is required")
     standing = None
     for candidate in _snapshots(home):
-        if candidate.get("snapshot_id") == snapshot_id:
+        if candidate.get("snapshot_id") == snapshot_id \
+                and candidate.get("product_id") \
+                == record["product_id"]:
             standing = candidate
-    if standing is not None:
-        base = copy.deepcopy(standing)
+    if standing is None:
+        allowed = ", ".join(sorted(
+            str(candidate.get("snapshot_id"))
+            for candidate in _snapshots(home)
+            if candidate.get("product_id") == record["product_id"]
+            and candidate.get("snapshot_id"))) or (
+                "no standing snapshot for this product")
+        _append_register_failure(
+            home, "VALIDATION_FAILED", snapshot_id, audit_date)
+        _fail(
+            "VALIDATION_FAILED",
+            "unknown snapshot %r for product %s; allowed values: %s"
+            % (snapshot_id, record.get("name"), allowed))
+    base = copy.deepcopy(standing)
     base["snapshot_id"] = snapshot_id
     base["product_id"] = record["product_id"]
-    if "is_product_page" not in base:
-        base["is_product_page"] = False
     base["is_product_page"] = True
     _append(home, "snapshot_registered", base, audit_date)
     return copy.deepcopy(base)
