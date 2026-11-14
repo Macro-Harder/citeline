@@ -407,6 +407,19 @@ def _statistic_analysis(page):
             for m in re.finditer(r"\b\d+(?:\.\d+){2,}\b", masked)
         ],
     )
+    # A figure the sentence itself names as its version
+    # counts nothing either, in the two part form as in
+    # the longer form: the naming word stands beside the
+    # figure in the sentence that carries it.
+    masked = _mask(
+        masked,
+        [
+            (m.start(), m.end())
+            for m in re.finditer(
+                r"\bversion\s+\d+(?:\.\d+)+\b", masked, re.IGNORECASE
+            )
+        ],
+    )
     spans = []
     for match in _STATISTIC_PATTERN.finditer(masked):
         token = match.group("token")
@@ -448,6 +461,26 @@ def _quotation_analysis(page):
                 window_end = min(window_end, chunk_end)
                 break
         window = text[end:window_end]
+        # A single capitalised name is a cue in its own
+        # right, as one of the three cues in the closed
+        # set. A capitalised word that opens a new
+        # sentence in the window is not read as a name:
+        # its capital belongs to the sentence, not to a
+        # person. The first word of the window continues
+        # the span's own sentence where the span did not
+        # close that sentence.
+        single_name = False
+        for name_match in re.finditer(r"\b[A-Z][a-z]+\b", window):
+            prefix = window[:name_match.start()].rstrip()
+            if not prefix:
+                if not inner.rstrip().endswith((".", "!", "?")):
+                    single_name = True
+                    break
+                continue
+            if prefix.endswith((".", "!", "?")):
+                continue
+            single_name = True
+            break
         cue = (
             re.search(r"(?<![A-Za-z])said(?![A-Za-z])", window,
                       re.IGNORECASE)
@@ -455,6 +488,7 @@ def _quotation_analysis(page):
             or re.search(r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+\b", window)
             or re.search(r"(?<![A-Za-z])[A-Z][a-z]+\s+(?:wrote|said)\b",
                          window)
+            or single_name
         )
         if cue:
             attributed += 1
@@ -626,7 +660,7 @@ _MONTH_DATE = re.compile(
     re.IGNORECASE,
 )
 _LABELLED_LINE = re.compile(
-    r"^\s*(Updated|Last updated|Date)\s*:\s*(.*)$", re.IGNORECASE
+    r"^\s*(Updated|Last updated|Date):\s*(.*)$", re.IGNORECASE
 )
 
 
@@ -883,6 +917,17 @@ def run_checks(page, facts=None, audit_date=None, **_ignored):
             "is_product_page", True
         ):
             applicable = False
+        if check_id == "comparison" and (
+            not facts.get("competitors")
+            or not facts.get("category_terms")
+        ):
+            # Brief Section 10.9 condition C5: comparison
+            # applies only where the product has a category
+            # and at least one competitor, and reports
+            # CMP_NA, the code the record already carries,
+            # where it does not apply.
+            applicable = False
+            reason = "CMP_NA"
         result = {
             "check_id": check_id,
             "weight": weight,
@@ -913,6 +958,25 @@ def _count_for(result, keys, fallback_spans=True):
                 return counts[key]
     if fallback_spans:
         spans = _get(result, "evidence_spans", []) or []
+        if _get(result, "check_id") == "quotations" and spans:
+            # The cap quantity for quotations is the
+            # attributed span count, and a spans only
+            # record carries unattributed spans beside
+            # attributed ones, so the span total is not
+            # that count. The record's own reason code
+            # and earned value state it: the none
+            # attributed code stands only where no span
+            # is attributed, and where a span stands
+            # attributed the earned formula (attributed
+            # plus half the unattributed, over 2) gives
+            # the count back from the span total.
+            reason = _get(result, "reason_code")
+            if reason == "QUOTE_NONE_ATTRIBUTED":
+                return 0
+            if reason in ("QUO_COUNT", "QUO_UNATTRIBUTED"):
+                earned = _get(result, "earned", 0) or 0
+                derived = int(round(4 * float(earned) - len(spans)))
+                return max(1, min(len(spans), derived))
         return len(spans)
     return 0
 

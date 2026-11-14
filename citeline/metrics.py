@@ -13,6 +13,7 @@ call inputs, read as asserted values only. No date is read
 from a clock here.
 """
 
+import copy
 import math
 import re
 import unicodedata
@@ -209,7 +210,7 @@ def round_metrics(answers, kind, frame=None, datum=None,
     by_kind = []
     for item in answers:
         item_kind = _first(item, ("source_kind", "kind"), None)
-        if item_kind is None or item_kind == kind:
+        if item_kind == kind:
             by_kind.append(item)
     imported_count = len(by_kind)
     controls = [item for item in by_kind if _first(item, ("control", "control_flag"), False)]
@@ -885,16 +886,46 @@ def _fallback_detect(text, product, competitors):
 
 
 def _fold_registry(entries, fold_point):
+    # Entries fold in sequence order. A correction entry
+    # whose superseded entry is a registry entry inside the
+    # fold range applies in sequence order: the corrected
+    # record stands in place of the superseded entry record
+    # for every later point in the fold, on the plan
+    # Section 5.2 fold rule journal.py implements for
+    # registry readers.
+    ordered = sorted(
+        list(entries or []),
+        key=lambda item: _get(item, "sequence", 0) or 0,
+    )
+    effective = []
+    by_sequence = {}
+    for entry in ordered:
+        sequence = _get(entry, "sequence", None)
+        if fold_point is not None and sequence is not None \
+                and sequence > fold_point:
+            continue
+        if _get(entry, "entry_kind", None) == "correction":
+            payload = _get(entry, "payload", None) or {}
+            target = by_sequence.get(
+                _get(payload, "supersedes_sequence", None))
+            corrected = _get(payload, "corrected_record", None)
+            if target is not None and isinstance(corrected, dict):
+                target["payload"] = copy.deepcopy(corrected)
+            continue
+        folded = {
+            "entry_kind": _get(entry, "entry_kind", None),
+            "payload": _get(entry, "payload", None) or {},
+        }
+        effective.append(folded)
+        if sequence is not None:
+            by_sequence[sequence] = folded
     product = {}
     competitors = []
-    for entry in entries:
-        sequence = _get(entry, "sequence", None)
-        if fold_point is not None and sequence is not None and sequence > fold_point:
+    for entry in effective:
+        if entry["entry_kind"] not in (
+                "product_registered", "registry_change"):
             continue
-        kind = _get(entry, "entry_kind", None)
-        if kind not in ("product_registered", "registry_change"):
-            continue
-        payload = _get(entry, "payload", None) or {}
+        payload = entry["payload"]
         for key in ("product_id", "name", "domain", "aliases",
                     "canonical_line", "category", "query_set"):
             if _get(payload, key, None) is not None:
@@ -903,9 +934,9 @@ def _fold_registry(entries, fold_point):
             competitors = list(_get(payload, "competitors") or [])
     if "name" not in product:
         round_info = {}
-        for entry in entries:
-            if _get(entry, "entry_kind") == "round_named":
-                round_info = _get(entry, "payload", None) or {}
+        for entry in effective:
+            if entry["entry_kind"] == "round_named":
+                round_info = entry["payload"]
         product.setdefault("name", _get(round_info, "product_name", ""))
     product["competitors"] = competitors
     return product
@@ -1006,7 +1037,7 @@ def answer_metrics_from_journal(entries, fold_point=None, detector_version=None)
             "cluster_id": cluster_id,
             "near_duplicate": bool(cluster_sizes.get(cluster_id, 0) > 1),
             "query": _get(payload, "query", ""),
-            "engine_label": _first(payload, ("engine_label_original", "engine_label"), ""),
+            "engine_label": _first(payload, ("engine_label_normalised", "engine_label_original", "engine_label"), ""),
             "capture_method": _get(payload, "capture_method", ""),
             "captured_on": _get(payload, "captured_on", ""),
             "source_kind": _get(payload, "kind", ""),

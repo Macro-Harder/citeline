@@ -88,6 +88,13 @@ _PAGE_FILE_LIMIT = 2 * 1024 * 1024
 _EXTRACTED_TEXT_LIMIT = 500000
 _ELEMENT_EVENT_LIMIT = 100000
 _NESTING_DEPTH_LIMIT = 100
+_ATTRIBUTES_PER_ELEMENT_LIMIT = 100
+_ATTRIBUTE_VALUE_LIMIT = 10000
+_LINK_COUNT_LIMIT = 10000
+_HEADING_COUNT_LIMIT = 10000
+_REFERENCE_DEFINITION_LIMIT = 10000
+_FRONT_MATTER_BLOCK_LIMIT = 16 * 1024
+_FRONT_MATTER_VALUE_LIMIT = 4096
 
 _FORMATS = ("markdown", "html", "text")
 _EXTENSION_FORMATS = {
@@ -208,12 +215,66 @@ _ABBREVIATIONS = ("e.g.", "i.e.", "Dr.", "Mr.", "Mrs.", "Ms.", "St.", "vs.")
 _CLOSING_MARKS = ('"', "'", "”", "’", ")", "]")
 
 
+def _inline_link_spans(text):
+    """Inline link and image spans with balanced targets.
+
+    Returns a list of (start, end, label, target, is_image,
+    target_start, target_end), where start and end bound the
+    whole span and target_start and target_end bound the
+    target inside it. A target may hold balanced
+    parentheses, which stand as written; the span ends at
+    the closing parenthesis that balances the opening one.
+    An optional quoted title after the target is part of
+    the span and not of the target.
+    """
+    spans = []
+    index = 0
+    length = len(text)
+    while index < length:
+        is_image = False
+        label_start = index
+        if text[index] == "!" and index + 1 < length \
+                and text[index + 1] == "[":
+            is_image = True
+            label_start = index + 1
+        if text[label_start] != "[":
+            index += 1
+            continue
+        label_end = text.find("]", label_start + 1)
+        if label_end < 0 or label_end + 1 >= length \
+                or text[label_end + 1] != "(":
+            index = label_start + 1
+            continue
+        depth = 1
+        cursor = label_end + 2
+        while cursor < length and depth:
+            if text[cursor] == "(":
+                depth += 1
+            elif text[cursor] == ")":
+                depth -= 1
+            cursor += 1
+        if depth:
+            index = label_start + 1
+            continue
+        content = text[label_end + 2:cursor - 1]
+        stripped = content.strip()
+        target = stripped.split()[0] if stripped.split() else ""
+        target_start = label_end + 2 + (
+            len(content) - len(content.lstrip()))
+        spans.append((index, cursor,
+                      text[label_start + 1:label_end], target,
+                      is_image, target_start,
+                      target_start + len(target)))
+        index = cursor
+    return spans
+
+
 def _mask_spans(text, fmt):
     chars = list(text)
     spans = []
     if fmt == "markdown":
-        for match in re.finditer(r"\[[^\]]*\]\(([^)]*)\)", text):
-            spans.append((match.start(1), match.end(1)))
+        for span in _inline_link_spans(text):
+            spans.append((span[5], span[6]))
         for match in re.finditer(r"\[[^\]]*\]\[([^\]]*)\]", text):
             spans.append((match.start(1), match.end(1)))
     for match in re.finditer(r"https?://[^\s<>\)\]]+", text):
@@ -304,10 +365,10 @@ def _clean_markdown_line(line):
         if all(re.fullmatch(r":?-{3,}:?", cell or "---") for cell in cells):
             return ""
         stripped = " ".join(cells)
-    stripped = re.sub(r"!\[([^\]]*)\]\([^)]*\)", r"\1", stripped)
-    stripped = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", stripped)
+    for span in reversed(_inline_link_spans(stripped)):
+        stripped = stripped[:span[0]] + span[2] + stripped[span[1]:]
     stripped = re.sub(r"\[([^\]]+)\]\[[^\]]*\]", r"\1", stripped)
-    stripped = re.sub(r"`([^`]*)`", r"\1", stripped)
+    stripped = re.sub(r"`+[^`]*`+", "", stripped)
     stripped = re.sub(r"\*\*([^*]+)\*\*", r"\1", stripped)
     stripped = re.sub(r"__([^_]+)__", r"\1", stripped)
     stripped = re.sub(r"(?<!\w)\*([^*]+)\*(?!\w)", r"\1", stripped)
@@ -323,7 +384,20 @@ def _clean_blocks(text, fmt):
     its whitespace collapsed. A Markdown block whose lines
     all stand as headings is a heading block.
     """
-    raw_blocks = re.split(r"\n[ \t]*\n", text or "")
+    source = text or ""
+    if fmt == "markdown":
+        kept = []
+        in_fence = False
+        for source_line in source.splitlines():
+            marker = source_line.strip()
+            if marker.startswith("```") or marker.startswith("~~~"):
+                in_fence = not in_fence
+                continue
+            if in_fence:
+                continue
+            kept.append(source_line)
+        source = "\n".join(kept)
+    raw_blocks = re.split(r"\r?\n[ \t]*\r?\n", source)
     blocks = []
     for raw in raw_blocks:
         lines = raw.splitlines()
@@ -703,6 +777,18 @@ def _front_matter(text, fmt, notes):
     for index in range(1, len(lines)):
         if lines[index].strip() in ("---", "..."):
             block = "\n".join(lines[1:index])
+            if len(block.encode("utf-8")) > _FRONT_MATTER_BLOCK_LIMIT:
+                _fail("LIMIT_EXCEEDED",
+                      "front matter block size limit is 16 KiB, "
+                      "with rejection and no partial record")
+            for block_line in lines[1:index]:
+                if ":" in block_line:
+                    value = block_line.split(":", 1)[1].strip()
+                    if len(value) > _FRONT_MATTER_VALUE_LIMIT:
+                        _fail("LIMIT_EXCEEDED",
+                              "front matter value length per key "
+                              "limit is 4,096 characters, with "
+                              "rejection and no partial record")
             if re.search(r"(?m)^[^#\n]*:\s*(!|&|\*|%)", block) or \
                     re.search(r"<[A-Za-z][^>]*>", block):
                 _fail("PAGE_EXTRACTION_FAILED",
@@ -805,13 +891,40 @@ class _PageHTMLParser(HTMLParser):
         self._buffer_kind = None
         self._heading = None
         self._link = None
-        self._quote = None
+        self._quote_stack = []
         self._list_stack = []
         self._table = None
         self._row = None
         self._cell = None
+        self._table_contexts = []
         self._skip_depth = 0
         self._title_depth = 0
+
+    def _check_attrs(self, attrs):
+        if len(attrs) > _ATTRIBUTES_PER_ELEMENT_LIMIT:
+            _fail("LIMIT_EXCEEDED",
+                  "attributes per element limit is 100, with "
+                  "rejection and no partial record")
+        for _name, value in attrs:
+            if value is not None and len(value) > _ATTRIBUTE_VALUE_LIMIT:
+                _fail("LIMIT_EXCEEDED",
+                      "attribute value length limit is 10,000 "
+                      "characters, with rejection and no "
+                      "partial record")
+
+    def _note_break(self):
+        if self._heading is not None:
+            self._heading["parts"].append(" ")
+        if self._link is not None:
+            self._link["parts"].append(" ")
+        for quote in self._quote_stack:
+            quote["parts"].append(" ")
+        if self._list_stack and self._list_stack[-1]["current"] is not None:
+            self._list_stack[-1]["current"].append(" ")
+        if self._cell is not None:
+            self._cell.append(" ")
+        if self._buffer is not None:
+            self._buffer.append(" ")
 
     def _flush_block(self):
         if self._buffer is None:
@@ -827,6 +940,11 @@ class _PageHTMLParser(HTMLParser):
         if self.events > _ELEMENT_EVENT_LIMIT:
             _fail("LIMIT_EXCEEDED",
                   "element or tag events per page limit is 100,000")
+        self._check_attrs(attrs)
+        if tag == "br":
+            if not self._skip_depth and not self._title_depth:
+                self._note_break()
+            return
         attr = {}
         for name, value in attrs:
             attr[name] = value
@@ -869,14 +987,18 @@ class _PageHTMLParser(HTMLParser):
         elif tag == "a":
             self._link = {"target": attr.get("href"), "parts": []}
         elif tag == "blockquote":
-            self._quote = {"parts": []}
+            self._quote_stack.append({"parts": []})
         elif tag in ("ul", "ol"):
             self._list_stack.append({"items": [], "current": None})
         elif tag == "li":
             if self._list_stack:
                 self._list_stack[-1]["current"] = []
         elif tag == "table":
+            self._table_contexts.append(
+                (self._table, self._row, self._cell))
             self._table = {"rows": [], "start": len(self.blocks)}
+            self._row = None
+            self._cell = None
         elif tag == "tr":
             if self._table is not None:
                 self._row = []
@@ -889,6 +1011,11 @@ class _PageHTMLParser(HTMLParser):
         if self.events > _ELEMENT_EVENT_LIMIT:
             _fail("LIMIT_EXCEEDED",
                   "element or tag events per page limit is 100,000")
+        self._check_attrs(attrs)
+        if tag == "br":
+            if not self._skip_depth and not self._title_depth:
+                self._note_break()
+            return
         if tag in _VOID_ELEMENTS:
             attr = dict(attrs)
             if tag == "link":
@@ -946,11 +1073,11 @@ class _PageHTMLParser(HTMLParser):
                     "target": self._link["target"],
                 })
             self._link = None
-        elif tag == "blockquote" and self._quote is not None:
-            text = " ".join("".join(self._quote["parts"]).split())
+        elif tag == "blockquote" and self._quote_stack:
+            quote = self._quote_stack.pop()
+            text = " ".join("".join(quote["parts"]).split())
             if text:
                 self.blockquotes.append({"text": text})
-            self._quote = None
         elif tag == "li":
             if self._list_stack and self._list_stack[-1]["current"] is not None:
                 item = " ".join(
@@ -980,7 +1107,13 @@ class _PageHTMLParser(HTMLParser):
                         "rows": rows,
                         "text": "\n".join(" ".join(row) for row in rows),
                     })
-                self._table = None
+                if self._table_contexts:
+                    self._table, self._row, self._cell = \
+                        self._table_contexts.pop()
+                else:
+                    self._table = None
+                    self._row = None
+                    self._cell = None
         if tag in _BLOCK_ELEMENTS:
             self._flush_block()
         if tag in _VOID_ELEMENTS:
@@ -1001,8 +1134,8 @@ class _PageHTMLParser(HTMLParser):
             self._heading["parts"].append(data)
         if self._link is not None:
             self._link["parts"].append(data)
-        if self._quote is not None:
-            self._quote["parts"].append(data)
+        for quote in self._quote_stack:
+            quote["parts"].append(data)
         if self._list_stack and self._list_stack[-1]["current"] is not None:
             self._list_stack[-1]["current"].append(data)
         if self._cell is not None:
@@ -1089,10 +1222,20 @@ def _extract_markdown(text, notes):
     tables = []
     blocks = []
     references = {}
+    reference_count = 0
     for line in lines:
         match = re.match(r"^\s{0,3}\[([^\]]+)\]:\s*(\S+)", line)
         if match:
-            references[match.group(1)] = match.group(2)
+            reference_count += 1
+            if reference_count > _REFERENCE_DEFINITION_LIMIT:
+                _fail("LIMIT_EXCEEDED",
+                      "reference definitions per file limit is "
+                      "10,000, with rejection and no partial record")
+            key = match.group(1)
+            if key in references:
+                notes.append("duplicate_markdown_reference")
+            else:
+                references[key] = match.group(2)
     in_fence = False
     current_list = None
     current_table = []
@@ -1141,7 +1284,10 @@ def _extract_markdown(text, notes):
             blocks.append("\n".join(current_block))
         current_block = []
 
+    skip_until = -1
     for idx, line in enumerate(lines):
+        if idx <= skip_until:
+            continue
         stripped = line.strip()
         if stripped.startswith("```") or stripped.startswith("~~~"):
             in_fence = not in_fence
@@ -1149,12 +1295,36 @@ def _extract_markdown(text, notes):
             flush_table()
             continue
         if in_fence:
-            current_block.append(line)
             continue
         if not stripped:
             flush_list()
             flush_table()
             flush_block()
+            continue
+        if re.match(r"^</?[A-Za-z][A-Za-z0-9]*(\s[^>]*)?>", stripped):
+            flush_list()
+            flush_table()
+            html_lines = [line]
+            ahead = idx + 1
+            while ahead < len(lines) and lines[ahead].strip():
+                html_lines.append(lines[ahead])
+                ahead += 1
+            html_parts = _extract_html("\n".join(html_lines), notes)
+            for html_link in html_parts["links"]:
+                links.append({"text": html_link["text"],
+                              "target": html_link["target"]})
+            for html_heading in html_parts["headings"]:
+                headings.append({
+                    "text": html_heading["text"],
+                    "level": html_heading["level"],
+                    "start": line_offsets[idx],
+                })
+            blockquotes.extend(html_parts["blockquotes"])
+            lists.extend(html_parts["lists"])
+            tables.extend(html_parts["tables"])
+            if html_parts["running_text"]:
+                current_block.append(html_parts["running_text"])
+            skip_until = ahead - 1
             continue
         heading = re.match(r"^(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$", line)
         if heading:
@@ -1246,18 +1416,21 @@ def _extract_markdown(text, notes):
 
 
 def _markdown_inline(text, links, references, notes, offset):
-    def image_repl(match):
-        return match.group(1)
-
-    text = re.sub(r"!\[([^\]]*)\]\([^)]*\)", image_repl, text)
-
-    def link_repl(match):
-        label, target = match.group(1), match.group(2)
-        links.append({"text": label, "target": target})
-        return label
-
-    text = re.sub(r"\[([^\]]+)\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)",
-                  link_repl, text)
+    cleaned = re.sub(r"`+[^`]*`+", "", text)
+    if cleaned != text:
+        text = " ".join(cleaned.split())
+    spans = _inline_link_spans(text)
+    if spans:
+        pieces = []
+        cursor = 0
+        for span in spans:
+            pieces.append(text[cursor:span[0]])
+            pieces.append(span[2])
+            if not span[4]:
+                links.append({"text": span[2], "target": span[3]})
+            cursor = span[1]
+        pieces.append(text[cursor:])
+        text = "".join(pieces)
 
     def ref_repl(match):
         label, ref = match.group(1), match.group(2)
@@ -1269,7 +1442,6 @@ def _markdown_inline(text, links, references, notes, offset):
         return match.group(0) if key not in references else label
 
     text = re.sub(r"\[([^\]]+)\]\[([^\]]*)\]", ref_repl, text)
-    text = re.sub(r"`([^`]*)`", r"\1", text)
     text = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)
     text = re.sub(r"__([^_]+)__", r"\1", text)
     text = re.sub(r"(?<!\w)\*([^*]+)\*(?!\w)", r"\1", text)
@@ -1311,7 +1483,15 @@ def _build_extracted(fmt, text, notes):
         _fail("LIMIT_EXCEEDED",
               "extracted text length per page limit is 500,000 "
               "characters, with rejection and no partial record")
+    if len(parts["links"]) > _LINK_COUNT_LIMIT:
+        _fail("LIMIT_EXCEEDED",
+              "link count per page limit is 10,000, with "
+              "rejection and no partial record")
     headings = parts["headings"]
+    if len(headings) > _HEADING_COUNT_LIMIT:
+        _fail("LIMIT_EXCEEDED",
+              "heading count per page limit is 10,000, with "
+              "rejection and no partial record")
     seen_texts = []
     for heading in headings:
         if heading["text"] in seen_texts:

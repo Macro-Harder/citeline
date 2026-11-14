@@ -27,7 +27,9 @@ import csv
 import hashlib
 import io
 import json
+import os
 import re
+import stat
 import unicodedata
 from datetime import date
 
@@ -123,6 +125,7 @@ def _delimited_test(text):
     if any(_is_fence_line(line) or _is_table_row(line)
            for line in lines):
         return False
+    csv.field_size_limit(ANSWER_FILE_LIMIT)
     reader = csv.reader(io.StringIO(text), delimiter=",", quotechar='"',
                         strict=True)
     try:
@@ -193,14 +196,27 @@ def is_transcript_form(text):
     marks read here are a heading naming a transcript, or two
     or more speaker turns opening lines of the file.
     """
+    lines = text.splitlines()
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            heading = stripped.lstrip("#").strip()
+            if "transcript" in heading.casefold() and len(heading) < 80:
+                return True
     turns = 0
-    for line in text.splitlines():
-        stripped = line.strip().lstrip("#").strip()
-        if "transcript" in stripped.casefold() and len(stripped) < 80:
-            return True
-        if _SPEAKER_RE.match(line.strip()):
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("#"):
+            continue
+        if _SPEAKER_RE.match(stripped):
             turns += 1
-    return turns >= 2
+            if turns >= 2:
+                return True
+            continue
+        break
+    return False
 
 
 def validate_adapter_inputs(*, answer_file=None, product=None,
@@ -247,9 +263,6 @@ def validate_adapter_inputs(*, answer_file=None, product=None,
         _fail("IMPORT_VALIDATION_FAILED",
               "kind holds exactly real_sample or fixture, got: "
               + str(kind))
-    if len(str(engine_label)) > ENGINE_LABEL_LIMIT:
-        _fail("LIMIT_EXCEEDED",
-              "engine label length limit is 200 code points")
     captured = _parse_date(captured_on, "captured_on")
     audit = _parse_date(audit_date, "audit_date")
     if captured > audit:
@@ -265,6 +278,9 @@ def validate_adapter_inputs(*, answer_file=None, product=None,
             _fail("CONTROL_CAP_EXCEEDED",
                   "cap of 5 designated controls in one round for "
                   "one source kind")
+    if len(str(engine_label)) > ENGINE_LABEL_LIMIT:
+        _fail("LIMIT_EXCEEDED",
+              "engine label length limit is 200 code points")
     return {
         "answer_file": answer_file,
         "product": product,
@@ -287,12 +303,68 @@ def read_answer_file(answer_file):
     stands over the raw file bytes. The text is the file
     decoded as UTF-8; an undecodable file fails validation.
     """
+    path_text = str(answer_file)
     try:
-        with open(answer_file, "rb") as handle:
-            raw = handle.read()
+        pre = os.lstat(path_text)
     except OSError as error:
         _fail("IMPORT_VALIDATION_FAILED",
               "answer file cannot be read: " + str(error))
+    if stat.S_ISLNK(pre.st_mode):
+        _fail("SUPPLIED_PATH_UNSAFE",
+              "a supplied path that is itself a symbolic link "
+              "is rejected")
+    if not stat.S_ISREG(pre.st_mode):
+        if stat.S_ISDIR(pre.st_mode):
+            _fail("IMPORT_VALIDATION_FAILED",
+                  "answer file cannot be read: Is a directory: "
+                  + path_text)
+        _fail("SUPPLIED_PATH_UNSAFE",
+              "a supplied path that does not name a regular "
+              "file is rejected")
+    if pre.st_nlink > 1:
+        _fail("SUPPLIED_PATH_UNSAFE",
+              "a supplied file with a hard link count above 1 "
+              "is rejected; this reading rests on the "
+              "filesystem maintaining a truthful link count, "
+              "and where a platform cannot give that count the "
+              "invocation refuses the supplied file and fails "
+              "closed")
+    flags = os.O_RDONLY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    if hasattr(os, "O_NONBLOCK"):
+        flags |= os.O_NONBLOCK
+    try:
+        descriptor = os.open(path_text, flags)
+    except OSError as error:
+        _fail("IMPORT_VALIDATION_FAILED",
+              "answer file cannot be read: " + str(error))
+    try:
+        opened = os.fstat(descriptor)
+        if (opened.st_dev, opened.st_ino) != (pre.st_dev, pre.st_ino):
+            _fail("SUPPLIED_PATH_UNSAFE",
+                  "the opened handle does not match the pre "
+                  "open stat")
+        if not stat.S_ISREG(opened.st_mode):
+            _fail("SUPPLIED_PATH_UNSAFE",
+                  "the opened handle does not name a regular file")
+        if opened.st_nlink > 1:
+            _fail("SUPPLIED_PATH_UNSAFE",
+                  "a supplied file with a hard link count above 1 "
+                  "is rejected")
+        chunks = []
+        total = 0
+        while True:
+            chunk = os.read(descriptor, 65536)
+            if not chunk:
+                break
+            chunks.append(chunk)
+            total += len(chunk)
+            if total > ANSWER_FILE_LIMIT:
+                _fail("LIMIT_EXCEEDED", "answer file limit is 1 MiB")
+        raw = b"".join(chunks)
+    finally:
+        os.close(descriptor)
     if len(raw) > ANSWER_FILE_LIMIT:
         _fail("LIMIT_EXCEEDED", "answer file limit is 1 MiB")
     try:
@@ -592,6 +664,23 @@ def export_capture_worksheet(*, output_path, product=None, round=None,
     text = build_worksheet_text(
         product=product, round=round, queries=queries,
         engine_labels=engine_labels, planned_answers=planned_answers)
-    with open(output_path, "w", encoding="utf-8") as handle:
+    output_text = str(output_path)
+    if os.path.lexists(output_text):
+        _fail("DESTINATION_EXISTS",
+              "the worksheet output path stands occupied and "
+              "stands never replaced: " + output_text)
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        descriptor = os.open(output_text, flags, 0o666)
+    except FileExistsError:
+        _fail("DESTINATION_EXISTS",
+              "the worksheet output path stands occupied and "
+              "stands never replaced: " + output_text)
+    except OSError as error:
+        _fail("DESTINATION_EXISTS",
+              "the worksheet write failed: " + str(error))
+    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
         handle.write(text)
     return text

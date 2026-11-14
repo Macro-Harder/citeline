@@ -443,9 +443,13 @@ def _normalise_competitor(value, index=0):
     validate_name(name, "competitor name")
     domain = validate_domain(domain, allow_empty=True)
     aliases = _validate_aliases(aliases)
+    base = competitor_id_for_name(name)
     if not competitor_id:
-        base = competitor_id_for_name(name)
-        competitor_id = base if index == 0 else "%s-%d" % (base, index + 1)
+        competitor_id = base
+    elif competitor_id != base:
+        _fail("VALIDATION_FAILED",
+              "a stated competitor_id must match the identity "
+              "formed from the competitor name")
     return {
         "competitor_id": competitor_id,
         "name": name,
@@ -739,7 +743,9 @@ def register_page(home, product=None, snapshot=None, audit_date=None,
 # in full phrase form. The Step 13 suite also carries code
 # forms and short forms for the same three values of each
 # field; the normalised key of every accepted form is decided
-# here, once, and the value as supplied stands stored.
+# here, once, and every accepted form of one value stands
+# stored in the one canonical form for that value, in the
+# canonical maps below.
 
 IMPORTER_DECLARATION_TEXTS = (
     "all captured answers imported",
@@ -798,6 +804,22 @@ _SUPPLIER_KEYS.update({
 IMPORTER_DECLARATIONS = tuple(sorted(_IMPORTER_KEYS))
 SUPPLIER_RELATIONS = tuple(sorted(_SUPPLIER_KEYS))
 
+# The one stored form for each declaration value. Every
+# accepted key in the maps above resolves through the full
+# text its map holds to the canonical form here, so one
+# value stands stored in one form whichever accepted form
+# the caller supplied.
+_CANONICAL_IMPORTER = {
+    IMPORTER_DECLARATION_TEXTS[0]: "all_captured",
+    IMPORTER_DECLARATION_TEXTS[1]: "stated_subset",
+    IMPORTER_DECLARATION_TEXTS[2]: "selection_rule_unknown",
+}
+_CANONICAL_SUPPLIER = {
+    SUPPLIER_RELATION_TEXTS[0]: "audited_party",
+    SUPPLIER_RELATION_TEXTS[1]: "independent",
+    SUPPLIER_RELATION_TEXTS[2]: "supplier_relation_unknown",
+}
+
 
 def name_round(home, product=None, round_label=None,
                importer_declaration=None, supplier_relation=None,
@@ -843,8 +865,10 @@ def name_round(home, product=None, round_label=None,
         "round_id": round_id_for(record["product_id"], round_label),
         "product_id": record["product_id"],
         "round_label": round_label,
-        "importer_declaration": importer_declaration,
-        "supplier_relation": supplier_relation,
+        "importer_declaration": _CANONICAL_IMPORTER[
+            _IMPORTER_KEYS[importer_key]],
+        "supplier_relation": _CANONICAL_SUPPLIER[
+            _SUPPLIER_KEYS[supplier_key]],
         "registry_version_at_first_import": None,
         "detector_version_at_first_import": None,
         "created_by": "name_round",

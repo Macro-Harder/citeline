@@ -263,6 +263,15 @@ def _honesty_sentence():
             "does not verify truth.")
 
 
+# The methods note version of version 1, ruled at the
+# Step 15 opening: the integer 1, stamped at assembly from
+# the methods note artefact's own version onto the AuditRun
+# and RoundMetrics record shapes under the field name
+# methods_note_version, the GuideDraft taking the stamp
+# from its input record.
+METHODS_NOTE_VERSION = 1
+
+
 def _bounds():
     return {
         "establishes": [
@@ -279,6 +288,24 @@ def _bounds():
             "speaks for them.",
         ],
     }
+
+
+def _bounds_computed():
+    """The bounds section for an artefact with no stored run.
+
+    Status and verify render no stored record of a run:
+    their figures stand computed in the invocation itself,
+    so their establishes line states that provenance and
+    claims no stored figure.
+    """
+    bounds = _bounds()
+    bounds["establishes"] = [
+        "This artefact reports the figures this invocation "
+        "computed over the home it names; no stored record "
+        "of a run stands behind it and no figure in it "
+        "stands as a stored figure.",
+    ]
+    return bounds
 
 
 def _limits_in_force(home):
@@ -339,6 +366,11 @@ def status(*, home):
             figures = share + (remainder if index == 0 else 0)
             by_kind[kind] = {"entries_remaining": figures}
     outlook["by_entry_kind"] = by_kind
+    outlook["by_entry_kind_basis"] = (
+        "The by entry kind figures are shares of the one "
+        "total of entries remaining, divided over the entry "
+        "kinds standing in the journal; they are not a "
+        "separate allowance per kind.")
     answers = [
         entry for entry in entries
         if _get(entry, "entry_kind") == "answer_imported"]
@@ -365,7 +397,7 @@ def status(*, home):
     result["anchor_limit"] = _anchor_limit_sentence()
     result["anchor_limit_sentence"] = _anchor_limit_sentence()
     result["honesty_sentence"] = _honesty_sentence()
-    result["bounds"] = _bounds()
+    result["bounds"] = _bounds_computed()
     return result
 
 
@@ -400,7 +432,7 @@ def verify(*, home):
     result["anchor_limit"] = _anchor_limit_sentence()
     result["anchor_limit_sentence"] = _anchor_limit_sentence()
     result["honesty_sentence"] = _honesty_sentence()
-    result["bounds"] = _bounds()
+    result["bounds"] = _bounds_computed()
     return result
 
 
@@ -781,7 +813,8 @@ robots_preview.__signature__ = inspect.Signature(parameters=[
 # ----------------------------------------------------------------
 
 def audit(*, home, page_file, robots_file=None,
-          evaluated_page_path=None, audit_date=None):
+          evaluated_page_path=None, audit_date=None,
+          product=None):
     """One audit, assembled as caller over its components.
 
     The snapshot stands produced by the acquisition
@@ -792,11 +825,29 @@ def audit(*, home, page_file, robots_file=None,
     and no audit record stands for it. The assembled record
     stands stored as one audit_record entry through the
     journal.
+
+    Where the call names a product, that product stands as
+    the record product: a caller that runs an audit for one
+    named target, as the watch does, passes the target
+    product at this seam, and the record, the checks, and
+    the snapshot all stand for that product. Where no
+    product stands named, the first listed product of the
+    home stands as the record product, as before.
     """
     _barred_check(home)
     journal = _journal()
     products = list_products(home=home)
-    product_record = products[0] if products else None
+    product_record = None
+    if product is not None:
+        for candidate in products:
+            if candidate.get("product_id") == product \
+                    or candidate.get("name") == product:
+                product_record = candidate
+                break
+        if product_record is None:
+            product_record = _require_product(home, product)
+    if product_record is None and products:
+        product_record = products[0]
     product_id = (
         product_record.get("product_id") if product_record else None)
     from citeline import acquisition
@@ -891,6 +942,7 @@ def audit(*, home, page_file, robots_file=None,
         "registry_version": (
             product_record.get("registry_version", 1)
             if product_record else 1),
+        "methods_note_version": METHODS_NOTE_VERSION,
         "detector_version": _detector_version(),
         "query_set_version": (
             product_record.get("query_set_version", 1)
@@ -974,8 +1026,13 @@ def probe_import(*, home, answer_file=None, product=None,
         _append_failure_record(
             home, "probe import", exc, answer_file, audit_date)
         raise
-    product_record = _require_product(home, product)
-    round_record = _require_round(home, product_record, round)
+    try:
+        product_record = _require_product(home, product)
+        round_record = _require_round(home, product_record, round)
+    except Exception as exc:
+        _append_failure_record(
+            home, "probe import", exc, answer_file, audit_date)
+        raise
     product_id = product_record.get("product_id")
     round_id = round_record.get("round_id")
     standing = _answers(home, round_id)
@@ -1065,10 +1122,82 @@ def _round_entries(home, product_record, round_record):
     return selected
 
 
+def _round_datum(entries, product_record, round_record):
+    """The RoundMetrics datum of one round, from its entries.
+
+    The datum declaration at plan Section 5.1: the registry
+    version, detector version, query set version, and
+    lexicon version where one is recorded, in force at the
+    round's first import. The first two stand on the round
+    record the import stamped; the query set version stands
+    on the product record; a lexicon version stands in the
+    datum only where a selected entry records one.
+    """
+    datum = {}
+    registry_version = round_record.get(
+        "registry_version_at_first_import")
+    if registry_version is not None:
+        datum["registry_version"] = registry_version
+    detector_version = round_record.get(
+        "detector_version_at_first_import")
+    if detector_version is not None:
+        datum["detector_version"] = detector_version
+    query_set_version = product_record.get("query_set_version")
+    if query_set_version is not None:
+        datum["query_set_version"] = query_set_version
+    for entry in entries:
+        payload = _payload(entry)
+        for key in ("lexicon_version",):
+            if payload.get(key) is not None:
+                datum.setdefault(key, payload[key])
+        stamps = payload.get("version_stamps")
+        if isinstance(stamps, dict) and stamps.get(
+                "lexicon_version") is not None:
+            datum.setdefault(
+                "lexicon_version", stamps["lexicon_version"])
+    return datum
+
+
 def _round_metrics(home, product_record, round_record):
     from citeline import metrics
     entries = _round_entries(home, product_record, round_record)
-    return metrics.round_metrics_from_journal(entries)
+    datum = _round_datum(entries, product_record, round_record)
+    kwargs = {"datum": datum}
+    try:
+        params = inspect.signature(
+            metrics.round_metrics_from_journal).parameters
+    except (TypeError, ValueError):
+        params = {}
+    if "frame" in params:
+        kwargs["frame"] = dict(datum)
+    return metrics.round_metrics_from_journal(entries, **kwargs)
+
+
+def _probe_report_record(home, product_record, round_record,
+                         audit_date=None, metrics_record=None):
+    """The assembled probe report record of one round.
+
+    The record stands as probe_report renders it: the
+    RoundMetrics record the metrics component computes,
+    the product and round identities, the first import
+    stamps the round record carries, and the methods note
+    stamp the ruling names for the RoundMetrics shape.
+    """
+    if metrics_record is None:
+        metrics_record = _round_metrics(
+            home, product_record, round_record)
+    result = dict(metrics_record)
+    result["product_id"] = product_record.get("product_id")
+    result["product"] = product_record.get("name")
+    result["round"] = round_record.get("round_label")
+    result["round_id"] = round_record.get("round_id")
+    result["audit_date"] = audit_date
+    result["registry_version_at_first_import"] = round_record.get(
+        "registry_version_at_first_import")
+    result["detector_version_at_first_import"] = round_record.get(
+        "detector_version_at_first_import")
+    result["methods_note_version"] = METHODS_NOTE_VERSION
+    return result
 
 
 def probe_report(*, home, product, round, form=None,
@@ -1087,19 +1216,50 @@ def probe_report(*, home, product, round, form=None,
     _barred_check(home)
     product_record = _require_product(home, product)
     round_record = _require_round(home, product_record, round)
-    metrics_record = _round_metrics(home, product_record, round_record)
-    result = dict(metrics_record)
-    result["product_id"] = product_record.get("product_id")
-    result["product"] = product_record.get("name")
-    result["round"] = round_record.get("round_label")
-    result["round_id"] = round_record.get("round_id")
-    result["audit_date"] = audit_date
-    result["registry_version_at_first_import"] = round_record.get(
-        "registry_version_at_first_import")
-    result["detector_version_at_first_import"] = round_record.get(
-        "detector_version_at_first_import")
+    result = _probe_report_record(
+        home, product_record, round_record, audit_date=audit_date)
     from citeline import reporting
     return reporting.render(result, form=form or "advanced")
+
+
+def _trend_frame(metrics_record):
+    """The trend frame of one round, from its own record.
+
+    The capture method sets, capture dates, engine label
+    set, query set, and version stamps the trend contract
+    compares stand in the RoundMetrics record itself, in
+    its capture context, sampling frame, per query
+    breakdown, and version stamps. This assembly reads
+    them from that record and hands them to the trend
+    computation beside the record, so a capture method
+    change between two rounds reaches the computation.
+    """
+    record = metrics_record if isinstance(metrics_record, dict) \
+        else {}
+    context = record.get("capture_context") or {}
+    sampling = record.get("sampling_frame") or {}
+    per_query = record.get("per_query") or {}
+    frame = {
+        "capture_methods": list(
+            context.get("capture_methods")
+            or sampling.get("capture_methods_asserted") or []),
+        "capture_dates": list(context.get("capture_dates") or []),
+        "engine_label_set": list(
+            sampling.get("engine_label_set") or []),
+        "query_set": list(per_query.keys()),
+        "per_query_counts": {
+            name: (counts.get("answer_count")
+                   if isinstance(counts, dict) else None)
+            for name, counts in per_query.items()},
+        "cluster_count": record.get("cluster_count"),
+        "effective_n": record.get("effective_n"),
+    }
+    stamps = record.get("version_stamps") or {}
+    if isinstance(stamps, dict):
+        for key, value in stamps.items():
+            if value is not None:
+                frame.setdefault(key, value)
+    return frame
 
 
 def probe_trend(*, home, product, round_a, round_b, form=None,
@@ -1123,13 +1283,22 @@ def probe_trend(*, home, product, round_a, round_b, form=None,
     from citeline import metrics
     first_metrics = _round_metrics(home, product_record, first)
     second_metrics = _round_metrics(home, product_record, second)
-    trend = metrics.compute_trend(first_metrics, second_metrics)
+    trend = metrics.compute_trend(
+        {"metrics": first_metrics, "frame": _trend_frame(first_metrics)},
+        {"metrics": second_metrics,
+         "frame": _trend_frame(second_metrics)})
     result = dict(trend) if isinstance(trend, dict) else {
         "trend": trend}
     result["product_id"] = product_record.get("product_id")
     result["product"] = product_record.get("name")
     result["round_a"] = round_a
     result["round_b"] = round_b
+    result["first_round"] = _probe_report_record(
+        home, product_record, first, audit_date=audit_date,
+        metrics_record=first_metrics)
+    result["second_round"] = _probe_report_record(
+        home, product_record, second, audit_date=audit_date,
+        metrics_record=second_metrics)
     result["audit_date"] = audit_date
     from citeline import reporting
     return reporting.render(result, form=form or "advanced")
@@ -1219,6 +1388,9 @@ def guide(*, home, run_id=None, product=None, round_label=None,
             distinct_cited_target_count=audit_record.get(
                 "distinct_cited_target_count"),
             trigger_codes=audit_record.get("trigger_codes") or [])
+        if audit_record.get("methods_note_version") is not None:
+            draft["methods_note_version"] = audit_record[
+                "methods_note_version"]
     else:
         product_record = _require_product(home, product)
         round_record = _require_round(

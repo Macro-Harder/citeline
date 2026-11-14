@@ -36,7 +36,28 @@ import sys
 PRODUCT_FILE_NAME = "citeline.py"
 CONFIG_FILE_NAME = "config.txt"
 
-_PRODUCT_FILE_TEXT = '''"""Citeline launcher for one local installation.
+# The directory holding the citeline package of this
+# shipped tree: the parent of this file's directory. The
+# installed launcher names it, so the installed file runs
+# from any working directory, and the default install
+# location stands beside it.
+_PRODUCT_DIR = os.path.dirname(
+    os.path.dirname(os.path.abspath(__file__)))
+
+
+def _product_file_text():
+    """The installed product file text for this tree.
+
+    The launcher carries no rule of its own. It takes its
+    own directory off the module search path, because a
+    file named citeline.py standing in that directory
+    shadows the citeline package it must import, and it
+    puts the shipped product directory that installed it
+    on the path, so the package stands found from any
+    working directory. It then hands its arguments to the
+    package shell and returns the code that shell returns.
+    """
+    return '''"""Citeline launcher for one local installation.
 
 This file stands as the installed product file of one
 installation. It carries no rule of its own: it hands its
@@ -44,11 +65,28 @@ arguments to the installed package shell and returns the
 code that shell returns.
 """
 
-import importlib
+import os
 import sys
+
+_PACKAGE_PARENT = %r
+_OWN_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def _prepare_path():
+    kept = []
+    for entry in sys.path:
+        resolved = os.path.abspath(entry) if entry else None
+        if resolved is not None and resolved == _OWN_DIR:
+            continue
+        kept.append(entry)
+    sys.path[:] = kept
+    if _PACKAGE_PARENT not in sys.path:
+        sys.path.insert(0, _PACKAGE_PARENT)
 
 
 def main(argv=None):
+    _prepare_path()
+    import importlib
     shell_module = importlib.import_module("citeline." + "shell")
 
     return shell_module.main(
@@ -57,9 +95,22 @@ def main(argv=None):
 
 if __name__ == "__main__":
     raise SystemExit(main())
-'''
+''' % (_PRODUCT_DIR,)
+
 
 _CONFIG_MARKER = "created_by = citeline installer"
+
+# The row, exit code, and class of each token this module
+# raises, as the joined entry 13 table states them. The
+# shared error vocabulary carries the same values; this
+# table stands so the module also runs as a shipped file
+# standing alone, where the package may not stand imported
+# yet.
+_TOKEN_FORMS = {
+    "MALFORMED_CALL": ("U-8", 2, "usage"),
+    "CONFIG_INVALID": ("X-1", 5, "integrity"),
+    "DESTINATION_EXISTS": ("X-9", 3, "domain"),
+}
 
 
 class InstallError(Exception):
@@ -68,8 +119,20 @@ class InstallError(Exception):
     def __init__(self, token, message):
         self.token = token
         self.error_value = token
-        self.row = "X-9"
-        self.exit_code = 3
+        row, exit_code, precedence = _TOKEN_FORMS.get(
+            token, ("X-9", 3, "domain"))
+        try:
+            from citeline import errors
+            entry = errors.error_for_token(token)
+            if entry is not None:
+                row = entry["row"]
+                exit_code = entry["exit_code"]
+                precedence = entry["precedence_class"]
+        except Exception:
+            pass
+        self.row = row
+        self.exit_code = exit_code
+        self.precedence_class = precedence
         super().__init__("%s: %s" % (token, message))
 
 
@@ -101,6 +164,54 @@ def _config_parses(path):
         return False
 
 
+def _config_valid(path, home):
+    """True where a standing config file parses in full.
+
+    The parse is the config parse itself, at journal
+    strength: a file that cannot be parsed, holds a value
+    of the wrong form, or holds a duplicate key stands
+    invalid, on plan config rule 5. Where the package
+    journal cannot stand imported, the local line test
+    above stands as the floor and the duplicate and wrong
+    form limbs are checked here in the same terms.
+    """
+    journal = None
+    try:
+        if _PRODUCT_DIR not in sys.path:
+            sys.path.insert(0, _PRODUCT_DIR)
+        from citeline import journal as journal_module
+        journal = journal_module
+    except Exception:
+        journal = None
+    if journal is not None:
+        try:
+            with open(path, "r", encoding="utf-8") as handle:
+                text = handle.read()
+        except OSError:
+            return False
+        try:
+            journal.parse_config(text, home=str(home))
+            return True
+        except Exception:
+            return False
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            text = handle.read()
+    except OSError:
+        return False
+    seen = set()
+    for line in text.split("\n"):
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split(" = ")
+        if len(parts) != 2 or not parts[0] or not parts[1]:
+            return False
+        if parts[0] in seen:
+            return False
+        seen.add(parts[0])
+    return _config_parses(path)
+
+
 def install(location=None, home=None, **_ignored):
     """Install over the created items list, resumably.
 
@@ -114,15 +225,28 @@ def install(location=None, home=None, **_ignored):
             "install names a location and a home")
     location = str(location)
     home = str(home)
+    created_items = []
     if os.path.lexists(location):
         info = os.lstat(location)
         if not stat.S_ISDIR(info.st_mode):
             _fail(
                 "the install location path stands as a file, "
                 "not a directory: %s" % location)
-    else:
+    config_file = os.path.join(location, CONFIG_FILE_NAME)
+    if os.path.lexists(config_file):
+        info = os.lstat(config_file)
+        if stat.S_ISREG(info.st_mode) and not _config_valid(
+                config_file, home):
+            raise InstallError(
+                "CONFIG_INVALID",
+                "an existing config file that is itself "
+                "invalid fails the install, with the file "
+                "still left untouched: %s" % config_file)
+    if not os.path.lexists(location):
         os.makedirs(location)
+        created_items.append(location)
     product_file = os.path.join(location, PRODUCT_FILE_NAME)
+    product_text = _product_file_text()
     if os.path.lexists(product_file):
         info = os.lstat(product_file)
         if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(
@@ -133,21 +257,19 @@ def install(location=None, home=None, **_ignored):
                 % product_file)
         with open(product_file, "r", encoding="utf-8") as handle:
             standing = handle.read()
-        if standing != _PRODUCT_FILE_TEXT:
+        if standing != product_text:
             _fail(
                 "a pre existing file that is not the product "
                 "file stands at the product file path and "
                 "stands never overwritten: %s" % product_file)
     else:
         with open(product_file, "w", encoding="utf-8") as handle:
-            handle.write(_PRODUCT_FILE_TEXT)
-    config_file = os.path.join(location, CONFIG_FILE_NAME)
+            handle.write(product_text)
+        created_items.append(product_file)
     if os.path.lexists(config_file):
         info = os.lstat(config_file)
-        if stat.S_ISREG(info.st_mode) and _config_parses(
+        if stat.S_ISREG(info.st_mode) and _is_installer_config(
                 config_file):
-            config_state = "pre-existing config left untouched"
-        elif _is_installer_config(config_file):
             config_state = "installer config standing"
         else:
             config_state = "pre-existing config left untouched"
@@ -155,14 +277,15 @@ def install(location=None, home=None, **_ignored):
         with open(config_file, "w", encoding="utf-8") as handle:
             handle.write(_config_text(home))
         config_state = "config created by the installer"
+        created_items.append(config_file)
     if not os.path.lexists(home):
         os.makedirs(home)
+        created_items.append(home)
     return {
         "location": location,
         "home": home,
         "config": config_state,
-        "created_items": [
-            location, product_file, config_file, home],
+        "created_items": created_items,
         "complete": True,
     }
 
@@ -222,8 +345,35 @@ def uninstall(location=None, home=None, **_ignored):
     }
 
 
+def _default_location():
+    """The stated default install location.
+
+    Where no argument stands, the install location is the
+    directory named citeline beside the shipped product
+    directory.
+    """
+    return os.path.join(os.path.dirname(_PRODUCT_DIR), "citeline")
+
+
+def _default_home():
+    """The stated default product home: a directory named
+    .citeline in the operator home directory."""
+    return os.path.join(os.path.expanduser("~"), ".citeline")
+
+
 def main(argv=None):
-    """The install.py invocation, with its uninstall mode."""
+    """The install.py invocation, with its uninstall mode.
+
+    The stated form: install.py run with the system Python
+    from the shipped product directory, with one optional
+    argument naming the install location; uninstall is the
+    word uninstall as the first argument, with the install
+    location as its optional second argument and the same
+    default. The flag spellings --location and --home, and
+    the --uninstall flag, stand accepted beside the stated
+    form. The output stands in the simple form only and
+    states the home path.
+    """
     argv = list(sys.argv[1:] if argv is None else argv)
     mode = "install"
     location = None
@@ -231,27 +381,52 @@ def main(argv=None):
     index = 0
     while index < len(argv):
         token = argv[index]
-        if token == "--uninstall":
+        if token == "uninstall" and index == 0:
             mode = "uninstall"
             index += 1
-        elif token in ("--location", "--home") \
-                and index + 1 < len(argv):
+        elif token == "--uninstall":
+            mode = "uninstall"
+            index += 1
+        elif token in ("--location", "--home"):
+            if index + 1 >= len(argv):
+                print("install: %s names a value" % token,
+                      file=sys.stderr)
+                return 2
             if token == "--location":
                 location = argv[index + 1]
             else:
                 home = argv[index + 1]
             index += 2
+        elif not token.startswith("-") and location is None:
+            location = token
+            index += 1
         else:
+            print("install: unrecognised argument: %s" % token,
+                  file=sys.stderr)
             return 2
-    if location is None or home is None:
-        return 2
+    if location is None:
+        location = _default_location()
+    if home is None:
+        home = _default_home()
     try:
         if mode == "uninstall":
-            uninstall(location=location, home=home)
+            report = uninstall(location=location, home=home)
+            print("uninstalled")
+            print("location: %s" % report["location"])
+            print("home: %s" % report["home"])
+            for removed in report.get("removed") or []:
+                print("removed: %s" % removed)
         else:
-            install(location=location, home=home)
-    except InstallError:
-        return 3
+            report = install(location=location, home=home)
+            print("installed")
+            print("location: %s" % report["location"])
+            print("home: %s" % report["home"])
+            print("config: %s" % report["config"])
+            for created in report.get("created_items") or []:
+                print("created: %s" % created)
+    except InstallError as exc:
+        print("install: %s" % (exc,), file=sys.stderr)
+        return exc.exit_code
     return 0
 
 

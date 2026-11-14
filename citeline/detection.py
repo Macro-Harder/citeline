@@ -404,6 +404,11 @@ def _split_sections(text):
                 current_heading = idx
                 if is_ref:
                     ref_lines.add(idx)
+            elif is_ref and not current_ref:
+                current_ref = True
+                current_level = level
+                current_heading = idx
+                ref_lines.add(idx)
             governing[idx] = current_heading
             continue
         governing[idx] = current_heading
@@ -478,6 +483,14 @@ def _entity_outcome(chunk_masked_source, chunk_text, entity):
     masked = _masked_for_mentions(chunk_text)
     mentions = _scan_mentions(masked, names)
     domain_hits = _domain_offsets(masked, domain) if domain else []
+    if domain_hits and mentions:
+        domain_spans = [(offset, offset + len(str(domain)))
+                        for offset in domain_hits]
+        mentions = [
+            (offset, name) for offset, name in mentions
+            if not any(offset < span_end and span_start < offset + len(name)
+                       for span_start, span_end in domain_spans)
+        ]
     named = bool(mentions) or bool(domain_hits)
     first_offset = None
     candidates = [offset for offset, _ in mentions] + domain_hits

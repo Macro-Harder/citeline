@@ -242,6 +242,10 @@ def _render_decimal(value, key):
     scale = _scale_for(key)
     if scale is not None:
         return _quantize(value, scale)
+    if value != value.to_integral_value():
+        raise JournalError(
+            "a non integer value whose member defines no scale "
+            "cannot stand in hashed material")
     if value == value.to_integral_value():
         return format(value, "f") + ".0"
     text = format(value, "f")
@@ -262,6 +266,10 @@ def _render_parsed(number, key):
     scale = _scale_for(key)
     if scale is not None:
         return _quantize(value, scale)
+    if value != value.to_integral_value():
+        raise JournalError(
+            "a non integer value whose member defines no scale "
+            "cannot stand in hashed material")
     text = format(value, "f")
     if value == 0:
         text = text.lstrip("-")
@@ -288,6 +296,9 @@ def _render(value, key=None):
     if isinstance(value, bool):
         return "true" if value else "false"
     if isinstance(value, int):
+        scale = _scale_for(key)
+        if scale is not None:
+            return _quantize(Decimal(int(value)), scale)
         return str(int(value))
     if isinstance(value, float):
         return _render_float(value, key)
@@ -412,6 +423,18 @@ def _lock_held_by_other(home):
         handle.close()
 
 
+def _has_partial_tail(path):
+    try:
+        with open(path, "rb") as handle:
+            handle.seek(0, os.SEEK_END)
+            if handle.tell() == 0:
+                return False
+            handle.seek(-1, os.SEEK_END)
+            return handle.read(1) != b"\n"
+    except OSError:
+        return False
+
+
 def _scan(home, partial_mode="probe"):
     """Read the journal as it stands and recompute its chain.
 
@@ -426,7 +449,11 @@ def _scan(home, partial_mode="probe"):
     home = str(home)
     path = journal_path(home)
     stat = _stat_key(path)
-    cached = _scan_cache.get((path, partial_mode))
+    lock_key = None
+    if partial_mode == "probe" and _has_partial_tail(path):
+        lock_key = _lock_held_by_other(home)
+    cache_key = (path, partial_mode, lock_key)
+    cached = _scan_cache.get(cache_key)
     if cached is not None and cached[0] == stat:
         return cached[1]
     scan = _Scan()
@@ -496,7 +523,7 @@ def _scan(home, partial_mode="probe"):
             and not scan.partial_ignored:
         scan.failure = {"position": len(scan.lines) + 1,
                         "reason": "torn_tail", "row": "I-2"}
-    _scan_cache[(path, partial_mode)] = (stat, scan)
+    _scan_cache[cache_key] = (stat, scan)
     return scan
 
 
@@ -565,6 +592,31 @@ def _read_anchor(path):
     return {"head_hash": parts[0], "sequence": sequence}
 
 
+def _agreement_for(recorded, scan):
+    """Classify one anchor recording against the standing chain.
+
+    The recording is the pair of its head hash and its
+    sequence. The head stands at the chain position its
+    hash recomputes to, and the recording stands in a
+    position only where its sequence is that position:
+    the standing head is matching, an earlier position
+    is stale, and every other recording is divergent.
+    """
+    position = None
+    for index, raw in enumerate(scan.lines, start=1):
+        if hashlib.sha256(raw).hexdigest() == recorded["head_hash"]:
+            position = index
+            break
+    if position is None:
+        return "divergent"
+    if recorded["sequence"] is not None \
+            and recorded["sequence"] != position:
+        return "divergent"
+    if position == scan.entry_count:
+        return "matching"
+    return "stale"
+
+
 def _anchor_status(home, scan):
     values, _warnings, _present = _read_config_values(home)
     anchor_path = values.get("anchor_path")
@@ -575,12 +627,8 @@ def _anchor_status(home, scan):
     if recorded is None:
         return {"agreement": "absent", "recorded_head": None,
                 "recorded_sequence": None, "anchor_path": anchor_path}
-    standing = scan.head_hash
-    matches = recorded["head_hash"] == standing and (
-        recorded["sequence"] is None
-        or recorded["sequence"] == scan.entry_count)
     return {
-        "agreement": "matching" if matches else "divergent",
+        "agreement": _agreement_for(recorded, scan),
         "recorded_head": recorded["head_hash"],
         "recorded_sequence": recorded["sequence"],
         "anchor_path": anchor_path,
@@ -924,10 +972,10 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
         if anchor_path:
             recorded = _read_anchor(anchor_path)
             if recorded is not None \
-                    and recorded["head_hash"] != scan.head_hash:
+                    and _agreement_for(recorded, scan) == "divergent":
                 raise JournalError(
-                    "the anchor recorded head is not the standing "
-                    "head; appends stand barred",
+                    "the anchor recording does not stand as the "
+                    "standing head; appends stand barred",
                     row="I-2", token="JOURNAL_VERIFY_FAILED")
         if entry_kind == "limit_raise":
             key = _member_to_key(payload.get("limit"))
@@ -985,7 +1033,8 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
         extended.entry_count = scan.entry_count + 1
         stat = _stat_key(journal_path(home))
         for mode in ("probe", "torn"):
-            _scan_cache[(journal_path(home), mode)] = (stat, extended)
+            _scan_cache[(journal_path(home), mode, None)] = (
+                stat, extended)
         if anchor_path:
             try:
                 _write_anchor(anchor_path, entry["entry_hash"],
@@ -1095,8 +1144,9 @@ def replay(home, entries, resume=False):
                 handle.write(raw + b"\n")
             handle.flush()
             os.fsync(handle.fileno())
-        for mode_name in ("probe", "torn", "ignore"):
-            _scan_cache.pop((journal_path(home), mode_name), None)
+        for cache_key in [key for key in _scan_cache
+                          if key[0] == journal_path(home)]:
+            _scan_cache.pop(cache_key, None)
     if lines:
         return hashlib.sha256(lines[-1]).hexdigest()
     scan = _scan(home, "probe")

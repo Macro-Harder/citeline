@@ -157,7 +157,6 @@ class CitelineError(Exception):
                  refusal_context=None, limit_number=None):
         super().__init__(message)
         self.message = message
-        self.row = row
         entry = None
         if token is not None:
             entry = _BY_TOKEN.get(token)
@@ -165,7 +164,12 @@ class CitelineError(Exception):
             entry = _BY_ROW.get(row)
         if token is None and entry is not None:
             token = entry["token"]
+        if row is None and entry is not None:
+            row = entry["row"]
+        self.row = row
         self.token = token
+        self.precedence_class = (
+            entry["precedence_class"] if entry is not None else None)
         if exit_code is None and entry is not None:
             exit_code = entry["exit_code"]
         self.exit_code = exit_code

@@ -49,6 +49,7 @@ the invocation itself, in its contention fields record.
 import hashlib
 import json
 import os
+import stat
 
 from citeline import errors, service
 
@@ -118,19 +119,51 @@ def _failure_fields(exc):
 
 def _open_plan(plan_file):
     try:
-        info = os.stat(str(plan_file))
+        info = os.lstat(str(plan_file))
     except OSError as exc:
         _fail(
             "MALFORMED_CALL",
             "the WatchPlan file stands unreadable: %s" % (exc,))
+    if stat.S_ISLNK(info.st_mode):
+        _fail(
+            "SUPPLIED_PATH_UNSAFE",
+            "a supplied path that is itself a symbolic link "
+            "is rejected: the WatchPlan file stands in the "
+            "same supplied file discipline as every other "
+            "input at W-2, opened with no link following")
+    if stat.S_ISFIFO(info.st_mode) or stat.S_ISCHR(info.st_mode) \
+            or stat.S_ISBLK(info.st_mode) \
+            or stat.S_ISSOCK(info.st_mode):
+        _fail(
+            "SUPPLIED_PATH_UNSAFE",
+            "a supplied path that does not name a regular "
+            "file is rejected: the WatchPlan file names a "
+            "device, a FIFO, or a socket")
+    if not stat.S_ISREG(info.st_mode):
+        _fail(
+            "MALFORMED_CALL",
+            "the WatchPlan file stands unreadable: the path "
+            "names no regular file")
+    if info.st_nlink > 1:
+        _fail(
+            "SUPPLIED_PATH_UNSAFE",
+            "a supplied file with a hard link count above 1 "
+            "is rejected: the WatchPlan file stands in the "
+            "same supplied file discipline as every other "
+            "input at W-2")
     if info.st_size > PLAN_SIZE_BOUND:
         _fail(
             "WATCHPLAN_SIZE_EXCEEDED",
             "the WatchPlan file stands over the governing "
             "size bound of 1 MiB at W-2: refused at open, "
             "before any round runs")
-    with open(str(plan_file), "rb") as handle:
-        raw = handle.read()
+    try:
+        with open(str(plan_file), "rb") as handle:
+            raw = handle.read(PLAN_SIZE_BOUND + 1)
+    except OSError as exc:
+        _fail(
+            "MALFORMED_CALL",
+            "the WatchPlan file stands unreadable: %s" % (exc,))
     if len(raw) > PLAN_SIZE_BOUND:
         _fail(
             "WATCHPLAN_SIZE_EXCEEDED",
@@ -177,6 +210,11 @@ def _validate_plan(plan):
             "a picked WatchPlan naming no target stands "
             "refused at open: targets stand required where "
             "scope is picked")
+    if not isinstance(targets, list):
+        _fail(
+            "MALFORMED_CALL",
+            "the WatchPlan targets stand as a list of "
+            "target objects")
     if len(targets) > TARGET_BOUND:
         _fail(
             "WATCH_TARGET_COUNT_EXCEEDED",
@@ -202,6 +240,50 @@ def _validate_plan(plan):
     return targets
 
 
+def _page_age_days(record, audit_date):
+    """The age in days of the page one audit used.
+
+    The age stands computed from the dates the audit
+    record already carries: the page date the freshness
+    limb reads, found in the record sentences in the
+    freshness limb's own order (a labelled line first,
+    then a date in the opening lines), against the audit
+    date the round ran at. Where either date stands
+    absent, no age stands.
+    """
+    if audit_date is None:
+        return None
+    sentences = record.get("sentences") or []
+    text = "\n".join(str(sentence) for sentence in sentences)
+    found = None
+    try:
+        from citeline import checks as checks_module
+        for line in text.splitlines():
+            match = checks_module._LABELLED_LINE.match(line)
+            if not match:
+                continue
+            value = checks_module._parse_date_in(match.group(2))
+            if value is not None:
+                found = value
+                break
+        if found is None:
+            for line in text.splitlines()[:20]:
+                value = checks_module._parse_date_in(line)
+                if value is not None:
+                    found = value
+                    break
+    except Exception:
+        return None
+    if found is None:
+        return None
+    try:
+        import datetime
+        audit_value = datetime.date.fromisoformat(str(audit_date))
+    except ValueError:
+        return None
+    return (audit_value - found).days
+
+
 def _audit_entry(home, plan, product, target):
     audit_date = plan.get("audit_date")
     form = plan.get("form") or "simple"
@@ -209,6 +291,7 @@ def _audit_entry(home, plan, product, target):
         "home": str(home),
         "page_file": str(target["page_file"]),
         "audit_date": audit_date,
+        "product": product,
     }
     if target.get("robots_file"):
         kwargs["robots_file"] = str(target["robots_file"])
@@ -233,6 +316,7 @@ def _audit_entry(home, plan, product, target):
         "outcome": "completed",
         "record_identity": run_id,
     }
+    entry["page_age_days"] = _page_age_days(record, audit_date)
     if target.get("guide"):
         try:
             draft = service.guide(
@@ -319,6 +403,37 @@ def _probe_entry(home, plan, product, round_label, scope_rounds):
     return entry, no_pair
 
 
+def _cadence_interval_days(cadence):
+    """The interval in days a stated cadence names, or None.
+
+    The cadence field states the operator cadence in words.
+    The words this reading accepts are the plain period
+    words (daily, weekly, fortnightly, monthly, quarterly,
+    yearly) and an every N days, weeks, months, or years
+    form. A cadence in other words states no interval this
+    product can read, and the forward count then stands in
+    its absence form.
+    """
+    text = str(cadence).strip().casefold()
+    words = {
+        "daily": 1, "weekly": 7, "fortnightly": 14,
+        "monthly": 30, "quarterly": 91, "yearly": 365,
+        "annually": 365,
+    }
+    if text in words:
+        return words[text]
+    import re
+    match = re.fullmatch(
+        r"(?:every\s+)?(\d+)\s+(day|days|week|weeks|month|months"
+        r"|year|years)", text)
+    if match:
+        unit_days = {"day": 1, "days": 1, "week": 7, "weeks": 7,
+                     "month": 30, "months": 30, "year": 365,
+                     "years": 365}
+        return int(match.group(1)) * unit_days[match.group(2)]
+    return None
+
+
 def _honesty_sentence():
     try:
         from citeline import reporting
@@ -375,20 +490,55 @@ def run_watch(*, plan_file):
     products = service.list_products(home=home)
     entries = []
     trend_no_pair_count = 0
+    # The append cost of one target, on the S0 append cost
+    # table: one entry per entry kind the target's operation
+    # appends. An audit appends a snapshot_registered entry
+    # and an audit_record entry, a guide call appends a
+    # guide_record entry, and a probe target appends none.
+    def target_cost(target):
+        if "page_file" in target:
+            return 2 + (1 if target.get("guide") else 0)
+        return 0
+
+    estate_grounds_by_product = {}
+    if scope == "estate":
+        for product_record in products:
+            name = product_record.get("name")
+            estate_grounds_by_product[name] = \
+                service.estate_grounds(home=home, product=name)
     if scope == "picked":
-        total_targets = len(targets)
+        attempted = list(targets)
+        projected_entries = sum(
+            target_cost(target) for target in targets)
     else:
-        total_targets = 0
+        attempted = []
+        projected_entries = 0
+        for product_record in products:
+            name = product_record.get("name")
+            grounds = estate_grounds_by_product[name]
+            if grounds.get("page_path") is not None:
+                attempted.append({"page_file": grounds["page_path"]})
+                projected_entries += 2
+            for _label in grounds.get("rounds") or []:
+                attempted.append({"round": _label})
+    total_targets = len(attempted)
     status_record = service.status(home=home)
     outlook = status_record.get("capacity_outlook") or {}
+    entries_remaining = outlook.get("entries_remaining") or 0
+    if projected_entries > entries_remaining:
+        projection_words = "meet refusal part way"
+    elif projected_entries > 0 \
+            and entries_remaining - projected_entries \
+            < projected_entries:
+        projection_words = "approach the cap"
+    else:
+        projection_words = "fit"
     projection = {
         "entries_remaining": outlook.get("entries_remaining"),
         "bytes_remaining": outlook.get("bytes_remaining"),
-        "target_count": total_targets if scope == "picked"
-        else len(products),
-        "projection": (
-            "fit" if (outlook.get("entries_remaining") or 0)
-            >= 2 * max(total_targets, 1) else "approach the cap"),
+        "target_count": total_targets,
+        "projected_entries": projected_entries,
+        "projection": projection_words,
     }
     if scope == "picked":
         scope_rounds_by_product = {}
@@ -398,6 +548,14 @@ def run_watch(*, plan_file):
                     target["product"], [])
                 if target["round"] not in rounds:
                     rounds.append(target["round"])
+            second = target.get("second_round")
+            if second:
+                rounds = scope_rounds_by_product.setdefault(
+                    target["product"], [])
+                if second not in rounds:
+                    rounds.append(second)
+        plan_second = plan.get("second_round")
+        plan_seconds = plan.get("second_rounds")
         for target in targets:
             product = target["product"]
             if "page_file" in target:
@@ -406,16 +564,34 @@ def run_watch(*, plan_file):
             else:
                 grounds = service.estate_grounds(
                     home=home, product=product)
+                scope_labels = list(
+                    scope_rounds_by_product.get(product) or [])
+                extra = []
+                if isinstance(plan_seconds, dict):
+                    named = plan_seconds.get(product)
+                    if isinstance(named, (list, tuple)):
+                        extra.extend(named)
+                    elif named:
+                        extra.append(named)
+                elif isinstance(plan_seconds, (list, tuple)):
+                    extra.extend(plan_seconds)
+                if plan_second:
+                    extra.append(plan_second)
+                for label in extra:
+                    if label not in scope_labels:
+                        scope_labels.append(label)
+                scope_rounds = [
+                    label for label in grounds.get("rounds") or []
+                    if label in scope_labels]
                 entry, no_pair = _probe_entry(
                     home, plan, product, target["round"],
-                    grounds.get("rounds") or [])
+                    scope_rounds)
                 entries.append(entry)
                 trend_no_pair_count += no_pair
     else:
         for product_record in products:
             name = product_record.get("name")
-            grounds = service.estate_grounds(
-                home=home, product=name)
+            grounds = estate_grounds_by_product[name]
             page_path = grounds.get("page_path")
             rounds = grounds.get("rounds") or []
             if page_path is None:
@@ -482,18 +658,26 @@ def run_watch(*, plan_file):
             "count": len(only_skips), "denominator": len(products)},
     }
     cadence = plan.get("cadence")
+    page_ages = [
+        {"product": entry["product"],
+         "page_age_days": entry.get("page_age_days")}
+        for entry in entries
+        if entry["target_kind"] == "audit"
+        and entry["outcome"] == "completed"]
+    freshness = {
+        "cadence": cadence,
+        "page_ages": page_ages,
+        "forward_count": {
+            "recorded": False, "state": "not_recorded"},
+    }
     if cadence:
-        freshness = {
-            "cadence": cadence,
-            "forward_count": {
-                "recorded": False, "state": "not_recorded"},
-        }
-    else:
-        freshness = {
-            "cadence": None,
-            "forward_count": {
-                "recorded": False, "state": "not_recorded"},
-        }
+        interval = _cadence_interval_days(cadence)
+        if interval is not None:
+            freshness["forward_count"] = sum(
+                1 for item in page_ages
+                if item["page_age_days"] is not None
+                and item["page_age_days"] <= 90
+                and item["page_age_days"] + interval > 90)
     result = {
         "home_path": home,
         "scope": scope,

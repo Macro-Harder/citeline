@@ -11,6 +11,7 @@ module, so no guide call is needed for any report.
 Dates are call inputs. No date is read from a clock here.
 """
 
+import re
 import unicodedata
 
 FAIL_CODES = [
@@ -44,10 +45,14 @@ ROUND_TRIGGER_CODES = ("NOT_NAMED", "NOT_NAMED_EARLY", "NOT_CITED")
 
 STANDING_ACTION = "ACT_THIRD_PARTY"
 
-CITATIONS_CHECK_CODES = {
+EVIDENCE_CHECK_CODES = {
     "FAIL_CITATIONS",
     "WARN_CITATIONS",
     "LOW_CITATIONS",
+    "FAIL_STATISTICS",
+    "WARN_STATISTICS",
+    "FAIL_QUOTATIONS",
+    "WARN_QUOTATIONS",
 }
 
 VERSION_KEYS = (
@@ -59,6 +64,13 @@ VERSION_KEYS = (
     "crawler_table_version",
 )
 
+FIRST_IMPORT_STAMP_KEYS = (
+    "registry_version_at_first_import",
+    "detector_version_at_first_import",
+)
+
+STAMP_KEYS = VERSION_KEYS + FIRST_IMPORT_STAMP_KEYS
+
 
 def _get(record, name, default=None):
     if record is None:
@@ -68,25 +80,26 @@ def _get(record, name, default=None):
     return getattr(record, name, default)
 
 
+def _word_tokens(text):
+    normalised = unicodedata.normalize("NFC", text or "").casefold()
+    return re.findall(r"[^\W_]+", normalised, flags=re.UNICODE)
+
+
 def _contains_term(sentence, term):
-    if not sentence or not term:
+    # The matching form the brief states for its shipped
+    # lists: case insensitive over word tokens, words as
+    # alphanumeric tokens, a hyphenated form counting as
+    # its parts, and a multi word entry matching as a
+    # consecutive token sequence.
+    sentence_tokens = _word_tokens(sentence)
+    term_tokens = _word_tokens(term)
+    if not sentence_tokens or not term_tokens:
         return False
-    haystack = unicodedata.normalize("NFC", sentence).casefold()
-    needle = unicodedata.normalize("NFC", term).casefold()
-    start = 0
-    while True:
-        index = haystack.find(needle, start)
-        if index < 0:
-            return False
-        before = haystack[index - 1] if index > 0 else ""
-        after_pos = index + len(needle)
-        after = haystack[after_pos] if after_pos < len(haystack) else ""
-        if (before and (before.isalpha() or before.isdigit())) or (
-            after and (after.isalpha() or after.isdigit())
-        ):
-            start = index + 1
-            continue
-        return True
+    width = len(term_tokens)
+    return any(
+        sentence_tokens[index:index + width] == term_tokens
+        for index in range(len(sentence_tokens) - width + 1)
+    )
 
 
 def passes_naming_test(sentence, product_name=None, aliases=(), category_terms=()):
@@ -104,21 +117,132 @@ def passes_naming_test(sentence, product_name=None, aliases=(), category_terms=(
     return any(_contains_term(sentence, term) for term in terms)
 
 
-def is_quotable_evidence_sentence(sentence):
-    """Return True for a sentence carrying a stated figure.
+_CITATION_TARGET_PATTERN = re.compile(
+    r"https?://[^\s<>\"'()\[\]{}]+", re.IGNORECASE)
+_MARKDOWN_TARGET_PATTERN = re.compile(r"\[([^\]]*)\]\([^)\s]+[^)]*\)")
 
-    The reading taken here, recorded in the builder paper,
-    is that a quotable evidence sentence in the pinning
-    fixtures is a sentence carrying a numeric figure. The
-    plan states the selection ordering over quotable
-    evidence sentences and does not define quotability in
-    the sections this slice was charged to read, so the
-    service layer may supply pre filtered evidence
-    sentences, which this module then uses as given.
+_STATISTIC_PATTERN = re.compile(
+    r"(?<![A-Za-z0-9.])"
+    r"(?P<token>"
+    r"[$€£]?\d[\d,]*(?:\.\d+)?(?:%|:\d+(?:\.\d+)?)?"
+    r"(?:\s*(?:-|to)\s*[$€£]?\d[\d,]*(?:\.\d+)?%?)?"
+    r"(?:\s*(?:million|billion|thousand|percent))?"
+    r")"
+    r"(?![A-Za-z0-9])",
+    re.IGNORECASE,
+)
+
+_MONTH_NAME_PATTERN = (
+    "January|February|March|April|May|June|July|August|"
+    "September|October|November|December"
+)
+
+
+def _mask_spans(text, spans):
+    chars = list(text)
+    for start, end in spans:
+        for index in range(max(start, 0), min(end, len(chars))):
+            chars[index] = " "
+    return "".join(chars)
+
+
+def _has_citation_target(sentence):
+    # A sentence containing a citation target: the target
+    # stands inside a sentence, so words stand in the
+    # sentence beside the target. A listing that holds
+    # targets and no words is the citations standing
+    # themselves, not a sentence containing one, which is
+    # the distinction the citation only draft rule at
+    # item 137 stands on.
+    if not (_MARKDOWN_TARGET_PATTERN.search(sentence)
+            or _CITATION_TARGET_PATTERN.search(sentence)):
+        return False
+    residual = _MARKDOWN_TARGET_PATTERN.sub(
+        lambda match: " %s " % match.group(1), sentence)
+    residual = _CITATION_TARGET_PATTERN.sub(" ", residual)
+    return bool(_word_tokens(residual))
+
+
+def _has_statistic_token(sentence):
+    # The Section 5.7 earning rules: a token inside a
+    # quoted span, a date fragment, and a version string
+    # do not count, and a year between 1900 and 2099
+    # standing alone does not count.
+    masked = sentence
+    masked = _mask_spans(masked, [
+        (match.start(), match.end())
+        for match in re.finditer(r'"[^"\n]*"', masked)
+    ])
+    masked = _mask_spans(masked, [
+        (match.start(), match.end())
+        for match in re.finditer(r"\b\d{4}-\d{2}-\d{2}\b", masked)
+    ])
+    masked = _mask_spans(masked, [
+        (match.start(), match.end())
+        for match in re.finditer(r"\b\d{1,2}/\d{1,2}/\d{2,4}\b", masked)
+    ])
+    masked = _mask_spans(masked, [
+        (match.start(), match.end())
+        for match in re.finditer(
+            r"\b(?:" + _MONTH_NAME_PATTERN
+            + r")\s+\d{1,2},\s+\d{4}\b", masked)
+    ])
+    masked = _mask_spans(masked, [
+        (match.start(), match.end())
+        for match in re.finditer(r"\b\d+(?:\.\d+){2,}\b", masked)
+    ])
+    masked = _mask_spans(masked, [
+        (match.start(), match.end())
+        for match in re.finditer(
+            r"\bversion\s+\d+(?:\.\d+)+\b", masked, re.IGNORECASE)
+    ])
+    for match in _STATISTIC_PATTERN.finditer(masked):
+        plain = match.group("token").strip()
+        if re.fullmatch(r"\d{4}", plain):
+            if 1900 <= int(plain) <= 2099:
+                continue
+        return True
+    return False
+
+
+def _has_attributed_quoted_span(sentence):
+    # A quoted span of at least four words, with one of
+    # the closed attribution cues in the window after it:
+    # said, according to, or a capitalised name standing
+    # inside the window and not at the start of a new
+    # sentence.
+    for match in re.finditer(r'"([^"\n]*)"', sentence):
+        if len(match.group(1).split()) < 4:
+            continue
+        window = sentence[match.end():match.end() + 100]
+        if re.search(r"(?<![A-Za-z])said(?![A-Za-z])", window,
+                     re.IGNORECASE):
+            return True
+        if re.search(r"according\s+to", window, re.IGNORECASE):
+            return True
+        for name_match in re.finditer(r"\b[A-Z][a-z]+\b", window):
+            before = window[:name_match.start()].rstrip()
+            if not before or before.endswith((".", "!", "?")):
+                continue
+            return True
+    return False
+
+
+def is_quotable_evidence_sentence(sentence):
+    """Return True where a sentence is quotable evidence.
+
+    Brief item 137 defines the term: a sentence of the
+    extracted page text containing a citation target, a
+    statistic token, or an attributed quoted span, under
+    the Section 5.7 earning rules.
     """
     if not sentence:
         return False
-    return any(character.isdigit() for character in sentence)
+    return (
+        _has_citation_target(sentence)
+        or _has_statistic_token(sentence)
+        or _has_attributed_quoted_span(sentence)
+    )
 
 
 def choose_evidence_sentence(sentences, product_name=None, aliases=(),
@@ -140,20 +264,168 @@ def choose_evidence_sentence(sentences, product_name=None, aliases=(),
     return candidates[0]
 
 
-def _action_text(code):
-    return "Action recorded for trigger " + code + "."
+_CHECK_WORDS = {
+    "CITATIONS": "citations check",
+    "STATISTICS": "statistics check",
+    "QUOTATIONS": "quotations check",
+    "COMPARISON": "comparison check",
+    "FRESHNESS": "freshness check",
+    "DESCRIPTION": "description consistency check",
+    "KEYWORD": "keyword stuffing check",
+    "FLUFF": "fluff check",
+    "SUPERLATIVES": "unproven superlatives check",
+    "ANSWER_FIRST": "answer first check",
+}
+
+_CHECK_STEPS = {
+    "CITATIONS": "add citation targets from a named source to the page",
+    "STATISTICS": "add statistic figures from a named source to the page",
+    "QUOTATIONS": "add quoted spans attributed to a named source to the page",
+    "COMPARISON": "add comparison material that names its source to the page",
+    "FRESHNESS": "show a current date on the page, drawn from a named source",
+    "DESCRIPTION": (
+        "make the page description match the product record, and name "
+        "the source of any claim added"),
+    "KEYWORD": "reduce repeated keyword phrasing so the page reads as plain prose",
+    "FLUFF": "remove filler wording that names no source from the page",
+    "SUPERLATIVES": (
+        "remove superlative claims that name no source, or name the "
+        "source that supports each one"),
+    "ANSWER_FIRST": "move the direct answer to the reader question to the start of the page",
+}
+
+_STEM_BY_CHECK_ID = {
+    "citations": "CITATIONS",
+    "statistics": "STATISTICS",
+    "quotations": "QUOTATIONS",
+    "comparison": "COMPARISON",
+    "freshness": "FRESHNESS",
+    "description_consistency": "DESCRIPTION",
+    "keyword_stuffing": "KEYWORD",
+    "fluff": "FLUFF",
+    "unproven_superlatives": "SUPERLATIVES",
+    "answer_first": "ANSWER_FIRST",
+}
+
+_ROUND_TEXTS = {
+    "NOT_NAMED": (
+        "no answer in the round names the product",
+        "add the product name or an alias from the product record to "
+        "the page opening"),
+    "NOT_NAMED_EARLY": (
+        "no answer in the round names the product early",
+        "place the product name or an alias from the product record "
+        "near the start of the page"),
+    "NOT_CITED": (
+        "no answer in the round cites the product",
+        "add a citation target from a named source to the page"),
+}
 
 
-def _make_action(code, input_source, source_id, cap_operates=False):
+def _check_result_for(record, stem):
+    checks = _get(record, "checks", None) or []
+    for result in checks:
+        check_id = str(_get(result, "check_id", "") or "")
+        if _STEM_BY_CHECK_ID.get(check_id) == stem:
+            return result
+    return None
+
+
+def _check_evidence_phrase(result):
+    if result is None:
+        return "the audit record shows this outcome"
+    parts = []
+    counts = _get(result, "detail_counts", None)
+    if isinstance(counts, dict):
+        for key, value in counts.items():
+            if isinstance(value, bool):
+                continue
+            if isinstance(value, (int, float)):
+                parts.append(
+                    "%s stands at %s"
+                    % (str(key).replace("_", " "), value))
+    earned = _get(result, "earned", None)
+    weight = _get(result, "weight", None)
+    if earned is not None and weight is not None:
+        parts.append("the check earned %s of %s" % (earned, weight))
+    if parts:
+        return "; ".join(parts)
+    return "the audit record shows this outcome"
+
+
+def _cited_count_phrase(distinct_cited_target_count):
+    if distinct_cited_target_count is None:
+        return "the distinct cited target count stands in the audit record"
+    return (
+        "the distinct cited target count stands at %s"
+        % distinct_cited_target_count)
+
+
+def _action_text(code, evidence=None):
+    # One plain sentence per action, on the brief item 137
+    # rendering rule: the check or round outcome that
+    # produced the action named in words, the evidence
+    # that produced it, and the next step at signal level,
+    # with a named source where guard G6 requires one. No
+    # text here presents a step as a promised result.
+    if code.startswith("FAIL_") or code.startswith("WARN_"):
+        stem = code[len("FAIL_"):] if code.startswith("FAIL_") \
+            else code[len("WARN_"):]
+        words = _CHECK_WORDS.get(stem, "page check")
+        step = _CHECK_STEPS.get(
+            stem, "revise the page on this check, naming the source "
+            "of any evidence added")
+        outcome = "failed" if code.startswith("FAIL_") else "gave a warning"
+        return (
+            "The %s %s on the page, on this evidence: %s; the next "
+            "step is to %s." % (words, outcome, evidence or
+                                "the audit record shows this outcome",
+                                step))
+    if code == "LOW_CITATIONS":
+        return (
+            "The page carries too few citations, on this evidence: "
+            "%s, under the threshold of 2; the next step is to add "
+            "citation targets from a named source to the page."
+            % (evidence or _cited_count_phrase(None)))
+    if code == "CITATION_ONLY_NO_QUOTABLE_SENTENCE":
+        return (
+            "Citations stand on the page and no quotable evidence "
+            "sentence stands, on this evidence: %s; the next step "
+            "is to add a quotable evidence sentence from a named "
+            "source, a sentence carrying a citation target, a "
+            "statistic figure, or an attributed quoted span."
+            % (evidence or _cited_count_phrase(None)))
+    if code == "NO_REUSABLE_EVIDENCE":
+        return (
+            "No reusable evidence stands on the page, on this "
+            "evidence: no citation target, statistic figure, or "
+            "attributed quoted span stands in the record; the next "
+            "step is to add evidence of one of those kinds from a "
+            "named source to the page.")
+    if code in _ROUND_TEXTS:
+        outcome_words, step = _ROUND_TEXTS[code]
+        return (
+            "In this round, %s, on this evidence: %s; the next step "
+            "is to %s." % (outcome_words, evidence or
+                           "the round record shows this outcome", step))
+    return (
+        "The guide records this outcome, on this evidence: %s; the "
+        "next step is to revise the page at signal level, naming "
+        "the source of any evidence added."
+        % (evidence or "the record shows this outcome"))
+
+
+def _make_action(code, input_source, source_id, cap_operates=False,
+                 evidence=None):
     if input_source == "probe_round":
         worklist_class = None
-    elif cap_operates and code in CITATIONS_CHECK_CODES:
+    elif cap_operates and code in EVIDENCE_CHECK_CODES:
         worklist_class = "cap_first"
     else:
         worklist_class = "score_check"
     action = {
         "code": code,
-        "text": _action_text(code),
+        "text": _action_text(code, evidence=evidence),
         "input_source": input_source,
         "check_or_outcome": code,
         "worklist_class": worklist_class,
@@ -166,14 +438,19 @@ def _make_action(code, input_source, source_id, cap_operates=False):
 
 
 def _stamps_from(record):
+    # The draft carries the version stamps the input record
+    # carries, as it carries them: the six flat version keys,
+    # and the round record stamps under the names the Round
+    # shape states, registry_version_at_first_import and
+    # detector_version_at_first_import.
     stamps = {}
-    for key in VERSION_KEYS:
+    for key in STAMP_KEYS:
         value = _get(record, key, None)
         if value is not None:
             stamps[key] = value
     nested = _get(record, "version_stamps", None)
     if isinstance(nested, dict):
-        for key in VERSION_KEYS:
+        for key in STAMP_KEYS:
             if key not in stamps and nested.get(key) is not None:
                 stamps[key] = nested[key]
     return stamps
@@ -273,7 +550,7 @@ def draft_from_audit_record(record, canonical_line=None, audit_date=None,
     has_cited_targets = bool(
         distinct_cited_target_count and distinct_cited_target_count > 0
     )
-    citation_only = not quotable and has_cited_targets and distinct_cited_target_count >= 2
+    citation_only = not quotable and has_cited_targets
 
     refused = False
     refusal_code = None
@@ -304,8 +581,19 @@ def draft_from_audit_record(record, canonical_line=None, audit_date=None,
     else:
         opening_text = canonical_line
 
+    def evidence_for(code):
+        if code.startswith("FAIL_") or code.startswith("WARN_"):
+            return _check_evidence_phrase(
+                _check_result_for(record, code[5:]))
+        if code in ("LOW_CITATIONS",
+                    "CITATION_ONLY_NO_QUOTABLE_SENTENCE"):
+            return _cited_count_phrase(distinct_cited_target_count)
+        return None
+
     actions = [
-        _make_action(code, "page_audit", run_id, cap_operates=cap_operates)
+        _make_action(code, "page_audit", run_id,
+                     cap_operates=cap_operates,
+                     evidence=evidence_for(code))
         for code in codes_for_actions
     ]
 
@@ -421,10 +709,58 @@ def draft_from_round(round_record=None, canonical_line=None, audit_date=None,
             answers=answers, round_metrics=round_metrics
         )
 
+    def is_control(item):
+        if isinstance(item, dict):
+            return bool(item.get("control") or item.get("control_flag"))
+        return bool(
+            getattr(item, "control", False)
+            or getattr(item, "control_flag", False))
+
+    def field_value(item, name):
+        if isinstance(item, dict):
+            return item.get(name)
+        return getattr(item, name, False)
+
+    round_evidence = {}
+    if answers is not None:
+        active = [item for item in (answers or []) if not is_control(item)]
+        total = len(active)
+        round_evidence = {
+            "NOT_NAMED": "%d of %d answers in the round name the product"
+            % (sum(1 for item in active if field_value(item, "named")),
+               total),
+            "NOT_NAMED_EARLY": (
+                "%d of %d answers in the round name the product early"
+                % (sum(1 for item in active
+                       if field_value(item, "named_early")), total)),
+            "NOT_CITED": "%d of %d answers in the round cite the product"
+            % (sum(1 for item in active if field_value(item, "cited")),
+               total),
+        }
+    elif round_metrics is not None:
+        rates = _get(round_metrics, "rates", None) or {}
+        block_names = {
+            "NOT_NAMED": ("named", "name the product"),
+            "NOT_NAMED_EARLY": ("named_early", "name the product early"),
+            "NOT_CITED": ("cited", "cite the product"),
+        }
+        for code, (block_name, phrase) in block_names.items():
+            block = rates.get(block_name) if isinstance(rates, dict) \
+                else _get(rates, block_name, None)
+            if block is None:
+                continue
+            count = _get(block, "count", None)
+            total = _get(block, "n", None)
+            if count is not None and total is not None:
+                round_evidence[code] = (
+                    "%s of %s answers in the round %s"
+                    % (count, total, phrase))
+
     actions = []
     if not control_failed:
         actions = [
-            _make_action(code, "probe_round", source_round_id)
+            _make_action(code, "probe_round", source_round_id,
+                         evidence=round_evidence.get(code))
             for code in triggers
         ]
 

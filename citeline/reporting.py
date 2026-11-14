@@ -133,6 +133,55 @@ LABEL_DEFECT = (
     "This is an order of work, not a promised result."
 )
 
+TIER_CLAUSES = {
+    "count only": (
+        "count only means no rate is given, only the count "
+        "of answers"),
+    "exploratory": (
+        "exploratory means a rate is shown as an early "
+        "indication that carries little weight"),
+    "provisional": (
+        "provisional means a rate is shown as a working "
+        "figure that may still change as more answers are "
+        "added"),
+    "reportable": (
+        "reportable means a rate is shown as a figure that "
+        "may be relied on and reported as the round's "
+        "result"),
+}
+
+TIER_CLAUSES_LINE = (
+    "Tier clauses: count only means no rate is given, only "
+    "the count of answers; exploratory means a rate is shown "
+    "as an early indication that carries little weight; "
+    "provisional means a rate is shown as a working figure "
+    "that may still change as more answers are added; "
+    "reportable means a rate is shown as a figure that may "
+    "be relied on and reported as the round's result."
+)
+
+DEFINITIONS_LINE = (
+    "Definitions: a tier is the label that states how much "
+    "weight a rate can carry, set by effective n; an "
+    "interval is a cluster adjusted range computed by the "
+    "Wilson formula at effective n, and no coverage "
+    "probability is claimed for it; effective n is the "
+    "cluster count a rate effectively rests on, after near "
+    "duplicate answers are clustered together."
+)
+
+SCORE_BAND_SCALE_LINE = (
+    "Score band scale: 80 and over is strong, 60 and over "
+    "is developing, 40 and over is thin, and below 40 is "
+    "poor."
+)
+
+COMPUTED_FIGURES_ESTABLISHES = (
+    "This artefact states the figures this invocation "
+    "computed over the home as it stands, and no stored "
+    "record of a run stands behind them."
+)
+
 FORMS = ("simple", "advanced", "agentic")
 
 _ABSENCE_STATE = "not_recorded"
@@ -206,6 +255,22 @@ def _find_bounds(node):
     return None
 
 
+def _is_invocation_computed(plain):
+    """True for the status and verify records: artefacts whose
+    figures are computed in the invocation over the home, with
+    no stored record of a run behind them. A run artefact
+    carries a score, checks, or rates; these carry a chain
+    result and a home path and none of those."""
+    return (
+        isinstance(plain, dict)
+        and "chain_result" in plain
+        and "home_path" in plain
+        and "score" not in plain
+        and "checks" not in plain
+        and "rates" not in plain
+    )
+
+
 def bounds_for(record):
     """The bounds section for a record, in its one shared form.
 
@@ -218,7 +283,23 @@ def bounds_for(record):
     plain = _plain(record)
     found = _find_bounds(plain)
     if found is not None:
+        if _is_invocation_computed(plain):
+            corrected = copy.deepcopy(found)
+            corrected["establishes"] = [
+                COMPUTED_FIGURES_ESTABLISHES]
+            return corrected
         return found
+    if _is_invocation_computed(plain):
+        establishes = [COMPUTED_FIGURES_ESTABLISHES]
+        does_not_establish = [
+            "This artefact does not establish the truth of any "
+            "statement the audited page or a sampled answer makes.",
+            THIRD_PARTY_SCOPE_LINE,
+        ]
+        return {
+            "establishes": establishes,
+            "does_not_establish": does_not_establish,
+        }
     establishes = [
         "This artefact renders the stored record of this run, "
         "with its figures as stored and no figure added.",
@@ -445,6 +526,11 @@ def _advanced_body(record):
     _apply_small_sample_warning_text(body)
     _apply_methods_note_version(body)
     _apply_trend_field_names(body)
+    if _is_invocation_computed(body):
+        carried = _find_bounds(body)
+        if carried is not None:
+            carried["establishes"] = [
+                COMPUTED_FIGURES_ESTABLISHES]
     if _is_report_like(body):
         body.setdefault("honesty_sentence", HONESTY_SENTENCE)
         if _find_bounds(body) is None:
@@ -584,6 +670,30 @@ def _rate_line(name, node):
     rate = node.get("rate")
     low = node.get("wilson_low")
     high = node.get("wilson_high")
+    tier = node.get("tier")
+    clause = TIER_CLAUSES.get(tier) if isinstance(tier, str) \
+        else None
+    if tier == "count only":
+        if low is None or high is None:
+            return (
+                "%s: %s answers, tier count only: %s."
+                % (name, _scalar_text(node.get("n")), clause)
+            )
+        return (
+            "%s: %s answers, interval %d to %d percent, tier "
+            "count only: %s."
+            % (name, _scalar_text(node.get("n")),
+               round(low * 100), round(high * 100), clause)
+        )
+    warning = node.get("small_sample_warning")
+
+    def with_warning(line):
+        if warning is True:
+            line += " " + SMALL_SAMPLE_WARNING
+        elif isinstance(warning, str) and warning:
+            line += " " + warning
+        return line
+
     if rate is None or low is None or high is None:
         rate_part = "rate null" if rate is None else (
             "rate %s" % _scalar_text(rate))
@@ -591,32 +701,38 @@ def _rate_line(name, node):
             low is None or high is None) else (
             "interval %d to %d percent"
             % (round(low * 100), round(high * 100)))
-        line = (
-            "%s: %s over %s answers, %s, tier %s."
-            % (name, rate_part, _scalar_text(node.get("n")),
-               interval_part, _scalar_text(node.get("tier")))
-        )
-        warning = node.get("small_sample_warning")
-        if warning is True:
-            line += " " + SMALL_SAMPLE_WARNING
-        elif isinstance(warning, str) and warning:
-            line += " " + warning
-        return line
+        if clause is not None:
+            line = (
+                "%s: %s over %s answers, %s, tier %s: %s."
+                % (name, rate_part, _scalar_text(node.get("n")),
+                   interval_part, _scalar_text(tier), clause)
+            )
+        else:
+            line = (
+                "%s: %s over %s answers, %s, tier %s."
+                % (name, rate_part, _scalar_text(node.get("n")),
+                   interval_part, _scalar_text(tier))
+            )
+        return with_warning(line)
     low_pct = round(low * 100)
     high_pct = round(high * 100)
-    line = (
-        "%s: rate %s over %s answers, interval %d to %d percent, "
-        "tier %s."
-        % (name, _scalar_text(rate),
-           _scalar_text(node.get("n")), low_pct, high_pct,
-           _scalar_text(node.get("tier")))
-    )
-    warning = node.get("small_sample_warning")
-    if warning is True:
-        line += " " + SMALL_SAMPLE_WARNING
-    elif isinstance(warning, str) and warning:
-        line += " " + warning
-    return line
+    if clause is not None:
+        line = (
+            "%s: rate %s over %s answers, interval %d to %d "
+            "percent, tier %s: %s."
+            % (name, _scalar_text(rate),
+               _scalar_text(node.get("n")), low_pct, high_pct,
+               _scalar_text(tier), clause)
+        )
+    else:
+        line = (
+            "%s: rate %s over %s answers, interval %d to %d "
+            "percent, tier %s."
+            % (name, _scalar_text(rate),
+               _scalar_text(node.get("n")), low_pct, high_pct,
+               _scalar_text(tier))
+        )
+    return with_warning(line)
 
 
 def _emit(lines, key, value, depth):
@@ -627,6 +743,7 @@ def _emit(lines, key, value, depth):
     if isinstance(value, dict):
         if _is_rate_object(value):
             lines.append(pad + _rate_line(key, value))
+            return
         if _is_capture_context(value):
             line = _capture_context_line(value)
             if line is not None:
@@ -785,8 +902,28 @@ def _render_simple(body):
         lines.append("What this run does not establish:")
         for item in bounds.get("does_not_establish") or []:
             lines.append("  %s" % _scalar_text(item))
+    if _carries_rate_terms(body):
+        lines.append(DEFINITIONS_LINE)
+        lines.append(TIER_CLAUSES_LINE)
+    if _carries_score_band(body):
+        lines.append(SCORE_BAND_SCALE_LINE)
     lines.append(HONESTY_SENTENCE)
     return "\n".join(lines) + "\n"
+
+
+def _carries_rate_terms(body):
+    for obj in _walk(body):
+        if _is_rate_object(obj) or "effective_n" in obj \
+                or "tier" in obj:
+            return True
+    return False
+
+
+def _carries_score_band(body):
+    for obj in _walk(body):
+        if "band" in obj and "value" in obj:
+            return True
+    return False
 
 
 _INTERROGATIVE_STARTERS = {
