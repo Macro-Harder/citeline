@@ -102,13 +102,6 @@ subcommand per call, every input a named flag:
 
 Forms are simple, advanced, and agentic.
 
-## Tests
-
-The test suite stands in tests/ and runs against
-the package in this repository:
-
-    PYTHONPATH=. python3 -m unittest discover -s tests
-
 ## License
 
 Apache License 2.0. See LICENSE. Copyright
