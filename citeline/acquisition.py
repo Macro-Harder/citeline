@@ -28,6 +28,7 @@ import os
 import re
 import stat
 import unicodedata
+from html import unescape as _unescape
 from html.parser import HTMLParser
 
 
@@ -723,7 +724,16 @@ def _skip_leading_furniture(text):
         if text.startswith("<?", index):
             close = text.find("?>", index + 2)
             if close < 0:
-                return text[index:]
+                # A processing instruction form with no
+                # closing spelling stands as an HTML bogus
+                # comment, which ends at its first closing
+                # bracket, so the content after it stands
+                # read (Step 17 round 4 entry S17-R4-013).
+                bogus_end = _scan_tag_end(text, index)
+                if bogus_end < 0:
+                    return text[index:]
+                index = bogus_end + 1
+                continue
             index = close + 2
             continue
         if text.startswith("<![CDATA[", index):
@@ -757,7 +767,11 @@ def _content_format(text):
                 r"details|summary|address|hr|br|wbr|button|"
                 r"textarea|select|label|iframe|title|hgroup|"
                 r"legend|script|style|dialog|template|noscript|"
-                r"picture|object|embed|menu)\b",
+                r"picture|object|embed|menu|meta|link|base|"
+                r"input|source|track|col|area|colgroup|tfoot|"
+                r"search|data|meter|progress|output|slot|ruby|"
+                r"samp|var|dfn|bdi|bdo|del|ins|datalist|"
+                r"optgroup|option|map)\b",
                 probe):
         return "html"
     for line in visible.splitlines():
@@ -855,18 +869,63 @@ def _scan_tag_end(text, start):
     """The index of the bracket that closes the tag standing
     at start, read as the parser reads a tag: a bracket
     inside a quoted attribute value does not close the tag.
-    Returns -1 where no closing bracket stands."""
+    A quoted attribute value opens only where its quote
+    stands as the first character of a value, immediately
+    after the equals sign of an attribute, allowing the
+    space the parser allows around that sign; a quote
+    character standing inside an unquoted attribute value
+    is value text and opens nothing (Step 17 round 4 entry
+    S17-R4-011). Returns -1 where no closing bracket
+    stands."""
+    if text[start:start + 9].casefold() == "<!doctype":
+        # A doctype declaration stands read whole across
+        # its quoted literals, as the round 2 container
+        # reading states: its quoted strings are
+        # declaration text, not attribute values, so the
+        # attribute reading below does not govern it.
+        quote = None
+        index = start + 1
+        while index < len(text):
+            ch = text[index]
+            if quote is not None:
+                if ch == quote:
+                    quote = None
+            elif ch in ("\"", "'"):
+                quote = ch
+            elif ch == ">":
+                return index
+            index += 1
+        return -1
+    quick_end = text.find(">", start + 1)
+    if quick_end >= 0:
+        head = text[start + 1:quick_end]
+        if '"' not in head and "'" not in head:
+            return quick_end
     quote = None
+    pending_value = False
+    in_unquoted_value = False
     index = start + 1
     while index < len(text):
         ch = text[index]
         if quote is not None:
             if ch == quote:
                 quote = None
-        elif ch in ("\"", "'"):
-            quote = ch
         elif ch == ">":
             return index
+        elif in_unquoted_value:
+            if ch in " \t\r\n\f":
+                in_unquoted_value = False
+        elif pending_value:
+            if ch in " \t\r\n\f":
+                pass
+            elif ch in ("\"", "'"):
+                quote = ch
+                pending_value = False
+            else:
+                in_unquoted_value = True
+                pending_value = False
+        elif ch == "=":
+            pending_value = True
         index += 1
     return -1
 
@@ -916,6 +975,13 @@ def _tag_self_closed(chunk, name_end):
     return False
 
 
+_TAG_OPEN_RE = re.compile(r"<(/?)([A-Za-z][A-Za-z0-9]*)")
+_RAW_TEXT_CLOSE_RES = {
+    name: re.compile(r"</%s(?=[\s/>])" % name, flags=re.I)
+    for name in ("script", "style", "textarea", "title")
+}
+
+
 def _leading_structure(text):
     """Read the file's own leading structure as markup.
 
@@ -963,7 +1029,13 @@ def _leading_structure(text):
                 doctypes.append(chunk)
             index = end + 1
             continue
-        match = re.match(r"<(/?)([A-Za-z][A-Za-z0-9]*)", text[lt:])
+        # The tag match and the raw text close search run
+        # with a position argument on the whole text, never
+        # on a slice of its remainder: a slice copies the
+        # remainder once per tag, which costs superlinear
+        # time on a page of many small tags at the governed
+        # file limit (Step 17 round 4 entry S17-R4-010).
+        match = _TAG_OPEN_RE.match(text, lt)
         if not match:
             index = lt + 1
             continue
@@ -975,15 +1047,15 @@ def _leading_structure(text):
         name = match.group(2).casefold()
         if not closing and name == "html":
             return doctypes, chunk
-        self_closed = _tag_self_closed(chunk, 1 + len(match.group(2)))
-        if not closing and not self_closed and name in (
-                "script", "style", "textarea", "title"):
-            close_match = re.search(
-                r"</%s(?=[\s/>])" % name, text[end + 1:],
-                flags=re.I)
+        if not closing and name in (
+                "script", "style", "textarea", "title") \
+                and not _tag_self_closed(
+                    chunk, 1 + len(match.group(2))):
+            close_match = _RAW_TEXT_CLOSE_RES[name].search(
+                text, end + 1)
             if close_match is None:
                 break
-            close_start = end + 1 + close_match.start()
+            close_start = close_match.start()
             close_end = _scan_tag_end(text, close_start)
             if close_end < 0:
                 break
@@ -1014,7 +1086,12 @@ def _check_containers(raw, text):
             _fail("PAGE_EXTRACTION_FAILED",
                   "container failure: the file stands marked as XHTML")
     if root_tag is not None \
-            and "http://www.w3.org/1999/xhtml" in root_tag:
+            and "http://www.w3.org/1999/xhtml" in _unescape(root_tag):
+        # The namespace stands judged as the parser decodes
+        # it, not by its raw spelling: character references
+        # in the attribute value decode before the reading,
+        # as HTMLParser decodes them (Step 17 round 4 entry
+        # S17-R4-012).
         _fail("PAGE_EXTRACTION_FAILED",
               "container failure: the file stands marked as XHTML")
     header_block = re.split(r"\r?\n[ \t]*\r?\n", visible,
@@ -1159,15 +1236,32 @@ def _front_matter(text, fmt, notes, block_limit_bytes=None,
                       "front matter block size limit is %s KiB, "
                       "with rejection and no partial record"
                       % ("%g" % (block_limit_bytes / 1024),))
+            # Values stand measured as the governing
+            # readings state them (Step 17 round 4 entry
+            # S17-R4-062): a comment line stands as no
+            # value at all, and an indented continuation
+            # line stands accumulated into the value above
+            # it, as the import side reading cured at
+            # S17-R3-027 accumulates it.
+            current_value_length = None
             for block_line in lines[1:index]:
+                if not block_line.strip() or block_line.lstrip() \
+                        .startswith("#"):
+                    continue
                 if ":" in block_line:
                     value = block_line.split(":", 1)[1].strip()
-                    if len(value) > value_limit:
-                        _fail("LIMIT_EXCEEDED",
-                              "front matter value length per key "
-                              "limit is %s characters, with "
-                              "rejection and no partial record"
-                              % ("%g" % (value_limit,),))
+                    current_value_length = len(value)
+                elif block_line[0] in " \t" \
+                        and current_value_length is not None:
+                    current_value_length += len(block_line.strip())
+                else:
+                    continue
+                if current_value_length > value_limit:
+                    _fail("LIMIT_EXCEEDED",
+                          "front matter value length per key "
+                          "limit is %s characters, with "
+                          "rejection and no partial record"
+                          % ("%g" % (value_limit,),))
             if re.search(r"(?m)^[^#\n]*:\s*(!|&|\*|%)", block) or \
                     re.search(r"<[A-Za-z][^>]*>", block):
                 _fail("PAGE_EXTRACTION_FAILED",
@@ -2015,21 +2109,28 @@ def _build_extracted(fmt, text, notes,
 def _extract_inner(home, product_id, page_path, declared_format,
                    audit_date, evaluated_page_path,
                    capture_date_asserted, capture_method_asserted,
-                   run_id=None):
+                   run_id=None, limits_in_force=None):
     # One reading of the limits in force for this run
     # governs every extraction gate below (Step 17 round 2
     # entry S17-R2-085): the reading stands taken under
     # the run identity the service states for the run, so
     # a raise for that run and a config value both reach
     # the page size gate and the extracted text gate here,
-    # as they reach the service preflight.
-    limits_in_force = {}
-    try:
-        from citeline import journal as journal_module
-        limits_in_force = journal_module.effective_limits(
-            str(home), run_id=run_id) or {}
-    except Exception:
-        limits_in_force = {}
+    # as they reach the service preflight. Where the
+    # service caller hands its own start reading in, that
+    # one reading governs the whole run (Step 17 round 4
+    # entry S17-R4-061): the audit statement and the
+    # extraction enforcement then stand on the same
+    # values, and no second reading of the config file
+    # limb can move the enforcement away from the values
+    # the record states.
+    if limits_in_force is None:
+        try:
+            from citeline import journal as journal_module
+            limits_in_force = journal_module.effective_limits(
+                str(home), run_id=run_id) or {}
+        except Exception:
+            limits_in_force = {}
     page_size_value = (
         limits_in_force.get("page_file_size") or {}).get("value")
     size_limit_bytes = page_size_value * 1024 * 1024 if isinstance(
@@ -2146,7 +2247,8 @@ def extract_page(home, product_id=None, page_path=None, audit_date=None,
         evaluated_page_path,
         kwargs.get("capture_date_asserted"),
         kwargs.get("capture_method_asserted"),
-        run_id=kwargs.get("run_id"))
+        run_id=kwargs.get("run_id"),
+        limits_in_force=kwargs.get("limits_in_force"))
     snapshot = result["snapshot"]
     if kwargs.get("register_snapshot", True) is False:
         # The caller registers the snapshot itself, in the

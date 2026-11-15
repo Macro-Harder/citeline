@@ -95,6 +95,12 @@ def _fail(token, message):
     raise RegistryError(token, message)
 
 
+class _StaleView(Exception):
+    """The journal moved inside one registry cycle, so the
+    cycle judges again on the fresh state (entry
+    S17-R4-014). Internal to this module."""
+
+
 # ----------------------------------------------------------------
 # Journal access (slice S0). This module writes only through
 # the journal operations the plan states: append_entry as the
@@ -187,6 +193,31 @@ def _fold_registry(home):
         if product_id:
             records[product_id] = payload
     return records
+
+
+def _journal_version(home):
+    """The standing journal state as a version pair, or None.
+
+    A registry cycle reads this pair before it judges and
+    again before it appends: where the pair moved between
+    the two readings, a writer outside the registry lock,
+    a correction appended through the journal among them,
+    landed inside the cycle, and the cycle judges again on
+    the fresh state instead of writing on the superseded
+    view its first read returned (Step 17 round 4 entry
+    S17-R4-014, reading the journal discipline the round 4
+    F1 seat landed)."""
+    journal = _journal()
+    verify = getattr(journal, "verify_chain", None)
+    if verify is None:
+        return None
+    try:
+        result = verify(str(home))
+    except Exception:
+        return None
+    if not isinstance(result, dict):
+        return None
+    return (result.get("entry_count"), result.get("head_hash"))
 
 
 @contextlib.contextmanager
@@ -311,6 +342,11 @@ def validate_alias(value):
               "alias must hold more than spaces alone: an "
               "alias that folds to the empty string stands "
               "refused at this boundary")
+    if not any(ch.isalnum() for ch in value):
+        _fail("VALIDATION_FAILED",
+              "alias must hold a letter or a digit: an alias "
+              "with no name in it stands refused at this "
+              "boundary (Step 17 round 4 entry S17-R4-016)")
     if any(mark in value for mark in _ZERO_WIDTH):
         _fail("VALIDATION_FAILED",
               "alias must carry no zero width character")
@@ -762,7 +798,9 @@ def _public_product(record):
     return out
 
 
-def _store_change(home, record, audit_date):
+def _store_change(home, record, audit_date, version=None):
+    if version is not None and _journal_version(home) != version:
+        raise _StaleView()
     record = copy.deepcopy(record)
     record["registry_version"] = int(record.get("registry_version", 1)) + 1
     _append(home, "registry_change", _payload_product(record), audit_date)
@@ -845,12 +883,21 @@ def add_product(home, name=None, canonical_line=None, domain=None,
                   "a stated product_id must match the identity "
                   "formed from the product name")
     with _registry_lock(home):
+        return _add_product_cycle(
+            home, name, candidate, stated, audit_date)
+
+
+def _add_product_cycle(home, name, candidate, stated, audit_date):
+    for _attempt in range(5):
+        version = _journal_version(home)
         existing = find_product(home, name)
         if existing is None:
             # A standing record under the formed identity with a
             # different name is still a re-add case, not a new
             # product: identity is decided once.
             existing = find_product(home, candidate["product_id"])
+        if _journal_version(home) != version and _attempt < 4:
+            continue
         if existing is not None:
             same = (
                 existing.get("name") == candidate["name"]
@@ -892,6 +939,15 @@ def set_canonical_line(home, product=None, line=None, audit_date=None,
               "canonical line must be at most 200 code points")
     _require_product(home, product)
     with _registry_lock(home):
+        for _attempt in range(5):
+            version = _journal_version(home)
+            record = _require_product(home, product)
+            record["canonical_line"] = line
+            try:
+                return _store_change(
+                    home, record, audit_date, version=version)
+            except _StaleView:
+                continue
         record = _require_product(home, product)
         record["canonical_line"] = line
         return _store_change(home, record, audit_date)
@@ -909,6 +965,15 @@ def set_competitors(home, product=None, competitors=None,
         _fail("LIMIT_EXCEEDED", "competitors per product limit is 100")
     _require_product(home, product)
     with _registry_lock(home):
+        for _attempt in range(5):
+            version = _journal_version(home)
+            record = _require_product(home, product)
+            record["competitors"] = records
+            try:
+                return _store_change(
+                    home, record, audit_date, version=version)
+            except _StaleView:
+                continue
         record = _require_product(home, product)
         record["competitors"] = records
         return _store_change(home, record, audit_date)
@@ -921,6 +986,15 @@ def set_aliases(home, product=None, aliases=None, audit_date=None,
     alias_list = _validate_aliases(aliases)
     _require_product(home, product)
     with _registry_lock(home):
+        for _attempt in range(5):
+            version = _journal_version(home)
+            record = _require_product(home, product)
+            record["aliases"] = alias_list
+            try:
+                return _store_change(
+                    home, record, audit_date, version=version)
+            except _StaleView:
+                continue
         record = _require_product(home, product)
         record["aliases"] = alias_list
         return _store_change(home, record, audit_date)
@@ -931,6 +1005,17 @@ def set_query_set(home, product=None, query_set=None, audit_date=None,
     query_list = _validate_query_set(query_set)
     _require_product(home, product)
     with _registry_lock(home):
+        for _attempt in range(5):
+            version = _journal_version(home)
+            record = _require_product(home, product)
+            record["query_set"] = query_list
+            record["query_set_version"] = int(
+                record.get("query_set_version", 1)) + 1
+            try:
+                return _store_change(
+                    home, record, audit_date, version=version)
+            except _StaleView:
+                continue
         record = _require_product(home, product)
         record["query_set"] = query_list
         record["query_set_version"] = int(
@@ -945,6 +1030,15 @@ def set_category(home, product=None, category=None, audit_date=None,
     category_list = _validate_category(category)
     _require_product(home, product)
     with _registry_lock(home):
+        for _attempt in range(5):
+            version = _journal_version(home)
+            record = _require_product(home, product)
+            record["category"] = category_list
+            try:
+                return _store_change(
+                    home, record, audit_date, version=version)
+            except _StaleView:
+                continue
         record = _require_product(home, product)
         record["category"] = category_list
         return _store_change(home, record, audit_date)
@@ -1015,40 +1109,47 @@ def register_page(home, product=None, snapshot=None, audit_date=None,
         snapshot = kwargs.get("snapshot_id")
     _require_product(home, product)
     with _registry_lock(home):
-        record = _require_product(home, product)
         if isinstance(snapshot, dict):
             snapshot_id = snapshot.get("snapshot_id")
         else:
             snapshot_id = snapshot
-        if not snapshot_id:
-            _append_register_failure(
-                home, "VALIDATION_FAILED", snapshot_id, audit_date)
-            _fail("VALIDATION_FAILED", "a snapshot identity is required")
-        standing = None
-        for candidate in _snapshots(home):
-            if candidate.get("snapshot_id") == snapshot_id \
-                    and candidate.get("product_id") \
-                    == record["product_id"]:
-                standing = candidate
-        if standing is None:
-            allowed = ", ".join(sorted(
-                str(candidate.get("snapshot_id"))
-                for candidate in _snapshots(home)
-                if candidate.get("product_id") == record["product_id"]
-                and candidate.get("snapshot_id"))) or (
-                    "no standing snapshot for this product")
-            _append_register_failure(
-                home, "VALIDATION_FAILED", snapshot_id, audit_date)
-            _fail(
-                "VALIDATION_FAILED",
-                "unknown snapshot %r for product %s; allowed values: %s"
-                % (snapshot_id, record.get("name"), allowed))
-        base = copy.deepcopy(standing)
-        base["snapshot_id"] = snapshot_id
-        base["product_id"] = record["product_id"]
-        base["is_product_page"] = True
-        _append(home, "snapshot_registered", base, audit_date)
-        return copy.deepcopy(base)
+        for _attempt in range(5):
+            version = _journal_version(home)
+            record = _require_product(home, product)
+            if not snapshot_id:
+                _append_register_failure(
+                    home, "VALIDATION_FAILED", snapshot_id, audit_date)
+                _fail("VALIDATION_FAILED",
+                      "a snapshot identity is required")
+            standing = None
+            for candidate in _snapshots(home):
+                if candidate.get("snapshot_id") == snapshot_id \
+                        and candidate.get("product_id") \
+                        == record["product_id"]:
+                    standing = candidate
+            if _journal_version(home) != version and _attempt < 4:
+                continue
+            if standing is None:
+                allowed = ", ".join(sorted(
+                    str(candidate.get("snapshot_id"))
+                    for candidate in _snapshots(home)
+                    if candidate.get("product_id")
+                    == record["product_id"]
+                    and candidate.get("snapshot_id"))) or (
+                        "no standing snapshot for this product")
+                _append_register_failure(
+                    home, "VALIDATION_FAILED", snapshot_id, audit_date)
+                _fail(
+                    "VALIDATION_FAILED",
+                    "unknown snapshot %r for product %s; allowed "
+                    "values: %s"
+                    % (snapshot_id, record.get("name"), allowed))
+            base = copy.deepcopy(standing)
+            base["snapshot_id"] = snapshot_id
+            base["product_id"] = record["product_id"]
+            base["is_product_page"] = True
+            _append(home, "snapshot_registered", base, audit_date)
+            return copy.deepcopy(base)
 
 
 # Round declaration values. The plan Section 5.1 values stand
@@ -1148,7 +1249,6 @@ def name_round(home, product=None, round_label=None,
         round_label = kwargs.get("label", kwargs.get("round"))
     _require_product(home, product)
     with _registry_lock(home):
-        record = _require_product(home, product)
         if not isinstance(round_label, str) or not round_label:
             _fail("VALIDATION_FAILED", "a round label is required")
         if len(round_label) > 200:
@@ -1167,25 +1267,34 @@ def name_round(home, product=None, round_label=None,
                 "supplier_relation is out of set; allowed values: "
                 "supplied by the audited party; supplied by an "
                 "independent party; supplier relation unknown")
-        for standing in _rounds(home):
-            if (standing.get("product_id") == record["product_id"]
-                    and standing.get("round_label") == round_label):
+        for _attempt in range(5):
+            version = _journal_version(home)
+            record = _require_product(home, product)
+            duplicate = any(
+                standing.get("product_id") == record["product_id"]
+                and standing.get("round_label") == round_label
+                for standing in _rounds(home))
+            if _journal_version(home) != version and _attempt < 4:
+                continue
+            if duplicate:
                 _fail(
                     "ROUND_LABEL_EXISTS",
                     "round label %r already stands for product %s; "
                     "rounds are never overwritten or renamed"
                     % (round_label, record.get("name")))
-        round_record = {
-            "round_id": round_id_for(record["product_id"], round_label),
-            "product_id": record["product_id"],
-            "round_label": round_label,
-            "importer_declaration": _CANONICAL_IMPORTER[
-                _IMPORTER_KEYS[importer_key]],
-            "supplier_relation": _CANONICAL_SUPPLIER[
-                _SUPPLIER_KEYS[supplier_key]],
-            "registry_version_at_first_import": None,
-            "detector_version_at_first_import": None,
-            "created_by": "name_round",
-        }
-        _append(home, "round_named", copy.deepcopy(round_record), audit_date)
-        return copy.deepcopy(round_record)
+            round_record = {
+                "round_id": round_id_for(
+                    record["product_id"], round_label),
+                "product_id": record["product_id"],
+                "round_label": round_label,
+                "importer_declaration": _CANONICAL_IMPORTER[
+                    _IMPORTER_KEYS[importer_key]],
+                "supplier_relation": _CANONICAL_SUPPLIER[
+                    _SUPPLIER_KEYS[supplier_key]],
+                "registry_version_at_first_import": None,
+                "detector_version_at_first_import": None,
+                "created_by": "name_round",
+            }
+            _append(home, "round_named",
+                    copy.deepcopy(round_record), audit_date)
+            return copy.deepcopy(round_record)

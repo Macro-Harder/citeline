@@ -446,29 +446,55 @@ def _failure_record_payloads(body):
     payloads, a single failure_record payload, or journal
     entries of the failure_record kind carrying their
     payload, at the top level or inside an entries list.
+
+    One stored record may travel in two of those forms at
+    once, and it stands collected once: the forms stand
+    merged by multiplicity, so the count a payload stands
+    at is the greatest count it stands at in any one
+    form, never the sum over forms. Two identical stored
+    records inside one form still stand as two, as a
+    retried failure stands (Step 17 round 3 entry
+    S17-R3-063, and round 4 entry S17-R4-049 for the
+    composition over forms).
     """
-    payloads = []
-
-    def note(item):
-        # Every stored payload stands collected, in order:
-        # two identical stored records are two records, and
-        # a membership test here would collapse a retried
-        # failure into one (Step 17 round 3 entry S17-R3-063).
-        if isinstance(item, dict):
-            payloads.append(item)
-
+    forms = []
     if isinstance(body, dict):
         stated = body.get("failure_records")
         if isinstance(stated, list):
-            for item in stated:
-                note(item)
+            forms.append(
+                [item for item in stated
+                 if isinstance(item, dict)])
         single = body.get("failure_record")
         if isinstance(single, dict):
-            note(single)
-    for obj in _walk(body):
-        if obj.get("entry_kind") == "failure_record" \
-                and isinstance(obj.get("payload"), dict):
-            note(obj["payload"])
+            forms.append([single])
+    forms.append([
+        obj["payload"] for obj in _walk(body)
+        if obj.get("entry_kind") == "failure_record"
+        and isinstance(obj.get("payload"), dict)])
+
+    def count_of(counts, item):
+        for standing, count in counts:
+            if standing == item:
+                return count
+        return 0
+
+    def raise_count(counts, item):
+        for index, (standing, count) in enumerate(counts):
+            if standing == item:
+                counts[index] = (standing, count + 1)
+                return
+        counts.append((item, 1))
+
+    payloads = []
+    emitted = []
+    for form in forms:
+        seen_in_form = []
+        for item in form:
+            raise_count(seen_in_form, item)
+            if count_of(seen_in_form, item) \
+                    > count_of(emitted, item):
+                payloads.append(item)
+                raise_count(emitted, item)
     return payloads
 
 
@@ -809,7 +835,13 @@ def _advanced_body(record):
         body["honesty_sentence"] = HONESTY_SENTENCE
         if _find_bounds(body) is None:
             body["bounds"] = bounds_for(body)
-        _apply_control_failure_notice(body)
+    # The control notice pass stands on every record the
+    # pipeline hands it, not only on a record carrying one
+    # of the report markers: a flagged record carrying no
+    # marker stands under both limbs of the discipline,
+    # the fixed notice and the nested removal, as a marked
+    # record does (Step 17 round 4 entry S17-R4-045).
+    _apply_control_failure_notice(body)
     _apply_guide_texts(body)
     if _is_query_set_report(body):
         body.setdefault("overlap_statement", _OVERLAP_STATEMENT)
@@ -859,12 +891,24 @@ def _apply_agentic_scope(body):
         # its value field, so a dict score value here
         # names that nested object, not a score figure
         # this object carries.
+        # A rate stands under the field names the product
+        # itself uses for rates, not only under the bare
+        # rate key: a key naming a rate, as cited_rate and
+        # cited_rate_gross name one, carries a rate, and
+        # the rate interval fields wilson_low and
+        # wilson_high carry one on their own, with no tier
+        # standing beside them (Step 17 round 4 entry
+        # S17-R4-044).
         carries = (
             "tier" in obj
             or "rate" in obj
+            or any(
+                isinstance(key, str)
+                and ("_rate" in key
+                     or key in ("wilson_low", "wilson_high"))
+                for key in obj)
             or ("score" in obj
-                and not isinstance(obj.get("score"), dict))
-            or ("wilson_low" in obj and "tier" in obj))
+                and not isinstance(obj.get("score"), dict)))
         if carries:
             # The scope value stands assigned outright on
             # an object that carries a rate or a tier, in
@@ -1094,10 +1138,18 @@ def _figure_text(value):
     product states for its disclosed figures, four decimal
     places for a float, so no printed position stands at
     full stored precision (Step 17 round 3 entry
-    S17-R3-045). A figure in no float form stands as the
-    plain scalar text stands."""
+    S17-R3-045). A figure carried as a string that reads
+    as a finite number stands at the same precision, as
+    the rate and score readings already judge a string
+    figure through _figure_or_none (Step 17 round 4
+    entry S17-R4-046). A figure in no such form stands
+    as the plain scalar text stands."""
     if isinstance(value, float):
         return _rate_value_text(value)
+    if isinstance(value, str):
+        parsed = _figure_or_none(value)
+        if isinstance(parsed, float):
+            return _rate_value_text(parsed)
     return _scalar_text(value)
 
 
@@ -1247,7 +1299,8 @@ def _emit(lines, key, value, depth, suppress_anchor_bare=False,
             key in _TREND_RATE_KEYS
             or key in ("rate", "share", "percent", "value",
                        "total_weight", "proportion", "ratio",
-                       "earned", "weight", "applicable_weight")
+                       "earned", "weight", "applicable_weight",
+                       "design_effect")
             or key in ("wilson_low", "wilson_high")
             or key.startswith("wilson_")
             or "_rate" in key
@@ -1797,6 +1850,42 @@ def _render_staleness_simple(body):
     return lines
 
 
+def _failure_record_line(failure):
+    """One Simple line for one stored failure record,
+    stating the stored payload as stored.
+
+    A complete payload stands in the standing form, its
+    operation, its error value, and its subject. A field
+    the payload does not hold stands in no form in the
+    line: the scalar text for an absent value would
+    state a value the store does not hold (Step 17
+    round 4 entry S17-R4-074). A payload holding none
+    of the three fields stands stated as holding none.
+    """
+    operation = failure.get("operation")
+    error_value = failure.get("error_value")
+    subject = failure.get("subject_identity")
+    if operation is not None and error_value is not None \
+            and subject is not None:
+        return (
+            "  %s failed with %s, subject %s."
+            % (_scalar_text(operation),
+               _scalar_text(error_value),
+               _scalar_text(subject)))
+    parts = []
+    if operation is not None:
+        parts.append("operation %s" % _scalar_text(operation))
+    if error_value is not None:
+        parts.append("error %s" % _scalar_text(error_value))
+    if subject is not None:
+        parts.append("subject %s" % _scalar_text(subject))
+    if not parts:
+        return (
+            "  failure record: no fields stand in the "
+            "stored payload.")
+    return "  failure record: %s." % ", ".join(parts)
+
+
 def _render_simple(body):
     if not isinstance(body, dict):
         return _scalar_text(body)
@@ -1853,12 +1942,7 @@ def _render_simple(body):
         for failure in failure_records:
             if not isinstance(failure, dict):
                 continue
-            lines.append(
-                "  %s failed with %s, subject %s."
-                % (_scalar_text(failure.get("operation")),
-                   _scalar_text(failure.get("error_value")),
-                   _scalar_text(
-                       failure.get("subject_identity"))))
+            lines.append(_failure_record_line(failure))
     bounds = _find_bounds(body)
     if bounds is not None and _is_report_like(body):
         lines.append("Bounds.")
@@ -1912,9 +1996,14 @@ def _fold(text):
 
 def _word_tokens(text):
     """The word tokens of one text, on the matching form
-    the brief states: case insensitive over word tokens,
-    words as alphanumeric tokens."""
-    return re.findall(r"[^\W_]+", _fold(text), flags=re.UNICODE)
+    the brief states at Section 5.1: case insensitive
+    over word tokens, words as alphanumeric tokens, and
+    a decimal number counting as one word, so a decimal
+    point standing between digits does not split the
+    number it stands in (Step 17 round 4 entry
+    S17-R4-048)."""
+    return re.findall(
+        r"[^\W_]+(?:\.\d+)?", _fold(text), flags=re.UNICODE)
 
 
 def _tokens_match(tokens, entry_tokens):
@@ -2263,15 +2352,61 @@ def _rule_text_changed_rows(first, second, existing):
             if token != "*" else second_texts
         # Removed and added texts pair into changed rows,
         # one row per pair, with any leftover standing as
-        # a removal or an addition on its own.
+        # a removal or an addition on its own. A text a
+        # finding row of this token already states, as the
+        # rule removed or the rule added at the evaluated
+        # path, stands out of the pairing on a named token:
+        # pairing it with another text would state it a
+        # second time, as removed in the finding row and
+        # as changed in a rule text row. It stands reserved
+        # as a leftover instead, where the finding pair
+        # judgement below suppresses it, and the texts it
+        # would have paired with pair among themselves.
+        # The wildcard group stands outside this reading:
+        # its candidate judgement stands exactly as the
+        # governed wildcard form records it.
+        stated_before = set()
+        stated_after = set()
+        pair_removed = removed
+        pair_added = added
+        reserved = []
+        if token != "*":
+            pairs_here = finding_pairs.get(display, ())
+            stated_before = {
+                before for before, _after in pairs_here
+                if before is not None
+            }
+            stated_after = {
+                after for _before, after in pairs_here
+                if after is not None
+            }
+            if stated_before or stated_after:
+                pair_removed = []
+                pending = set(stated_before)
+                for text in removed:
+                    if text in pending:
+                        reserved.append((text, None))
+                        pending.discard(text)
+                    else:
+                        pair_removed.append(text)
+                pair_added = []
+                pending = set(stated_after)
+                for text in added:
+                    if text in pending:
+                        reserved.append((None, text))
+                        pending.discard(text)
+                    else:
+                        pair_added.append(text)
         candidates = []
-        paired = min(len(removed), len(added))
+        paired = min(len(pair_removed), len(pair_added))
         for index in range(paired):
-            candidates.append((removed[index], added[index]))
-        for text in removed[paired:]:
+            candidates.append(
+                (pair_removed[index], pair_added[index]))
+        for text in pair_removed[paired:]:
             candidates.append((text, None))
-        for text in added[paired:]:
+        for text in pair_added[paired:]:
             candidates.append((None, text))
+        candidates.extend(reserved)
         for before, after in candidates:
             if before is not None and before in eff_second:
                 continue
@@ -2287,6 +2422,15 @@ def _rule_text_changed_rows(first, second, existing):
                 else finding_pairs.get(display, ())
             if (before, after) in stated:
                 continue
+            if display != "*":
+                # A reserved leftover states one text a
+                # finding row already states on that side,
+                # so the finding row states it and no rule
+                # text row stands for it.
+                if before is None and after in stated_after:
+                    continue
+                if after is None and before in stated_before:
+                    continue
             key = (display, before, after)
             if key in seen:
                 continue

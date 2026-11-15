@@ -519,26 +519,42 @@ def _is_plausible_entry_prefix(partial):
     if len(text) > 1 and text[1] != '"':
         return False
     # The admitted characters must also stand in an order a
-    # canonical token can stand in: a number carries at most
-    # one decimal point, one exponent, and signs only where
-    # the number grammar places them, and a literal value
-    # stands only as a prefix of true, false, or null,
-    # complete before any delimiter closes it. Brace led
-    # text in any other shape is no entry prefix, whoever
-    # holds the lock (Step 17 round 3 entry S17-R3-006).
+    # canonical token can stand in, token by token and
+    # between tokens alike: a number carries at most one
+    # decimal point, one exponent, signs only where the
+    # number grammar places them, and no leading zero; a
+    # literal value stands only as a prefix of true, false,
+    # or null, complete before any delimiter closes it; a
+    # colon stands only between a key and its value, a
+    # comma only between two members or two elements, and
+    # no second value starts directly after a completed
+    # value with no delimiter at all. The test therefore
+    # tracks the container frame each token stands in and
+    # the place the frame stands at, not the shape of one
+    # token alone. Brace led text in any other shape is no
+    # entry prefix, whoever holds the lock (Step 17 round 3
+    # entry S17-R3-006, reopened at round 4 entry
+    # S17-R4-001).
     stack = []
+    root_done = False
     in_string = False
-    closed = False
+    string_is_key = False
     token = None
     number_state = None
     literal_word = None
     literal_target = None
-    string_just_closed = False
-    value_just_ended = False
+
+    def complete_value():
+        nonlocal root_done
+        if not stack:
+            root_done = True
+        else:
+            stack[-1][1] = "sep"
+
     index = 0
     while index < len(text):
         char = text[index]
-        if closed:
+        if root_done:
             return False
         if in_string:
             if char == "\\":
@@ -560,8 +576,10 @@ def _is_plausible_entry_prefix(partial):
                 return False
             if char == '"':
                 in_string = False
-                string_just_closed = True
-                value_just_ended = True
+                if string_is_key:
+                    stack[-1][1] = "colon"
+                else:
+                    complete_value()
                 index += 1
                 continue
             if ord(char) < 0x20:
@@ -580,24 +598,26 @@ def _is_plausible_entry_prefix(partial):
             token = None
             literal_word = None
             literal_target = None
-            value_just_ended = True
-            if char not in ":,}]":
-                return False
+            complete_value()
         elif token == "number":
             if char.isdigit():
                 if number_state == "minus":
-                    number_state = "int"
+                    number_state = "int_zero" if char == "0" \
+                        else "int"
+                elif number_state == "int_zero":
+                    return False
                 elif number_state == "frac_start":
                     number_state = "frac"
                 elif number_state in ("exp_start", "exp_sign"):
                     number_state = "exp"
                 index += 1
                 continue
-            if char == "." and number_state == "int":
+            if char == "." and number_state in ("int", "int_zero"):
                 number_state = "frac_start"
                 index += 1
                 continue
-            if char in "eE" and number_state in ("int", "frac"):
+            if char in "eE" and number_state in (
+                    "int", "int_zero", "frac"):
                 number_state = "exp_start"
                 index += 1
                 continue
@@ -608,53 +628,85 @@ def _is_plausible_entry_prefix(partial):
             if number_state in ("minus", "frac_start",
                                 "exp_start", "exp_sign"):
                 return False
+            if char not in ",}]":
+                return False
             token = None
             number_state = None
-            value_just_ended = True
-            if char not in ":,}]":
+            complete_value()
+        if not stack:
+            if char == "{":
+                stack.append(["object", "key", True])
+                index += 1
+                continue
+            return False
+        frame = stack[-1]
+        if frame[0] == "object":
+            if frame[1] == "key":
+                if char == '"':
+                    in_string = True
+                    string_is_key = True
+                    index += 1
+                    continue
+                if char == "}" and frame[2]:
+                    stack.pop()
+                    complete_value()
+                    index += 1
+                    continue
                 return False
+            if frame[1] == "colon":
+                if char == ":":
+                    frame[1] = "value"
+                    index += 1
+                    continue
+                return False
+            if frame[1] == "sep":
+                if char == ",":
+                    frame[1] = "key"
+                    frame[2] = False
+                    index += 1
+                    continue
+                if char == "}":
+                    stack.pop()
+                    complete_value()
+                    index += 1
+                    continue
+                return False
+        else:
+            if frame[1] == "sep":
+                if char == ",":
+                    frame[1] = "value"
+                    frame[2] = False
+                    index += 1
+                    continue
+                if char == "]":
+                    stack.pop()
+                    complete_value()
+                    index += 1
+                    continue
+                return False
+            if frame[1] == "value" and char == "]" and frame[2]:
+                stack.pop()
+                complete_value()
+                index += 1
+                continue
         if char == '"':
             in_string = True
-            string_just_closed = False
-            value_just_ended = False
-        elif char in "{[":
-            stack.append(char)
-            string_just_closed = False
-            value_just_ended = False
-        elif char in "}]":
-            if not stack:
-                return False
-            opener = stack.pop()
-            if (opener == "{") != (char == "}"):
-                return False
-            if not stack:
-                closed = True
-            string_just_closed = False
-            value_just_ended = True
-        elif char == ":":
-            # A colon stands only after a key string, never
-            # after another colon or a value.
-            if not string_just_closed:
-                return False
-            string_just_closed = False
-            value_just_ended = False
-        elif char == ",":
-            if not value_just_ended:
-                return False
-            string_just_closed = False
-            value_just_ended = False
-        elif char == "-" or char.isdigit():
+            string_is_key = False
+        elif char == "{":
+            stack.append(["object", "key", True])
+        elif char == "[":
+            stack.append(["array", "value", True])
+        elif char == "-":
             token = "number"
-            number_state = "minus" if char == "-" else "int"
-            string_just_closed = False
-            value_just_ended = False
+            number_state = "minus"
+        elif char.isdigit():
+            token = "number"
+            number_state = "int_zero" if char == "0" else "int"
         elif char in "tfn":
             token = "literal"
             literal_word = char
             literal_target = {"t": "true", "f": "false",
                               "n": "null"}[char]
-            string_just_closed = False
-            value_just_ended = False
         else:
             return False
         index += 1
@@ -684,35 +736,50 @@ def _raise_value_in_range(payload):
     return 1 <= raised <= ceiling
 
 
-def _correction_form_ok(payload, position=None):
+def _correction_form_ok(payload, position=None, target_kind=None):
     """Whether a correction payload carries the form the
     append path requires: a whole number supersedes value
     and a corrected record that is a record. Where the
     correction own position in the chain stands known, at
     scan and at replay, the supersedes value must also
     name an entry standing at or before the correction
-    itself, the range the append path judges at row U-8.
-    A correction superseding its own sequence stands
-    inside that range, so the standing vector V-10 keeps
-    its governed form (Step 17 round 2 entry S17-R2-002,
-    reopened at round 3 entry S17-R3-007)."""
+    itself, the range the append path judges at row U-8,
+    and the entry it names must stand in a kind the append
+    path accepts as a target: a correction of a correction
+    stands refused at row U-8, on the ground recorded at
+    entry S17-R1X-028, so a supplied chain carrying one
+    does not verify and does not replay. A correction
+    superseding its own sequence stands inside that range
+    and outside that refusal, so the standing vector V-10
+    keeps its governed form (Step 17 round 2 entry
+    S17-R2-002, reopened at round 3 entry S17-R3-007 and
+    at round 4 entry S17-R4-005)."""
     supersedes = payload.get("supersedes_sequence")
     if type(supersedes) is not int:
         return False
     if position is not None and not 1 <= supersedes <= position:
         return False
+    if target_kind == "correction" and supersedes != position:
+        return False
     return isinstance(payload.get("corrected_record"), dict)
 
 
-def _special_payload_reason(parsed, position=None):
+def _special_payload_reason(parsed, position=None, chain=None):
     """The scan reason a special payload form fails, or None."""
     kind = parsed.get("entry_kind")
     payload = parsed.get("payload") or {}
     if kind == "limit_raise" and not _raise_value_in_range(payload):
         return "raise_value"
-    if kind == "correction" and not _correction_form_ok(
-            payload, position):
-        return "correction_form"
+    if kind == "correction":
+        target_kind = None
+        supersedes = payload.get("supersedes_sequence")
+        if chain is not None and type(supersedes) is int \
+                and 1 <= supersedes <= len(chain):
+            target = chain[supersedes - 1]
+            if isinstance(target, dict):
+                target_kind = target.get("entry_kind")
+        if not _correction_form_ok(payload, position, target_kind):
+            return "correction_form"
     return None
 
 
@@ -808,9 +875,9 @@ def _scan(home, partial_mode="probe"):
                     if rendered != raw:
                         reason = "noncanonical"
                     elif _special_payload_reason(
-                            parsed, index) is not None:
+                            parsed, index, scan.parsed) is not None:
                         reason = _special_payload_reason(
-                            parsed, index)
+                            parsed, index, scan.parsed)
                     elif parsed.get("entry_kind") == "limit_raise":
                         # The one raise per run and limit rule
                         # is a property of the chain, not of
@@ -850,13 +917,14 @@ def _entries_with_hash(scan):
     entries = []
     for parsed in scan.parsed:
         if isinstance(parsed, dict):
-            entry = dict(parsed)
-            # The payload stands copied out of the scan
-            # cache, so a caller mutation of a fold result
-            # cannot write back into what later reads in
-            # this process return (Step 17 round 3 entry
-            # S17-R3-008).
-            entry["payload"] = copy.deepcopy(parsed.get("payload"))
+            # The whole entry stands copied out of the scan
+            # cache, every member it carries and not the
+            # payload only, so a caller mutation of a fold
+            # result cannot write back into what later reads
+            # in this process return (Step 17 round 3 entry
+            # S17-R3-008, reopened at round 4 entry
+            # S17-R4-006).
+            entry = copy.deepcopy(parsed)
             try:
                 entry["entry_hash"] = entry_hash(entry)
             except (JournalError, ValueError, ArithmeticError):
@@ -1323,6 +1391,17 @@ class _WriteLock:
     operating system releases the lock when the holder
     process ends, and the lock file presence on disk after
     a holder ends bars nothing.
+
+    A hold of kind "batch" is a sealed container: it
+    grants no join permit of its own and it suspends any
+    permit it joined under, so the permit stands only
+    where the container own code grants it around one of
+    its own append calls. An append made by other code
+    running on the holder thread inside the window, a
+    signal handler among its forms, therefore stands
+    contended at row X-10 and stores nothing, instead of
+    joining a batch whose rollback would erase it whole
+    (Step 17 round 4 entry S17-R4-003).
     """
 
     def __init__(self, home, kind="container"):
@@ -1366,7 +1445,7 @@ class _WriteLock:
                     _HELD_LOCKS[path] = (
                         handle, depth + 1, owner_thread, invocation)
                     self._nested = True
-                    if self._kind == "append":
+                    if self._kind in ("append", "batch"):
                         _change_join_permit(path, -1)
                         self._suspended = True
                     return self
@@ -1534,17 +1613,38 @@ def _resolve_sequence_identity(value, sequence, field=None):
     exactly as written, marker spelling included (Step 17
     round 3 entry S17-R3-009). Values carrying no marker
     stand as they stand.
+
+    The field context stands held through a list or a tuple
+    standing under an identity key, so a marker in an
+    element of such a list resolves as the marker standing
+    directly under the key resolves (Step 17 round 4 entry
+    S17-R4-071). A corrected record carried by a correction
+    payload stands resolved against the sequence the record
+    replaces, the supersedes value its own payload names,
+    not against the sequence of the correction entry that
+    carries it (Step 17 round 4 entry S17-R4-015).
     """
     if isinstance(value, str):
         if field in _IDENTITY_MARKER_FIELDS:
             return value.replace("{sequence}", str(sequence))
         return value
     if isinstance(value, dict):
+        supersedes = value.get("supersedes_sequence")
+        corrected = value.get("corrected_record")
+        if isinstance(corrected, dict) and type(supersedes) is int:
+            return {
+                name: _resolve_sequence_identity(
+                    item,
+                    supersedes if name == "corrected_record"
+                    else sequence,
+                    field=name)
+                for name, item in value.items()}
         return {name: _resolve_sequence_identity(item, sequence,
                                                  field=name)
                 for name, item in value.items()}
     if isinstance(value, (list, tuple)):
-        return [_resolve_sequence_identity(item, sequence)
+        return [_resolve_sequence_identity(item, sequence,
+                                           field=field)
                 for item in value]
     return value
 
@@ -1579,8 +1679,20 @@ def _write_batch_intent(home, journal_size, anchor_path, anchor_bytes,
         base64.b64encode(anchor_bytes).decode("ascii"),
         "count": count,
     }
+    intent_path = _batch_intent_path(home)
+    if os.path.islink(intent_path):
+        # The intent path is an internal scratch file of
+        # the home: a link standing at it names a file
+        # outside the home, and the write does not follow
+        # it, so no batch creates a file outside the home
+        # holding the record content. The write stands
+        # refused, and the batch caller bars the batch in
+        # the journal vocabulary on that report, as it
+        # bars it on any intent write failure (Step 17
+        # round 4 entry S17-R4-009).
+        return False
     try:
-        with open(_batch_intent_path(home), "w",
+        with open(intent_path, "w",
                   encoding="utf-8") as handle:
             handle.write(json.dumps(record))
             handle.flush()
@@ -1597,6 +1709,19 @@ def _clear_batch_intent(home):
         pass
 
 
+# A validation outcome beside success and refusal: the
+# record stands deferred, neither acted on nor cleared,
+# where the state it must be judged against does not
+# stand ready to judge it, a restored prefix that does
+# not recompute or a config that does not parse with an
+# anchor the record names that cannot be confirmed. The
+# record stands for a later invocation to judge again
+# once that state is repaired, so a genuine record is
+# not destroyed by a fault outside it (Step 17 round 4
+# entries S17-R4-002 and S17-R4-004).
+_DEFER_BATCH_RECOVERY = object()
+
+
 def recover_interrupted_batch(home):
     """Roll back one batch whose process died inside it.
 
@@ -1609,32 +1734,55 @@ def recover_interrupted_batch(home):
     and the import it belonged to can be run again whole
     (entry S17-R2-083). The record stands validated
     against the standing journal and the home before any
-    of that acts (round 3 entry S17-R3-002), and a landed
-    recovery appends its own failure record stating that
-    it ran (round 3 entry S17-R3-065, under the Manager
-    ruling recorded in the step record). Returns True
-    where a recovery landed. Where the home stands held
-    by a live batch, or no record stands, nothing happens
-    here: the live batch owns its own rollback.
+    of that acts (round 3 entry S17-R3-002), judged
+    against the state the batch started from, so a later
+    config change or config fault does not destroy a
+    genuine record (round 4 entry S17-R4-002), and a
+    landed recovery appends its own failure record
+    stating that it ran (round 3 entry S17-R3-065, under
+    the Manager ruling recorded in the step record).
+    Returns True where a recovery landed. Where the home
+    stands held by a live batch, or no record stands,
+    nothing happens here: the live batch owns its own
+    rollback. Where the record stands deferred, or where
+    its ruled failure record cannot land at the journal
+    length cap, the recovery does not stand reported as
+    landed: this call returns False and the record
+    stands, so the recovery can land whole once the
+    state that bars it is repaired or the cap is raised
+    (round 4 entries S17-R4-004 and S17-R4-069, the
+    second on the terms of the round 4 disposition
+    ruling (d)).
     """
     home = str(home)
     intent_path = _batch_intent_path(home)
     if not os.path.exists(intent_path):
         return False
     try:
-        with _WriteLock(home):
+        with _WriteLock(home, kind="batch"):
             try:
                 with open(intent_path, "r",
                           encoding="utf-8") as handle:
                     record = json.loads(handle.read())
-            except (OSError, ValueError):
+            except (OSError, ValueError, RecursionError):
                 # A record that does not read names no batch
                 # state to restore: it can only be the debris
                 # of a kill before the first entry landed,
-                # which appended nothing.
+                # which appended nothing. A parse that never
+                # returns, a deeply nested record among its
+                # forms, stands judged in the same recorded
+                # vocabulary as every sibling JSON reader
+                # judges it, and never as a raw error (Step
+                # 17 round 4 entry S17-R4-063).
                 _clear_batch_intent(home)
                 return False
             validated = _validate_batch_intent(home, record)
+            if validated is _DEFER_BATCH_RECOVERY:
+                # The record stands unjudged, not refused:
+                # it is left standing for a later invocation,
+                # and nothing is truncated, written, or
+                # deleted on its word.
+                return False
             if validated is None:
                 # A record whose fields do not stand against
                 # the standing journal and the home names no
@@ -1646,6 +1794,21 @@ def recover_interrupted_batch(home):
                 return False
             journal_size, count, anchor_path, anchor_bytes, \
                 restored_count = validated
+            try:
+                journal_cap = effective_limits(
+                    home)["journal_length"]["value"]
+            except Exception:
+                journal_cap = None
+            if journal_cap is not None \
+                    and restored_count + 1 > journal_cap:
+                # The recovery record the ruling at entry
+                # S17-R3-065 requires could not land at the
+                # cap, so the recovery does not land at all
+                # in silence: it stands deferred whole, its
+                # record standing, until the cap admits both
+                # the restored prefix and the record (Step
+                # 17 round 4 entry S17-R4-069).
+                return False
             _restore_journal_size(journal_path(home), journal_size)
             if anchor_path is not None:
                 try:
@@ -1667,7 +1830,12 @@ def recover_interrupted_batch(home):
             # batch it answered, and the point the journal
             # stands restored to. No new entry kind stands
             # invented. A failure of this append leaves the
-            # recovery itself standing.
+            # recovery itself standing, except a failure at
+            # the journal length cap: that failure stands
+            # judged, the recovery does not stand reported
+            # as landed, and the intent record stands as
+            # its evidence (Step 17 round 4 entry
+            # S17-R4-069).
             payload = {
                 "operation": "recovery",
                 "error_value": "interrupted_batch",
@@ -1678,10 +1846,19 @@ def recover_interrupted_batch(home):
                 "restored_journal_size": journal_size,
                 "restored_entry_count": restored_count,
             }
+            record_judged_failed = False
+            _change_join_permit(_lock_path(home), 1)
             try:
                 append_entry(home, "failure_record", payload)
+            except JournalError as error:
+                if error.token == "JOURNAL_CAP_EXCEEDED":
+                    record_judged_failed = True
             except Exception:
                 pass
+            finally:
+                _change_join_permit(_lock_path(home), -1)
+            if record_judged_failed:
+                return False
             _clear_batch_intent(home)
             return True
     except JournalError:
@@ -1691,34 +1868,76 @@ def recover_interrupted_batch(home):
         return False
 
 
+def _record_anchor_plausible(home, anchor_path, standing):
+    """Whether a file standing at a path a batch intent
+    record names as its anchor is a recording of this
+    journal: an anchor recording in the writer form whose
+    head hash and sequence name one standing line. This
+    is the guard that lets a genuine record be judged
+    against the state its batch started from where the
+    config no longer names that anchor, without opening
+    the recovery to a record naming an arbitrary file
+    (Step 17 round 4 entry S17-R4-002)."""
+    state, recorded = _read_anchor(anchor_path)
+    if state != "ok":
+        return False
+    for index, raw in enumerate(standing.split(b"\n"), start=1):
+        if not raw:
+            continue
+        if hashlib.sha256(raw).hexdigest() == recorded["head_hash"]:
+            return recorded["sequence"] == index
+    return False
+
+
 def _validate_batch_intent(home, record):
     """Validate one batch intent record against the standing
     journal and the home, or return None where it does not
-    stand.
+    stand, or the deferral marker where the state it must
+    be judged against does not stand ready.
 
     The record is read as a claim to verify, as the journal
     own lines are read, never as instructions (Step 17
-    round 3 entry S17-R3-002). Its journal size must stand
-    at a line boundary of the standing journal and no past
-    it. Its count must cover the entries standing past
-    that size, and no tail longer than the batch it names
-    may stand rolled back on its word. Its anchor path
-    must be the home anchor path as the config resolves
-    it, and its anchor content must be the recording the
-    product own writer writes for the head the size names,
-    or no content where that size names no entry or no
-    anchor stands configured. On success returns the
-    journal size, the count, the resolved anchor path, the
-    decoded anchor bytes, and the entry count the size
-    names.
+    round 3 entry S17-R3-002). Its form stands judged
+    whole: the genuine writer writes exactly four members,
+    and every member beyond those four, and a record
+    naming no batch at all, stands refused (Step 17 round
+    4 entries S17-R4-008 and S17-R4-068). Its journal size
+    must stand at a line boundary of the standing journal
+    and no past it. Its count must cover the entries
+    standing past that size, and no tail longer than the
+    batch it names may stand rolled back on its word. The
+    restored prefix the size names must itself recompute
+    as a chain before the record is judged or acted on,
+    so a damaged prefix stands judged as damaged and the
+    record stands deferred over it, not destroyed and not
+    reported recovered (Step 17 round 4 entry S17-R4-004).
+    Its anchor content must be the recording the product
+    own writer writes for the head the size names, or no
+    content where that size names no entry or no anchor
+    stood at the batch start. Its anchor path stands
+    judged against the state the batch started from: the
+    path the config now resolves stands accepted as
+    before, and a path the config no longer names, or
+    cannot name because the config does not parse, stands
+    accepted only where the file at that path is a
+    recording of this journal, the mark of the home own
+    former anchor, so a config change or a config fault
+    after the kill does not destroy a genuine record
+    (Step 17 round 4 entry S17-R4-002). On success returns
+    the journal size, the count, the anchor path the
+    batch started from, the decoded anchor bytes, and the
+    entry count the size names.
     """
     if not isinstance(record, dict):
+        return None
+    if set(record.keys()) != {"journal_size", "anchor_path",
+                              "anchor_bytes", "count"}:
         return None
     journal_size = record.get("journal_size")
     count = record.get("count")
     if type(journal_size) is not int or journal_size < 0:
         return None
-    if type(count) is not int or count < 0:
+    if type(count) is not int or count < 1:
         return None
     anchor_bytes_field = record.get("anchor_bytes")
     anchor_bytes = None
@@ -1730,6 +1949,10 @@ def _validate_batch_intent(home, record):
                 anchor_bytes_field, validate=True)
         except ValueError:
             return None
+    record_anchor = record.get("anchor_path")
+    if record_anchor is not None \
+            and not isinstance(record_anchor, str):
+        return None
     try:
         with open(journal_path(home), "rb") as handle:
             standing = handle.read()
@@ -1749,33 +1972,45 @@ def _validate_batch_intent(home, record):
     beyond = total_count - restored_count
     if beyond < 0 or beyond > count:
         return None
-    try:
-        values, _warnings, _present = _read_config_values(home)
-    except Exception:
-        return None
-    configured = values.get("anchor_path")
-    expected_anchor = _resolve_anchor_path(home, configured) \
-        if configured else None
-    if record.get("anchor_path") != expected_anchor:
-        return None
-    if expected_anchor is None:
+    if journal_size > 0:
+        prefix_lines = prefix[:-1].split(b"\n")
+        if _validate_chain_lines(prefix_lines) is not None:
+            return _DEFER_BATCH_RECOVERY
+    if record_anchor is None:
         if anchor_bytes is not None:
             return None
         return (journal_size, count, None, None, restored_count)
     if restored_count == 0:
         if anchor_bytes is not None:
             return None
-        return (journal_size, count, expected_anchor, None,
+    else:
+        head_line = prefix[:-1].split(b"\n")[restored_count - 1]
+        expected_bytes = ("%s %d\n" % (
+            hashlib.sha256(head_line).hexdigest(),
+            restored_count)).encode("utf-8")
+        if anchor_bytes != expected_bytes:
+            return None
+    try:
+        values, _warnings, _present = _read_config_values(home)
+    except Exception:
+        # A config that does not parse cannot judge the
+        # record, and the recovery record append could not
+        # be judged under it either: the record stands
+        # deferred whole until the config is repaired, and
+        # the fault itself stands reported loudly by the
+        # caller own config read (Step 17 round 4 entry
+        # S17-R4-002).
+        return _DEFER_BATCH_RECOVERY
+    configured = values.get("anchor_path")
+    expected_anchor = _resolve_anchor_path(home, configured) \
+        if configured else None
+    if record_anchor == expected_anchor:
+        return (journal_size, count, record_anchor, anchor_bytes,
                 restored_count)
-    lines = standing.split(b"\n")
-    head_line = lines[restored_count - 1]
-    expected_bytes = ("%s %d\n" % (
-        hashlib.sha256(head_line).hexdigest(),
-        restored_count)).encode("utf-8")
-    if anchor_bytes != expected_bytes:
-        return None
-    return (journal_size, count, expected_anchor, anchor_bytes,
-            restored_count)
+    if _record_anchor_plausible(home, record_anchor, standing):
+        return (journal_size, count, record_anchor, anchor_bytes,
+                restored_count)
+    return None
 
 
 def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
@@ -2064,7 +2299,7 @@ def append_entries_atomic(home, entries, audit_date=None, run_id=None):
         return []
     recover_interrupted_batch(home)
     path = journal_path(home)
-    with _WriteLock(home):
+    with _WriteLock(home, kind="batch"):
         scan = _scan(home, "torn")
         if scan.failure is not None:
             raise JournalError(
@@ -2110,9 +2345,19 @@ def append_entries_atomic(home, entries, audit_date=None, run_id=None):
         appended = []
         try:
             for entry_kind, payload in prepared:
-                appended.append(append_entry(
-                    home, entry_kind, payload,
-                    audit_date=audit_date, run_id=run_id))
+                # The join permit stands for this call
+                # only: it is granted around the batch own
+                # append and withdrawn as soon as the append
+                # returns, so no ambient append inside the
+                # batch window joins the batch (Step 17
+                # round 4 entry S17-R4-003).
+                _change_join_permit(_lock_path(home), 1)
+                try:
+                    appended.append(append_entry(
+                        home, entry_kind, payload,
+                        audit_date=audit_date, run_id=run_id))
+                finally:
+                    _change_join_permit(_lock_path(home), -1)
         except Exception:
             # The rollback restores first and clears the
             # intent record last, the order the recovery
@@ -2212,6 +2457,20 @@ def fold_registry(home, to_sequence=None):
         payload = entry.get("payload") or {}
         product_id = payload.get("product_id")
         if product_id is not None:
+            try:
+                hash(product_id)
+            except TypeError:
+                # A registry entry whose product id stands
+                # in no hashable form meets this reader in
+                # the journal vocabulary, as its sibling
+                # readers meet a hostile chain, and not as a
+                # raw error (Step 17 round 4 entry
+                # S17-R4-007).
+                raise JournalError(
+                    "the journal holds a registry entry whose "
+                    "product id stands in no hashable form; "
+                    "reads stand barred", row="I-2",
+                    token="JOURNAL_VERIFY_FAILED")
             state[product_id] = payload
     return state
 
@@ -2243,6 +2502,7 @@ def _validate_chain_lines(lines):
     """
     previous_raw = None
     seen_raises = []
+    chain = []
     for index, raw in enumerate(lines, start=1):
         parsed = _parse_line(raw)
         if parsed is None or not isinstance(parsed, dict):
@@ -2270,7 +2530,8 @@ def _validate_chain_lines(lines):
             return index
         if rendered != raw:
             return index
-        if _special_payload_reason(parsed, index) is not None:
+        chain.append(parsed)
+        if _special_payload_reason(parsed, index, chain) is not None:
             return index
         if parsed.get("entry_kind") == "limit_raise":
             payload = parsed.get("payload") or {}
@@ -2340,7 +2601,7 @@ def replay(home, entries, resume=False):
     # append recovery would erase after the replay
     # reported success (Step 17 round 3 entry S17-R3-003).
     recover_interrupted_batch(home)
-    with _WriteLock(home):
+    with _WriteLock(home, kind="batch"):
         scan = _scan(home, "torn")
         if scan.failure is not None:
             raise JournalError(

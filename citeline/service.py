@@ -629,7 +629,14 @@ def _validate_answer_payload(payload):
                 if value is None:
                     continue
                 if isinstance(value, bool) \
-                        or not isinstance(value, int):
+                        or not isinstance(value, int) \
+                        or value < 0:
+                    # A count below zero stands in no form
+                    # a character or word count can stand
+                    # in (Step 17 round 4 entry
+                    # S17-R4-056): it passes a whole number
+                    # reading and falsifies the status
+                    # average in silence.
                     bad = True
                     break
                 try:
@@ -697,6 +704,41 @@ def _validate_stored_entries(entries):
             for field in ("snapshot_id", "product_id"):
                 _require_typed_field(
                     payload, field, str, "snapshot")
+            # The boolean its readers consume stands
+            # judged with the identity strings (Step 17
+            # round 4 entry S17-R4-055): a string false
+            # tested by truthiness counts as a product
+            # page at the grounds and coverage readers.
+            is_page = payload.get("is_product_page")
+            if is_page is not None and not isinstance(
+                    is_page, bool):
+                _fail(
+                    "VALIDATION_FAILED",
+                    "the stored snapshot record carries "
+                    "is_product_page in a form its readers "
+                    "cannot use: %r" % (is_page,))
+        elif kind == "failure_record":
+            _validate_failure_payload(payload)
+
+
+def _validate_failure_payload(payload):
+    """The stored failure record field discipline.
+
+    The failure record kind stands judged at the readers
+    that surface it, as the five standing kinds stand
+    judged (Step 17 round 4 entry S17-R4-066): the
+    fields its surfacing readers consume, the operation,
+    the error value, the rule fired, the subject, and
+    the date, stand as strings where they stand at all,
+    so a type swapped field refuses in the recorded
+    vocabulary instead of surfacing verbatim, a list
+    standing shipped as an error value among them.
+    """
+    if not isinstance(payload, dict):
+        return
+    for field in ("operation", "error_value", "rule_fired",
+                  "subject_identity", "date"):
+        _require_typed_field(payload, field, str, "failure record")
 
 
 # ----------------------------------------------------------------
@@ -1266,6 +1308,11 @@ def add_product(*, home, name, canonical_line, domain,
 def set_canonical_line(*, home, product, line, audit_date=None):
     audit_date = _validate_audit_date(audit_date)
     _require_home(home)
+    # The judgement of this route reads the fold before
+    # its own append runs any recovery, so the recovery
+    # stands run here first, as register_page judges on
+    # recovered state (Step 17 round 4 entry S17-R4-051).
+    _recover_interrupted_batch(home)
     registry = _registry()
     return registry.set_canonical_line(
         home=str(home), product=product, line=line,
@@ -1275,6 +1322,11 @@ def set_canonical_line(*, home, product, line, audit_date=None):
 def set_competitors(*, home, product, competitors, audit_date=None):
     audit_date = _validate_audit_date(audit_date)
     _require_home(home)
+    # The judgement of this route reads the fold before
+    # its own append runs any recovery, so the recovery
+    # stands run here first, as register_page judges on
+    # recovered state (Step 17 round 4 entry S17-R4-051).
+    _recover_interrupted_batch(home)
     registry = _registry()
     return registry.set_competitors(
         home=str(home), product=product, competitors=competitors,
@@ -1284,6 +1336,11 @@ def set_competitors(*, home, product, competitors, audit_date=None):
 def set_aliases(*, home, product, aliases, audit_date=None):
     audit_date = _validate_audit_date(audit_date)
     _require_home(home)
+    # The judgement of this route reads the fold before
+    # its own append runs any recovery, so the recovery
+    # stands run here first, as register_page judges on
+    # recovered state (Step 17 round 4 entry S17-R4-051).
+    _recover_interrupted_batch(home)
     registry = _registry()
     return registry.set_aliases(
         home=str(home), product=product, aliases=aliases,
@@ -1293,6 +1350,11 @@ def set_aliases(*, home, product, aliases, audit_date=None):
 def set_query_set(*, home, product, query_set, audit_date=None):
     audit_date = _validate_audit_date(audit_date)
     _require_home(home)
+    # The judgement of this route reads the fold before
+    # its own append runs any recovery, so the recovery
+    # stands run here first, as register_page judges on
+    # recovered state (Step 17 round 4 entry S17-R4-051).
+    _recover_interrupted_batch(home)
     registry = _registry()
     return registry.set_query_set(
         home=str(home), product=product, query_set=query_set,
@@ -1318,6 +1380,11 @@ def set_category(*, home, product, category_terms=None, category=None,
     terms = category_terms if category_terms is not None else category
     audit_date = _validate_audit_date(audit_date)
     _require_home(home)
+    # The judgement of this route reads the fold before
+    # its own append runs any recovery, so the recovery
+    # stands run here first, as register_page judges on
+    # recovered state (Step 17 round 4 entry S17-R4-051).
+    _recover_interrupted_batch(home)
     registry = _registry()
     return registry.set_category(
         home=str(home), product=product, category=terms,
@@ -1373,6 +1440,11 @@ def name_round(*, home, product, round_label,
                audit_date=None):
     audit_date = _validate_audit_date(audit_date)
     _require_home(home)
+    # The judgement of this route reads the fold before
+    # its own append runs any recovery, so the recovery
+    # stands run here first, as register_page judges on
+    # recovered state (Step 17 round 4 entry S17-R4-051).
+    _recover_interrupted_batch(home)
     registry = _registry()
     return registry.name_round(
         home=str(home), product=product, round_label=round_label,
@@ -1437,6 +1509,13 @@ def estate_grounds(*, home, product):
     journal order. Both readings run over the journal fold
     in this one call.
     """
+    # The home check stands here as it stands on
+    # list_products (Step 17 round 4 entry S17-R4-054): a
+    # missing home, and a home path no filesystem call can
+    # state, answers HOME_MISSING at row U-6, never an
+    # empty grounds record in silence and never a raw
+    # error.
+    _require_home(home)
     _recover_interrupted_batch(home)
     _validate_stored_entries(_fold(home, apply_corrections=True))
     record = _find_product(home, product)
@@ -1451,7 +1530,7 @@ def estate_grounds(*, home, product):
         payload = _payload(entry)
         if kind == "snapshot_registered" \
                 and payload.get("product_id") == product_id \
-                and payload.get("is_product_page"):
+                and payload.get("is_product_page") is True:
             page_path = payload.get("supplied_path")
         if kind == "round_named" \
                 and payload.get("product_id") == product_id:
@@ -1575,6 +1654,11 @@ def robots(*, home, robots_file, evaluated_page_path=None,
     """
     audit_date = _validate_audit_date(audit_date)
     _require_home(home)
+    # A killed batch standing on the home stands recovered
+    # before this route runs, so no successful robots call
+    # leaves a partial batch standing as ordinary state
+    # (Step 17 round 4 entry S17-R4-052).
+    _recover_interrupted_batch(home)
     _guard_supplied_path(robots_file)
     _barred_check(home)
     evaluation = _robots_evaluation(
@@ -1679,12 +1763,27 @@ def robots_preview(*, home, first_robots_file, second_robots_file,
     reporting pipeline rendering of the assembly in the
     requested form.
     """
-    audit_date = _validate_audit_date(audit_date)
+    try:
+        audit_date = _validate_audit_date(audit_date)
+    except errors.CitelineError as exc:
+        # The audit date validation stands inside this
+        # route's recording discipline, as its sibling
+        # failures stand (Step 17 round 4 entry
+        # S17-R4-053): its refusal appends exactly one
+        # failure record where the chain accepts appends.
+        _append_failure_record(
+            home, "robots preview", exc, first_robots_file,
+            audit_date)
+        raise
     if first_capture_date is None:
         first_capture_date = first_captured_on
     if second_capture_date is None:
         second_capture_date = second_captured_on
     _require_home(home)
+    # A killed batch standing on the home stands recovered
+    # before this route runs, as at the standalone robots
+    # route (Step 17 round 4 entry S17-R4-052).
+    _recover_interrupted_batch(home)
     _guard_supplied_path(first_robots_file)
     _guard_supplied_path(second_robots_file)
     first_capture_date = _validate_capture_date(
@@ -1751,15 +1850,20 @@ robots_preview.__signature__ = inspect.Signature(parameters=[
 def _front_matter_key_count(page_file):
     """The top level key count of one page's front matter block.
 
-    Reads only the head of the file: where the first line
-    is not a front matter fence, no block stands and None
-    stands returned. Keys are the block's top level lines
-    in key form, the same lines the extraction front
-    matter reading counts as keys.
+    The count stands taken over the whole block, not
+    inside a reading window (Step 17 round 4 entry
+    S17-R4-060): a block past any fixed window holds its
+    keys under the limit its record states, so the file
+    stands read whole here and the count runs to the
+    closing fence wherever it stands. Where the first
+    line is not a front matter fence, no block stands
+    and None stands returned. Keys are the block's top
+    level lines in key form, the same lines the
+    extraction front matter reading counts as keys.
     """
     try:
         with open(str(page_file), "rb") as handle:
-            raw = handle.read(64 * 1024)
+            raw = handle.read()
     except (OSError, ValueError, UnicodeError):
         return None
     # The count stands taken on the same text the parser
@@ -2089,7 +2193,8 @@ def _audit_body(*, home, page_file=None, robots_file=None,
         str(home), product_id=product_id, page_path=str(page_file),
         audit_date=audit_date,
         evaluated_page_path=evaluated_page_path,
-        run_id=run_candidate, register_snapshot=False)
+        run_id=run_candidate, register_snapshot=False,
+        limits_in_force=(start_limits or {}).get("by_limit"))
     # Limit 42, the per file parse time backstop, read
     # over the extraction this run performed (Step 17
     # entry S17-R1-038).
@@ -2277,11 +2382,48 @@ def _audit_body(*, home, page_file=None, robots_file=None,
         run_id=run_candidate)
     stored = record
     stored_snapshot = snapshot
+    audit_sequence = None
     for entry in appended or []:
         if _get(entry, "entry_kind") == "audit_record":
             stored = _payload(entry) or record
+            audit_sequence = _get(entry, "sequence")
         elif _get(entry, "entry_kind") == "snapshot_registered":
             stored_snapshot = _payload(entry) or snapshot
+    # The batch primitive runs its own head recovery
+    # inside this hold, after the assembly read the
+    # standing count for its citation and its limits run
+    # identity: a recovery landing there appends its
+    # ruled record and moves every sequence the count
+    # based identities denote (Step 17 round 4 entry
+    # S17-R4-067). Where the storing entries show that
+    # move, the assembly stands a correction over its
+    # own record at its store, so the standing record
+    # denotes the snapshot entry its own batch stored
+    # and states its limits under the run identity the
+    # record itself carries, as the identity discipline
+    # of S17-R3-052 states for the entries the append
+    # resolved.
+    if audit_sequence is not None:
+        true_snapshot_id = stored_snapshot.get("snapshot_id")
+        stated_limits = stored.get("limits_in_force") or {}
+        if (true_snapshot_id is not None
+                and stored.get("snapshot_id") != true_snapshot_id) \
+                or stated_limits.get("run_id") != stored.get(
+                    "run_id"):
+            corrected = copy.deepcopy(stored)
+            if true_snapshot_id is not None:
+                corrected["snapshot_id"] = true_snapshot_id
+            corrected["limits_in_force"] = _limits_in_force(
+                home, stored.get("run_id"))
+            try:
+                journal.append_entry(
+                    str(home), "correction",
+                    {"supersedes_sequence": audit_sequence,
+                     "corrected_record": corrected},
+                    audit_date=audit_date)
+                stored = corrected
+            except Exception:
+                pass
     result = dict(stored)
     result["snapshot"] = stored_snapshot
     result["audit_run"] = dict(stored)
@@ -2864,8 +3006,23 @@ def probe_import(*, home, answer_file=None, product=None,
             stamped["detector_version_at_first_import"] = records[0].get(
                 "detector_version_at_import")
             batch.append(("round_named", stamped))
-        appended = journal.append_entries_atomic(
-            str(home), batch, audit_date=audit_date)
+        try:
+            appended = journal.append_entries_atomic(
+                str(home), batch, audit_date=audit_date)
+        except Exception as exc:
+            # The final batch call stands inside this
+            # route's failure record discipline, as every
+            # failure stage above it stands (Step 17
+            # round 4 entry S17-R4-073): a batch failure
+            # of the route appends exactly one failure
+            # record where the chain accepts appends, on
+            # the contract C1 terms the route docstring
+            # states, and the failure then raises to the
+            # caller as before.
+            _append_failure_record(
+                home, "probe import", exc, answer_file,
+                audit_date)
+            raise
         # The identities the appends assigned stand read back
         # from the appended entries themselves, so the record
         # the caller receives names the identity that stands
@@ -2926,7 +3083,13 @@ def _failure_record_payloads(home):
     payloads = []
     for entry in _fold(home, apply_corrections=True):
         if _get(entry, "entry_kind") == "failure_record":
-            payloads.append(_payload(entry))
+            payload = _payload(entry)
+            # The surfacing readers judge the kind here,
+            # at the one assembly every surfacing route
+            # reads through (Step 17 round 4 entry
+            # S17-R4-066).
+            _validate_failure_payload(payload)
+            payloads.append(payload)
     return payloads
 
 
@@ -2944,6 +3107,13 @@ def _surface_failure_records(record, home):
         return record
     try:
         payloads = _failure_record_payloads(home)
+    except errors.CitelineError:
+        # A stored field refusal of the surfacing
+        # assembly stands as the route's own refusal, in
+        # the recorded vocabulary (Step 17 round 4 entry
+        # S17-R4-066); the assembly's silence covers a
+        # fold that cannot stand, not a judged field.
+        raise
     except Exception:
         return record
     if payloads:
@@ -3273,11 +3443,29 @@ def probe_report(*, home, product, round, form=None,
         _barred_check(home)
         product_record = _require_product(home, product)
         round_record = _require_round(home, product_record, round)
+        # The surfacing fold stands taken at the head of
+        # the assembly, under the same instant the round
+        # assembly folds stand on (Step 17 round 4 entry
+        # S17-R4-075): one artefact stands on one fold
+        # instant, so a correction landing between the
+        # assembly folds and the surfacing fold enters
+        # neither side of the artefact in place of the
+        # other, and the whole corrected basis stands
+        # read by the next report over the home.
+        try:
+            surface_payloads = _failure_record_payloads(home)
+        except errors.CitelineError:
+            raise
+        except Exception:
+            surface_payloads = None
         result = _probe_report_record(
             home, product_record, round_record,
             audit_date=audit_date)
         _check_run_backstop(home, run_started)
-        _surface_failure_records(result, home)
+        if surface_payloads is None:
+            _surface_failure_records(result, home)
+        elif surface_payloads:
+            result["failure_records"] = surface_payloads
         from citeline import reporting
         return reporting.render(result, form=form or "advanced")
     except errors.CitelineError as exc:
@@ -3440,6 +3628,15 @@ def export_capture_worksheet(*, home, product, round, queries=None,
     refuses in a recorded error value (entry S17-R1X-023).
     """
     audit_date = _validate_audit_date(audit_date)
+    # The home check stands here as it stands on
+    # list_products (Step 17 round 4 entry S17-R4-054),
+    # and the batch recovery stands at the head of this
+    # route as at every reading route of the layer, so
+    # the worksheet stands judged on recovered state and
+    # no artefact stands handed out on a killed batch's
+    # partial state (Step 17 round 4 entry S17-R4-050).
+    _require_home(home)
+    _recover_interrupted_batch(home)
     product_record = _require_product(home, product)
     _validate_product_record(product_record)
     _require_round(home, product_record, round)
@@ -3534,37 +3731,70 @@ def _guide_impl(*, home, run_id=None, product=None,
                 "no completed audit record stands under the "
                 "identity given: %r" % (run_id,))
         _validate_audit_payload(audit_record)
-        product_record = None
-        for candidate in list_products(home=home):
-            if candidate.get("product_id") == audit_record.get(
-                    "product_id"):
-                product_record = candidate
-        if product_record is not None:
-            _validate_product_record(product_record)
-        draft = guide_module.draft_from_audit_record(
-            audit_record,
-            canonical_line=(
-                product_record.get("canonical_line")
-                if product_record else audit_record.get(
-                    "canonical_line")),
-            audit_date=audit_date or audit_record.get("audit_date"),
-            product_name=(
-                product_record.get("name")
-                if product_record else audit_record.get(
-                    "product_name")),
-            aliases=(
-                list(product_record.get("aliases") or [])
-                if product_record else []),
-            category_terms=(
-                list(product_record.get("category") or [])
-                if product_record else []),
-            sentences=audit_record.get("sentences"),
-            distinct_cited_target_count=audit_record.get(
-                "distinct_cited_target_count"),
-            trigger_codes=audit_record.get("trigger_codes") or [])
-        if audit_record.get("methods_note_version") is not None:
-            draft["methods_note_version"] = audit_record[
-                "methods_note_version"]
+
+        def _guide_product_record(record):
+            found = None
+            for candidate in list_products(home=home):
+                if candidate.get("product_id") == record.get(
+                        "product_id"):
+                    found = candidate
+            if found is not None:
+                _validate_product_record(found)
+            return found
+
+        def _build_guide_draft(record, product_rec):
+            built = guide_module.draft_from_audit_record(
+                record,
+                canonical_line=(
+                    product_rec.get("canonical_line")
+                    if product_rec else record.get(
+                        "canonical_line")),
+                audit_date=audit_date or record.get("audit_date"),
+                product_name=(
+                    product_rec.get("name")
+                    if product_rec else record.get(
+                        "product_name")),
+                aliases=(
+                    list(product_rec.get("aliases") or [])
+                    if product_rec else []),
+                category_terms=(
+                    list(product_rec.get("category") or [])
+                    if product_rec else []),
+                sentences=record.get("sentences"),
+                distinct_cited_target_count=record.get(
+                    "distinct_cited_target_count"),
+                trigger_codes=record.get("trigger_codes") or [])
+            if record.get("methods_note_version") is not None:
+                built["methods_note_version"] = record[
+                    "methods_note_version"]
+            return built
+
+        product_record = _guide_product_record(audit_record)
+        draft = _build_guide_draft(audit_record, product_record)
+        # The guide assembly stands under the identity
+        # discipline the audit assembly stands under
+        # (Step 17 round 4 entry S17-R4-076): the folded
+        # audit record stands re-read at the store, and
+        # where a correction superseding it landed
+        # between the fold and the append, the draft
+        # stands rebuilt from the standing record, so no
+        # stored guide rests on a superseded audit
+        # record while citing its run as its source.
+        for _attempt in range(5):
+            fresh_record = None
+            for entry in _fold(home, apply_corrections=True):
+                if _get(entry, "entry_kind") != "audit_record":
+                    continue
+                candidate_payload = _payload(entry)
+                _validate_audit_payload(candidate_payload)
+                if candidate_payload.get("run_id") == run_id:
+                    fresh_record = candidate_payload
+            if fresh_record is None \
+                    or fresh_record == audit_record:
+                break
+            audit_record = fresh_record
+            product_record = _guide_product_record(audit_record)
+            draft = _build_guide_draft(audit_record, product_record)
     else:
         product_record = _require_product(home, product)
         round_record = _require_round(

@@ -176,134 +176,138 @@ def _similar_components(type_sets):
     of a set is ever stored: an inverted index over single
     shingles stands in place of both.
 
-    Each component is grown from one seed set. One counting
-    pass over the seed's postings reads its shared count
-    with every unvisited set, with a shingle standing in
-    every unvisited set counted once as a base, and every
-    set similar to the seed joins at once, which settles a
-    clique shape in that one pass. An unvisited set can join
-    later only through a member already in the component,
-    and its shared count with such a member stands at most
-    its shared count with the seed plus the part of the
-    member standing outside the seed, so every unvisited set
-    under that bound for every member stands excluded in
-    bulk. The sets the bound leaves open are few on the
-    shapes a round carries, and each is judged exactly
-    against the members, newest first, pass by pass until a
-    pass adds nothing.
+    Each component grows from one seed set. One counting
+    pass over the seed postings reads its shared count with
+    every unvisited set, with a shingle standing in every
+    unvisited set counted once as a base, and every set
+    similar to the seed joins at once, which settles a
+    clique shape in that one pass. The component then grows
+    layer by layer from the sets that joined last, the
+    frontier. A set can join through a frontier member only
+    where it shares a shingle with one, so the candidates of
+    a layer are the unvisited sets standing in the postings
+    of the distinct frontier shingles, each posting holding
+    unvisited sets only. A candidate whose shared count
+    with the seed plus the largest part of a frontier member
+    standing outside the seed falls under the smallest
+    threshold a frontier member can carry stands excluded
+    in bulk. The candidates the bound leaves open are
+    judged exactly, against the frontier members that share
+    one of a small picked set of the candidate shingles:
+    a similar member misses at most the allowance of the
+    candidate shingles that its threshold fixes, so it
+    shares at least one of any allowance plus one of them.
+    A chain shape, where each layer adds the next link or
+    two, therefore costs a small candidate scan per layer
+    in place of a scan of the whole component per pass.
     """
     count = len(type_sets)
+    sets = [set(shingle_set) for shingle_set in type_sets]
     postings = {}
-    for index, shingle_set in enumerate(type_sets):
+    for index, shingle_set in enumerate(sets):
         for shingle in shingle_set:
-            postings.setdefault(shingle, []).append(index)
-    frequency = {shingle: len(members)
-                 for shingle, members in postings.items()}
-    buckets = {}
-    for shingle, freq in frequency.items():
-        buckets.setdefault(freq, set()).add(shingle)
+            postings.setdefault(shingle, set()).add(index)
     visited = [False] * count
     by_size = {}
-    for index, shingle_set in enumerate(type_sets):
+    for index, shingle_set in enumerate(sets):
         by_size.setdefault(len(shingle_set), set()).add(index)
     remaining = count
+    components = []
 
     def mark(index):
         nonlocal remaining
         visited[index] = True
         remaining -= 1
-        by_size[len(type_sets[index])].discard(index)
-        for shingle in type_sets[index]:
-            freq = frequency[shingle]
-            bucket = buckets.get(freq)
+        by_size[len(sets[index])].discard(index)
+        for shingle in sets[index]:
+            bucket = postings.get(shingle)
             if bucket is not None:
-                bucket.discard(shingle)
-            if freq > 1:
-                frequency[shingle] = freq - 1
-                buckets.setdefault(freq - 1, set()).add(shingle)
-            else:
-                del frequency[shingle]
+                bucket.discard(index)
 
-    components = []
     for seed in range(count):
         if visited[seed]:
             continue
-        seed_set = type_sets[seed]
+        seed_set = sets[seed]
         seed_size = len(seed_set)
         component = [seed]
-        members = [seed]
         mark(seed)
-        universal = buckets.get(remaining, ()) if remaining else ()
-        base = sum(1 for shingle in seed_set if shingle in universal)
+        if remaining:
+            universal = {
+                shingle for shingle in seed_set
+                if len(postings.get(shingle, ())) == remaining}
+        else:
+            universal = set()
+        base = len(universal)
         counts = {}
         for shingle in seed_set:
             if shingle in universal:
                 continue
-            for other in postings[shingle]:
-                if not visited[other]:
-                    counts[other] = counts.get(other, 0) + 1
-
-        def shared_with_seed(other):
-            return base + counts.get(other, 0)
-
-        max_added = 0
-        min_member_size = seed_size
-
-        def join(other):
-            nonlocal max_added, min_member_size
-            mark(other)
-            component.append(other)
-            members.append(other)
-            added = len(type_sets[other]) - len(seed_set & type_sets[other])
-            if added > max_added:
-                max_added = added
-            if len(type_sets[other]) < min_member_size:
-                min_member_size = len(type_sets[other])
-
+            for other in postings.get(shingle, ()):
+                counts[other] = counts.get(other, 0) + 1
         first_layer = []
         for other, shared_count in counts.items():
             shared = base + shared_count
-            if shared * 9 >= 4 * (seed_size + len(type_sets[other])):
+            if shared * 9 >= 4 * (seed_size + len(sets[other])):
                 first_layer.append(other)
         if base:
             for size, size_members in list(by_size.items()):
                 if size_members and base * 9 >= 4 * (seed_size + size):
-                    first_layer.extend(size_members)
+                    first_layer.extend(list(size_members))
+        frontier = []
         for other in first_layer:
             if not visited[other]:
-                join(other)
-        while True:
-            pool = []
-            for other in counts:
+                mark(other)
+                component.append(other)
+                frontier.append(other)
+        while frontier and remaining:
+            frontier_shingles = set()
+            for node in frontier:
+                frontier_shingles.update(sets[node])
+            candidates = set()
+            for shingle in frontier_shingles:
+                candidates.update(postings.get(shingle, ()))
+            if not candidates:
+                break
+            frontier_by_shingle = {}
+            for position, node in enumerate(frontier):
+                for shingle in sets[node]:
+                    frontier_by_shingle.setdefault(
+                        shingle, []).append(position)
+            min_frontier_size = min(len(sets[node]) for node in frontier)
+            max_added = max(
+                len(sets[node] - seed_set) for node in frontier)
+            new_frontier = []
+            for other in candidates:
                 if visited[other]:
                     continue
-                threshold = -(-4 * (len(type_sets[other])
-                                     + min_member_size) // 9)
-                if shared_with_seed(other) + max_added >= threshold:
-                    pool.append(other)
-            if base + max_added >= 0:
-                for size, size_members in list(by_size.items()):
-                    if not size_members:
-                        continue
-                    threshold = -(-4 * (size + min_member_size) // 9)
-                    if base + max_added >= threshold:
-                        for other in size_members:
-                            if other not in counts:
-                                pool.append(other)
-            additions = []
-            for other in pool:
-                other_set = type_sets[other]
-                for member in reversed(members):
-                    shared = len(other_set & type_sets[member])
-                    if shared * 9 >= 4 * (len(other_set)
-                                          + len(type_sets[member])):
-                        additions.append(other)
+                other_size = len(sets[other])
+                threshold = -(-4 * (other_size + min_frontier_size) // 9)
+                shared_seed = base + counts.get(other, 0)
+                if shared_seed + max_added < threshold:
+                    continue
+                allowance = other_size - threshold
+                if allowance < 0:
+                    continue
+                picked = sorted(
+                    sets[other],
+                    key=lambda shingle: len(
+                        frontier_by_shingle.get(shingle, ()))
+                )[:allowance + 1]
+                positions = set()
+                for shingle in picked:
+                    positions.update(frontier_by_shingle.get(shingle, ()))
+                joined = False
+                for position in positions:
+                    node = frontier[position]
+                    shared = len(sets[other] & sets[node])
+                    if shared * 9 >= 4 * (other_size + len(sets[node])):
+                        joined = True
                         break
-            if not additions:
-                break
-            for other in additions:
-                if not visited[other]:
-                    join(other)
+                if joined:
+                    mark(other)
+                    component.append(other)
+                    new_frontier.append(other)
+            frontier = new_frontier
         components.append(component)
     return components
 
@@ -314,62 +318,129 @@ def _sets_clique(type_sets):
     described by the part of the first set it misses and the
     part it adds, and the shared count of any two sets is
     the first set's size less the union of their missed
-    parts, plus the overlap of their added parts. Pairs are
-    judged in groups sharing one missed part first, by
-    bounds on those two terms, and pair by pair only where
-    the bounds leave a pair open. A set that is not similar
-    to the first set settles the question at once.
+    parts, plus the overlap of their added parts. A set
+    that is not similar to the first set settles the
+    question at once, so the pairs still to judge stand
+    among the remaining sets.
+
+    Those pairs stand judged first by a bulk bound. Every
+    such pair shares at least the parts the whole family
+    shares: the missed parts common to every remaining set
+    stand inside the pair missed intersection, and the
+    added parts common to every remaining set stand inside
+    the pair added overlap, so a pair shares at least the
+    pivot size less its two missed sizes plus that common
+    count. Where that bound reaches the threshold of the
+    two largest values of nine times the missed size plus
+    four times the set size among the remaining sets, every
+    pair stands similar at once, in time linear in the
+    family. The missed part patterns of the measured seam
+    shape, each missing two or three pivot parts and adding
+    one common part, settle on this bound.
+
+    Pairs the bound leaves open stand judged in groups
+    sharing one missed part pattern, as the scan clique
+    shape requires: a family whose sets miss few patterns
+    of the pivot stands in few groups however many sets it
+    carries. A group pair stands settled by bounds where
+    the pair base, the pivot size less the union of the
+    two missed patterns, plus the added parts common to
+    every set of both groups reaches the largest threshold
+    the group pair can carry, and it stands refused where
+    the base plus the largest added overlap either group
+    can offer falls under the smallest threshold. Pairs
+    the bounds leave open stand judged pair by pair, the
+    patterns standing as integer masks over the pivot
+    parts and the added parts, so a pair judgement is a
+    mask overlap and a count, with no set built per pair.
     """
     pivot = type_sets[0]
     pivot_size = len(pivot)
-    groups = {}
+    entries = []
     for shingle_set in type_sets:
         shared = len(pivot & shingle_set)
         if shared * 9 < 4 * (pivot_size + len(shingle_set)):
             return False
-        missing = pivot - shingle_set
-        added = shingle_set - pivot
-        groups.setdefault(missing, []).append((added, len(shingle_set)))
-    group_items = list(groups.items())
-    for first_index in range(len(group_items)):
-        for second_index in range(first_index, len(group_items)):
-            missing_first, entries_first = group_items[first_index]
-            missing_second, entries_second = group_items[second_index]
-            base = pivot_size - len(missing_first | missing_second)
-            if first_index == second_index:
-                if len(entries_first) < 2:
-                    continue
-                sizes = sorted(size for _added, size in entries_first)
-                add_sizes = sorted(
-                    len(added) for added, _size in entries_first)
-                max_sum = sizes[-1] + sizes[-2]
-                min_sum = sizes[0] + sizes[1]
-                max_overlap = add_sizes[-2]
-            else:
-                sizes_first = [size for _added, size in entries_first]
-                sizes_second = [size for _added, size in entries_second]
-                max_sum = max(sizes_first) + max(sizes_second)
-                min_sum = min(sizes_first) + min(sizes_second)
-                max_overlap = min(
-                    max(len(added) for added, _size in entries_first),
-                    max(len(added) for added, _size in entries_second))
-            # The base alone reaches the largest threshold
-            # any pair in this group pair can carry.
-            if base >= -(-4 * max_sum // 9):
+        entries.append((pivot - shingle_set, shingle_set - pivot,
+                        len(shingle_set)))
+    rest = entries[1:]
+    if len(rest) < 2:
+        return True
+    common_missed = set(rest[0][0])
+    common_added = set(rest[0][1])
+    for missing, added, _size in rest[1:]:
+        common_missed &= missing
+        common_added &= added
+    common = len(common_missed) + len(common_added)
+    values = sorted(
+        (9 * len(missing) + 4 * size for missing, _added, size in rest),
+        reverse=True)
+    if 9 * (pivot_size + common) >= values[0] + values[1]:
+        return True
+    pivot_index = {shingle: index for index, shingle in enumerate(pivot)}
+    added_index = {}
+    for _missing, added, _size in rest:
+        for shingle in added:
+            if shingle not in added_index:
+                added_index[shingle] = len(added_index)
+    groups = {}
+    for missing, added, size in rest:
+        missing_mask = 0
+        for shingle in missing:
+            missing_mask |= 1 << pivot_index[shingle]
+        added_mask = 0
+        for shingle in added:
+            added_mask |= 1 << added_index[shingle]
+        group = groups.get(missing_mask)
+        if group is None:
+            group = groups[missing_mask] = {
+                "entries": [], "min_size": size, "max_size": size,
+                "max_added": added_mask.bit_count(),
+                "common_added": added_mask, "count": 0,
+            }
+        group["entries"].append((added_mask, size))
+        group["count"] += 1
+        if size < group["min_size"]:
+            group["min_size"] = size
+        if size > group["max_size"]:
+            group["max_size"] = size
+        added_count = added_mask.bit_count()
+        if added_count > group["max_added"]:
+            group["max_added"] = added_count
+        if group["common_added"]:
+            group["common_added"] &= added_mask
+    group_list = list(groups.items())
+    for first in range(len(group_list)):
+        missing_first, group_first = group_list[first]
+        for second in range(first, len(group_list)):
+            missing_second, group_second = group_list[second]
+            if first == second and group_first["count"] < 2:
                 continue
+            base = pivot_size - (missing_first | missing_second).bit_count()
+            common_overlap = (
+                group_first["common_added"]
+                & group_second["common_added"]).bit_count()
+            max_sum = group_first["max_size"] + group_second["max_size"]
+            if base + common_overlap >= -(-4 * max_sum // 9):
+                continue
+            max_overlap = min(
+                group_first["max_added"], group_second["max_added"])
+            min_sum = group_first["min_size"] + group_second["min_size"]
             if base + max_overlap < -(-4 * min_sum // 9):
                 return False
-            if first_index == second_index:
-                pairs = [(entries_first[a], entries_first[b])
-                         for a in range(len(entries_first))
-                         for b in range(a + 1, len(entries_first))]
+            if first == second:
+                pairs = (
+                    (group_first["entries"][a], group_first["entries"][b])
+                    for a in range(len(group_first["entries"]))
+                    for b in range(a + 1, len(group_first["entries"])))
             else:
-                pairs = [(entry_first, entry_second)
-                         for entry_first in entries_first
-                         for entry_second in entries_second]
+                pairs = (
+                    (entry_first, entry_second)
+                    for entry_first in group_first["entries"]
+                    for entry_second in group_second["entries"])
             for (added_first, size_first), (added_second, size_second) \
                     in pairs:
-                shared = base + len(added_first & added_second)
+                shared = base + (added_first & added_second).bit_count()
                 if shared * 9 < 4 * (size_first + size_second):
                     return False
     return True
@@ -529,6 +600,10 @@ def _validate_answer_shape(item):
         value = _get(item, name, None)
         if value is not None and not isinstance(value, bool):
             raise ValueError(name + " must be a boolean")
+    for name in ("control", "control_flag", "competitor_named"):
+        value = _get(item, name, None)
+        if value is not None and not isinstance(value, bool):
+            raise ValueError(name + " must be a boolean")
     for field_name in ("per_competitor", "competitors"):
         entries = _get(item, field_name, None)
         if entries is None:
@@ -541,8 +616,10 @@ def _validate_answer_shape(item):
                 if not isinstance(key, str):
                     raise ValueError(
                         "per_competitor names must be strings")
-                if _is_competitor_record(outcome):
-                    _validate_competitor_entry(outcome)
+                if not _is_competitor_record(outcome):
+                    raise ValueError(
+                        "per_competitor entries must be records")
+                _validate_competitor_entry(outcome)
             continue
         for entry in entries:
             if not _is_competitor_record(entry):

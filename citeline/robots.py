@@ -799,6 +799,25 @@ def evaluate_robots_bytes(data, evaluated_page_path=None,
     )
 
 
+def _encode_robots_text(text):
+    """Encode supplied robots text in UTF-8.
+
+    A text holding a lone surrogate does not encode in
+    UTF-8, which is the text form of the decoding failure
+    the bytes route refuses: it stands refused in the
+    recorded vocabulary, ROBOTS_DECODING_FAILED, never
+    as the encoder's raw error.
+    """
+    try:
+        return text.encode("utf-8")
+    except UnicodeEncodeError as error:
+        raise RobotsError(
+            "ROBOTS_DECODING_FAILED",
+            "the file text does not encode in UTF-8, so it "
+            "does not decode in UTF-8 strictly",
+        ) from error
+
+
 def evaluate_robots_text(text, evaluated_page_path=None,
                          path_defaulted=None,
                          asserted_capture_date=None,
@@ -807,7 +826,7 @@ def evaluate_robots_text(text, evaluated_page_path=None,
     # The text route applies the same decoding and size
     # enforcement the file route applies, so one content
     # stands refused or accepted alike on either route.
-    if len(text.encode("utf-8")) > ROBOTS_FILE_LIMIT_BYTES:
+    if len(_encode_robots_text(text)) > ROBOTS_FILE_LIMIT_BYTES:
         raise RobotsError(
             "LIMIT_EXCEEDED",
             "robots file total size over 512 KiB",
@@ -825,7 +844,8 @@ def evaluate_robots_text(text, evaluated_page_path=None,
             "ROBOTS_DECODING_FAILED",
             "a byte order mark stands inside the file",
         )
-    sha256_value = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    sha256_value = hashlib.sha256(
+        _encode_robots_text(text)).hexdigest()
     path, defaulted = _resolve_path(evaluated_page_path, path_defaulted)
     return _build_report(
         body, sha256_value, path, defaulted, asserted_capture_date

@@ -39,6 +39,7 @@ import datetime
 import re
 import unicodedata
 from decimal import Decimal, ROUND_HALF_UP
+from html import unescape as _html_unescape
 from urllib.parse import unquote
 
 __all__ = [
@@ -246,7 +247,7 @@ def _link_parts(link):
 _DOT_SEPARATORS = ("\uff0e", "\u3002", "\uff61")
 
 
-def _normalise_host(raw_host):
+def _normalise_host(raw_host, _decoded=False):
     """The host reading items 42, 148, 149, and 150 state.
 
     Percent sequences decode exactly once, the non ASCII
@@ -256,9 +257,15 @@ def _normalise_host(raw_host):
     malformed and stands as None, counting no citation.
     A host that still holds a percent character after the
     one decode is malformed on the second limb of item
-    148 and stands as None in the same way.
+    148 and stands as None in the same way. A host the
+    caller has already decoded once, on the stated order
+    at _decoded_authority_parts, stands judged on that
+    one decode and is not decoded a second time.
     """
-    text = unquote(str(raw_host))
+    if _decoded:
+        text = str(raw_host)
+    else:
+        text = unquote(str(raw_host))
     if "%" in text:
         return None
     for separator in _DOT_SEPARATORS:
@@ -284,18 +291,93 @@ def _normalise_host(raw_host):
     return ".".join(labels)
 
 
-def _host_of(target):
-    match = re.match(r"^[A-Za-z][A-Za-z0-9+.-]*://([^/?#]+)", target or "")
+def _decode_link_piece(value):
+    """Decode one link piece exactly once, in the stated
+    order: entities decode once and percent sequences
+    decode once, so a sequence the one decode leaves
+    standing, such as a percent character from a double
+    encoded form, is not decoded again downstream."""
+    return unquote(_html_unescape(value))
+
+
+def _decoded_authority_parts(target):
+    """Split one target on its authority, decoded first.
+
+    Items 148 and 159 state the decode order whole:
+    percent sequences and entities decode exactly once
+    before host parsing. The raw authority piece, the
+    text between the scheme separator and the first
+    literal path, query, or fragment delimiter, is
+    therefore decoded once before any authority cut is
+    made, so a delimiter the decode produces, a slash,
+    a colon, a fragment or query mark, or an at sign,
+    acts as the delimiter it is. Returns the scheme
+    prefix, the decoded authority, the decoded suffix
+    that stood inside the raw authority piece after a
+    decoded delimiter, and the remainder of the target
+    after the raw authority piece, or None where the
+    target carries no scheme separator.
+    """
+    match = re.match(r"^[A-Za-z][A-Za-z0-9+.-]*://", target or "")
     if not match:
         return None
-    host = match.group(1)
-    host = host.rsplit("@", 1)[-1]
+    rest = target[match.end():]
+    raw_end = len(rest)
+    index = 0
+    while index < len(rest):
+        char = rest[index]
+        if char == "&":
+            # An entity reference stands inside the piece
+            # it decodes in, so a delimiter character the
+            # reference itself is written with, the hash of
+            # a numeric reference above all, does not cut
+            # the piece: the scan steps over a reference in
+            # its written form and cuts after it.
+            semi = rest.find(";", index + 1, index + 12)
+            if semi >= 0 and re.fullmatch(
+                r"#\d+|#[xX][0-9A-Fa-f]+|[A-Za-z][A-Za-z0-9]+",
+                rest[index + 1:semi],
+            ):
+                index = semi + 1
+                continue
+        if char in "/?#":
+            raw_end = index
+            break
+        index += 1
+    decoded = _decode_link_piece(rest[:raw_end])
+    split = len(decoded)
+    for index, char in enumerate(decoded):
+        if char in "/?#":
+            split = index
+            break
+    return (
+        match.group(0),
+        decoded[:split],
+        decoded[split:],
+        rest[raw_end:],
+    )
+
+
+def _host_from_authority(authority):
+    host = authority.rsplit("@", 1)[-1]
     if host.startswith("["):
         closing = host.find("]")
         host = host[:closing + 1] if closing >= 0 else host
     else:
         host = host.split(":", 1)[0]
-    return _normalise_host(host)
+    return host
+
+
+def _host_of(target):
+    target = target.strip() if isinstance(target, str) else target
+    parts = _decoded_authority_parts(target or "")
+    if parts is not None:
+        return _normalise_host(
+            _host_from_authority(parts[1]), _decoded=True)
+    match = re.match(r"^[A-Za-z][A-Za-z0-9+.-]*://([^/?#]+)", target or "")
+    if not match:
+        return None
+    return _normalise_host(_host_from_authority(match.group(1)))
 
 
 _UNRESERVED = (
@@ -378,13 +460,25 @@ def _canonical_target(target):
     stated equivalent forms share one key and count once.
     """
     target = (target or "").strip()
+    supplied = target
+    parts = _decoded_authority_parts(target)
+    decoded_authority = parts is not None
+    if decoded_authority:
+        # The canonical form judges the target the stated
+        # decode produces, as the host reading does: the
+        # decoded authority stands in place of the raw
+        # authority piece, with any suffix a decoded
+        # delimiter produced standing before the raw
+        # remainder, so the two readings split one
+        # destination the same way.
+        target = parts[0] + parts[1] + parts[2] + parts[3]
     match = re.match(
         r"^[A-Za-z][A-Za-z0-9+.-]*://([^/?#]+)([^?#]*)"
         r"(?:\?([^#]*))?(?:#.*)?$",
         target,
     )
     if not match:
-        return target
+        return supplied
     authority = match.group(1).rsplit("@", 1)[-1]
     if authority.startswith("["):
         closing = authority.find("]")
@@ -396,9 +490,9 @@ def _canonical_target(target):
             host_part, port_part = authority, ""
     else:
         host_part, _, port_part = authority.partition(":")
-    host = _normalise_host(host_part)
+    host = _normalise_host(host_part, _decoded=decoded_authority)
     if host is None:
-        return target
+        return supplied
     authority = host
     if port_part:
         try:
@@ -435,6 +529,16 @@ def _citation_analysis(page, facts):
         target, link_text, start, end = _link_parts(link)
         if not target:
             continue
+        if isinstance(target, str):
+            # A supplied target stands judged stripped, as
+            # the canonical form judges it: whitespace at
+            # its head is no part of the destination, and
+            # a target carrying it counts as the citation
+            # it is in the host reading and the scheme
+            # test alike, not passed over in silence.
+            target = target.strip()
+            if not target:
+                continue
         host = _host_of(target)
         if host is None:
             # An anchor link or a relative link is internal.
@@ -560,15 +664,82 @@ def _mask(text, spans):
 
 _QUOTED_SPAN_PATTERN = re.compile(
     r'"[^"\n]*"|"[^"\n]*”|“[^"\n]*"|“[^”\n]*”'
-    r"|«[^»\n]*»|»[^«\n]*«|„[^“\n]*“"
-    r"|‘[^’\n]*(?:’(?=[A-Za-z])[^’\n]*)*’"
+    r"|«[^»\n]*»|»[^«\n]*«|„[^“\n]*“|„[^”\n]*”"
+    r"|‘(?:[^’\n]|’(?=[A-Za-z])|’(?=\d)"
+    r"|’(?=\s[^\n’‘]*’))*’"
     r"|「[^」\n]*」|『[^』\n]*』"
+    r"|《[^》\n]*》|〈[^〉\n]*〉|【[^】\n]*】"
+    r"|〖[^〗\n]*〗|｢[^｣\n]*｣"
     r"|＂[^＂\n]*＂|‹[^›\n]*›|″[^″\n]*″|‚[^‘\n]*‘"
 )
 
 _ANY_SCHEME_URL_PATTERN = re.compile(
     r"[A-Za-z][A-Za-z0-9+.-]*://[^\s<>\"'{}]+"
 )
+
+_SCHEME_CHARS = (
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+    "0123456789+.-"
+)
+_SCHEME_LETTERS = (
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+)
+
+
+def _url_spans(text):
+    """Spans of scheme URLs in one text, found in one pass.
+
+    The spans are the spans the any scheme URL pattern
+    states, with one stated extension: an apostrophe
+    standing inside a URL, between URL characters, is a
+    URL character, as a path may hold one as written, so
+    the span runs past it and the digits after it stand
+    inside the address. An apostrophe followed by a
+    space, a closing mark, or the end of the text still
+    ends the span, as a quoting apostrophe does. The
+    spans are found by searching for the scheme
+    separator and reading the scheme back and the
+    address forward from each separator, never by
+    rescanning the text from every position: a pattern
+    that tries a scheme at every offset of one long
+    token costs time quadratic in the token length,
+    while this reading costs one separator search over
+    the text plus the length of the URLs it finds.
+    """
+    spans = []
+    search_from = 0
+    while True:
+        separator = text.find("://", search_from)
+        if separator < 0:
+            return spans
+        run_start = separator
+        while run_start > 0 and text[run_start - 1] in _SCHEME_CHARS:
+            run_start -= 1
+        scheme_start = run_start
+        while (scheme_start < separator
+               and text[scheme_start] not in _SCHEME_LETTERS):
+            scheme_start += 1
+        if scheme_start >= separator:
+            search_from = separator + 3
+            continue
+        end = separator + 3
+        while end < len(text):
+            char = text[end]
+            if char.isspace() or char in "<>\"{}":
+                break
+            if char == "'":
+                following = text[end + 1] if end + 1 < len(text) else ""
+                if (not following or following.isspace()
+                        or following in "<>\"'{}"):
+                    break
+                end += 1
+                continue
+            end += 1
+        if end == separator + 3:
+            search_from = separator + 3
+            continue
+        spans.append((scheme_start, end))
+        search_from = end
 
 _MONTH_ABBREVIATIONS = (
     "Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec"
@@ -589,22 +760,55 @@ def _statistic_analysis(page):
     # of an address, not a figure the page presents, so
     # link targets and bare URLs are masked, as mention
     # detection masks them at item 46.
-    masked = _mask(
-        masked,
-        [
-            (m.start(), m.end())
-            for m in _ANY_SCHEME_URL_PATTERN.finditer(masked)
-        ],
-    )
+    masked = _mask(masked, _url_spans(masked))
+    # The link spans stand collected first and masked in
+    # one pass, on the same cost ground as _url_spans:
+    # rebuilding the masked text once per link costs time
+    # in the product of the link count and the text
+    # length, while one pass costs the text length once
+    # however many links the page carries.
+    link_spans = []
     for link in _get(page, "links", []) or []:
         target, link_text, start, end = _link_parts(link)
         if start is not None and end is not None and end > start:
-            masked = _mask(masked, [(start, end)])
+            link_spans.append((start, end))
         if target:
             found = masked.find(target)
             while found >= 0:
-                masked = _mask(masked, [(found, found + len(target))])
+                link_spans.append((found, found + len(target)))
                 found = masked.find(target, found + len(target))
+    if link_spans:
+        masked = _mask(masked, link_spans)
+    # A date fragment counts nothing in any written form,
+    # so a date standing with its time, and a date written
+    # with spaces between its parts, stand masked whole
+    # before the plain date masks can take the date part
+    # and leave the time or the day and month standing as
+    # tokens. These composite forms run first, while the
+    # date and its remainder still stand together.
+    month_names_early = "|".join(name.capitalize() for name in _MONTHS)
+    month_alt_early = (
+        month_names_early + "|" + _MONTH_ABBREVIATIONS)
+    for date_pattern in (
+        r"\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?"
+        r"(?:\s*(?:Z|[+-]\d{2}:?\d{2}))?\b",
+        r"\b\d{4}-\d{2}-\d{2},\s*\d{1,2}:\d{2}(?::\d{2})?\b",
+        r"\b(?:" + month_alt_early + r")\.?\s+\d{1,2}\s*,\s+"
+        r"\d{2,4}\s+\d{1,2}:\d{2}(?::\d{2})?\b",
+        r"\b\d{4}/\d{1,2}/\d{1,2}\s+\d{1,2}:\d{2}(?::\d{2})?\b",
+        r"\b\d{4}\s+(?:0?[1-9]|1[0-2])\s+"
+        r"(?:0?[1-9]|[12]\d|3[01])\b",
+        r"\b(?:0?[1-9]|[12]\d|3[01])\s+(?:0?[1-9]|1[0-2])\s+"
+        r"\d{4}\b",
+    ):
+        masked = _mask(
+            masked,
+            [
+                (m.start(), m.end())
+                for m in re.finditer(date_pattern, masked,
+                                      re.IGNORECASE)
+            ],
+        )
     # The ISO datetime form stands masked whole before the
     # plain date mask can take its date part and leave the
     # time standing as a remainder, in the T form and in
@@ -709,6 +913,7 @@ def _statistic_analysis(page):
         r"\b\d{4}\s*,\s*(?:" + month_alt + r")\.?\s+\d{1,2}\b",
         r"\b(?:" + month_alt + r")\.?\s*,\s*\d{1,2}\s+\d{2,4}\b",
         r"\bT\d{2}:\d{2}(?::\d{2})?\b",
+        r"\b(?:" + month_alt + r")\.?\s+\d{1,2}\s*,\s*\d{2,4}\b",
     ):
         masked = _mask(
             masked,
@@ -732,13 +937,16 @@ def _statistic_analysis(page):
     # stands beside the figure in the sentence that
     # carries it, with a colon between them, or with the
     # word is between them, as well as standing directly
-    # beside it.
+    # beside it, and the two stated connectors compose,
+    # the word is and then a colon standing in sequence
+    # between the naming word and the figure.
     masked = _mask(
         masked,
         [
             (m.start(), m.end())
             for m in re.finditer(
-                r"\bversion(?:\s*:\s*|\s+is\s+|\s+)\d+(?:\.\d+)*\b",
+                r"\bversion(?:\s+is\s*:\s*|\s+is\s+|\s*:\s*|\s+)"
+                r"\d+(?:\.\d+)*\b",
                 masked, re.IGNORECASE
             )
         ],

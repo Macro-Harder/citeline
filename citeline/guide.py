@@ -81,8 +81,15 @@ def _get(record, name, default=None):
 
 
 def _word_tokens(text):
+    # The same tokeniser form as the reporting module
+    # states: a decimal number counts as one word under
+    # brief Section 5.1, so a decimal point standing
+    # between digits does not split the number it
+    # stands in (Step 17 round 4 entry S17-R4-048, the
+    # guide side pattern the reporting paper records).
     normalised = unicodedata.normalize("NFC", text or "").casefold()
-    return re.findall(r"[^\W_]+", normalised, flags=re.UNICODE)
+    return re.findall(
+        r"[^\W_]+(?:\.\d+)?", normalised, flags=re.UNICODE)
 
 
 def _contains_term(sentence, term):

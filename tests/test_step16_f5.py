@@ -222,7 +222,7 @@ class TestD18AuditDateValidation(F5Case):
         self.assertEqual(service.list_products(home=str(self.home)),
                          [])
 
-    def test_audit_refuses_a_non_date_audit_date_and_stores_nothing(self):
+    def test_audit_refuses_a_non_date_audit_date_and_stores_one_failure_record(self):
         self.seed_product()
         before = len(journal_entries(self.home))
         self.assert_bad_date_refused(lambda: service.audit(

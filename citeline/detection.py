@@ -57,8 +57,10 @@ _LINK_OPEN_RE = re.compile(r"\[[^\]]*\]\(")
 def _iter_links(text):
     """Yield (start, end, target) for each markdown link.
 
-    The destination is read as one token or as an angle
-    bracket form, and an optional title after it is read in
+    The destination is read as one token, holding any
+    balanced parenthesis pairs inside it whole, or as an
+    angle bracket form, and an optional title after it is
+    read in
     its stated forms: a double quoted title, a single quoted
     title, or a parenthesis title. A title is read to its own
     closing mark, so a closing parenthesis inside a quoted
@@ -83,8 +85,17 @@ def _iter_links(text):
             position = close + 1
         else:
             start = position
-            while (position < len(text)
-                   and text[position] not in " \t)"):
+            depth = 0
+            while position < len(text):
+                char = text[position]
+                if char in " \t":
+                    break
+                if char == "(":
+                    depth += 1
+                elif char == ")":
+                    if depth == 0:
+                        break
+                    depth -= 1
                 position += 1
             target = text[start:position]
         while position < len(text) and text[position] in " \t":
@@ -128,12 +139,13 @@ _BRACKET_RE = re.compile(r"\[(\d+)\]")
 _HEADING_RE = re.compile(r"^\s{0,3}(#{1,6})\s+(.*?)\s*$")
 _MARKER_RE = re.compile(r"^(?:[-*+]|\d+[.)]|[A-Za-z][.)])\s+(.+)$")
 _BARE_HOST_RE = re.compile(
-    r"^(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}\.?(?::[0-9]+)?\.?(?:/\S*)?$")
+    r"^(?:[A-Za-z0-9-]+[.．。｡])+[A-Za-z]{2,}[.．。｡]?"
+    r"(?::[0-9]+)?[.．。｡]?(?:/\S*|[?#]\S*)?$")
 _REF_ENTRY_RE = re.compile(
     r"^\s*(?:[-*+]\s*)?\[?(\d+)\]?\s*[.)]\s+(\S+)(?:\s+.*)?$")
 _BARE_DOMAIN_TOKEN_RE = re.compile(
-    r"(?<![A-Za-z0-9._-])(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}"
-    r"\.?(?::[0-9]+)?\.?(?:[/?#]\S*)?")
+    r"(?<![A-Za-z0-9._．。｡-])(?:[A-Za-z0-9-]+[.．。｡])+[A-Za-z]{2,}"
+    r"[.．。｡]?(?::[0-9]+)?[.．。｡]?(?:[/?#]\S*)?")
 _REFERENCE_DEFINITION_RE = re.compile(r"^\s{0,3}\[[^\]]+\]:\s*\S+")
 _REF_DEF_START_RE = re.compile(r"^\s{0,3}\[[^\]]+\]:\s*(.*)$")
 _SETEXT_UNDERLINE_RE = re.compile(r"^\s{0,3}(=+|-+)\s*$")
@@ -141,7 +153,8 @@ _REF_ENTRY_HEAD_RE = re.compile(
     r"^\s*(?:[-*+]\s*)?(?:\[(\d+)\]\s*(?:[.)]\s*)?|(\d+)\s*[.)]\s+)"
     r"(.+)$")
 _BARE_ENTRY_TARGET_RE = re.compile(
-    r"^(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}\.?(?::[0-9]+)?\.?$")
+    r"^(?:[A-Za-z0-9-]+[.．。｡])+[A-Za-z]{2,}[.．。｡]?"
+    r"(?::[0-9]+)?[.．。｡]?$")
 
 
 def _target_is_valid(target):
@@ -1002,134 +1015,138 @@ def _similar_components(type_sets):
     of a set is ever stored: an inverted index over single
     shingles stands in place of both.
 
-    Each component is grown from one seed set. One counting
-    pass over the seed's postings reads its shared count
-    with every unvisited set, with a shingle standing in
-    every unvisited set counted once as a base, and every
-    set similar to the seed joins at once, which settles a
-    clique shape in that one pass. An unvisited set can join
-    later only through a member already in the component,
-    and its shared count with such a member stands at most
-    its shared count with the seed plus the part of the
-    member standing outside the seed, so every unvisited set
-    under that bound for every member stands excluded in
-    bulk. The sets the bound leaves open are few on the
-    shapes a round carries, and each is judged exactly
-    against the members, newest first, pass by pass until a
-    pass adds nothing.
+    Each component grows from one seed set. One counting
+    pass over the seed postings reads its shared count with
+    every unvisited set, with a shingle standing in every
+    unvisited set counted once as a base, and every set
+    similar to the seed joins at once, which settles a
+    clique shape in that one pass. The component then grows
+    layer by layer from the sets that joined last, the
+    frontier. A set can join through a frontier member only
+    where it shares a shingle with one, so the candidates of
+    a layer are the unvisited sets standing in the postings
+    of the distinct frontier shingles, each posting holding
+    unvisited sets only. A candidate whose shared count
+    with the seed plus the largest part of a frontier member
+    standing outside the seed falls under the smallest
+    threshold a frontier member can carry stands excluded
+    in bulk. The candidates the bound leaves open are
+    judged exactly, against the frontier members that share
+    one of a small picked set of the candidate shingles:
+    a similar member misses at most the allowance of the
+    candidate shingles that its threshold fixes, so it
+    shares at least one of any allowance plus one of them.
+    A chain shape, where each layer adds the next link or
+    two, therefore costs a small candidate scan per layer
+    in place of a scan of the whole component per pass.
     """
     count = len(type_sets)
+    sets = [set(shingle_set) for shingle_set in type_sets]
     postings = {}
-    for index, shingle_set in enumerate(type_sets):
+    for index, shingle_set in enumerate(sets):
         for shingle in shingle_set:
-            postings.setdefault(shingle, []).append(index)
-    frequency = {shingle: len(members)
-                 for shingle, members in postings.items()}
-    buckets = {}
-    for shingle, freq in frequency.items():
-        buckets.setdefault(freq, set()).add(shingle)
+            postings.setdefault(shingle, set()).add(index)
     visited = [False] * count
     by_size = {}
-    for index, shingle_set in enumerate(type_sets):
+    for index, shingle_set in enumerate(sets):
         by_size.setdefault(len(shingle_set), set()).add(index)
     remaining = count
+    components = []
 
     def mark(index):
         nonlocal remaining
         visited[index] = True
         remaining -= 1
-        by_size[len(type_sets[index])].discard(index)
-        for shingle in type_sets[index]:
-            freq = frequency[shingle]
-            bucket = buckets.get(freq)
+        by_size[len(sets[index])].discard(index)
+        for shingle in sets[index]:
+            bucket = postings.get(shingle)
             if bucket is not None:
-                bucket.discard(shingle)
-            if freq > 1:
-                frequency[shingle] = freq - 1
-                buckets.setdefault(freq - 1, set()).add(shingle)
-            else:
-                del frequency[shingle]
+                bucket.discard(index)
 
-    components = []
     for seed in range(count):
         if visited[seed]:
             continue
-        seed_set = type_sets[seed]
+        seed_set = sets[seed]
         seed_size = len(seed_set)
         component = [seed]
-        members = [seed]
         mark(seed)
-        universal = buckets.get(remaining, ()) if remaining else ()
-        base = sum(1 for shingle in seed_set if shingle in universal)
+        if remaining:
+            universal = {
+                shingle for shingle in seed_set
+                if len(postings.get(shingle, ())) == remaining}
+        else:
+            universal = set()
+        base = len(universal)
         counts = {}
         for shingle in seed_set:
             if shingle in universal:
                 continue
-            for other in postings[shingle]:
-                if not visited[other]:
-                    counts[other] = counts.get(other, 0) + 1
-
-        def shared_with_seed(other):
-            return base + counts.get(other, 0)
-
-        max_added = 0
-        min_member_size = seed_size
-
-        def join(other):
-            nonlocal max_added, min_member_size
-            mark(other)
-            component.append(other)
-            members.append(other)
-            added = len(type_sets[other]) - len(seed_set & type_sets[other])
-            if added > max_added:
-                max_added = added
-            if len(type_sets[other]) < min_member_size:
-                min_member_size = len(type_sets[other])
-
+            for other in postings.get(shingle, ()):
+                counts[other] = counts.get(other, 0) + 1
         first_layer = []
         for other, shared_count in counts.items():
             shared = base + shared_count
-            if shared * 9 >= 4 * (seed_size + len(type_sets[other])):
+            if shared * 9 >= 4 * (seed_size + len(sets[other])):
                 first_layer.append(other)
         if base:
             for size, size_members in list(by_size.items()):
                 if size_members and base * 9 >= 4 * (seed_size + size):
-                    first_layer.extend(size_members)
+                    first_layer.extend(list(size_members))
+        frontier = []
         for other in first_layer:
             if not visited[other]:
-                join(other)
-        while True:
-            pool = []
-            for other in counts:
+                mark(other)
+                component.append(other)
+                frontier.append(other)
+        while frontier and remaining:
+            frontier_shingles = set()
+            for node in frontier:
+                frontier_shingles.update(sets[node])
+            candidates = set()
+            for shingle in frontier_shingles:
+                candidates.update(postings.get(shingle, ()))
+            if not candidates:
+                break
+            frontier_by_shingle = {}
+            for position, node in enumerate(frontier):
+                for shingle in sets[node]:
+                    frontier_by_shingle.setdefault(
+                        shingle, []).append(position)
+            min_frontier_size = min(len(sets[node]) for node in frontier)
+            max_added = max(
+                len(sets[node] - seed_set) for node in frontier)
+            new_frontier = []
+            for other in candidates:
                 if visited[other]:
                     continue
-                threshold = -(-4 * (len(type_sets[other])
-                                     + min_member_size) // 9)
-                if shared_with_seed(other) + max_added >= threshold:
-                    pool.append(other)
-            if base + max_added >= 0:
-                for size, size_members in list(by_size.items()):
-                    if not size_members:
-                        continue
-                    threshold = -(-4 * (size + min_member_size) // 9)
-                    if base + max_added >= threshold:
-                        for other in size_members:
-                            if other not in counts:
-                                pool.append(other)
-            additions = []
-            for other in pool:
-                other_set = type_sets[other]
-                for member in reversed(members):
-                    shared = len(other_set & type_sets[member])
-                    if shared * 9 >= 4 * (len(other_set)
-                                          + len(type_sets[member])):
-                        additions.append(other)
+                other_size = len(sets[other])
+                threshold = -(-4 * (other_size + min_frontier_size) // 9)
+                shared_seed = base + counts.get(other, 0)
+                if shared_seed + max_added < threshold:
+                    continue
+                allowance = other_size - threshold
+                if allowance < 0:
+                    continue
+                picked = sorted(
+                    sets[other],
+                    key=lambda shingle: len(
+                        frontier_by_shingle.get(shingle, ()))
+                )[:allowance + 1]
+                positions = set()
+                for shingle in picked:
+                    positions.update(frontier_by_shingle.get(shingle, ()))
+                joined = False
+                for position in positions:
+                    node = frontier[position]
+                    shared = len(sets[other] & sets[node])
+                    if shared * 9 >= 4 * (other_size + len(sets[node])):
+                        joined = True
                         break
-            if not additions:
-                break
-            for other in additions:
-                if not visited[other]:
-                    join(other)
+                if joined:
+                    mark(other)
+                    component.append(other)
+                    new_frontier.append(other)
+            frontier = new_frontier
         components.append(component)
     return components
 

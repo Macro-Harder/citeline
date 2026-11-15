@@ -387,10 +387,21 @@ def _validate_plan(plan):
         # no selector, so a target whose only selector
         # holds null names neither, and a target naming a
         # page file beside a null round names one.
+        # An empty string stands as no selector at all,
+        # as an absent or null value stands (Step 17
+        # round 4 entry S17-R4-057, on the module's own
+        # ground at S17-R2-079): a target whose page file
+        # or round stands as an empty string names no
+        # selector on that limb, and refuses at open
+        # where it names none or both.
+        page_selector = target.get("page_file")
+        round_selector = target.get("round")
         if not isinstance(target, dict) \
                 or target.get("product") is None \
-                or (target.get("page_file") is not None) == \
-                (target.get("round") is not None):
+                or (page_selector is not None
+                    and page_selector != "") == \
+                (round_selector is not None
+                    and round_selector != ""):
             _fail(
                 "MALFORMED_CALL",
                 "each picked target names a product and one "
@@ -715,7 +726,7 @@ def _standing_product_page_snapshot_count(home, products):
     paths = set()
     for snapshot_id in order:
         payload = latest[snapshot_id]
-        if payload.get("is_product_page") \
+        if payload.get("is_product_page") is True \
                 and payload.get("supplied_path") \
                 and payload.get("product_id") in product_ids:
             count += 1
@@ -739,7 +750,6 @@ def _cadence_interval_days(cadence):
     words = {
         "daily": 1, "weekly": 7, "fortnightly": 14,
         "monthly": 30, "quarterly": 91, "yearly": 365,
-        "annually": 365,
     }
     if text in words:
         return words[text]
@@ -750,9 +760,14 @@ def _cadence_interval_days(cadence):
     # and a zero count names no interval, because a zero
     # interval is no cadence and its forward count would
     # stand as a computed figure where the absence form
-    # belongs.
+    # belongs. The separator stands as the ordinary
+    # space the stated form writes, and no other
+    # whitespace form stands in the set (Step 17 round
+    # 4 entry S17-R4-058): a Unicode whitespace
+    # separator names no stated form, as the annually
+    # word names none.
     match = re.fullmatch(
-        r"every\s+([0-9]+)\s+(day|days|week|weeks|month|months"
+        r"every +([0-9]+) +(day|days|week|weeks|month|months"
         r"|year|years)", text)
     if match:
         # The conversion stands bounded (Step 17 round 2

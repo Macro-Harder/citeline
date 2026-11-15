@@ -136,12 +136,30 @@ _BY_TOKEN = {entry["token"]: entry for entry in ERROR_VOCABULARY}
 
 
 def error_for_row(row):
-    """Return the vocabulary entry for a row, or None."""
+    """Return the vocabulary entry for a row, or None.
+
+    A value of a type the vocabulary cannot hold, an
+    unhashable value among them, stands as no entry, in
+    the module's own form as the constructor meets it
+    (Step 17 round 4 entry S17-R4-059): the lookup
+    returns None instead of raising a raw TypeError.
+    """
+    if not isinstance(row, str):
+        return None
     return _BY_ROW.get(row)
 
 
 def error_for_token(token):
-    """Return the vocabulary entry for a token, or None."""
+    """Return the vocabulary entry for a token, or None.
+
+    A value of a type the vocabulary cannot hold, an
+    unhashable value among them, stands as no entry, in
+    the module's own form as the constructor meets it
+    (Step 17 round 4 entry S17-R4-059): the lookup
+    returns None instead of raising a raw TypeError.
+    """
+    if not isinstance(token, str):
+        return None
     return _BY_TOKEN.get(token)
 
 
