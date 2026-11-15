@@ -419,6 +419,18 @@ def parse_robots(text):
             continue
         if stripped.startswith("#"):
             continue
+        # A comment stands at the end of a rule line as
+        # well as on a line of its own, in the RFC 9309
+        # form the brief states: the hash mark and the
+        # text after it are no part of the field value,
+        # at the group name and at the rule path alike,
+        # so the value stands read as the text before
+        # the hash mark.
+        hash_cut = stripped.find("#")
+        if hash_cut >= 0:
+            stripped = stripped[:hash_cut].rstrip()
+            if not stripped:
+                continue
         field_match = re.match(
             r"^([A-Za-z][A-Za-z-]*)\s*:\s*(.*)$", stripped
         )
@@ -790,6 +802,17 @@ def evaluate_robots_bytes(data, evaluated_page_path=None,
                           asserted_capture_date=None,
                           audit_date=None, **_ignored):
     """Evaluate one supplied robots file given as bytes."""
+    if not isinstance(data, (bytes, bytearray, memoryview)):
+        # A value that is not bytes cannot be decoded as
+        # bytes: the intake stands answered in the
+        # recorded vocabulary, ROBOTS_DECODING_FAILED, as
+        # the dispatch route answers its forms, never as
+        # the raw error of the bytes conversion.
+        raise RobotsError(
+            "ROBOTS_DECODING_FAILED",
+            "the bytes route stands handed a value that "
+            "is not bytes, so it does not decode",
+        )
     raw = bytes(data)
     sha256_value = hashlib.sha256(raw).hexdigest()
     text, _notes = decode_robots_bytes(raw)
@@ -823,6 +846,17 @@ def evaluate_robots_text(text, evaluated_page_path=None,
                          asserted_capture_date=None,
                          audit_date=None, **_ignored):
     """Evaluate one supplied robots file given as text."""
+    if not isinstance(text, str):
+        # A value that is not text carries no text to
+        # encode: the intake stands answered in the
+        # recorded vocabulary, ROBOTS_DECODING_FAILED, as
+        # the dispatch route answers its forms, never as
+        # the raw error of the text operations below.
+        raise RobotsError(
+            "ROBOTS_DECODING_FAILED",
+            "the text route stands handed a value that "
+            "is not text, so it does not encode",
+        )
     # The text route applies the same decoding and size
     # enforcement the file route applies, so one content
     # stands refused or accepted alike on either route.

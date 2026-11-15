@@ -469,8 +469,39 @@ def _failure_record_payloads(body):
     single form stands in no entries form, and an
     entries list standing under the entries name in any
     case stands collected (Step 17 round 6 entry
-    S17-R6-040).
+    S17-R6-040). The entries name and the carry keys
+    stand judged under the module component reading, so
+    a camel or separator form of either name stands as
+    the same name (Step 17 round 7 entry S17-R7-042).
     """
+    # The names this collector judges stand judged under
+    # the component reading this module states for field
+    # names, so a camel, capitalised camel, hyphen, or
+    # space form of a name stands as the same name as its
+    # underscore form (Step 17 round 7 entry S17-R7-042).
+    def components_of(key):
+        return tuple(_key_components(key))
+
+    def payload_of(item):
+        if not isinstance(item, dict):
+            return None
+        for key, value in item.items():
+            if components_of(key) == ("payload",):
+                return value
+        return None
+
+    def is_carry_key(key):
+        return components_of(key) in (
+            ("payload",), ("failure", "record"),
+            ("failure", "records"))
+
+    def is_entries_key(key):
+        parts = components_of(key)
+        if not parts:
+            return False
+        return parts[-1] == "entries" or parts[-2:] == (
+            "entries", "list")
+
     def unwrap(item):
         # A payload standing inside an entry shaped
         # wrapper stands collected as the payload it is,
@@ -481,8 +512,8 @@ def _failure_record_payloads(body):
         # round 5 entry S17-R5-048).
         while isinstance(item, dict) \
                 and item.get("entry_kind") == "failure_record" \
-                and isinstance(item.get("payload"), dict):
-            item = item["payload"]
+                and isinstance(payload_of(item), dict):
+            item = payload_of(item)
         return item
 
     def entries_form(node, found):
@@ -507,13 +538,9 @@ def _failure_record_payloads(body):
         # a case shifted entries key stands collected.
         if isinstance(node, dict):
             for key, value in node.items():
-                lowered = str(key).lower()
-                if lowered in ("payload", "failure_record",
-                               "failure_records"):
+                if is_carry_key(key):
                     continue
-                if isinstance(value, list) and (
-                        lowered == "entries"
-                        or lowered.endswith("_entries")):
+                if isinstance(value, list) and is_entries_key(key):
                     entries_list(value, found)
                 else:
                     entries_form(value, found)
@@ -525,7 +552,7 @@ def _failure_record_payloads(body):
         for item in items:
             if isinstance(item, dict) \
                     and item.get("entry_kind") == "failure_record" \
-                    and isinstance(item.get("payload"), dict):
+                    and isinstance(payload_of(item), dict):
                 found.append(unwrap(item))
             elif isinstance(item, list):
                 entries_list(item, found)
@@ -534,14 +561,15 @@ def _failure_record_payloads(body):
 
     forms = []
     if isinstance(body, dict):
-        stated = body.get("failure_records")
-        if isinstance(stated, list):
-            forms.append(
-                [unwrap(item) for item in stated
-                 if isinstance(unwrap(item), dict)])
-        single = body.get("failure_record")
-        if isinstance(single, dict):
-            forms.append([unwrap(single)])
+        for key, value in body.items():
+            if components_of(key) == ("failure", "records") \
+                    and isinstance(value, list):
+                forms.append(
+                    [unwrap(item) for item in value
+                     if isinstance(unwrap(item), dict)])
+            elif components_of(key) == ("failure", "record") \
+                    and isinstance(value, dict):
+                forms.append([unwrap(value)])
     gathered = []
     entries_form(body, gathered)
     forms.append(gathered)
@@ -750,32 +778,46 @@ def _apply_control_failure_notice(body):
     # renders its notice on; a control_flag standing at
     # the record own top level states the failed control
     # in the same way (Step 17 round 5 entry S17-R5-043).
-    flagged = bool(body.get("control_flag"))
-    # control_flag stands judged at any depth as the other
-    # two flags are judged, over the walked objects, so a
-    # flag standing in a nested object or in a list item
-    # states the failed control in the same way (Step 17
-    # round 6 entry S17-R6-037).
+    # The three flag names stand judged as the same name
+    # under the component reading this module states for
+    # field names, so a flag standing under a case shifted,
+    # camel, or separator form of one of the three names
+    # states the failed control as the exact name does, at
+    # the top level and at any depth (Step 17 round 7
+    # entry S17-R7-039). control_flag stands judged at any
+    # depth as the other two flags are judged, over the
+    # walked objects, so a flag standing in a nested object
+    # or in a list item states the failed control in the
+    # same way (Step 17 round 6 entry S17-R6-037).
+    flag_components = (
+        ("control", "failed"), ("control", "failure"),
+        ("control", "flag"))
+    flagged = False
     for obj in _walk(body):
-        for key in ("control_failed", "control_failure",
-                    "control_flag"):
-            if obj.get(key):
+        for key in obj:
+            if tuple(_key_components(key)) in flag_components \
+                    and obj.get(key):
                 flagged = True
     # The three notice keys stand judged as the same
-    # notice name in any case, at the top level and in
-    # nested objects alike, so a case shifted form of one
-    # of the three names stands under the pass as the
-    # exact name does (Step 17 round 6 entry S17-R6-036).
-    notice_keys = ("control_failure_notice", "control_notice",
-                   "failed_control_notice")
+    # notice name under the same component reading, at the
+    # top level and in nested objects alike, so a notice
+    # key carrying a hyphen, a doubled separator, or a
+    # trailing space stands under the pass as the exact
+    # underscore name does, as a case shifted form of one
+    # of the three names stood under it before (Step 17
+    # round 6 entry S17-R6-036, and round 7 entry
+    # S17-R7-038).
+    notice_components = (
+        ("control", "failure", "notice"), ("control", "notice"),
+        ("failed", "control", "notice"))
 
     def is_notice_key(key):
-        return str(key).lower() in notice_keys
+        return tuple(_key_components(key)) in notice_components
 
     guide_notice_text = None
     for key, value in body.items():
-        if is_notice_key(key) and key.lower() == \
-                "control_failure_notice":
+        if tuple(_key_components(key)) == \
+                ("control", "failure", "notice"):
             guide_notice_text = value
     guide_notice = (
         "opening_text" in body and "actions" in body
@@ -992,16 +1034,22 @@ def _advanced_body(record):
 # set, so a key holding the letters of a component inside
 # a longer word that segments no such way, as accurate
 # holds the letters of rate, keeps that component standing
-# outside it, as the Yellow boundary states.
+# outside it, as the Yellow boundary states. The set stands
+# completed on the product nouns the round 7 entry names:
+# citation, citations, evidence, quotation, quotations,
+# statistics, freshness, and sampling (Step 17 round 7
+# entry S17-R7-037).
 _FUSED_COMPONENT_WORDS = frozenset((
     "action", "actions", "answer", "answers", "applicable",
     "audit", "band", "basis", "capture", "captured", "card",
-    "chain", "check", "checks", "cited", "claim", "code",
+    "chain", "check", "checks", "cited", "citation",
+    "citations", "claim", "code",
     "codes", "confidence", "control", "count", "counts",
     "date", "delta", "design", "early", "earned", "effect",
     "engine", "engines", "entries", "entry", "error",
-    "errors", "failure", "failures", "field", "fields",
+    "errors", "evidence", "failure", "failures", "field", "fields",
     "figure", "figures", "file", "files", "final", "first",
+    "freshness",
     "form", "forms", "gross", "group", "groups", "guide",
     "hash", "head", "headline", "high", "hit", "home",
     "identity", "interval", "intervals", "item", "items",
@@ -1012,12 +1060,13 @@ _FUSED_COMPONENT_WORDS = frozenset((
     "number", "numbers", "object", "objects", "opening",
     "operation", "overall", "page", "path", "paths", "pct",
     "per", "percent", "percentage", "probe", "product",
-    "proportion", "range", "rate", "rates", "ratio",
+    "proportion", "quotation", "quotations", "range", "rate",
+    "rates", "ratio",
     "ratios", "record", "records", "report", "result",
     "round", "rule", "rules", "ruleset", "run", "sample",
-    "samples", "score", "scores", "second", "selection",
+    "samples", "sampling", "score", "scores", "second", "selection",
     "set", "sets", "share", "size", "source", "state",
-    "states", "status", "subject", "text", "the", "tier",
+    "states", "statistics", "status", "subject", "text", "the", "tier",
     "tiers", "time", "total", "type", "value", "values",
     "version", "versions", "warning", "warnings", "weight",
     "weights", "wilson",
@@ -1107,7 +1156,8 @@ def _names_rate(key):
     return parts[1] in ("gross", "net", "value", "pct",
                         "percent", "low", "high", "count",
                         "interval", "share", "ratio", "mean",
-                        "total")
+                        "total", "band", "delta", "range",
+                        "confidence")
 
 
 def _names_score(key):
@@ -1127,7 +1177,8 @@ def _names_score(key):
     index = parts.index("score")
     if index > 0 or len(parts) == 1:
         return True
-    return parts[1] in ("value",)
+    return parts[1] in ("value", "band", "delta", "basis",
+                        "range", "pct")
 
 
 def _names_tier(key):
@@ -1547,10 +1598,16 @@ def _rate_line(name, node):
     warning = node.get("small_sample_warning")
 
     def with_warning(line):
-        if warning is True:
+        # The warning stands under the fixed warning
+        # discipline: a stored true stands for the fixed
+        # text, and the rendering pass conversion hands
+        # this line the fixed text itself in that case, so
+        # the fixed text stands where the stored form is
+        # true or stands as that text, and a stored string
+        # in any other words never replaces it in the
+        # artefact (Step 17 round 7 entry S17-R7-044).
+        if warning is True or warning == SMALL_SAMPLE_WARNING:
             line += " " + SMALL_SAMPLE_WARNING
-        elif isinstance(warning, str) and warning:
-            line += " " + warning
         return line
 
     if rate is None or low is None or high is None:
@@ -1637,6 +1694,14 @@ def _emit(lines, key, value, depth, suppress_anchor_bare=False,
     figure_form = isinstance(value, float) or (
         isinstance(value, str)
         and isinstance(_figure_or_none(value), float))
+    # The branch key reading stands completed under the
+    # module component reading: a score compound, a pct
+    # compound, and a wilson name standing as a suffix
+    # stand in the set as the cured forms do, in float
+    # form and in string form alike (Step 17 round 7
+    # entry S17-R7-040).
+    components = _key_components(key) \
+        if isinstance(key, str) else []
     if figure_form and (
             key in _TREND_RATE_KEYS
             or key in ("rate", "share", "percent", "value",
@@ -1646,8 +1711,17 @@ def _emit(lines, key, value, depth, suppress_anchor_bare=False,
             or key in ("rate_value", "rate_pct",
                        "overall_score")
             or key in ("wilson", "wilson_low", "wilson_high")
-            or key.startswith("wilson_")
+            or (isinstance(key, str)
+                and key.startswith("wilson_"))
             or "_rate" in key
+            or "rate" in components
+            or "wilson" in components
+            or (components and components[-1] in (
+                "rate", "share", "percent", "pct", "gross",
+                "net", "score"))
+            or (len(components) > 1
+                and components[0] == "score"
+                and components[1] == "value")
             or key.endswith("_rate")
             or key.endswith("_share")
             or key.endswith("_percent")
@@ -2215,9 +2289,18 @@ def _failure_value_text(value):
     separator stands as the plain scalar text stands, as
     before."""
     text = _scalar_text(value)
-    if ", " in text or ". " in text or " failed with " in text:
+    if ", " in text or ". " in text or " failed with " in text \
+            or "\n" in text or "\r" in text:
+        # A line break inside a value stands judged as a
+        # separator of the line form itself: the Simple
+        # form is built of lines, so the value stands
+        # quoted and its line breaks stand escaped inside
+        # the quoting, and the one line the builder builds
+        # stands as one physical line (Step 17 round 7
+        # entry S17-R7-049).
         escaped = text.replace("\\", "\\\\").replace(
-            '"', '\\"')
+            '"', '\\"').replace("\r", "\\r").replace(
+            "\n", "\\n")
         return '"%s"' % escaped
     return text
 
@@ -2410,10 +2493,16 @@ def _fold(text):
 # carrying a trailing digit stands on the last part with
 # its digit, an exponent part stands in the number, and
 # an underscore grouping stands as a thousands grouping
-# does (Step 17 round 6 entry S17-R6-039).
+# does (Step 17 round 6 entry S17-R6-039). The form stands
+# completed on the dressings the round 7 entry names: an
+# apostrophe grouping stands as a thousands grouping, an
+# underscore grouping stands inside the exponent part, and
+# an underscore digit stands inside the letter suffix
+# (Step 17 round 7 entry S17-R7-041).
 _WORD_TOKEN_PATTERN = (
-    r"\d+(?:[,_]\d{3})*(?:\.\d+)*(?:[eE][+-]?\d+)?"
-    r"(?:[^\W\d_]+[0-9]*)*"
+    r"\d+(?:[,_']\d{3})*(?:\.\d+)*"
+    r"(?:[eE][+-]?\d+(?:_\d+)*)?"
+    r"(?:[^\W\d_]+(?:_\d+)?[0-9]*)*"
     r"|[^\W_]+(?:\.\d+)*")
 
 

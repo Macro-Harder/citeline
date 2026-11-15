@@ -90,10 +90,16 @@ def _get(record, name, default=None):
 # names, in the same shape as the reporting module: a
 # suffix carrying a trailing digit, an exponent part,
 # and an underscore grouping (Step 17 round 6 entry
-# S17-R6-039).
+# S17-R6-039). The form stands completed on the dressings
+# the round 7 entry names, in the same shape as the
+# reporting module: an apostrophe grouping, an underscore
+# grouping inside the exponent part, and an underscore
+# digit inside the letter suffix (Step 17 round 7 entry
+# S17-R7-041).
 _WORD_TOKEN_PATTERN = (
-    r"\d+(?:[,_]\d{3})*(?:\.\d+)*(?:[eE][+-]?\d+)?"
-    r"(?:[^\W\d_]+[0-9]*)*"
+    r"\d+(?:[,_']\d{3})*(?:\.\d+)*"
+    r"(?:[eE][+-]?\d+(?:_\d+)*)?"
+    r"(?:[^\W\d_]+(?:_\d+)?[0-9]*)*"
     r"|[^\W_]+(?:\.\d+)*")
 
 
@@ -543,10 +549,33 @@ def draft_from_audit_record(record, canonical_line=None, audit_date=None,
         distinct_cited_target_count = _get(
             record, "distinct_cited_target_count", None
         )
+    # The count stands judged for form before it stands
+    # compared: a count standing in string form stands
+    # read as the whole number it writes, and a string
+    # standing in no such form stands as no count, so no
+    # raw comparison error reaches the caller (Step 17
+    # round 7 entry S17-R7-043).
+    if isinstance(distinct_cited_target_count, bool):
+        distinct_cited_target_count = None
+    elif isinstance(distinct_cited_target_count, str):
+        written = distinct_cited_target_count.strip()
+        if written.isascii() and written.isdigit():
+            distinct_cited_target_count = int(written)
+        else:
+            distinct_cited_target_count = None
+    elif distinct_cited_target_count is not None and not isinstance(
+            distinct_cited_target_count, int):
+        distinct_cited_target_count = None
     if distinct_cited_target_count is None:
         cited_targets = _get(record, "cited_targets", None)
         if cited_targets is not None:
-            distinct_cited_target_count = len(set(cited_targets))
+            # The cited targets stand read under the
+            # module collection discipline: a string value
+            # is one item, never its characters, and a
+            # list or tuple stands as its items (Step 17
+            # round 7 entry S17-R7-043).
+            distinct_cited_target_count = len(set(
+                _term_collection(cited_targets)))
 
     triggers = []
     for code in trigger_codes or []:

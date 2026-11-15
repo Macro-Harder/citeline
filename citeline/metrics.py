@@ -176,12 +176,16 @@ def _similar_components(type_sets):
     of a set is ever stored: an inverted index over single
     shingles stands in place of both.
 
-    Each component grows from one seed set. One counting
-    pass over the seed postings reads its shared count with
-    every unvisited set, with a shingle standing in every
-    unvisited set counted once as a base, and every set
+    Each component grows from one seed set. The seed pass
+    stands in prefix form: the seed shingles stand ordered
+    by their posting counts, a set similar to the seed must
+    share a shingle of the seed prefix at the rare end of
+    that ordering, and the candidates those postings name
+    stand judged exactly against the seed, so every set
     similar to the seed joins at once, which settles a
-    clique shape in that one pass. The component then grows
+    clique shape in that one pass, at a price set by the
+    prefix postings in place of the postings of the whole
+    seed. The component then grows
     layer by layer from the sets that joined last, the
     frontier. A set can join through a frontier member only
     where it shares a shingle with one, so the candidates of
@@ -248,6 +252,26 @@ def _similar_components(type_sets):
         by_size.setdefault(len(id_set), set()).add(index)
     remaining = count
     components = []
+    # One ordering of the shingles for the whole
+    # computation, by posting count, rare shingles first.
+    # The seed pass reads the rare end of a seed as its
+    # prefix, and the ordering stands fixed while it runs,
+    # which is all the prefix argument the seed pass states
+    # needs. Each set stands sorted once, at the first seed
+    # pass that reads it, and the sorted form stands kept.
+    shingle_rank = {}
+    for rank, ident in enumerate(sorted(
+            postings, key=lambda item: (len(postings[item]), item))):
+        shingle_rank[ident] = rank
+    ordered_cache = {}
+
+    def ordered_set(index):
+        ordered = ordered_cache.get(index)
+        if ordered is None:
+            ordered = sorted(
+                sets[index], key=shingle_rank.__getitem__)
+            ordered_cache[index] = ordered
+        return ordered
 
     def mark(index):
         nonlocal remaining
@@ -264,29 +288,52 @@ def _similar_components(type_sets):
         seed_size = len(seed_set)
         component = [seed]
         mark(seed)
-        if remaining:
-            universal = {
-                shingle for shingle in seed_set
-                if unvisited_count[shingle] == remaining}
-        else:
-            universal = set()
-        base = len(universal)
-        counts = {}
-        for shingle in seed_set:
-            if shingle in universal:
-                continue
-            for other in postings[shingle]:
-                if not visited[other]:
-                    counts[other] = counts.get(other, 0) + 1
+        # The seed pass in prefix form. A set similar to the
+        # seed shares at least the threshold count of the
+        # seed shingles for its size, so where the prefix
+        # stands longer than the seed size less the smallest
+        # threshold any unvisited size can carry, a similar
+        # set shares at least one prefix shingle and stands
+        # in that shingle posting. The candidates the prefix
+        # postings name stand judged exactly, set against
+        # set, and no other unvisited set can stand similar
+        # to the seed. The counting form this replaces read
+        # the posting of every seed shingle at every seed,
+        # which a pool shared in varying subsets priced at
+        # the product of the set count and the unvisited
+        # count, no pool shingle standing universal and the
+        # base standing at zero while every set stood
+        # counted in full. The frontier bound that read the
+        # counting pass results now reads the exact shared
+        # count with the seed at the place it stands used,
+        # in possible_positions below.
         first_layer = []
-        for other, shared_count in counts.items():
-            shared = base + shared_count
-            if shared * 9 >= 4 * (seed_size + len(sets[other])):
-                first_layer.append(other)
-        if base:
-            for size, size_members in list(by_size.items()):
-                if size_members and base * 9 >= 4 * (seed_size + size):
-                    first_layer.extend(list(size_members))
+        if remaining:
+            lowest_threshold = None
+            for size, size_members in by_size.items():
+                if not size_members:
+                    continue
+                if min(seed_size, size) * 9 < 4 * (seed_size + size):
+                    continue
+                threshold = -(-4 * (seed_size + size) // 9)
+                if lowest_threshold is None or \
+                        threshold < lowest_threshold:
+                    lowest_threshold = threshold
+            if lowest_threshold is not None:
+                prefix_length = seed_size - lowest_threshold + 1
+                if prefix_length < 1:
+                    prefix_length = 1
+                if prefix_length > seed_size:
+                    prefix_length = seed_size
+                candidates = set()
+                for shingle in ordered_set(seed)[:prefix_length]:
+                    for other in postings[shingle]:
+                        if not visited[other]:
+                            candidates.add(other)
+                for other in sorted(candidates):
+                    shared = len(sets[other] & seed_set)
+                    if shared * 9 >= 4 * (seed_size + len(sets[other])):
+                        first_layer.append(other)
         frontier = []
         for other in first_layer:
             if not visited[other]:
@@ -323,6 +370,7 @@ def _similar_components(type_sets):
         # join through a deferred set is ever lost.
         deferred = set()
         deferred_order = []
+        deferred_judged = {}
         while True:
             while frontier and remaining:
                 frontier_shingles = set()
@@ -378,7 +426,7 @@ def _similar_components(type_sets):
                 def possible_positions(other, light_shared,
                                        heavy_shared):
                     other_size = len(sets[other])
-                    shared_seed = base + counts.get(other, 0)
+                    shared_seed = len(sets[other] & seed_set)
                     positions = []
                     for position in range(len(frontier)):
                         size = member_sizes[position]
@@ -497,41 +545,94 @@ def _similar_components(type_sets):
                         if other in deferred]
             deferred = set()
             deferred_order = []
-            component_union = set()
-            for node in component:
-                component_union.update(sets[node])
-            members_by_size = {}
-            for node in component:
-                members_by_size.setdefault(
-                    len(sets[node]), []).append(node)
-            failures = []
-            joined_list = []
+            # A deferred set stands judged in this pass
+            # against the part of the component that stands
+            # new to it, and against no part it already
+            # failed. No set changes as the component grows,
+            # so a set that failed against the members of an
+            # earlier pass cannot join through those members
+            # in a later one, and deferred_judged records the
+            # component length through which each waiting
+            # set stands judged. The snapshot stands grouped
+            # by that length, each group judged against the
+            # members past its length alone, by size class
+            # first in the form this pass has always stated.
+            # The form this replaces rebuilt the component
+            # union and read every waiting set against the
+            # whole component at every pass, which a chain
+            # joining one link per pass priced at the
+            # product of the pass count and the deferred
+            # count. The queue order stands untouched: this
+            # pass stands worked only where the first queue
+            # stands exhausted, a set that joins here stands
+            # as frontier with the first queue resuming ahead
+            # of the sets still waiting, and a waiting set
+            # the first queue promotes stands worked there
+            # ahead of this turn.
+            component_at_pass = list(component)
+            pass_length = len(component_at_pass)
+            by_watermark = {}
             for other in snapshot:
                 if visited[other]:
                     continue
-                other_size = len(sets[other])
-                union_shared = len(sets[other] & component_union)
-                joined = False
-                for size, members in members_by_size.items():
-                    if min(other_size, size) * 9 < \
-                            4 * (other_size + size):
-                        continue
-                    threshold = -(-4 * (other_size + size) // 9)
-                    if union_shared < threshold:
-                        continue
-                    for node in members:
-                        shared = len(sets[other] & sets[node])
-                        if shared * 9 >= 4 * (other_size + size):
-                            joined = True
+                by_watermark.setdefault(
+                    deferred_judged.get(other, 0), []).append(other)
+            failures = []
+            joined_list = []
+            for watermark, group in by_watermark.items():
+                check_members = component_at_pass[watermark:]
+                if not check_members:
+                    failures.extend(group)
+                    continue
+                if len(check_members) == 1:
+                    node = check_members[0]
+                    node_set = sets[node]
+                    node_size = len(node_set)
+                    for other in group:
+                        other_size = len(sets[other])
+                        shared = len(sets[other] & node_set)
+                        if shared * 9 >= 4 * (other_size + node_size):
+                            mark(other)
+                            component.append(other)
+                            joined_list.append(other)
+                            deferred_judged.pop(other, None)
+                        else:
+                            failures.append(other)
+                            deferred_judged[other] = pass_length
+                    continue
+                check_union = set()
+                for node in check_members:
+                    check_union.update(sets[node])
+                check_by_size = {}
+                for node in check_members:
+                    check_by_size.setdefault(
+                        len(sets[node]), []).append(node)
+                for other in group:
+                    other_size = len(sets[other])
+                    union_shared = len(sets[other] & check_union)
+                    joined = False
+                    for size, members in check_by_size.items():
+                        if min(other_size, size) * 9 < \
+                                4 * (other_size + size):
+                            continue
+                        threshold = -(-4 * (other_size + size) // 9)
+                        if union_shared < threshold:
+                            continue
+                        for node in members:
+                            shared = len(sets[other] & sets[node])
+                            if shared * 9 >= 4 * (other_size + size):
+                                joined = True
+                                break
+                        if joined:
                             break
                     if joined:
-                        break
-                if joined:
-                    mark(other)
-                    component.append(other)
-                    joined_list.append(other)
-                else:
-                    failures.append(other)
+                        mark(other)
+                        component.append(other)
+                        joined_list.append(other)
+                        deferred_judged.pop(other, None)
+                    else:
+                        failures.append(other)
+                        deferred_judged[other] = pass_length
             if not joined_list:
                 break
             deferred_order = failures
@@ -566,6 +667,17 @@ def _sets_clique(type_sets):
     family. The missed part patterns of the measured seam
     shape, each missing two or three pivot parts and adding
     one common part, settle on this bound.
+
+    A third bulk bound stands on the union of the missed
+    parts: a pair misses at most that union between them,
+    so a pair shares at least the pivot size less that
+    union plus the added parts common to every remaining
+    set, and where that count reaches the threshold of the
+    two largest remaining sizes every pair stands similar
+    at once. A family whose sets each miss a distinct
+    pattern of a small pool of the pivot settles here,
+    though no missed part stands common to the whole
+    family.
 
     Pairs the bound leaves open stand judged in groups
     sharing one missed part pattern, as the scan clique
@@ -621,12 +733,31 @@ def _sets_clique(type_sets):
         reverse=True)
     if 9 * (pivot_size + common) >= values[0] + values[1]:
         return True
+    missing_union = set(rest[0][0])
+    for missing, _added, _size in rest[1:]:
+        missing_union |= missing
+    largest_sizes = sorted(
+        (size for _missing, _added, size in rest), reverse=True)
+    pair_floor = pivot_size - len(missing_union) + len(common_added)
+    if pair_floor * 9 >= 4 * (largest_sizes[0] + largest_sizes[1]):
+        return True
     pivot_index = {shingle: index for index, shingle in enumerate(pivot)}
-    added_index = {}
+    # The added masks stand over the added parts that can
+    # stand shared between two sets. A part one set alone
+    # holds stands in no pair overlap, in no common part of
+    # two groups, and at no pair bound, so it carries no
+    # mask position, and a family whose sets each add parts
+    # of their own keeps its masks at the width of its
+    # shared added parts in place of the width of every
+    # added part in the family, which grows with the family.
+    added_frequency = {}
     for _missing, added, _size in rest:
         for shingle in added:
-            if shingle not in added_index:
-                added_index[shingle] = len(added_index)
+            added_frequency[shingle] = added_frequency.get(shingle, 0) + 1
+    added_index = {}
+    for shingle, frequency in added_frequency.items():
+        if frequency >= 2:
+            added_index[shingle] = len(added_index)
     groups = {}
     for missing, added, size in rest:
         missing_mask = 0
@@ -634,7 +765,9 @@ def _sets_clique(type_sets):
             missing_mask |= 1 << pivot_index[shingle]
         added_mask = 0
         for shingle in added:
-            added_mask |= 1 << added_index[shingle]
+            position = added_index.get(shingle)
+            if position is not None:
+                added_mask |= 1 << position
         group = groups.get(missing_mask)
         if group is None:
             group = groups[missing_mask] = {

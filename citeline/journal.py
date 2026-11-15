@@ -414,6 +414,27 @@ def _lock_path(home):
     return os.path.join(str(home), LOCK_FILENAME)
 
 
+def _ensure_home_directory(home, make_error):
+    """Create the home directory, judging the home form
+    first: a home path standing as a regular file, or in
+    any other form that is not a directory, stands
+    answered by make_error in the recorded vocabulary of
+    the calling route, and no raw FileExistsError from
+    the directory creation reaches the caller (Step 17
+    round 7 entry S17-R7-007)."""
+    if os.path.lexists(home) and not os.path.isdir(home):
+        raise make_error()
+    try:
+        os.makedirs(home, exist_ok=True)
+    except FileExistsError:
+        if not os.path.isdir(home):
+            raise make_error()
+    except OSError:
+        if os.path.lexists(home) and not os.path.isdir(home):
+            raise make_error()
+        raise
+
+
 class _UnsafeHomeFile(Exception):
     """A home own file stands as a link, a non regular
     file, or a hard linked file, so no write follows it."""
@@ -572,7 +593,34 @@ def _open_home_file_read_descriptor(path):
     return descriptor
 
 
-def _replace_judged_temporary(temporary, inode, target):
+def _restore_preserved_target(target, preserved_bytes):
+    """Put back the bytes a target held before its
+    replace, through an exclusively created temporary in
+    the target directory, best effort: where the restore
+    itself fails the target stands absent, as it stood
+    under the remedy this restore extends."""
+    directory = os.path.dirname(target) or "."
+    try:
+        descriptor, temporary = tempfile.mkstemp(
+            prefix=os.path.basename(target) + ".tmp-",
+            dir=directory)
+    except OSError:
+        return
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(preserved_bytes)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, target)
+    except OSError:
+        try:
+            os.unlink(temporary)
+        except OSError:
+            pass
+
+
+def _replace_judged_temporary(temporary, inode, target,
+                              preserve_target=False):
     """Replace a target with a writer own temporary,
     judged at the replace itself: the file standing at
     the temporary name stands judged for a regular file,
@@ -583,7 +631,17 @@ def _replace_judged_temporary(temporary, inode, target):
     write window is never moved onto the target behind a
     success report, and a link that lands at the replace
     point itself stands removed and reported instead
-    (Step 17 round 6 entry S17-R6-004)."""
+    (Step 17 round 6 entry S17-R6-004).
+
+    Where preserve_target stands, the content the target
+    held before the replace stands read before it, and
+    the post replace remedy, which removes the placed
+    file, puts that content back in its place: at the
+    anchor the target is the anchor recording itself,
+    and a swap caught only after the replace must not
+    leave the recording deleted whole, barring every
+    later append over a chain that still verifies (Step
+    17 round 7 entry S17-R7-003)."""
     info = os.lstat(temporary)
     if stat.S_ISLNK(info.st_mode) \
             or not stat.S_ISREG(info.st_mode) \
@@ -594,6 +652,16 @@ def _replace_judged_temporary(temporary, inode, target):
             pass
         raise OSError(
             "the temporary stands replaced before its replace")
+    preserved_bytes = None
+    if preserve_target:
+        try:
+            standing = os.lstat(target)
+            if stat.S_ISREG(standing.st_mode) \
+                    and standing.st_nlink == 1:
+                with open(target, "rb") as handle:
+                    preserved_bytes = handle.read()
+        except OSError:
+            preserved_bytes = None
     os.replace(temporary, target)
     try:
         placed = os.lstat(target)
@@ -606,6 +674,8 @@ def _replace_judged_temporary(temporary, inode, target):
             os.unlink(target)
         except OSError:
             pass
+        if preserved_bytes is not None:
+            _restore_preserved_target(target, preserved_bytes)
         raise OSError(
             "the temporary stands replaced at its replace")
 
@@ -1364,7 +1434,18 @@ def _member_to_key(member):
     match = re.fullmatch(r"limit_([0-9]+)", member)
     if match is None:
         return None
-    number = int(match.group(1))
+    # The token length stands judged before any
+    # conversion, on the significant digits of the member
+    # number, as the anchor sequence token length stands
+    # judged before its conversion: a digit string past
+    # the integer conversion limit names no limit and
+    # stands answered in the recorded vocabulary at every
+    # caller, never as a raw ValueError (Step 17 round 7
+    # entry S17-R7-006).
+    significant = match.group(1).lstrip("0") or "0"
+    if len(significant) > 18:
+        return None
+    number = int(significant)
     if number < 1 or number > len(_LIMIT_TABLE):
         return None
     return LIMIT_KEYS[number - 1]
@@ -1545,7 +1626,11 @@ def write_config(home, text):
     """
     home = str(home)
     parse_config(text, home=home)
-    os.makedirs(home, exist_ok=True)
+    _ensure_home_directory(home, lambda: ConfigError(
+        "the home path stands as a regular file or in "
+        "another form that is not a directory; the "
+        "write stands refused", row="X-4",
+        token="SUPPLIED_PATH_UNSAFE"))
     path = config_path(home)
     try:
         descriptor = _open_home_file_descriptor(path, "w")
@@ -1681,7 +1766,11 @@ class _WriteLock:
             self._dir_fd = None
 
     def __enter__(self):
-        os.makedirs(self.home, exist_ok=True)
+        _ensure_home_directory(self.home, lambda: JournalError(
+            "the home path stands as a regular file or in "
+            "another form that is not a directory; the "
+            "write stands refused", row="X-4",
+            token="SUPPLIED_PATH_UNSAFE"))
         path = _lock_path(self.home)
         with _HELD_LOCKS_GUARD:
             held = _HELD_LOCKS.get(path)
@@ -2033,17 +2122,30 @@ def _authorization_claimed(path, token):
 
 def _adopt_spent_authorization(home, context):
     """The landed entry a spent authorization names, where
-    it still stands at the journal head, or None."""
+    it still stands in the chain at its own sequence, or
+    None.
+
+    The spent answer stands on the landed entry itself,
+    verified by its sequence and its head hash at that
+    sequence, not on the entry standing at the journal
+    head: an append that lands after the spent entry
+    moves the head past it and does not spend the answer,
+    so the repeat call stands answered by the landed
+    entry wherever it stands in the chain and stores
+    nothing further (Step 17 round 7 entry S17-R7-001).
+    """
     sequence, head_hash = context.spent
     scan = _scan(home, "probe")
     if scan.failure is not None \
-            or scan.entry_count != sequence \
-            or scan.head_hash != head_hash:
+            or sequence < 1 or sequence > scan.entry_count:
+        return None
+    if hashlib.sha256(
+            scan.lines[sequence - 1]).hexdigest() != head_hash:
         return None
     entries = _entries_with_hash(scan)
-    if not entries:
+    if len(entries) < sequence:
         return None
-    return entries[-1]
+    return entries[sequence - 1]
 
 
 def _write_anchor(anchor_path, head_hash, sequence):
@@ -2065,7 +2167,8 @@ def _write_anchor(anchor_path, head_hash, sequence):
         temporary_inode = os.fstat(handle.fileno()).st_ino
     try:
         _replace_judged_temporary(
-            temporary, temporary_inode, anchor_path)
+            temporary, temporary_inode, anchor_path,
+            preserve_target=True)
     except FileNotFoundError:
         # The temporary stands lost under its writer before
         # its link step: the condition row X-13 names, in
@@ -2243,6 +2346,27 @@ def _write_batch_intent(home, journal_size, anchor_path, anchor_bytes,
             handle.write(json.dumps(record))
             handle.flush()
             os.fsync(handle.fileno())
+            try:
+                _rejudge_open_descriptor(
+                    handle.fileno(), intent_path)
+            except _UnsafeHomeFile:
+                # The link count stands judged at the write
+                # itself as well as before it: a hard link
+                # planted after the rejudgement and before
+                # the write names the handle the write just
+                # used, so the written content stands
+                # truncated off that handle and the intent
+                # name stands removed, and no intent content
+                # stands readable under the outside name
+                # (Step 17 round 7 entry S17-R7-004).
+                handle.truncate(0)
+                handle.flush()
+                os.fsync(handle.fileno())
+                try:
+                    os.unlink(intent_path)
+                except OSError:
+                    pass
+                raise
     except (OSError, _UnsafeHomeFile):
         return False
     return True
@@ -2258,7 +2382,9 @@ def _clear_batch_intent(home):
 def _size_cap_also_met(home):
     """Whether the total home size cap also stands met
     over this home, judged on the state as it stands at
-    the judgement: where a recovery record append meets
+    the moment this reading is taken, which the recovery
+    takes at its record append, before the append runs:
+    where a recovery record append meets
     the journal length cap in flight while the size cap
     also stands met, the append actually met both caps in
     the mixed state, and its failure stands judged on the
@@ -2446,6 +2572,14 @@ def recover_interrupted_batch(home):
                 "restored_entry_count": restored_count,
             }
             record_judged_failed = False
+            # The mixed state judgement reads the size state
+            # as it stood at the append, taken here, before
+            # the append runs: a change of the size state
+            # landing inside the window between the append
+            # and the judgement must not hand the judgement a
+            # state the append never met (Step 17 round 7
+            # entry S17-R7-005).
+            size_cap_met_at_append = _size_cap_also_met(home)
             with _join_authorization(
                     _lock_path(home), "failure_record", payload):
                 try:
@@ -2472,7 +2606,7 @@ def recover_interrupted_batch(home):
                     if error.token == "JOURNAL_CAP_EXCEEDED" \
                             and getattr(error, "limit_number",
                                         None) == 39 \
-                            and not _size_cap_also_met(home):
+                            and not size_cap_met_at_append:
                         record_judged_failed = True
                 except Exception:
                     pass
@@ -2844,6 +2978,27 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
                 handle.write(canonical + b"\n")
                 handle.flush()
                 os.fsync(handle.fileno())
+                try:
+                    _rejudge_open_descriptor(
+                        handle.fileno(), path)
+                except _UnsafeHomeFile:
+                    # The link count stands judged at the
+                    # write itself as well as before it: a
+                    # hard link planted after the
+                    # rejudgement and before the write names
+                    # the handle the write just used, so the
+                    # appended entry stands truncated off
+                    # that handle, back to the size the
+                    # journal stood at, and no appended
+                    # content stands readable under the
+                    # outside name (Step 17 round 7 entry
+                    # S17-R7-004).
+                    handle.truncate(original_size)
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                    raise
+        except _UnsafeHomeFile:
+            raise _unsafe_home_file_error(path, "journal")
         except OSError:
             # A write that fails part way stands rolled
             # back to the size the journal stood at, so the

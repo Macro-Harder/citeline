@@ -320,6 +320,42 @@ def _plan_warnings(plan, targets):
                         "key: %s; the key names no product "
                         "the plan targets and the round runs "
                         "without it" % (key,))
+    if plan.get("scope") == "estate":
+        # On an estate plan the record stands disregarded
+        # whole (Step 17 round 7 entry S17-R7-047): the
+        # estate dispatch runs on the grounds rounds and
+        # reads no second_rounds field at all, picked
+        # targets standing empty here by the plan's own
+        # form, so every key of the record, and the list
+        # form beside it, stands named in the open here
+        # instead of standing disregarded in silence, on
+        # the same ground the estate targets discipline
+        # states at open. Both watch modes stand as
+        # options under Captain JP's rulings; this warning
+        # rules neither mode away, it names the field the
+        # estate round does not read.
+        if isinstance(second_rounds, dict):
+            for key in second_rounds:
+                if isinstance(key, str):
+                    warnings.append(
+                        "WatchPlan second_rounds key: %s; "
+                        "the plan scope stands as estate, "
+                        "the estate round runs on the "
+                        "grounds rounds and reads no "
+                        "second_rounds record, so the key "
+                        "stands disregarded and the round "
+                        "runs without it" % (key,))
+        elif isinstance(second_rounds, (list, tuple)) \
+                and second_rounds:
+            warnings.append(
+                "WatchPlan second_rounds list: %s; the "
+                "plan scope stands as estate, the estate "
+                "round runs on the grounds rounds and "
+                "reads no second_rounds field, so the "
+                "list stands disregarded and the round "
+                "runs without it" % (
+                    ", ".join(
+                        str(item) for item in second_rounds),))
     return warnings
 
 

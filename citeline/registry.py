@@ -403,7 +403,8 @@ def validate_slug(value, what="slug"):
 
 def validate_alias(value):
     """An alias is 3 characters or more, with no zero width
-    character (items 47 and 152)."""
+    character and no other invisible format character
+    (items 47 and 152)."""
     if not isinstance(value, str):
         _fail("VALIDATION_FAILED", "alias must be a string")
     if len(value) < 3:
@@ -431,6 +432,14 @@ def validate_alias(value):
     if any(mark in value for mark in _ZERO_WIDTH):
         _fail("VALIDATION_FAILED",
               "alias must carry no zero width character")
+    if any(unicodedata.category(ch) == "Cf" for ch in value):
+        # An alias carries no invisible format character,
+        # judged on every character of the format
+        # category, as the domain reading in this module
+        # states its form of the same rule (Step 17 round
+        # 7 entry S17-R7-018).
+        _fail("VALIDATION_FAILED",
+              "alias must carry no invisible format character")
     if _has_control(value):
         _fail("VALIDATION_FAILED",
               "alias must carry no control characters")
@@ -1445,8 +1454,27 @@ def name_round(home, product=None, round_label=None,
     with _registry_lock(home):
         if not isinstance(round_label, str) or not round_label:
             _fail("VALIDATION_FAILED", "a round label is required")
+        # A round label stands under the character
+        # judgement and the normalisation discipline of
+        # this boundary, as a name does: the label is
+        # normalised to Unicode NFC, and the normalised
+        # form is the form stored and the form its round
+        # identity is formed from, so one label in its two
+        # Unicode spellings is one round; a label carrying
+        # a control character, or a lone surrogate, stands
+        # refused here in the registry vocabulary, rather
+        # than at journal encoding (Step 17 round 7
+        # entries S17-R7-016 and S17-R7-017).
+        round_label = unicodedata.normalize("NFC", round_label)
         if len(round_label) > 200:
             _fail("LIMIT_EXCEEDED", "round label length limit is 200")
+        if _has_control(round_label):
+            _fail("VALIDATION_FAILED",
+                  "a round label must carry no control characters")
+        if _has_surrogate(round_label):
+            _fail("VALIDATION_FAILED",
+                  "a round label must carry no lone surrogate "
+                  "characters")
         importer_key = _normal_key(importer_declaration or "")
         if importer_key not in _IMPORTER_KEYS:
             _fail(

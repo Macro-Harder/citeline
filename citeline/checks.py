@@ -740,7 +740,13 @@ def _curly_single_is_internal(text, pos):
     closing mark the reading seeks stands beyond the
     nested pair, so the possessive reads as internal
     where a closing stands beyond a nested pair as it
-    does where one stands before any new opening.
+    does where one stands before any new opening. A
+    nested opening that carries no closing of its own
+    stands inside the span in the same way: the one
+    further closing mark on the line then stands as
+    this span closing, the nested opening standing as
+    content before it, so the possessive reads as
+    internal there too.
     """
     following = text[pos + 1] if pos + 1 < len(text) else ""
     if following.isalpha() or following.isdigit():
@@ -761,6 +767,13 @@ def _curly_single_is_internal(text, pos):
         nested_close = text.find("\u2019", opening + 1, line_end)
         if nested_close < 0:
             return False
+        if text.find("\u2019", nested_close + 1, line_end) < 0:
+            # No closing mark stands beyond the one the
+            # nested opening steps to, so that mark is
+            # the closing of this span itself and the
+            # nested opening stands unmatched inside it:
+            # the possessive stands internal.
+            return True
         cursor = nested_close + 1
 
 
@@ -802,7 +815,15 @@ def _quoted_spans(text):
     itself stands open inside the outer span with one
     closing only between them, that closing reads as
     the outer span closing at the line end, so the outer
-    span reads whole in both forms.
+    span reads whole in both forms. The same reading
+    stands where the nested family shares its closing
+    character with the outer family: a closing character
+    that closes the stack top and a span below it alike
+    reads as the closing of the span below where no
+    further closing of that span stands later on the
+    line, the nested opening standing as content, and
+    it closes the stack top as written where a further
+    closing of the span below does stand later.
     """
     spans = []
     pending = []
@@ -831,6 +852,31 @@ def _quoted_spans(text):
                 else:
                     below_close_counts.pop(closing, None)
         return entry
+
+    def complete_below(depth, index):
+        # Complete the span standing open at depth, the
+        # openings above it standing as its content, at
+        # the closing character standing at index.
+        _open_char, start, _closes = stack[depth]
+        del stack[depth:]
+        below_close_counts.clear()
+        for below_entry in stack[:-1]:
+            for closing in below_entry[2]:
+                below_close_counts[closing] = (
+                    below_close_counts.get(closing, 0) + 1)
+        completed = (start, index + 1)
+        if stack:
+            pending.append(completed)
+        else:
+            spans.append(completed)
+            pending[:] = [
+                item for item in pending
+                if not (
+                    completed[0] <= item[0]
+                    and item[1] <= completed[1]
+                )
+            ]
+        return completed
 
     def flush_line():
         nonlocal pending
@@ -918,6 +964,48 @@ def _quoted_spans(text):
                             (char, index, _QUOTE_OPENINGS[char]))
                         index += 1
                         continue
+                if char in below_close_counts:
+                    # The character closes the stack top
+                    # and a span standing below it alike,
+                    # the nested family sharing its closing
+                    # character with the outer family. Where
+                    # no further closing of the span below
+                    # stands later on the line, this
+                    # character is that span closing and
+                    # the nested opening above it stands
+                    # unmatched as its content, so the
+                    # outer span reads whole. Where a
+                    # further closing of the span below does
+                    # stand later, the character closes the
+                    # stack top as written and the outer
+                    # span closes at its own later closing.
+                    ancestor_depth = None
+                    for depth in range(
+                        len(stack) - 2, -1, -1
+                    ):
+                        if char in stack[depth][2]:
+                            ancestor_depth = depth
+                            break
+                    if ancestor_depth is not None and not (
+                        stack[ancestor_depth][0] == "\u2018"
+                        and char == "\u2019"
+                        and _curly_single_is_internal(
+                            text, index)
+                    ):
+                        line_end = text.find("\n", index + 1)
+                        if line_end < 0:
+                            line_end = length
+                        later_close = any(
+                            text.find(
+                                closing, index + 1, line_end
+                            ) >= 0
+                            for closing in
+                            stack[ancestor_depth][2]
+                        )
+                        if not later_close:
+                            complete_below(ancestor_depth, index)
+                            index += 1
+                            continue
                 pop_entry()
                 completed = (top_start, index + 1)
                 if stack:
@@ -1126,7 +1214,10 @@ def _statistic_analysis(page):
             r"\d{4}[-_]\d{1,2}[-_]\d{1,2}"
             r"|\d{1,2}[-_]\d{1,2}[-_]\d{2,4}"
             r"|\d{4}[-_]\d{1,2}(?![-_]\d)(?!\d)"
+            r"|\d{1,2}[-_]\d{4}(?![-_]\d)(?!\d)"
             r"|\d{1,2}\.\d{1,2}\.\d{2,4}"
+            r"|\d{4}\.\d{1,2}(?!\.\d)(?!\d)"
+            r"|\d{1,2}\.\d{4}(?!\.\d)(?!\d)"
             r"|(?<!\d)\d{8}(?!\d)",
             token,
         )
@@ -1162,6 +1253,30 @@ def _statistic_analysis(page):
     month_alt_early = (
         month_names_early + "|" + _MONTH_ABBREVIATIONS)
     for date_pattern in (
+        # The orders the sets below still omit, round 7,
+        # standing first because the plainer composites
+        # below would otherwise take the date part and
+        # leave the time standing: a comma standing
+        # before the time of a hyphen date; a single
+        # digit ISO date standing with its time in the T
+        # form; a time standing first with a comma
+        # against an ISO date or standing against a
+        # hyphen date in any order; and a year and month
+        # fragment standing with its time, in either
+        # fragment order.
+        r"\b\d{1,4}-\d{1,2}-\d{1,4},\s*"
+        r"\d{1,2}:\d{2}(?::\d{2})?\b",
+        r"\b\d{4}-\d{1,2}-\d{1,2}T"
+        r"\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?"
+        r"(?:\s*(?:Z|[+-]\d{2}:?\d{2}))?\b",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?,\s*"
+        r"\d{4}-\d{1,2}-\d{1,2}\b",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s+"
+        r"\d{1,4}-\d{1,2}-\d{1,4}\b",
+        r"\b(?<![\d-])\d{1,2}-\d{4}\s+"
+        r"\d{1,2}:\d{2}(?::\d{2})?\b",
+        r"\b(?<![\d-])\d{4}-\d{1,2}\s+"
+        r"\d{1,2}:\d{2}(?::\d{2})?\b",
         r"\b\d{4}-\d{2}-\d{2}[T ]\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?"
         r"(?:\s*(?:Z|[+-]\d{2}:?\d{2}))?\b",
         r"\b\d{4}-\d{2}-\d{2},\s*\d{1,2}:\d{2}(?::\d{2})?\b",
@@ -1268,6 +1383,24 @@ def _statistic_analysis(page):
             (m.start(), m.end())
             for m in re.finditer(
                 r"\b\d{1,2}-\d{4}(?![-\d])", masked)
+        ],
+    )
+    # The same fragment in dotted form, in either order,
+    # counts nothing either, as its hyphen twins do.
+    masked = _mask(
+        masked,
+        [
+            (m.start(), m.end())
+            for m in re.finditer(
+                r"\b\d{4}\.\d{1,2}(?!\d)(?!\.\d)", masked)
+        ],
+    )
+    masked = _mask(
+        masked,
+        [
+            (m.start(), m.end())
+            for m in re.finditer(
+                r"\b\d{1,2}\.\d{4}(?!\d)(?!\.\d)", masked)
         ],
     )
     # Two digit year numeric dates in the hyphen and
@@ -1408,14 +1541,30 @@ def _statistic_analysis(page):
     # doubled or repeated in that sequence, a second
     # colon or a second word is, stands in the same
     # naming, each connector standing in it being one of
-    # the two stated connectors.
+    # the two stated connectors. The connector sequence
+    # stands inside an atomic group: a stretch of
+    # whitespace and connector text between two
+    # connectors can be split between the branches and
+    # the repetitions in combinatorially many ways, and
+    # where no figure follows the sequence the reading
+    # otherwise tries every split before it fails. The
+    # atomic group commits the reading to the one greedy
+    # split it takes, so a repeated connector sequence
+    # with no figure after it fails at the naming word
+    # at once, at the same result wherever a figure does
+    # follow, because the greedy split is the split that
+    # reaches the figure. The first connector in the
+    # word is form consumes the separator after it, as
+    # the repetitions of that connector do, so the
+    # figure stands against the end of the sequence in
+    # the greedy split itself.
     masked = _mask(
         masked,
         [
             (m.start(), m.end())
             for m in re.finditer(
-                r"\bversion(?:\s+is(?=[\s:])|\s*:\s*|\s+)"
-                r"(?:\s*:\s*|\s*is(?=[\s:])\s*)*"
+                r"\bversion(?>(?:\s+is(?=[\s:])\s*|\s*:\s*|\s+)"
+                r"(?:\s*:\s*|\s*is(?=[\s:])\s*)*)"
                 r"\d+(?:\.\d+)*\b",
                 masked, re.IGNORECASE
             )

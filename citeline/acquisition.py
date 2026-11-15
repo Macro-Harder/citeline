@@ -99,6 +99,7 @@ _REFERENCE_DEFINITION_LIMIT = 10000
 _FRONT_MATTER_BLOCK_LIMIT = 16 * 1024
 _FRONT_MATTER_KEY_LIMIT = 100
 _FRONT_MATTER_VALUE_LIMIT = 4096
+_FRONT_MATTER_JSON_DEPTH_LIMIT = 100
 
 _FORMATS = ("markdown", "html", "text")
 _EXTENSION_FORMATS = {
@@ -661,9 +662,22 @@ def segment_text(text, format="text", **kwargs):
 
 def _strip_detection_exclusions(text):
     """Remove fenced code blocks and blockquote lines, which
-    do not count as content for detection."""
+    do not count as content for detection.
+
+    A line opening with the blockquote mark stands as a
+    blockquote line only where the mark opens a blockquote.
+    Where the mark stands as the closing bracket of a tag
+    the lines above opened, the line stands as the
+    continuation of that tag and counts as content: the
+    exclusion reads the text as markup, tracking whether a
+    tag stands open at the start of the line, a bracket
+    inside a quoted attribute value closing nothing, on
+    the terms the container reading states for tags read
+    whole (Step 17 round 7 entry S17-R7-008)."""
     out = []
     in_fence = False
+    in_tag = False
+    quote = None
     for line in text.splitlines():
         stripped = line.lstrip()
         if stripped.startswith("```") or stripped.startswith("~~~"):
@@ -671,9 +685,26 @@ def _strip_detection_exclusions(text):
             continue
         if in_fence:
             continue
-        if stripped.startswith(">"):
+        if stripped.startswith(">") and not in_tag:
             continue
         out.append(line)
+        index = 0
+        while index < len(line):
+            char = line[index]
+            if in_tag:
+                if quote is not None:
+                    if char == quote:
+                        quote = None
+                elif char in ("\"", "'"):
+                    quote = char
+                elif char == ">":
+                    in_tag = False
+            elif char == "<" and index + 1 < len(line) and (
+                    line[index + 1].isalpha()
+                    or line[index + 1] in "/!?"):
+                in_tag = True
+                quote = None
+            index += 1
     return "\n".join(out)
 
 
@@ -786,7 +817,11 @@ def _content_format(text):
                 # document led by a child element of either
                 # vocabulary is a form the probe exists to
                 # decide (Step 17 round 5 entry S17-R5-007,
-                # completed at round 6 entry S17-R6-015).
+                # completed at round 6 entry S17-R6-015, and
+                # completed on the SVG font face spellings
+                # and the two MathML alignment spellings at
+                # round 7 entry S17-R7-015; the spelling font
+                # stands outside that completion).
                 r"altGlyph|altGlyphDef|altGlyphItem|animate|"
                 r"animateColor|animateMotion|animateTransform|"
                 r"circle|clipPath|color-profile|cursor|"
@@ -798,14 +833,17 @@ def _content_format(text):
                 r"feGaussianBlur|feImage|feMerge|feMergeNode|"
                 r"feMorphology|feOffset|fePointLight|"
                 r"feSpecularLighting|feSpotLight|feTile|"
-                r"feTurbulence|filter|foreignObject|g|glyph|"
+                r"feTurbulence|font-face-format|font-face-name|"
+                r"font-face-src|font-face-uri|font-face|"
+                r"filter|foreignObject|g|glyph|"
                 r"glyphRef|handler|hkern|image|line|"
                 r"linearGradient|listener|marker|mask|metadata|"
                 r"missing-glyph|mpath|path|pattern|polygon|"
                 r"polyline|radialGradient|rect|set|solidcolor|"
                 r"stop|switch|symbol|text|textPath|tref|tspan|"
                 r"use|view|vkern|"
-                r"maction|annotation|annotation-xml|menclose|"
+                r"maction|annotation|annotation-xml|maligngroup|"
+                r"malignmark|menclose|"
                 r"merror|mfenced|mfrac|mi|mlongdiv|"
                 r"mmultiscripts|mn|mo|mover|mpadded|mphantom|"
                 r"mprescripts|mroot|mrow|ms|mscarries|mscarry|"
@@ -1398,26 +1436,72 @@ def _front_matter_key_value(line):
     return key.strip(), value.strip()
 
 
+_FM_DEFAULT_IGNORABLE_RANGES = (
+    (0x034F, 0x034F),
+    (0x0610, 0x061A),
+    (0x115F, 0x1160),
+    (0x17B4, 0x17B5),
+    (0x180B, 0x180D),
+    (0x180F, 0x180F),
+    (0x3164, 0x3164),
+    (0xFE00, 0xFE0F),
+    (0xFFA0, 0xFFA0),
+    (0x1D173, 0x1D182),
+    (0xE0100, 0xE01EF),
+    (0x2060, 0x206F),
+    (0xFFF0, 0xFFF8),
+    (0xE0000, 0xE0FFF),
+)
+
+
+def _fm_is_head_char(char):
+    """One character of head material, on the completed
+    head predicate the import side reading states at its
+    _is_head_char: byte order marks, control characters,
+    whitespace, invisible format or space separator
+    characters, and the default ignorable forms, variation
+    selectors and the combining grapheme joiner among
+    them, which render as nothing in stored text (Step 17
+    round 7 entry S17-R7-011)."""
+    code = ord(char)
+    return (
+        char == "\ufeff"
+        or code < 0x20
+        or code == 0x7f
+        or 0x80 <= code <= 0x9f
+        or char in " \t\n\r\f"
+        or unicodedata.category(char) in ("Cf", "Zs", "Zl", "Zp")
+        or any(low <= code <= high
+               for low, high in _FM_DEFAULT_IGNORABLE_RANGES))
+
+
 def _fm_strip_head(text):
     """The text past any leading head material, on the
     terms the import side reading states for its judged
     key and value positions: byte order marks, control
     characters, whitespace, and invisible format or space
     separator characters standing at the head of the text
-    are not part of the judged text."""
+    are not part of the judged text, and the default
+    ignorable forms stand in the set on the completed
+    head predicate (Step 17 round 7 entry S17-R7-011)."""
     index = 0
-    while index < len(text):
-        char = text[index]
-        if char == "\ufeff" or ord(char) < 0x20 \
-                or ord(char) == 0x7f \
-                or 0x80 <= ord(char) <= 0x9f \
-                or char in " \t\n\r\f" \
-                or unicodedata.category(char) in (
-                    "Cf", "Zs", "Zl", "Zp"):
-            index += 1
-            continue
-        break
+    while index < len(text) and _fm_is_head_char(text[index]):
+        index += 1
     return text[index:]
+
+
+def _fm_strip_head_edges(text):
+    """The text with head material removed at both edges,
+    on the completed head predicate, as the import side
+    reading states at its _strip_head_edges (Step 17
+    round 7 entries S17-R7-010 and S17-R7-014)."""
+    start = 0
+    while start < len(text) and _fm_is_head_char(text[start]):
+        start += 1
+    end = len(text)
+    while end > start and _fm_is_head_char(text[end - 1]):
+        end -= 1
+    return text[start:end]
 
 
 def _fm_holds_tag_construct(text):
@@ -1428,14 +1512,24 @@ def _fm_holds_tag_construct(text):
     construct spelling standing as its own word later in
     the text, an angle bracket tag spelling anywhere in
     the text, and a block scalar opening standing as the
-    value (Step 17 round 6 entry S17-R6-012)."""
+    value (Step 17 round 6 entry S17-R6-012, completed at
+    round 7 entry S17-R7-009 on the three limbs the
+    import side completions of round 6 landed: an angle
+    bracket spelling opens on any URI character, a digit,
+    a hyphen, or an underscore among them; a block scalar
+    header admits both indicator orders, the chomping
+    sign before the indentation digit and the digit
+    before the sign; and a construct stands judged
+    directly after a flow opening bracket, as after the
+    start of the text and after whitespace)."""
     if text.startswith(("!", "&", "*", "%")):
         return True
-    if re.search(r"<[A-Za-z][^>]*>", text):
+    if re.search(
+            r"<[A-Za-z0-9\-._;/?:@&=+$,!~*'()%\[\]][^>]*>", text):
         return True
-    if re.search(r"(?:^|\s)[&*%!][A-Za-z]", text):
+    if re.search(r"(?:^|[\s\[\{])[&*%!][A-Za-z]", text):
         return True
-    if re.match(r"^[|>](?:[+-]?[0-9]?)?(?:\s|$)", text):
+    if re.match(r"^[|>](?:[+-]?[0-9]?|[0-9][+-])?(?:\s|$)", text):
         return True
     return False
 
@@ -1455,6 +1549,68 @@ def _fm_json_holds_tag_construct(value):
     if isinstance(value, list):
         return any(_fm_json_holds_tag_construct(item) for item in value)
     return False
+
+
+def _fm_json_depth(value):
+    """The nesting depth of one parsed JSON value, counted
+    iteratively, as the import side reading counts it at
+    its _json_depth (Step 17 round 7 entry S17-R7-013)."""
+    depth = 0
+    stack = [(value, 1)]
+    while stack:
+        current, level = stack.pop()
+        if isinstance(current, (dict, list)):
+            depth = max(depth, level)
+            children = current.values() if isinstance(
+                current, dict) else current
+            for child in children:
+                stack.append((child, level + 1))
+    return depth
+
+
+def _fm_json_value_length(value):
+    """The measured length of one JSON form value, on the
+    measure the import side reading states: a string
+    stands measured by its length in characters, a number
+    by its written form, and a container by its rendering
+    with its strings in characters and its numbers in
+    written form (Step 17 round 7 entry S17-R7-013)."""
+    if isinstance(value, str):
+        return len(value)
+    if isinstance(value, bool) or value is None:
+        return 0
+    if isinstance(value, (int, float)):
+        return len(str(value))
+    if isinstance(value, dict):
+        rendered = "{" + ", ".join(
+            '"' + str(key) + '": '
+            + _fm_json_rendered(item)
+            for key, item in value.items()) + "}"
+        return len(rendered)
+    if isinstance(value, list):
+        rendered = "[" + ", ".join(
+            _fm_json_rendered(item) for item in value) + "]"
+        return len(rendered)
+    return 0
+
+
+def _fm_json_rendered(value):
+    """One JSON value rendered for the container measure
+    at _fm_json_value_length."""
+    if isinstance(value, str):
+        return '"' + value + '"'
+    if isinstance(value, bool) or value is None:
+        return str(value)
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, dict):
+        return "{" + ", ".join(
+            '"' + str(key) + '": ' + _fm_json_rendered(item)
+            for key, item in value.items()) + "}"
+    if isinstance(value, list):
+        return "[" + ", ".join(
+            _fm_json_rendered(item) for item in value) + "]"
+    return str(value)
 
 
 def _fm_brackets_closed(text):
@@ -1497,13 +1653,19 @@ def _front_matter(text, fmt, notes, block_limit_bytes=None,
         value_limit = _FRONT_MATTER_VALUE_LIMIT
     if fmt != "markdown":
         return text
-    if not text.startswith("---"):
-        return text
-    lines = text.splitlines()
-    if not lines or lines[0].strip() != "---":
+    # The fence judgement stands on the completed head
+    # predicate at both fences, not on whitespace
+    # stripping alone: head material standing before the
+    # opening fence, or at either edge of either fence
+    # line, does not move the block off the reading, as
+    # the import side reading states for its opening
+    # fence (Step 17 round 7 entry S17-R7-014).
+    working = _fm_strip_head(text)
+    lines = working.splitlines()
+    if not lines or _fm_strip_head_edges(lines[0]) != "---":
         return text
     for index in range(1, len(lines)):
-        if lines[index].strip() in ("---", "..."):
+        if _fm_strip_head_edges(lines[index]) in ("---", "..."):
             block = "\n".join(lines[1:index])
             if len(block.encode("utf-8")) > block_limit_bytes:
                 _fail("LIMIT_EXCEEDED",
@@ -1570,6 +1732,26 @@ def _front_matter(text, fmt, notes, block_limit_bytes=None,
                           "front matter key count limit is "
                           "100, with rejection and no partial "
                           "record")
+                # The JSON form stands under the value
+                # length limit and the nesting depth limit
+                # its own line form and the import side
+                # reading enforce on the same block (Step
+                # 17 round 7 entry S17-R7-013).
+                if _fm_json_depth(parsed) \
+                        > _FRONT_MATTER_JSON_DEPTH_LIMIT:
+                    _fail("LIMIT_EXCEEDED",
+                          "JSON nesting depth limit is 100, "
+                          "with rejection and no partial "
+                          "record")
+                for json_value in parsed.values():
+                    if _fm_json_value_length(json_value) \
+                            > value_limit:
+                        _fail("LIMIT_EXCEEDED",
+                              "front matter value length per "
+                              "key limit is %s characters, "
+                              "with rejection and no partial "
+                              "record"
+                              % ("%g" % (value_limit,),))
                 if _fm_json_holds_tag_construct(parsed):
                     _fail("PAGE_EXTRACTION_FAILED",
                           "front matter fails the D17 "
@@ -1625,13 +1807,30 @@ def _front_matter(text, fmt, notes, block_limit_bytes=None,
                               "front matter key count limit "
                               "is 100, with rejection and no "
                               "partial record")
-                    if pair[0] in seen_keys:
+                    # A line whose key stands empty stands
+                    # refused, as the import side reading
+                    # refuses it (Step 17 round 7 entry
+                    # S17-R7-012).
+                    if not pair[0]:
+                        _fail("PAGE_EXTRACTION_FAILED",
+                              "a front matter line holds no "
+                              "key: "
+                              + block_line.strip()[:60])
+                    # The duplicate judgement stands on
+                    # the judged key, head material removed
+                    # at both edges on the completed head
+                    # predicate, as the import side reading
+                    # states (Step 17 round 7 entry
+                    # S17-R7-010).
+                    duplicate_key = _fm_strip_head_edges(pair[0])
+                    if duplicate_key in seen_keys:
                         _fail("PAGE_EXTRACTION_FAILED",
                               "the front matter block holds "
-                              "the key " + pair[0] + " twice; "
+                              "the key " + duplicate_key
+                              + " twice; "
                               "front matter keys stand once "
                               "each")
-                    seen_keys.add(pair[0])
+                    seen_keys.add(duplicate_key)
                     # The construct judgement stands on
                     # the key and on the value at every
                     # position, as the import side reading

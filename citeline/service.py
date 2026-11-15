@@ -841,6 +841,51 @@ def _validate_audit_payload(payload):
             "the stored audit record carries "
             "distinct_cited_target_count in a form its "
             "readers cannot use: %r" % (count,))
+    # The remaining fields of the record shape the audit
+    # assembly states stand judged beside the fields above
+    # (Step 17 round 7 entry S17-R7-046, extending entry
+    # S17-R6-055 at its own reader): the audit date stands
+    # as ISO date text, the date defaulted flag stands as
+    # a boolean, and the methods note version stands as
+    # the integer 1 in its stamp field, the version the
+    # Manager ruling states and the assembly stamps, no
+    # other value standing in that field. A swapped form
+    # of any of the three refuses VALIDATION_FAILED
+    # naming the field, instead of standing handed out
+    # verbatim in the returned record.
+    audit_date = payload.get("audit_date")
+    if audit_date is not None:
+        import datetime
+        parsed = None
+        if isinstance(audit_date, str):
+            try:
+                parsed = datetime.date.fromisoformat(audit_date)
+            except ValueError:
+                parsed = None
+        if parsed is None:
+            _fail(
+                "VALIDATION_FAILED",
+                "the stored audit record carries audit_date "
+                "in a form its readers cannot use: %r"
+                % (audit_date,))
+    defaulted = payload.get("audit_date_defaulted")
+    if defaulted is not None and not isinstance(
+            defaulted, bool):
+        _fail(
+            "VALIDATION_FAILED",
+            "the stored audit record carries "
+            "audit_date_defaulted in a form its readers "
+            "cannot use: %r" % (defaulted,))
+    note_version = payload.get("methods_note_version")
+    if note_version is not None and (
+            isinstance(note_version, bool)
+            or not isinstance(note_version, int)
+            or note_version != METHODS_NOTE_VERSION):
+        _fail(
+            "VALIDATION_FAILED",
+            "the stored audit record carries "
+            "methods_note_version in a form its readers "
+            "cannot use: %r" % (note_version,))
 
 
 # The stored forms of the round record importer
@@ -886,7 +931,16 @@ def _validate_round_stamp_fields(payload):
         value = payload.get(field)
         if value is not None and (
                 isinstance(value, bool)
-                or not isinstance(value, int)):
+                or not isinstance(value, int)
+                or value < 0):
+            # The counter form stands judged whole, not
+            # by type alone (Step 17 round 7 entry
+            # S17-R7-045): a counter the first import
+            # stamps stands at a whole number the import
+            # counted up to, and no such counter stands
+            # below zero, so a negative stamp stands in
+            # no counter form and refuses here as a type
+            # swap refuses.
             _fail(
                 "VALIDATION_FAILED",
                 "the stored round record carries %s in a "
@@ -1687,6 +1741,26 @@ def name_round(*, home, product, round_label,
         audit_date=audit_date)
 
 
+def _judge_folded_product_identity(product_id):
+    """Judge one product identity on the journal fold road.
+
+    The registry fold judgement at entry S17-R6-011, seat
+    F2, stands as the reference reading (Step 17 round 7
+    entry S17-R7-052): an identity that is not a string
+    refuses VALIDATION_FAILED naming product_id, in the
+    registry fold's own words, so the service listing that
+    takes the journal fold road refuses the same forms
+    the registry listing, the registry fold, and the
+    watch coverage count refuse.
+    """
+    if not isinstance(product_id, str):
+        _fail(
+            "VALIDATION_FAILED",
+            "the stored registry record carries product_id "
+            "in a form its readers cannot use: %r"
+            % (product_id,))
+
+
 def list_products(*, home):
     """The standing products of one home, in registry order.
 
@@ -1708,11 +1782,35 @@ def list_products(*, home):
     # fold failure reaches the caller as it stands.
     state = journal.fold_registry(str(home))
     if isinstance(state, dict) and state:
-        return [dict(value) for value in state.values()
-                if isinstance(value, dict)]
+        records = []
+        for key, value in state.items():
+            if not isinstance(value, dict):
+                continue
+            # The listing stands judged against the
+            # registry fold judgement as the reference
+            # reading (Step 17 round 7 entry S17-R7-052,
+            # on the F2 cure at entry S17-R6-011): the
+            # journal fold road this listing takes keys
+            # its mapping by the raw identity, so an
+            # identity in a form that is not a string
+            # stands refused here in the same vocabulary
+            # the registry fold refuses it in, at the key
+            # and at the record alike, instead of standing
+            # handed out as a standing product.
+            _judge_folded_product_identity(key)
+            _judge_folded_product_identity(
+                value.get("product_id"))
+            records.append(dict(value))
+        return records
     if isinstance(state, (list, tuple)) and state:
-        return [dict(value) for value in state
-                if isinstance(value, dict)]
+        records = []
+        for value in state:
+            if not isinstance(value, dict):
+                continue
+            _judge_folded_product_identity(
+                value.get("product_id"))
+            records.append(dict(value))
+        return records
     registry = _registry()
     try:
         records = list(registry.list_products(str(home)) or [])
@@ -2129,6 +2227,29 @@ def _flow_key_count(parsed):
     return len(parsed)
 
 
+def _fence_form(line):
+    """One fence line as the fence judgement reads it.
+
+    The service fence readings stand on the completed
+    head predicate the import reading states at entry
+    S17-R7-031 (Step 17 round 7, the F4 seam stated for
+    this seat): head material at both edges of the line
+    and between the fence characters themselves stands
+    removed, through the import module's own judged
+    fence helper where it stands, instead of the line
+    standing judged on whitespace stripping alone.
+    """
+    try:
+        from citeline import probe_import as import_module
+        judged_fence = getattr(
+            import_module, "_judged_fence", None)
+    except Exception:
+        judged_fence = None
+    if judged_fence is not None:
+        return judged_fence(line)
+    return line.strip()
+
+
 def _front_matter_key_count(page_file):
     """The top level key count of one page's front matter block.
 
@@ -2143,7 +2264,7 @@ def _front_matter_key_count(page_file):
 
     The block this counter reads is the one block the
     parser reads (Step 17 round 5 entry S17-R5-057): the
-    block closes at a line whose stripped form is the
+    block closes at a line whose judged fence form is the
     opening fence or the dots fence, the two closings
     the acquisition reading and the import seam counter
     both state, and a block with no closing fence stands
@@ -2173,12 +2294,12 @@ def _front_matter_key_count(page_file):
     if text.startswith("\ufeff"):
         text = text[1:]
     lines = text.splitlines()
-    if not lines or lines[0].strip() != "---":
+    if not lines or _fence_form(lines[0]) != "---":
         return None
     block_lines = []
     closed = False
     for line in lines[1:]:
-        if line.strip() in ("---", "..."):
+        if _fence_form(line) in ("---", "..."):
             closed = True
             break
         block_lines.append(line)
@@ -3087,18 +3208,27 @@ def _import_front_matter_limits(home, answer_file):
     strip = getattr(import_module, "_strip_head", None)
     working = strip(text) if strip is not None else text
     lines = working.splitlines()
-    if not lines or lines[0].strip() != "---":
+    if not lines or _fence_form(lines[0]) != "---":
         return
     closing = None
     for index in range(1, len(lines)):
-        if lines[index].strip() in ("---", "..."):
+        if _fence_form(lines[index]) in ("---", "..."):
             closing = index
             break
     if closing is None:
         return
     block_lines = lines[1:closing]
+    # The block size stands measured on the block as it
+    # stands in the file, the lines between the fences
+    # taken with their terminators at their file width,
+    # as the import reading measures it at entry
+    # S17-R7-033 (Step 17 round 7, the F4 seam stated for
+    # this seat), not on the lines rejoined with newline
+    # characters.
+    kept_lines = working.splitlines(keepends=True)
+    block_in_file = "".join(kept_lines[1:closing])
     if block_limit is not None and len(
-            "\n".join(block_lines).encode("utf-8")) \
+            block_in_file.encode("utf-8")) \
             > block_limit * 1024:
         _fail(
             "LIMIT_EXCEEDED",
@@ -3141,17 +3271,35 @@ def _import_front_matter_limits(home, answer_file):
                 # S17-R5-070): a number stands measured by
                 # the length of its written form, at a
                 # whole value position and inside a
-                # container alike, the container standing
-                # rendered in its written form, so the
-                # limit in force stands enforced on this
-                # route as the seam's docstring states.
+                # container alike, so the limit in force
+                # stands enforced on this route as the
+                # seam's docstring states. The container
+                # measure itself stands completed at entry
+                # S17-R7-032, as the branch below states.
                 if written_number is not None and isinstance(
                         value, written_number):
                     measured = len(str(value))
                 elif isinstance(value, str):
                     measured = len(value)
                 elif isinstance(value, (dict, list)):
-                    if render_written is not None:
+                    # A container stands measured on the
+                    # container measure the import reading
+                    # states at entry S17-R7-032 (Step 17
+                    # round 7, the F4 seam stated for this
+                    # seat): a string inside the container
+                    # by its length in characters, a number
+                    # inside it by its written form, and the
+                    # container marks, quote marks, and
+                    # separators of a rendering counting for
+                    # nothing. The rendered measure stands
+                    # as the fallback where the import
+                    # module's measure does not stand.
+                    container_measure = getattr(
+                        import_module,
+                        "_container_value_measure", None)
+                    if container_measure is not None:
+                        measured = container_measure(value)
+                    elif render_written is not None:
                         measured = len(render_written(value))
                     else:
                         measured = len(json.dumps(
