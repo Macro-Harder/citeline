@@ -191,7 +191,11 @@ def _similar_components(type_sets):
     with the seed plus the largest part of a frontier member
     standing outside the seed falls under the smallest
     threshold a frontier member can carry stands excluded
-    in bulk. The candidates the bound leaves open are
+    in bulk, and so does a candidate whose shared count
+    with the whole frontier, counted from the light
+    postings with the heavy shingles counted as a bound,
+    falls under that threshold, which holds a reject pool
+    sharing one small common part out of every layer. The candidates the bound leaves open are
     judged exactly, against the frontier members that share
     one of a small picked set of the candidate shingles:
     a similar member misses at most the allowance of the
@@ -202,15 +206,35 @@ def _similar_components(type_sets):
     in place of a scan of the whole component per pass.
     """
     count = len(type_sets)
-    sets = [set(shingle_set) for shingle_set in type_sets]
-    postings = {}
-    for index, shingle_set in enumerate(sets):
+    # Shingles stand interned to small integers for the
+    # whole computation, so the index, the postings, and
+    # every count work on integers alone. The postings
+    # stand as built, and a posting count per shingle,
+    # lowered as sets stand marked, stands in place of a
+    # posting rebuilt at every mark: a reader of a posting
+    # judges the visited flag of each member it meets.
+    shingle_ids = {}
+    sets = []
+    for shingle_set in type_sets:
+        id_set = set()
         for shingle in shingle_set:
-            postings.setdefault(shingle, set()).add(index)
+            ident = shingle_ids.get(shingle)
+            if ident is None:
+                ident = len(shingle_ids)
+                shingle_ids[shingle] = ident
+            id_set.add(ident)
+        sets.append(id_set)
+    postings = {}
+    for index, id_set in enumerate(sets):
+        for ident in id_set:
+            postings.setdefault(ident, set()).add(index)
+    unvisited_count = [0] * len(shingle_ids)
+    for ident, members in postings.items():
+        unvisited_count[ident] = len(members)
     visited = [False] * count
     by_size = {}
-    for index, shingle_set in enumerate(sets):
-        by_size.setdefault(len(shingle_set), set()).add(index)
+    for index, id_set in enumerate(sets):
+        by_size.setdefault(len(id_set), set()).add(index)
     remaining = count
     components = []
 
@@ -219,10 +243,8 @@ def _similar_components(type_sets):
         visited[index] = True
         remaining -= 1
         by_size[len(sets[index])].discard(index)
-        for shingle in sets[index]:
-            bucket = postings.get(shingle)
-            if bucket is not None:
-                bucket.discard(index)
+        for ident in sets[index]:
+            unvisited_count[ident] -= 1
 
     for seed in range(count):
         if visited[seed]:
@@ -234,7 +256,7 @@ def _similar_components(type_sets):
         if remaining:
             universal = {
                 shingle for shingle in seed_set
-                if len(postings.get(shingle, ())) == remaining}
+                if unvisited_count[shingle] == remaining}
         else:
             universal = set()
         base = len(universal)
@@ -242,8 +264,9 @@ def _similar_components(type_sets):
         for shingle in seed_set:
             if shingle in universal:
                 continue
-            for other in postings.get(shingle, ()):
-                counts[other] = counts.get(other, 0) + 1
+            for other in postings[shingle]:
+                if not visited[other]:
+                    counts[other] = counts.get(other, 0) + 1
         first_layer = []
         for other, shared_count in counts.items():
             shared = base + shared_count
@@ -263,11 +286,6 @@ def _similar_components(type_sets):
             frontier_shingles = set()
             for node in frontier:
                 frontier_shingles.update(sets[node])
-            candidates = set()
-            for shingle in frontier_shingles:
-                candidates.update(postings.get(shingle, ()))
-            if not candidates:
-                break
             frontier_by_shingle = {}
             for position, node in enumerate(frontier):
                 for shingle in sets[node]:
@@ -276,6 +294,58 @@ def _similar_components(type_sets):
             min_frontier_size = min(len(sets[node]) for node in frontier)
             max_added = max(
                 len(sets[node] - seed_set) for node in frontier)
+            # The candidates of a layer stand counted against
+            # the frontier as a whole before any one of them
+            # stands judged. A shingle whose posting holds
+            # more unvisited sets than the heavy bound is
+            # counted through the frontier as a whole, never
+            # through its posting: a candidate shares at most
+            # every heavy shingle with any one frontier
+            # member, so the heavy count bounds that part of
+            # its shared count, and the light count, read
+            # from the light postings, bounds the rest. A
+            # candidate whose two counts together fall under
+            # its smallest threshold stands excluded in
+            # bulk, however many layers the frontier takes,
+            # where the seed bound alone lets a reject pool
+            # through once a distant frontier member stands
+            # almost wholly outside the seed. A candidate
+            # standing in no light posting shares only heavy
+            # shingles with the frontier, so it stands
+            # enumerated only where the heavy count alone
+            # could reach a threshold.
+            heavy = {
+                shingle for shingle in frontier_shingles
+                if unvisited_count[shingle] > 96}
+            light_counts = {}
+            for shingle in frontier_shingles:
+                if shingle in heavy:
+                    continue
+                for other in postings[shingle]:
+                    if not visited[other]:
+                        light_counts[other] = light_counts.get(other, 0) + 1
+            candidates = set()
+            for other, light_shared in light_counts.items():
+                threshold = -(
+                    -4 * (len(sets[other]) + min_frontier_size) // 9)
+                if light_shared + len(heavy) >= threshold:
+                    candidates.add(other)
+            if heavy:
+                smallest_remaining = min(
+                    size for size, members in by_size.items() if members)
+                heavy_threshold = -(
+                    -4 * (smallest_remaining + min_frontier_size) // 9)
+                if len(heavy) >= heavy_threshold:
+                    for size, members in list(by_size.items()):
+                        for other in members:
+                            if other in light_counts:
+                                continue
+                            threshold = -(
+                                -4 * (size + min_frontier_size) // 9)
+                            if len(sets[other] & heavy) >= threshold:
+                                candidates.add(other)
+            if not candidates:
+                break
             new_frontier = []
             for other in candidates:
                 if visited[other]:
@@ -365,6 +435,21 @@ def _sets_clique(type_sets):
                         len(shingle_set)))
     rest = entries[1:]
     if len(rest) < 2:
+        return True
+    # A second bulk bound, on the parts the sets miss from
+    # their union: a pair shares at least the sum of its
+    # sizes less the size of the union, so where five times
+    # the sum of the two smallest sizes reaches nine times
+    # the union size, every pair stands similar at once.
+    # The varying missed part family settles on this
+    # bound: its members each miss four parts of a union
+    # only four parts larger than a member, a position the
+    # pivot bound cannot see, because it prices the missed
+    # and added parts of a pair apart from each other
+    # where the two stand linked inside each set.
+    union_size = len(set().union(*type_sets))
+    smallest_sizes = sorted(len(shingle_set) for shingle_set in type_sets)
+    if 5 * (smallest_sizes[0] + smallest_sizes[1]) >= 9 * union_size:
         return True
     common_missed = set(rest[0][0])
     common_added = set(rest[0][1])
@@ -514,6 +599,18 @@ def _competitor_entries(answer):
         for name, outcome in entries.items():
             if isinstance(outcome, dict):
                 row = dict(outcome)
+            elif _is_competitor_record(outcome):
+                # A record standing in object form counts as
+                # the record it stands validated as: its own
+                # named and cited fields build the row, as a
+                # mapping record's fields do, never the
+                # truthiness of the object itself.
+                row = {}
+                for field_name in (
+                        "name", "named", "cited", "cited_reason"):
+                    value = _get(outcome, field_name, None)
+                    if value is not None:
+                        row[field_name] = value
             else:
                 row = {"named": bool(outcome)}
             row.setdefault("name", name)
@@ -625,6 +722,21 @@ def _validate_answer_shape(item):
             if not _is_competitor_record(entry):
                 raise ValueError(
                     "per_competitor entries must be records")
+            if isinstance(entry, dict) and not any(
+                    field_name in entry for field_name in
+                    ("name", "named", "cited")):
+                # A list entry carrying none of the record
+                # fields stands in no stated form: the
+                # mapping form nested inside the list form,
+                # an empty mapping, and a mapping holding
+                # unrelated fields all stand refused in
+                # plain words, and a record nested inside
+                # such an entry stands refused with it,
+                # never dropped in silence and never left
+                # outside the field validation.
+                raise ValueError(
+                    "per_competitor entries must carry a name, "
+                    "named, or cited field")
             _validate_competitor_entry(entry)
 
 
@@ -1214,6 +1326,16 @@ def _split_references(text):
     return prose, "\n".join(reference_lines)
 
 
+def _map_host_separators(text):
+    """Map the three non ASCII dot separators of item 149
+    to a full stop, as the detection host reading maps
+    them, so a host written with a separator stands read
+    as the host it names."""
+    for separator in ("\uff0e", "\u3002", "\uff61"):
+        text = text.replace(separator, ".")
+    return text
+
+
 def _host_of(url):
     match = re.match(r"https?://([^/?#]+)", url or "", flags=re.IGNORECASE)
     if not match:
@@ -1221,7 +1343,8 @@ def _host_of(url):
     host = match.group(1)
     host = host.rsplit("@", 1)[-1]
     host = host.split(":", 1)[0]
-    host = unicodedata.normalize("NFC", host).casefold()
+    host = _map_host_separators(
+        unicodedata.normalize("NFC", host).casefold())
     if host.endswith("."):
         host = host[:-1]
     return host
@@ -1230,10 +1353,16 @@ def _host_of(url):
 def _host_matches(host, domain):
     if not host or not domain:
         return False
-    domain_value = unicodedata.normalize("NFC", domain).casefold()
+    host_value = _map_host_separators(
+        unicodedata.normalize("NFC", host).casefold())
+    if host_value.endswith("."):
+        host_value = host_value[:-1]
+    domain_value = _map_host_separators(
+        unicodedata.normalize("NFC", domain).casefold())
     if domain_value.endswith("."):
         domain_value = domain_value[:-1]
-    return host == domain_value or host.endswith("." + domain_value)
+    return host_value == domain_value or host_value.endswith(
+        "." + domain_value)
 
 
 def _fallback_detect(text, product, competitors):

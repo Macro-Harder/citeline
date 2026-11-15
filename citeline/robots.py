@@ -872,6 +872,17 @@ def _read_supplied_file(path):
     path_text = str(path)
     try:
         pre = os.lstat(path_text)
+    except UnicodeEncodeError as exc:
+        # A path holding a lone surrogate does not encode
+        # for the stat call: that is the decoding failure
+        # in the path argument, and it stands answered in
+        # the recorded vocabulary, never as the encoder's
+        # raw error.
+        raise RobotsError(
+            "ROBOTS_DECODING_FAILED",
+            "the supplied path does not encode in UTF-8, "
+            "so it does not decode in UTF-8 strictly",
+        ) from exc
     except OSError as exc:
         raise RobotsError(
             "SUPPLIED_PATH_UNSAFE",

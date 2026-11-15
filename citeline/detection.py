@@ -88,6 +88,15 @@ def _iter_links(text):
             depth = 0
             while position < len(text):
                 char = text[position]
+                if char == "\\" and position + 1 < len(text) \
+                        and text[position + 1] in "()\\":
+                    # An escaped parenthesis or backslash
+                    # stands as a destination character, item
+                    # 159, and takes no part in the depth
+                    # reading: an escaped closing parenthesis
+                    # does not end the destination.
+                    position += 2
+                    continue
                 if char in " \t":
                     break
                 if char == "(":
@@ -1030,7 +1039,11 @@ def _similar_components(type_sets):
     with the seed plus the largest part of a frontier member
     standing outside the seed falls under the smallest
     threshold a frontier member can carry stands excluded
-    in bulk. The candidates the bound leaves open are
+    in bulk, and so does a candidate whose shared count
+    with the whole frontier, counted from the light
+    postings with the heavy shingles counted as a bound,
+    falls under that threshold, which holds a reject pool
+    sharing one small common part out of every layer. The candidates the bound leaves open are
     judged exactly, against the frontier members that share
     one of a small picked set of the candidate shingles:
     a similar member misses at most the allowance of the
@@ -1041,15 +1054,35 @@ def _similar_components(type_sets):
     in place of a scan of the whole component per pass.
     """
     count = len(type_sets)
-    sets = [set(shingle_set) for shingle_set in type_sets]
-    postings = {}
-    for index, shingle_set in enumerate(sets):
+    # Shingles stand interned to small integers for the
+    # whole computation, so the index, the postings, and
+    # every count work on integers alone. The postings
+    # stand as built, and a posting count per shingle,
+    # lowered as sets stand marked, stands in place of a
+    # posting rebuilt at every mark: a reader of a posting
+    # judges the visited flag of each member it meets.
+    shingle_ids = {}
+    sets = []
+    for shingle_set in type_sets:
+        id_set = set()
         for shingle in shingle_set:
-            postings.setdefault(shingle, set()).add(index)
+            ident = shingle_ids.get(shingle)
+            if ident is None:
+                ident = len(shingle_ids)
+                shingle_ids[shingle] = ident
+            id_set.add(ident)
+        sets.append(id_set)
+    postings = {}
+    for index, id_set in enumerate(sets):
+        for ident in id_set:
+            postings.setdefault(ident, set()).add(index)
+    unvisited_count = [0] * len(shingle_ids)
+    for ident, members in postings.items():
+        unvisited_count[ident] = len(members)
     visited = [False] * count
     by_size = {}
-    for index, shingle_set in enumerate(sets):
-        by_size.setdefault(len(shingle_set), set()).add(index)
+    for index, id_set in enumerate(sets):
+        by_size.setdefault(len(id_set), set()).add(index)
     remaining = count
     components = []
 
@@ -1058,10 +1091,8 @@ def _similar_components(type_sets):
         visited[index] = True
         remaining -= 1
         by_size[len(sets[index])].discard(index)
-        for shingle in sets[index]:
-            bucket = postings.get(shingle)
-            if bucket is not None:
-                bucket.discard(index)
+        for ident in sets[index]:
+            unvisited_count[ident] -= 1
 
     for seed in range(count):
         if visited[seed]:
@@ -1073,7 +1104,7 @@ def _similar_components(type_sets):
         if remaining:
             universal = {
                 shingle for shingle in seed_set
-                if len(postings.get(shingle, ())) == remaining}
+                if unvisited_count[shingle] == remaining}
         else:
             universal = set()
         base = len(universal)
@@ -1081,8 +1112,9 @@ def _similar_components(type_sets):
         for shingle in seed_set:
             if shingle in universal:
                 continue
-            for other in postings.get(shingle, ()):
-                counts[other] = counts.get(other, 0) + 1
+            for other in postings[shingle]:
+                if not visited[other]:
+                    counts[other] = counts.get(other, 0) + 1
         first_layer = []
         for other, shared_count in counts.items():
             shared = base + shared_count
@@ -1102,11 +1134,6 @@ def _similar_components(type_sets):
             frontier_shingles = set()
             for node in frontier:
                 frontier_shingles.update(sets[node])
-            candidates = set()
-            for shingle in frontier_shingles:
-                candidates.update(postings.get(shingle, ()))
-            if not candidates:
-                break
             frontier_by_shingle = {}
             for position, node in enumerate(frontier):
                 for shingle in sets[node]:
@@ -1115,6 +1142,58 @@ def _similar_components(type_sets):
             min_frontier_size = min(len(sets[node]) for node in frontier)
             max_added = max(
                 len(sets[node] - seed_set) for node in frontier)
+            # The candidates of a layer stand counted against
+            # the frontier as a whole before any one of them
+            # stands judged. A shingle whose posting holds
+            # more unvisited sets than the heavy bound is
+            # counted through the frontier as a whole, never
+            # through its posting: a candidate shares at most
+            # every heavy shingle with any one frontier
+            # member, so the heavy count bounds that part of
+            # its shared count, and the light count, read
+            # from the light postings, bounds the rest. A
+            # candidate whose two counts together fall under
+            # its smallest threshold stands excluded in
+            # bulk, however many layers the frontier takes,
+            # where the seed bound alone lets a reject pool
+            # through once a distant frontier member stands
+            # almost wholly outside the seed. A candidate
+            # standing in no light posting shares only heavy
+            # shingles with the frontier, so it stands
+            # enumerated only where the heavy count alone
+            # could reach a threshold.
+            heavy = {
+                shingle for shingle in frontier_shingles
+                if unvisited_count[shingle] > 96}
+            light_counts = {}
+            for shingle in frontier_shingles:
+                if shingle in heavy:
+                    continue
+                for other in postings[shingle]:
+                    if not visited[other]:
+                        light_counts[other] = light_counts.get(other, 0) + 1
+            candidates = set()
+            for other, light_shared in light_counts.items():
+                threshold = -(
+                    -4 * (len(sets[other]) + min_frontier_size) // 9)
+                if light_shared + len(heavy) >= threshold:
+                    candidates.add(other)
+            if heavy:
+                smallest_remaining = min(
+                    size for size, members in by_size.items() if members)
+                heavy_threshold = -(
+                    -4 * (smallest_remaining + min_frontier_size) // 9)
+                if len(heavy) >= heavy_threshold:
+                    for size, members in list(by_size.items()):
+                        for other in members:
+                            if other in light_counts:
+                                continue
+                            threshold = -(
+                                -4 * (size + min_frontier_size) // 9)
+                            if len(sets[other] & heavy) >= threshold:
+                                candidates.add(other)
+            if not candidates:
+                break
             new_frontier = []
             for other in candidates:
                 if visited[other]:

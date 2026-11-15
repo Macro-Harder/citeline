@@ -143,10 +143,18 @@ def error_for_row(row):
     the module's own form as the constructor meets it
     (Step 17 round 4 entry S17-R4-059): the lookup
     returns None instead of raising a raw TypeError.
+    A value can stand as a string and stand unhashable
+    at once, where a string subclass sets its hash to
+    None, and that form passes the type guard and
+    reaches the dict reading, so the reading itself
+    stands guarded (Step 17 round 5 entry S17-R5-056).
     """
     if not isinstance(row, str):
         return None
-    return _BY_ROW.get(row)
+    try:
+        return _BY_ROW.get(row)
+    except TypeError:
+        return None
 
 
 def error_for_token(token):
@@ -157,10 +165,16 @@ def error_for_token(token):
     the module's own form as the constructor meets it
     (Step 17 round 4 entry S17-R4-059): the lookup
     returns None instead of raising a raw TypeError.
+    The unhashable string subclass form stands guarded
+    at the reading itself, as at error_for_row (Step 17
+    round 5 entry S17-R5-056).
     """
     if not isinstance(token, str):
         return None
-    return _BY_TOKEN.get(token)
+    try:
+        return _BY_TOKEN.get(token)
+    except TypeError:
+        return None
 
 
 class CitelineError(Exception):
@@ -194,13 +208,24 @@ class CitelineError(Exception):
                     % (name, value))
         entry = None
         if token is not None:
-            entry = _BY_TOKEN.get(token)
+            try:
+                entry = _BY_TOKEN.get(token)
+            except TypeError:
+                # A string subclass with no hash stands as
+                # a value the vocabulary cannot hold, in
+                # the same ValueError form as every other
+                # such value, never as a raw TypeError
+                # (Step 17 round 5 entry S17-R5-056).
+                entry = None
             if entry is None:
                 raise ValueError(
                     "a recorded error token stands outside "
                     "the closed vocabulary: %r" % (token,))
         elif row is not None:
-            entry = _BY_ROW.get(row)
+            try:
+                entry = _BY_ROW.get(row)
+            except TypeError:
+                entry = None
             if entry is None:
                 raise ValueError(
                     "a recorded error row stands outside "

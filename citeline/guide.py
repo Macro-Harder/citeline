@@ -80,6 +80,17 @@ def _get(record, name, default=None):
     return getattr(record, name, default)
 
 
+# The one word token form, in the same shape as the
+# reporting module tokeniser: a number stands as one
+# token whole, carrying its thousands separators in
+# their groups, its decimal parts at every point it
+# carries, and a letter suffix standing on its last
+# part (Step 17 round 5 entry S17-R5-047).
+_WORD_TOKEN_PATTERN = (
+    r"\d+(?:,\d{3})*(?:\.\d+)*(?:[^\W\d_]+)?"
+    r"|[^\W_]+(?:\.\d+)*")
+
+
 def _word_tokens(text):
     # The same tokeniser form as the reporting module
     # states: a decimal number counts as one word under
@@ -89,7 +100,7 @@ def _word_tokens(text):
     # guide side pattern the reporting paper records).
     normalised = unicodedata.normalize("NFC", text or "").casefold()
     return re.findall(
-        r"[^\W_]+(?:\.\d+)?", normalised, flags=re.UNICODE)
+        _WORD_TOKEN_PATTERN, normalised, flags=re.UNICODE)
 
 
 def _contains_term(sentence, term):

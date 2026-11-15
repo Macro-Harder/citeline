@@ -353,6 +353,47 @@ def _validate_plan(plan):
             "MALFORMED_CALL",
             "the WatchPlan cadence stands as a cadence in "
             "words")
+    # The second round fields stand under the same shape
+    # discipline as every other field the shape states
+    # (Step 17 round 5 entry S17-R5-066): the plan second
+    # round stands as one round label, and the plan second
+    # rounds stand as a list of round labels or as a record
+    # of round labels, or of lists of round labels, by
+    # product. A form the shape does not state refuses at
+    # open as MALFORMED_CALL, never standing disregarded
+    # in silence where the round assembly reads the fields
+    # on their stated forms alone.
+    second_round = plan.get("second_round")
+    if second_round is not None and not isinstance(
+            second_round, str):
+        _fail(
+            "MALFORMED_CALL",
+            "the WatchPlan second_round stands as a round "
+            "label string")
+    second_rounds = plan.get("second_rounds")
+    if second_rounds is not None:
+        def _label_or_labels(value):
+            if isinstance(value, str):
+                return True
+            return isinstance(value, (list, tuple)) and all(
+                isinstance(item, str) for item in value)
+
+        if isinstance(second_rounds, dict):
+            bad = any(
+                not _label_or_labels(value)
+                for value in second_rounds.values())
+        elif isinstance(second_rounds, (list, tuple)):
+            bad = any(
+                not isinstance(item, str)
+                for item in second_rounds)
+        else:
+            bad = True
+        if bad:
+            _fail(
+                "MALFORMED_CALL",
+                "the WatchPlan second_rounds stands as a "
+                "list of round labels or a record of round "
+                "labels by product")
     targets = plan.get("targets")
     if scope == "estate":
         if targets:
@@ -381,6 +422,18 @@ def _validate_plan(plan):
             "is 100 targets")
     seen = []
     for target in targets:
+        # The target form stands judged before any of its
+        # fields stand read (Step 17 round 5 entry
+        # S17-R5-065): a target that does not stand as an
+        # object refuses at open as MALFORMED_CALL, in the
+        # shape discipline this validation states, never as
+        # a raw AttributeError from a field reading on a
+        # value that holds no fields.
+        if not isinstance(target, dict):
+            _fail(
+                "MALFORMED_CALL",
+                "each picked target stands as a target "
+                "object")
         # The selector stands judged on its named values,
         # not on its keys (Step 17 round 2 entry
         # S17-R2-073): a selector key holding null names
@@ -455,6 +508,19 @@ def _validate_plan(plan):
             _fail(
                 "MALFORMED_CALL",
                 "the target guide flag stands as a boolean")
+        # The target second round stands under the plan
+        # shape discipline as the plan level fields do
+        # (Step 17 round 5 entry S17-R5-066): it stands as
+        # one round label, and a form the shape does not
+        # state refuses at open instead of falling through
+        # the round assembly in silence.
+        target_second = target.get("second_round")
+        if target_second is not None and not isinstance(
+                target_second, str):
+            _fail(
+                "MALFORMED_CALL",
+                "the target second_round stands as a round "
+                "label string")
         marker = _target_identity(target)
         if marker in seen:
             _fail(
@@ -505,7 +571,14 @@ def _target_identity(target):
             form = "/" + form.lstrip("/")
         return form
 
-    if target.get("page_file") is not None:
+    # The identity branches on the selector value as the
+    # open judgement judges it (Step 17 round 5 entry
+    # S17-R5-054): an empty page file stands as no page
+    # selector, as an absent or null value stands, so a
+    # target naming an empty page file beside a named
+    # round carries the probe identity of the round it
+    # names, not the audit identity of the empty path.
+    if target.get("page_file"):
         return (
             "audit", product, path_form(target.get("page_file")),
             path_form(target.get("robots_file")),
@@ -719,6 +792,33 @@ def _standing_product_page_snapshot_count(home, products):
         snapshot_id = payload.get("snapshot_id")
         if not snapshot_id:
             continue
+        if not isinstance(snapshot_id, str):
+            # The fold keys its dict by the identity, so the
+            # identity stands judged against the stored field
+            # discipline before the keying: an identity in a
+            # form that is not a string, an unhashable form
+            # among them, stands refused in the recorded
+            # vocabulary instead of crashing the fold raw
+            # (Step 17 round 5 entry S17-R5-064, the watch
+            # limb of the registry fold cure).
+            _fail("VALIDATION_FAILED",
+                  "the stored snapshot record carries "
+                  "snapshot_id in a form its readers cannot "
+                  "use: %r" % (snapshot_id,))
+        supplied_path = payload.get("supplied_path")
+        if supplied_path is not None and not isinstance(
+                supplied_path, str):
+            # The path this count consumes stands judged
+            # against the stored field discipline before
+            # it stands read, as the identity above it
+            # stands (Step 17 round 5 entry S17-R5-052):
+            # a swapped path refuses in the recorded
+            # vocabulary instead of governing the count
+            # through its string form.
+            _fail("VALIDATION_FAILED",
+                  "the stored snapshot record carries "
+                  "supplied_path in a form its readers cannot "
+                  "use: %r" % (supplied_path,))
         if snapshot_id not in latest:
             order.append(snapshot_id)
         latest[snapshot_id] = payload
@@ -765,9 +865,13 @@ def _cadence_interval_days(cadence):
     # whitespace form stands in the set (Step 17 round
     # 4 entry S17-R4-058): a Unicode whitespace
     # separator names no stated form, as the annually
-    # word names none.
+    # word names none. The stated form writes one
+    # ordinary space at each separator position, so a
+    # run of ordinary spaces at a position stands as
+    # no stated form either (Step 17 round 5 entry
+    # S17-R5-055).
     match = re.fullmatch(
-        r"every +([0-9]+) +(day|days|week|weeks|month|months"
+        r"every ([0-9]+) (day|days|week|weeks|month|months"
         r"|year|years)", text)
     if match:
         # The conversion stands bounded (Step 17 round 2
@@ -853,7 +957,12 @@ def run_watch(*, plan_file):
     # and an audit_record entry, a guide call appends a
     # guide_record entry, and a probe target appends none.
     def target_cost(target):
-        if "page_file" in target:
+        # The cost branches on the selector value as the
+        # open judgement judges it, as the identity and
+        # the dispatch below do (Step 17 round 5 entry
+        # S17-R5-054): an empty page file names no page
+        # selector and costs as the probe target it is.
+        if target.get("page_file"):
             return 2 + (1 if target.get("guide") else 0)
         return 0
 
@@ -900,7 +1009,7 @@ def run_watch(*, plan_file):
     if scope == "picked":
         scope_rounds_by_product = {}
         for target in targets:
-            if "round" in target:
+            if target.get("round"):
                 rounds = scope_rounds_by_product.setdefault(
                     target["product"], [])
                 if target["round"] not in rounds:
@@ -915,7 +1024,12 @@ def run_watch(*, plan_file):
         plan_seconds = plan.get("second_rounds")
         for target in targets:
             product = target["product"]
-            if "page_file" in target:
+            # The dispatch branches on the selector value
+            # as the open judgement judges it (Step 17
+            # round 5 entry S17-R5-054): a target whose
+            # page file stands empty beside a named round
+            # runs as the probe target it opened as.
+            if target.get("page_file"):
                 entry = _audit_entry(home, plan, product, target)
                 entries.append(entry)
                 if entry.get("outcome") == "completed":

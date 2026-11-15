@@ -332,13 +332,20 @@ def _decoded_authority_parts(target):
             # reference itself is written with, the hash of
             # a numeric reference above all, does not cut
             # the piece: the scan steps over a reference in
-            # its written form and cuts after it.
-            semi = rest.find(";", index + 1, index + 12)
-            if semi >= 0 and re.fullmatch(
-                r"#\d+|#[xX][0-9A-Fa-f]+|[A-Za-z][A-Za-z0-9]+",
-                rest[index + 1:semi],
-            ):
-                index = semi + 1
+            # its written form and cuts after it. The step
+            # over reads the reference whole at any written
+            # length, a zero padded numeric reference
+            # carrying its semicolon as far out as its
+            # padding writes it, and it steps over a
+            # numeric reference with no semicolon, a form
+            # the decoder this cure uses accepts.
+            entity = re.match(
+                r"&(?:#\d+;?|#[xX][0-9A-Fa-f]+;?"
+                r"|[A-Za-z][A-Za-z0-9]+;)",
+                rest[index:],
+            )
+            if entity:
+                index += entity.end()
                 continue
         if char in "/?#":
             raw_end = index
@@ -501,6 +508,14 @@ def _canonical_target(target):
             port = None
         if port is not None and port not in (80, 443):
             authority = host + ":" + str(port)
+        if port is None:
+            # A port that is not a plain number stands in
+            # the key as written, on the canonical form's
+            # own port rule that any port but a default
+            # port stands in the key: it never vanishes
+            # from the key in silence, so targets that
+            # differ only in that port text key apart.
+            authority = host + ":" + port_part
     path = _syntax_normalise_path(match.group(2) or "/")
     if path != "/" and path.endswith("/"):
         path = path[:-1]
@@ -673,6 +688,178 @@ _QUOTED_SPAN_PATTERN = re.compile(
     r"|＂[^＂\n]*＂|‹[^›\n]*›|″[^″\n]*″|‚[^‘\n]*‘"
 )
 
+# The opening marks of the quoted span set the pattern
+# above states, each with the closing marks its family
+# admits, the mixed straight and curly closings standing
+# as the earlier rounds cured them.
+_QUOTE_OPENINGS = {
+    '"': ('"', "\u201d"),
+    "\u201c": ("\u201d", '"'),
+    "\u00ab": ("\u00bb",),
+    "\u00bb": ("\u00ab",),
+    "\u201e": ("\u201c", "\u201d"),
+    "\u2018": ("\u2019",),
+    "\u201a": ("\u2018",),
+    "\u300c": ("\u300d",),
+    "\u300e": ("\u300f",),
+    "\u300a": ("\u300b",),
+    "\u3008": ("\u3009",),
+    "\u3010": ("\u3011",),
+    "\u3016": ("\u3017",),
+    "\uff62": ("\uff63",),
+    "\uff02": ("\uff02",),
+    "\u2039": ("\u203a",),
+    "\u2033": ("\u2033",),
+}
+
+
+def _curly_single_is_internal(text, pos):
+    """Whether the typographic apostrophe at pos stands
+    inside a curly single span rather than closing it.
+
+    A letter or a digit after it makes it a contraction,
+    an elision, or a possessive inside a word, as the
+    earlier rounds cured. Punctuation or a space after it
+    makes it a plural possessive where a further closing
+    mark for this span stands later on the line, before
+    any new opening mark: the possessive before a comma,
+    a semicolon, an exclamation mark, or the full stop of
+    a sentence the span crosses stands in this form, so
+    the span reads whole past it to its own closing.
+    """
+    following = text[pos + 1] if pos + 1 < len(text) else ""
+    if following.isalpha() or following.isdigit():
+        return True
+    if not following or following == "\n":
+        return False
+    line_end = text.find("\n", pos + 1)
+    if line_end < 0:
+        line_end = len(text)
+    later = text.find("\u2019", pos + 1, line_end)
+    if later < 0:
+        return False
+    opening = text.find("\u2018", pos + 1, line_end)
+    return opening < 0 or later < opening
+
+
+def _outermost_spans(spans):
+    kept = []
+    end_so_far = -1
+    for start, end in sorted(spans):
+        if start >= end_so_far:
+            kept.append((start, end))
+            end_so_far = end
+    return kept
+
+
+def _quoted_spans(text):
+    """The quoted spans of one text, as (start, end) pairs.
+
+    The spans are the spans the quoted span pattern
+    states, read in one pass over the text with a stack
+    of the spans standing open, never by trying every
+    alternative closing at every opening: a pattern that
+    scans the remainder of the text for a closing on
+    another mark before it tries the closing on the mark
+    as written costs time in the product of the span
+    count and the text length on quotation dense pages,
+    while this reading costs the text length once. A
+    quotation nested inside a span, in the same family
+    or in a neighbouring one, stands inside the outer
+    span: the outer span reads whole to its own closing,
+    the nested marks standing as its content. A span
+    does not cross a line break, as no alternative of
+    the pattern admits one. A nested span that closes
+    where its outer span never does still stands as a
+    span in its own right.
+    """
+    spans = []
+    pending = []
+    stack = []
+    index = 0
+    length = len(text)
+    while index < length:
+        char = text[index]
+        if char == "\n":
+            spans.extend(_outermost_spans(pending))
+            pending = []
+            stack = []
+            index += 1
+            continue
+        if stack:
+            top_char, top_start, top_closes = stack[-1]
+            if top_char == "\u2018" and char == "\u2019" and (
+                _curly_single_is_internal(text, index)
+            ):
+                index += 1
+                continue
+            if char in top_closes:
+                if top_char == "\u201c" and char == '"':
+                    # A straight mark inside a curly span
+                    # opens a nested straight span where
+                    # its own closing stands before the
+                    # curly closing; standing alone it is
+                    # the mixed closing the set admits.
+                    line_end = text.find("\n", index + 1)
+                    if line_end < 0:
+                        line_end = length
+                    nested = text.find('"', index + 1, line_end)
+                    curly = text.find(
+                        "\u201d", index + 1, line_end)
+                    if nested >= 0 and (
+                        curly < 0 or nested < curly
+                    ):
+                        stack.append(
+                            (char, index, _QUOTE_OPENINGS[char]))
+                        index += 1
+                        continue
+                if top_char == "\u201e" and char == "\u201c":
+                    # The same judgement at the low double
+                    # opening, whose closing on the curly
+                    # mark the set states: a curly mark
+                    # whose own closing stands before the
+                    # next such mark opens a nested span.
+                    line_end = text.find("\n", index + 1)
+                    if line_end < 0:
+                        line_end = length
+                    nested = text.find(
+                        "\u201d", index + 1, line_end)
+                    repeat = text.find(
+                        "\u201c", index + 1, line_end)
+                    if nested >= 0 and (
+                        repeat < 0 or nested < repeat
+                    ):
+                        stack.append(
+                            (char, index, _QUOTE_OPENINGS[char]))
+                        index += 1
+                        continue
+                stack.pop()
+                completed = (top_start, index + 1)
+                if stack:
+                    pending.append(completed)
+                else:
+                    spans.append(completed)
+                    pending = [
+                        item for item in pending
+                        if not (
+                            completed[0] <= item[0]
+                            and item[1] <= completed[1]
+                        )
+                    ]
+                index += 1
+                continue
+            if char in _QUOTE_OPENINGS:
+                stack.append(
+                    (char, index, _QUOTE_OPENINGS[char]))
+            index += 1
+            continue
+        if char in _QUOTE_OPENINGS:
+            stack.append((char, index, _QUOTE_OPENINGS[char]))
+        index += 1
+    spans.extend(_outermost_spans(pending))
+    return spans
+
+
 _ANY_SCHEME_URL_PATTERN = re.compile(
     r"[A-Za-z][A-Za-z0-9+.-]*://[^\s<>\"'{}]+"
 )
@@ -729,6 +916,23 @@ def _url_spans(text):
                 break
             if char == "'":
                 following = text[end + 1] if end + 1 < len(text) else ""
+                if following == "'":
+                    # Two apostrophes in sequence stand
+                    # inside the address where a URL
+                    # character follows the pair, as one
+                    # apostrophe standing between URL
+                    # characters does: the span runs past
+                    # both, and the digits after them stand
+                    # inside the address.
+                    after_pair = (
+                        text[end + 2] if end + 2 < len(text)
+                        else ""
+                    )
+                    if (after_pair and not after_pair.isspace()
+                            and after_pair not in "<>\"{}"):
+                        end += 1
+                        continue
+                    break
                 if (not following or following.isspace()
                         or following in "<>\"'{}"):
                     break
@@ -751,10 +955,7 @@ def _statistic_analysis(page):
     masked = text
     # Any token inside a quoted span is excluded, in the
     # straight or the typographic quotation form alike.
-    quoted = [
-        (match.start(), match.end())
-        for match in _QUOTED_SPAN_PATTERN.finditer(masked)
-    ]
+    quoted = _quoted_spans(masked)
     masked = _mask(masked, quoted)
     # Digits inside a link target or a bare URL are part
     # of an address, not a figure the page presents, so
@@ -779,6 +980,46 @@ def _statistic_analysis(page):
                 found = masked.find(target, found + len(target))
     if link_spans:
         masked = _mask(masked, link_spans)
+    # A date fragment standing inside an identifier counts
+    # nothing on the same ground as a date inside a URL:
+    # it stands as part of one written token, not as a
+    # figure the page presents. An identifier here is a
+    # run of letters, digits, underscores, stops, and
+    # hyphens holding a date in separator or glued form,
+    # the date standing with an underscore in the token
+    # or with a letter standing against it.
+    identifier_spans = []
+    for token_match in re.finditer(
+        r"[A-Za-z0-9_][A-Za-z0-9_.\-]*", masked
+    ):
+        token = token_match.group(0)
+        date_match = re.search(
+            r"\d{4}[-_]\d{1,2}[-_]\d{1,2}"
+            r"|\d{1,2}[-_]\d{1,2}[-_]\d{2,4}"
+            r"|(?<!\d)\d{8}(?!\d)",
+            token,
+        )
+        if date_match is None:
+            continue
+        before = token[date_match.start() - 1] \
+            if date_match.start() > 0 else ""
+        after = token[date_match.end()] \
+            if date_match.end() < len(token) else ""
+        # A letter T standing against the date with a
+        # digit after it opens the time of an ISO
+        # datetime, not the letter flank of an
+        # identifier: that form stands for the datetime
+        # masks below, whole.
+        glued_after = after.isalpha() and not (
+            after in "Tt"
+            and token[date_match.end() + 1:
+                      date_match.end() + 2].isdigit()
+        )
+        if "_" in token or before.isalpha() or glued_after:
+            identifier_spans.append(
+                (token_match.start(), token_match.end()))
+    if identifier_spans:
+        masked = _mask(masked, identifier_spans)
     # A date fragment counts nothing in any written form,
     # so a date standing with its time, and a date written
     # with spaces between its parts, stand masked whole
@@ -790,9 +1031,13 @@ def _statistic_analysis(page):
     month_alt_early = (
         month_names_early + "|" + _MONTH_ABBREVIATIONS)
     for date_pattern in (
-        r"\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?"
+        r"\b\d{4}-\d{2}-\d{2}[T ]\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?"
         r"(?:\s*(?:Z|[+-]\d{2}:?\d{2}))?\b",
         r"\b\d{4}-\d{2}-\d{2},\s*\d{1,2}:\d{2}(?::\d{2})?\b",
+        r"\b\d{4}\s+\d{1,2}\s+\d{1,2}\s+"
+        r"\d{1,2}:\d{2}(?::\d{2})?\b",
+        r"\b\d{1,2}\s+\d{1,2}\s+\d{2,4}\s+"
+        r"\d{1,2}:\d{2}(?::\d{2})?\b",
         r"\b(?:" + month_alt_early + r")\.?\s+\d{1,2}\s*,\s+"
         r"\d{2,4}\s+\d{1,2}:\d{2}(?::\d{2})?\b",
         r"\b\d{4}/\d{1,2}/\d{1,2}\s+\d{1,2}:\d{2}(?::\d{2})?\b",
@@ -800,6 +1045,29 @@ def _statistic_analysis(page):
         r"(?:0?[1-9]|[12]\d|3[01])\b",
         r"\b(?:0?[1-9]|[12]\d|3[01])\s+(?:0?[1-9]|1[0-2])\s+"
         r"\d{4}\b",
+        # A date with its time standing after it, in the
+        # orders the set above omits: the slash orders in
+        # either direction and at a two digit year, with
+        # or without a comma; the month name orders with
+        # or without a comma and with an ordinal day; the
+        # space separated numeric orders; and the time
+        # standing first in one datetime expression.
+        r"\b\d{1,2}/\d{1,2}/\d{2,4}\s*,?\s+"
+        r"\d{1,2}:\d{2}(?::\d{2})?\b",
+        r"\b(?:" + month_alt_early + r")\.?\s+"
+        r"\d{1,2}(?:st|nd|rd|th)?\s*,?\s+\d{2,4}\s+"
+        r"\d{1,2}:\d{2}(?::\d{2})?\b",
+        r"\b\d{1,2}(?:st|nd|rd|th)?\s+(?:"
+        + month_alt_early + r")\.?\s+\d{2,4}\s+"
+        r"\d{1,2}:\d{2}(?::\d{2})?\b",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*,?\s+(?:"
+        + month_alt_early + r")\.?\s+"
+        r"\d{1,2}(?:st|nd|rd|th)?\s*,?\s+\d{2,4}\b",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*,?\s+"
+        r"\d{1,2}(?:st|nd|rd|th)?\s+(?:"
+        + month_alt_early + r")\.?\s+\d{2,4}\b",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*,?\s+"
+        r"\d{1,2}/\d{1,2}/\d{2,4}\b",
     ):
         masked = _mask(
             masked,
@@ -819,7 +1087,7 @@ def _statistic_analysis(page):
         [
             (m.start(), m.end())
             for m in re.finditer(
-                r"\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}"
+                r"\b\d{4}-\d{2}-\d{2}[T ]\d{1,2}:\d{2}"
                 r"(?::\d{2})?\b",
                 masked,
             )
@@ -831,6 +1099,26 @@ def _statistic_analysis(page):
             (m.start(), m.end())
             for m in re.finditer(
                 r"\b\d{4}-\d{2}(?![-\d])", masked)
+        ],
+    )
+    # Two digit year numeric dates in the hyphen and
+    # space orders count nothing on the same exclusion,
+    # as their slash, dotted, and month name twins
+    # already do.
+    masked = _mask(
+        masked,
+        [
+            (m.start(), m.end())
+            for m in re.finditer(
+                r"\b\d{1,2}-\d{1,2}-\d{1,2}\b", masked)
+        ],
+    )
+    masked = _mask(
+        masked,
+        [
+            (m.start(), m.end())
+            for m in re.finditer(
+                r"\b\d{1,2}\s+\d{1,2}\s+\d{1,2}\b", masked)
         ],
     )
     # A date fragment counts nothing, in either date form.
@@ -901,7 +1189,13 @@ def _statistic_analysis(page):
     # here, as a reader reads them in any case.
     month_alt = month_names + "|" + _MONTH_ABBREVIATIONS
     for date_pattern in (
-        r"\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2})?\b",
+        r"\b\d{4}-\d{2}-\d{2}[T ]\d{1,2}:\d{2}(?::\d{2})?\b",
+        r"\b(?:" + month_alt + r")\.?\s+"
+        r"\d{1,2}(?:st|nd|rd|th)\s*,\s*\d{2,4}\b",
+        r"\b(?:" + month_alt + r")\.?\s+"
+        r"\d{1,2}(?:st|nd|rd|th)\s+\d{2,4}\b",
+        r"\b\d{1,2}(?:st|nd|rd|th)\s+(?:"
+        + month_alt + r")\.?\s+\d{2,4}\b",
         r"\b(?:" + month_alt + r")\.?\s+\d{1,2},\s+\d{2,4}\b",
         r"\b(?:" + month_alt + r")\.?\s+\d{1,2}\s+\d{2,4}\b",
         r"\b\d{4}\s+(?:" + month_alt + r")\.?\s+\d{1,2}\b",
@@ -939,13 +1233,16 @@ def _statistic_analysis(page):
     # word is between them, as well as standing directly
     # beside it, and the two stated connectors compose,
     # the word is and then a colon standing in sequence
-    # between the naming word and the figure.
+    # between the naming word and the figure, or a colon
+    # and then the word is, the reverse composition of
+    # the same two connectors.
     masked = _mask(
         masked,
         [
             (m.start(), m.end())
             for m in re.finditer(
-                r"\bversion(?:\s+is\s*:\s*|\s+is\s+|\s*:\s*|\s+)"
+                r"\bversion(?:\s+is\s*:\s*|\s*:\s*is\s+|"
+                r"\s+is\s+|\s*:\s*|\s+)"
                 r"\d+(?:\.\d+)*\b",
                 masked, re.IGNORECASE
             )
@@ -985,11 +1282,11 @@ def _quotation_analysis(page):
     spans = []
     attributed = 0
     unattributed = 0
-    for match in _QUOTED_SPAN_PATTERN.finditer(text):
-        inner = match.group(0)[1:-1]
+    for span_start, span_end in _quoted_spans(text):
+        inner = text[span_start + 1:span_end - 1]
         if len(inner.split()) < 4:
             continue
-        start, end = match.start(), match.end()
+        start, end = span_start, span_end
         spans.append(_span(text, start, end))
         # The attribution window runs 100 characters after
         # the span and may not cross a paragraph boundary.

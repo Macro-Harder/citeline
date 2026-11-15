@@ -756,7 +756,13 @@ def _content_format(text):
     visible = _strip_detection_exclusions(text)
     probe = _skip_leading_furniture(visible.lstrip("\ufeff \t\r\n"))
     low = probe.casefold()
-    if low.startswith("<!doctype html") or low.startswith("<html"):
+    # A doctype stands judged by its name across the
+    # whitespace the doctype form admits between the
+    # keyword and the name: any run of whitespace stands
+    # there, not one space only (Step 17 round 5 entry
+    # S17-R5-007).
+    if re.match(r"<!doctype\s+html\b", low) \
+            or low.startswith("<html"):
         return "html"
     if re.match(r"(?is)<(head|body|div|p|h[1-6]|table|ul|ol|span|a|"
                 r"section|article|main|aside|nav|header|footer|"
@@ -771,7 +777,7 @@ def _content_format(text):
                 r"input|source|track|col|area|colgroup|tfoot|"
                 r"search|data|meter|progress|output|slot|ruby|"
                 r"samp|var|dfn|bdi|bdo|del|ins|datalist|"
-                r"optgroup|option|map)\b",
+                r"optgroup|option|map|param|rp|rt|math)\b",
                 probe):
         return "html"
     for line in visible.splitlines():
@@ -869,13 +875,31 @@ def _scan_tag_end(text, start):
     """The index of the bracket that closes the tag standing
     at start, read as the parser reads a tag: a bracket
     inside a quoted attribute value does not close the tag.
-    A quoted attribute value opens only where its quote
-    stands as the first character of a value, immediately
-    after the equals sign of an attribute, allowing the
-    space the parser allows around that sign; a quote
-    character standing inside an unquoted attribute value
-    is value text and opens nothing (Step 17 round 4 entry
-    S17-R4-011). Returns -1 where no closing bracket
+
+    The reading walks the tag attribute by attribute, on
+    the terms HTMLParser walks it. An attribute name stands
+    first: its first character is any character that is not
+    whitespace, a slash, or a bracket, and its remaining
+    characters are any but whitespace, a slash, an equals
+    sign, or a bracket, so an equals sign standing where a
+    name is expected is name text and opens no value. A run
+    of equals signs after a name, with the space the parser
+    allows around it, opens the value: a quoted value runs
+    to its closing quote wherever that quote stands, and
+    where no closing quote stands the quoted form does not
+    stand as a value at all, the quote standing as the
+    first character of the next attribute name and the tag
+    ending where the parser ends it. An unquoted value runs
+    to whitespace or to the bracket, and a quote or an
+    equals sign inside it is value text. A declaration
+    and a processing instruction form stand read as the
+    parser reads them, ending at the first bracket, and
+    a closing tag stands read on the same attribute
+    terms as an opening tag, as round 3 entry S17-R3-014
+    states for it (Step 17 round 4 entry S17-R4-011,
+    completed
+    at round 5 entry S17-R5-005 on the equals sign forms
+    that entry names). Returns -1 where no closing bracket
     stands."""
     if text[start:start + 9].casefold() == "<!doctype":
         # A doctype declaration stands read whole across
@@ -896,37 +920,53 @@ def _scan_tag_end(text, start):
                 return index
             index += 1
         return -1
-    quick_end = text.find(">", start + 1)
-    if quick_end >= 0:
-        head = text[start + 1:quick_end]
-        if '"' not in head and "'" not in head:
-            return quick_end
-    quote = None
-    pending_value = False
-    in_unquoted_value = False
+    if text[start + 1:start + 2] in ("!", "?"):
+        return text.find(">", start + 1)
+    length = len(text)
     index = start + 1
-    while index < len(text):
-        ch = text[index]
-        if quote is not None:
-            if ch == quote:
-                quote = None
-        elif ch == ">":
-            return index
-        elif in_unquoted_value:
-            if ch in " \t\r\n\f":
-                in_unquoted_value = False
-        elif pending_value:
-            if ch in " \t\r\n\f":
-                pass
-            elif ch in ("\"", "'"):
-                quote = ch
-                pending_value = False
-            else:
-                in_unquoted_value = True
-                pending_value = False
-        elif ch == "=":
-            pending_value = True
+    # The tag name runs to whitespace, a slash, or the
+    # bracket, as the parser reads it.
+    while index < length and text[index] not in " \t\r\n\f/>":
         index += 1
+    while index < length:
+        # Separators between attributes: whitespace, and a
+        # slash that no bracket follows.
+        while index < length and (
+                text[index] in " \t\r\n\f"
+                or (text[index] == "/"
+                    and text[index + 1:index + 2] != ">")):
+            index += 1
+        if index >= length:
+            return -1
+        if text[index] == ">":
+            return index
+        if text[index] == "/":
+            return index + 1
+        # An attribute name.
+        index += 1
+        while index < length \
+                and text[index] not in " \t\r\n\f/=>":
+            index += 1
+        while index < length and text[index] in " \t\r\n\f":
+            index += 1
+        if index < length and text[index] == "=":
+            while index < length and text[index] == "=":
+                index += 1
+            while index < length and text[index] in " \t\r\n\f":
+                index += 1
+            if index < length and text[index] in ("\"", "'"):
+                close = text.find(text[index], index + 1)
+                if close >= 0:
+                    index = close + 1
+                # Where no closing quote stands, the quoted
+                # form does not stand as a value: the scan
+                # stands on the quote, and the next pass
+                # reads it as an attribute name, as the
+                # parser does.
+            else:
+                while index < length \
+                        and text[index] not in " \t\r\n\f>":
+                    index += 1
     return -1
 
 
@@ -1065,6 +1105,63 @@ def _leading_structure(text):
     return doctypes, None
 
 
+def _root_tag_xmlns(chunk):
+    """The value of the xmlns attribute of one root tag
+    chunk, or None where the tag declares no namespace.
+
+    The attributes stand read as the parser reads them,
+    attribute by attribute on the terms _scan_tag_end
+    states, so a namespace string standing as the value
+    of any other attribute of the tag is that attribute
+    text and declares nothing: the judgement at entry
+    S17-R5-008 stands on the namespace the root element
+    declares, in its xmlns attribute, and on no other
+    text of the tag."""
+    length = len(chunk)
+    index = 1
+    while index < length and chunk[index] not in " \t\r\n\f/>":
+        index += 1
+    while index < length:
+        while index < length and (
+                chunk[index] in " \t\r\n\f"
+                or (chunk[index] == "/"
+                    and chunk[index + 1:index + 2] != ">")):
+            index += 1
+        if index >= length or chunk[index] == ">":
+            return None
+        if chunk[index] == "/":
+            return None
+        name_start = index
+        index += 1
+        while index < length \
+                and chunk[index] not in " \t\r\n\f/=>":
+            index += 1
+        name = chunk[name_start:index].casefold()
+        while index < length and chunk[index] in " \t\r\n\f":
+            index += 1
+        value = None
+        if index < length and chunk[index] == "=":
+            while index < length and chunk[index] == "=":
+                index += 1
+            while index < length and chunk[index] in " \t\r\n\f":
+                index += 1
+            if index < length and chunk[index] in ("\"", "'"):
+                close = chunk.find(chunk[index], index + 1)
+                if close < 0:
+                    return None
+                value = chunk[index + 1:close]
+                index = close + 1
+            else:
+                value_start = index
+                while index < length \
+                        and chunk[index] not in " \t\r\n\f>":
+                    index += 1
+                value = chunk[value_start:index]
+        if name == "xmlns":
+            return value
+    return None
+
+
 def _check_containers(raw, text):
     visible = _strip_detection_exclusions(text)
     # The container rule reads the file's own leading
@@ -1085,15 +1182,22 @@ def _check_containers(raw, text):
         if "xhtml" in doctype.casefold():
             _fail("PAGE_EXTRACTION_FAILED",
                   "container failure: the file stands marked as XHTML")
-    if root_tag is not None \
-            and "http://www.w3.org/1999/xhtml" in _unescape(root_tag):
-        # The namespace stands judged as the parser decodes
-        # it, not by its raw spelling: character references
-        # in the attribute value decode before the reading,
-        # as HTMLParser decodes them (Step 17 round 4 entry
-        # S17-R4-012).
-        _fail("PAGE_EXTRACTION_FAILED",
-              "container failure: the file stands marked as XHTML")
+    if root_tag is not None:
+        declared = _root_tag_xmlns(root_tag)
+        if declared is not None \
+                and _unescape(declared) \
+                == "http://www.w3.org/1999/xhtml":
+            # The namespace the root element declares stands
+            # judged as the parser decodes it, not by its raw
+            # spelling: character references in the xmlns
+            # value decode before the reading, as HTMLParser
+            # decodes them (Step 17 round 4 entry S17-R4-012),
+            # and the judgement stands on that declared value
+            # alone, not on a namespace string standing in
+            # any other attribute of the tag (Step 17 round
+            # 5 entry S17-R5-008).
+            _fail("PAGE_EXTRACTION_FAILED",
+                  "container failure: the file stands marked as XHTML")
     header_block = re.split(r"\r?\n[ \t]*\r?\n", visible,
                             maxsplit=1)[0]
     low_header = header_block.casefold()
@@ -1203,6 +1307,46 @@ def _read_supplied_file(page_path, size_limit_bytes=None):
 # ordinary U+FEFF character in the decoded text.
 # ----------------------------------------------------------------
 
+def _front_matter_key_value(line):
+    """One front matter line as its key and value, or None.
+
+    This reading stands as the one reading with the import
+    side reading in probe_import.py, in the form that
+    module states at its own _front_matter_key_value: a
+    line opening with a quoted string whose closing quote
+    is not followed by a colon holds no key of its own,
+    and a colon inside a quoted key does not split the
+    line (Step 17 round 5 entries S17-R5-010 and
+    S17-R5-011)."""
+    text = line.strip()
+    if text[:1] in ("\"", "'"):
+        quote = text[0]
+        index = 1
+        pieces = []
+        while index < len(text):
+            char = text[index]
+            if quote == '"' and char == "\\" and index + 1 < len(text):
+                pieces.append(text[index + 1])
+                index += 2
+                continue
+            if char == quote:
+                if quote == "'" and text[index + 1:index + 2] == "'":
+                    pieces.append("'")
+                    index += 2
+                    continue
+                break
+            pieces.append(char)
+            index += 1
+        rest = text[index + 1:] if index < len(text) else ""
+        if not rest.lstrip().startswith(":"):
+            return None
+        return "".join(pieces), rest.lstrip()[1:].strip()
+    if ":" not in line:
+        return None
+    key, value = line.split(":", 1)
+    return key.strip(), value.strip()
+
+
 def _front_matter(text, fmt, notes, block_limit_bytes=None,
                   value_limit=None):
     """Front matter handling. Front matter that fails the
@@ -1242,20 +1386,36 @@ def _front_matter(text, fmt, notes, block_limit_bytes=None,
             # value at all, and an indented continuation
             # line stands accumulated into the value above
             # it, as the import side reading cured at
-            # S17-R3-027 accumulates it.
+            # S17-R3-027 accumulates it. The line form
+            # stands judged by the one reading the import
+            # side stands on, _front_matter_key_value
+            # above: a line holding no key of its own, an
+            # indented line opening with a quoted string
+            # whose closing quote no colon follows among
+            # them, stands as a continuation where it
+            # stands indented, and a line holding no key
+            # and no indentation stands refused here as
+            # the import side reading refuses it, in this
+            # module own vocabulary (Step 17 round 5
+            # entries S17-R5-010 and S17-R5-011).
             current_value_length = None
             for block_line in lines[1:index]:
                 if not block_line.strip() or block_line.lstrip() \
                         .startswith("#"):
                     continue
-                if ":" in block_line:
-                    value = block_line.split(":", 1)[1].strip()
-                    current_value_length = len(value)
-                elif block_line[0] in " \t" \
-                        and current_value_length is not None:
-                    current_value_length += len(block_line.strip())
+                pair = _front_matter_key_value(block_line)
+                if pair is None:
+                    if block_line[0] in " \t" \
+                            and current_value_length is not None:
+                        current_value_length += len(
+                            block_line.strip())
+                    else:
+                        _fail("PAGE_EXTRACTION_FAILED",
+                              "a front matter line holds no "
+                              "key and value: "
+                              + block_line.strip()[:60])
                 else:
-                    continue
+                    current_value_length = len(pair[1])
                 if current_value_length > value_limit:
                     _fail("LIMIT_EXCEEDED",
                           "front matter value length per key "

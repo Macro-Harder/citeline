@@ -456,21 +456,76 @@ def _failure_record_payloads(body):
     retried failure stands (Step 17 round 3 entry
     S17-R3-063, and round 4 entry S17-R4-049 for the
     composition over forms).
+
+    The gathering stands by position, blind to nothing:
+    a payload standing inside another carry form stands
+    collected in the form it stands in, so an entry
+    shaped wrapper standing in the list form or the
+    single form contributes its payload to that form,
+    and only an entry standing inside an entries list
+    stands in the entries form (Step 17 round 5 entry
+    S17-R5-048).
     """
+    def unwrap(item):
+        # A payload standing inside an entry shaped
+        # wrapper stands collected as the payload it is,
+        # in the form the wrapper stands in: the wrapper
+        # is a carry form, not a payload, and its payload
+        # does not stand in the entries form merely
+        # because a wrapper carries it there (Step 17
+        # round 5 entry S17-R5-048).
+        while isinstance(item, dict) \
+                and item.get("entry_kind") == "failure_record" \
+                and isinstance(item.get("payload"), dict):
+            item = item["payload"]
+        return item
+
+    def entries_form(node, found):
+        # The entries form stands only where an entries
+        # list stands: an entry shaped object inside an
+        # entries list, at the top level or in a nested
+        # entries list, stands in the entries form, and
+        # an entry shaped object standing anywhere else
+        # stands in the form that carries it, never in
+        # this one.
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key == "payload":
+                    continue
+                if isinstance(value, list) and (
+                        key == "entries"
+                        or key.endswith("_entries")):
+                    entries_list(value, found)
+                else:
+                    entries_form(value, found)
+        elif isinstance(node, list):
+            for item in node:
+                entries_form(item, found)
+
+    def entries_list(items, found):
+        for item in items:
+            if isinstance(item, dict) \
+                    and item.get("entry_kind") == "failure_record" \
+                    and isinstance(item.get("payload"), dict):
+                found.append(unwrap(item))
+            elif isinstance(item, list):
+                entries_list(item, found)
+            elif isinstance(item, dict):
+                entries_form(item, found)
+
     forms = []
     if isinstance(body, dict):
         stated = body.get("failure_records")
         if isinstance(stated, list):
             forms.append(
-                [item for item in stated
-                 if isinstance(item, dict)])
+                [unwrap(item) for item in stated
+                 if isinstance(unwrap(item), dict)])
         single = body.get("failure_record")
         if isinstance(single, dict):
-            forms.append([single])
-    forms.append([
-        obj["payload"] for obj in _walk(body)
-        if obj.get("entry_kind") == "failure_record"
-        and isinstance(obj.get("payload"), dict)])
+            forms.append([unwrap(single)])
+    gathered = []
+    entries_form(body, gathered)
+    forms.append(gathered)
 
     def count_of(counts, item):
         for standing, count in counts:
@@ -647,6 +702,17 @@ def _apply_control_failure_notice(body):
     under no warning key, in any form. A record that states
     no failed control carries no notice.
     """
+    if isinstance(body, list):
+        # A record reaching the pipeline as a list stands
+        # under the same pass: each object at its top
+        # level stands as a record top level for the pass,
+        # so a spoofed notice on one stands removed and a
+        # flagged one gains the fixed notice, as a dict
+        # record does (Step 17 round 5 entry S17-R5-043).
+        for item in body:
+            if isinstance(item, (dict, list)):
+                _apply_control_failure_notice(item)
+        return
     if not isinstance(body, dict):
         return
     # The notice stands only on a record that states a
@@ -658,16 +724,24 @@ def _apply_control_failure_notice(body):
     # record stating no failed control carries no notice:
     # its notice shaped fields do not stand in the
     # artefact in that role.
-    flagged = False
+    # The flag stands judged by truthiness, as the guide
+    # module judges the same field through bool() in
+    # draft_from_round, so one product reads a record as
+    # a failed control on the same terms the other
+    # renders its notice on; a control_flag standing at
+    # the record own top level states the failed control
+    # in the same way (Step 17 round 5 entry S17-R5-043).
+    flagged = bool(body.get("control_flag"))
     for obj in _walk(body):
         for key in ("control_failed", "control_failure"):
-            if obj.get(key) is True:
+            if obj.get(key):
                 flagged = True
     guide_notice = (
         "opening_text" in body and "actions" in body
         and body.get("control_failure_notice") == (
             "a control in this round failed, and no action "
             "stands produced from this round"))
+    guide_notice_text = body.get("control_failure_notice")
     # The nested removal runs on every path, not only on
     # the path where no flag and no guide notice stands:
     # a spoofed notice in a nested object stands removed
@@ -679,12 +753,22 @@ def _apply_control_failure_notice(body):
         for key in ("control_failure_notice", "control_notice",
                     "failed_control_notice"):
             obj.pop(key, None)
+    # The top level stands under the same removal, on the
+    # whole notice key set the pass itself states: a
+    # spoofed notice under any of the three keys at the
+    # top level stands removed as a nested one does, and
+    # only the fixed notice, or the guide notice a guide
+    # record carries in its own form, stands in its place
+    # (Step 17 round 5 entry S17-R5-043).
+    for key in ("control_failure_notice", "control_notice",
+                "failed_control_notice"):
+        body.pop(key, None)
     if flagged:
         body["control_failure_notice"] = CONTROL_FAILURE_NOTICE
         return
     if guide_notice:
+        body["control_failure_notice"] = guide_notice_text
         return
-    body.pop("control_failure_notice", None)
 
 
 def _apply_methods_note_version(body):
@@ -818,6 +902,14 @@ def _advanced_body(record):
     carry stood beside the values it travels with."""
     body = copy.deepcopy(_plain(record))
     if not isinstance(body, dict):
+        if isinstance(body, list):
+            # A list record stands under the passes that
+            # judge the objects it carries at its top
+            # level, the control notice pass and the scope
+            # pass, as a dict record does (Step 17 round 5
+            # entry S17-R5-043).
+            _apply_control_failure_notice(body)
+            _apply_agentic_scope(body)
         return body
     _apply_secondary_figure_recompute(body)
     _apply_anchor_limit(body)
@@ -853,6 +945,59 @@ def _advanced_body(record):
     return body
 
 
+def _key_components(key):
+    """The word components of one field name, split on its
+    separators and on its case shifts, in lower case."""
+    spaced = re.sub(
+        r"(?<=[a-z0-9])(?=[A-Z])", "_", str(key))
+    return [
+        part.lower() for part in re.split(
+            r"[^A-Za-z0-9]+", spaced) if part]
+
+
+def _names_rate(key):
+    """True where a field name names a rate, on the field
+    names the product itself uses, in the positions and
+    compounds those names stand in: the bare rate key and
+    the rates key, a rate component standing after another
+    component, as cited_rate and gross_rate_value stand,
+    the fused citedrate form, and a rate standing at the
+    head of a compound whose next component is a rate
+    qualifier the product uses, as rate_gross, rate_net,
+    and rate_value stand. A key holding the letters of
+    rate with no rate component, as accurate holds them,
+    names no rate, and a rate at the head of a compound
+    whose next component is no rate qualifier, as
+    rate_card stands, names none either, no product field
+    standing in that shape (Step 17 round 5 entry
+    S17-R5-042, with the Yellow adjacent run of round 5
+    at entry S17-R4-044)."""
+    parts = _key_components(key)
+    if not parts:
+        return False
+    if "rates" in parts:
+        return True
+    if "".join(parts) == "citedrate":
+        return True
+    if "rate" not in parts:
+        return False
+    index = parts.index("rate")
+    if index > 0 or len(parts) == 1:
+        return True
+    return parts[1] in ("gross", "net", "value", "pct",
+                        "percent")
+
+
+def _names_tier(key):
+    return any(
+        part in ("tier", "tiers")
+        for part in _key_components(key))
+
+
+def _names_wilson(key):
+    return "wilson" in _key_components(key)
+
+
 def _apply_agentic_scope(body):
     """The presence only bound as a field level property.
 
@@ -879,6 +1024,15 @@ def _apply_agentic_scope(body):
     for obj in _walk(body):
         if "claim_type" in obj and "value" in obj:
             continue
+        if "claim_type" in obj and "band" in obj:
+            # A ScoreObject carrying its band and its claim
+            # type but no value key stands as a ScoreObject
+            # still: its claim type is the scope value in
+            # every form, as a constant of its shape, and
+            # no missing value key shields it (Step 17
+            # round 5 entry S17-R5-042).
+            obj["claim_type"] = SCOPE_VALUE
+            continue
         # The pass own stated rule: any record object
         # carrying a score, a rate, or a tier also carries
         # the scope value in that same object. The shape
@@ -899,16 +1053,30 @@ def _apply_agentic_scope(body):
         # wilson_high carry one on their own, with no tier
         # standing beside them (Step 17 round 4 entry
         # S17-R4-044).
+        # The shape test stands on the pass own rule
+        # whole, on the field names the product itself
+        # uses in every position and compound those names
+        # stand in: a tier under a compound key, a rate at
+        # the head of its key or fused or case shifted,
+        # the wilson interval fields in their pairings,
+        # and a score under a compound key each carry a
+        # rate, a tier, an interval, or a score as the
+        # bare keys do (Step 17 round 5 entry S17-R5-042).
         carries = (
-            "tier" in obj
-            or "rate" in obj
+            any(
+                isinstance(key, str) and _names_tier(key)
+                for key in obj)
+            or any(
+                isinstance(key, str) and _names_rate(key)
+                for key in obj)
+            or any(
+                isinstance(key, str) and _names_wilson(key)
+                for key in obj)
             or any(
                 isinstance(key, str)
-                and ("_rate" in key
-                     or key in ("wilson_low", "wilson_high"))
-                for key in obj)
-            or ("score" in obj
-                and not isinstance(obj.get("score"), dict)))
+                and key in ("score", "overall_score")
+                and not isinstance(obj.get(key), dict)
+                for key in obj))
         if carries:
             # The scope value stands assigned outright on
             # an object that carries a rate or a tier, in
@@ -1098,6 +1266,10 @@ def _percent_int(value):
         Decimal(str(value)) * 100, "1"))
 
 
+_THOUSANDS_FIGURE_RE = re.compile(
+    r"^[+-]?\d{1,3}(?:,\d{3})+(?:\.\d+)?(?:[eE][+-]?\d+)?$")
+
+
 def _figure_or_none(value):
     """One figure position read as a figure or as none.
 
@@ -1115,6 +1287,18 @@ def _figure_or_none(value):
         try:
             parsed = float(value)
         except ValueError:
+            parsed = None
+        if parsed is None and _THOUSANDS_FIGURE_RE.match(
+                value.strip()):
+            # A thousands separated figure reads as the
+            # number it writes: the separator stands in
+            # its stated grouping, three digits to a group
+            # after the first, so the figure stands judged
+            # as a figure whole, where a misgrouped comma
+            # string reads as no figure and stands as text
+            # (Step 17 round 5 entry S17-R5-044).
+            parsed = float(value.strip().replace(",", ""))
+        if parsed is None:
             return None
         return parsed if math.isfinite(parsed) else None
     return value
@@ -1295,12 +1479,23 @@ def _emit(lines, key, value, depth, suppress_anchor_bare=False,
             else:
                 lines.append("%s  %s" % (pad, _scalar_text(item)))
         return
-    if isinstance(value, float) and (
+    # The four place set stands over the figure, in the
+    # form the record carries it: a figure carried as a
+    # string under a key the set names prints at four
+    # places as its float form does, judged through the
+    # same _figure_or_none reading the named positions
+    # use, and the bare score key stands in the set, a
+    # key the product itself treats as carrying a figure
+    # (Step 17 round 5 entries S17-R5-045 and S17-R5-046).
+    figure_form = isinstance(value, float) or (
+        isinstance(value, str)
+        and isinstance(_figure_or_none(value), float))
+    if figure_form and (
             key in _TREND_RATE_KEYS
             or key in ("rate", "share", "percent", "value",
                        "total_weight", "proportion", "ratio",
                        "earned", "weight", "applicable_weight",
-                       "design_effect")
+                       "design_effect", "score")
             or key in ("wilson_low", "wilson_high")
             or key.startswith("wilson_")
             or "_rate" in key
@@ -1309,7 +1504,7 @@ def _emit(lines, key, value, depth, suppress_anchor_bare=False,
             or key.endswith("_percent")
             or key.endswith("_gross")
             or key.endswith("_net")):
-        lines.append("%s%s: %s" % (pad, key, _rate_value_text(value)))
+        lines.append("%s%s: %s" % (pad, key, _figure_text(value)))
         return
     lines.append("%s%s: %s" % (pad, key, _scalar_text(value)))
     if key == "head_hash" and value and not suppress_anchor_bare:
@@ -1850,6 +2045,26 @@ def _render_staleness_simple(body):
     return lines
 
 
+def _failure_value_text(value):
+    """One stored field value in the Simple failure line.
+
+    A value holding one of the separators the line itself
+    is built from, the field separator, the sentence
+    separator, or the separator phrase, stands quoted, so
+    the value cannot forge a second field, a second
+    subject, or a second sentence inside the one line:
+    the break the separator limb states stands in the
+    line structure, and the quoting closes it while the
+    value itself stands character for character inside
+    its quotes (Step 17 round 5 entry S17-R5-049). A
+    value holding no separator stands as the plain
+    scalar text stands, as before."""
+    text = _scalar_text(value)
+    if ", " in text or ". " in text or " failed with " in text:
+        return '"%s"' % text
+    return text
+
+
 def _failure_record_line(failure):
     """One Simple line for one stored failure record,
     stating the stored payload as stored.
@@ -1859,8 +2074,10 @@ def _failure_record_line(failure):
     the payload does not hold stands in no form in the
     line: the scalar text for an absent value would
     state a value the store does not hold (Step 17
-    round 4 entry S17-R4-074). A payload holding none
-    of the three fields stands stated as holding none.
+    round 4 entry S17-R4-074). A partial payload states
+    every field it holds under its field name, and only
+    a payload holding no field at all stands stated as
+    holding none (Step 17 round 5 entry S17-R5-049).
     """
     operation = failure.get("operation")
     error_value = failure.get("error_value")
@@ -1869,16 +2086,38 @@ def _failure_record_line(failure):
             and subject is not None:
         return (
             "  %s failed with %s, subject %s."
-            % (_scalar_text(operation),
-               _scalar_text(error_value),
-               _scalar_text(subject)))
+            % (_failure_value_text(operation),
+               _failure_value_text(error_value),
+               _failure_value_text(subject)))
+    # A partial payload states the fields it holds, all
+    # of them, under their field names: the stored
+    # payload shape carries fields past the three the
+    # standing form renders, a date and a rule among
+    # them, and the figure fields a recovery record
+    # carries, and a payload holding any of them does
+    # not stand stated as holding no fields (Step 17
+    # round 5 entry S17-R5-049, merging reporting GR-8
+    # and White W-04).
     parts = []
-    if operation is not None:
-        parts.append("operation %s" % _scalar_text(operation))
-    if error_value is not None:
-        parts.append("error %s" % _scalar_text(error_value))
-    if subject is not None:
-        parts.append("subject %s" % _scalar_text(subject))
+    stated = set()
+    for key, label in (
+            ("operation", "operation"),
+            ("error_value", "error"),
+            ("subject_identity", "subject"),
+            ("date", "date"),
+            ("rule_fired", "rule_fired"),
+            ("restored_entry_count", "restored_entry_count"),
+            ("batch_count", "batch_count")):
+        if failure.get(key) is not None:
+            parts.append(
+                "%s %s" % (label, _failure_value_text(
+                    failure.get(key))))
+            stated.add(key)
+    for key, value in failure.items():
+        if key in stated or value is None:
+            continue
+        parts.append(
+            "%s %s" % (key, _failure_value_text(value)))
     if not parts:
         return (
             "  failure record: no fields stand in the "
@@ -1994,6 +2233,18 @@ def _fold(text):
     return " ".join(folded.split())
 
 
+# The one word token form, shared in shape with the
+# guide module tokeniser: a number stands as one token
+# whole, carrying its thousands separators in their
+# groups, its decimal parts at every point it carries,
+# and a letter suffix standing on its last part, so no
+# separator the number is written with splits it (Step
+# 17 round 5 entry S17-R5-047).
+_WORD_TOKEN_PATTERN = (
+    r"\d+(?:,\d{3})*(?:\.\d+)*(?:[^\W\d_]+)?"
+    r"|[^\W_]+(?:\.\d+)*")
+
+
 def _word_tokens(text):
     """The word tokens of one text, on the matching form
     the brief states at Section 5.1: case insensitive
@@ -2003,7 +2254,7 @@ def _word_tokens(text):
     number it stands in (Step 17 round 4 entry
     S17-R4-048)."""
     return re.findall(
-        r"[^\W_]+(?:\.\d+)?", _fold(text), flags=re.UNICODE)
+        _WORD_TOKEN_PATTERN, _fold(text), flags=re.UNICODE)
 
 
 def _tokens_match(tokens, entry_tokens):
@@ -2381,20 +2632,22 @@ def _rule_text_changed_rows(first, second, existing):
                 if after is not None
             }
             if stated_before or stated_after:
+                # The reservation counts by standing, not
+                # by set: a text a finding row of this
+                # token states stands reserved at each of
+                # its standings in the list, so a winning
+                # text written more than once for the
+                # token never pairs at any standing.
                 pair_removed = []
-                pending = set(stated_before)
                 for text in removed:
-                    if text in pending:
+                    if text in stated_before:
                         reserved.append((text, None))
-                        pending.discard(text)
                     else:
                         pair_removed.append(text)
                 pair_added = []
-                pending = set(stated_after)
                 for text in added:
-                    if text in pending:
+                    if text in stated_after:
                         reserved.append((None, text))
-                        pending.discard(text)
                     else:
                         pair_added.append(text)
         candidates = []

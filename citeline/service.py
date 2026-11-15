@@ -27,6 +27,7 @@ them in its own summary for that one target only.
 """
 
 import contextlib
+import contextvars
 import copy
 import hashlib
 import inspect
@@ -165,7 +166,23 @@ def _get(record, name, default=None):
     return getattr(record, name, default)
 
 
+# One fold instant for one artefact assembly (Step 17
+# round 5 entry S17-R5-058): where an assembly stands
+# opened on a snapshot fold, every corrections aware fold
+# taken inside that assembly reads the snapshot, so no
+# side of the artefact stands on a later instant than
+# another. The snapshot stands held per context, so a
+# nested or concurrent assembly never reads another
+# assembly's instant.
+_FOLD_SNAPSHOT = contextvars.ContextVar(
+    "citeline_fold_snapshot", default=None)
+
+
 def _fold(home, apply_corrections=False):
+    if apply_corrections:
+        snapshot = _FOLD_SNAPSHOT.get()
+        if snapshot is not None:
+            return copy.deepcopy(snapshot)
     journal = _journal()
     try:
         entries = journal.fold(
@@ -239,6 +256,72 @@ def _recover_interrupted_batch(home):
         recover(str(home))
     except Exception:
         pass
+    _signal_deferred_recovery(home, journal)
+
+
+def _signal_deferred_recovery(home, journal):
+    """Refuse a route head where a recovery stands deferred.
+
+    Where the recovery above did not land and a genuine
+    batch intent record still stands, the killed batch's
+    partial entries stand as the journal's ordinary state,
+    and a route that proceeds hands out an artefact, a
+    figure, or a standing record on that state in silence
+    (Step 17 round 5 entry S17-R5-071, merging White W-02
+    and Seams SEAMS-4). The route therefore stands refused
+    in the recorded vocabulary at the cap the deferral
+    stands on, token JOURNAL_CAP_EXCEEDED, and hands out
+    nothing. The judgement stands bounded to the deferral
+    form the entry names, in three ways. First, the intent
+    record must itself validate as a genuine record
+    through the journal validation the recovery runs: a
+    record the validation defers on another ground, the
+    damaged prefix and damaged config forms among them,
+    keeps the standing forms those grounds already state,
+    and a record the validation refuses names no batch.
+    Second, no signal stands where a live holder holds
+    the home: a batch in flight is the live window of
+    CARRY S17-R4-070, which this cure does not reach past,
+    and the lock probe the journal states answers that
+    question. Third, a non regular file at the intent
+    path stands never opened by this judgement.
+    """
+    intent_path = getattr(journal, "_batch_intent_path", None)
+    validate = getattr(journal, "_validate_batch_intent", None)
+    held_probe = getattr(journal, "_lock_held_by_other", None)
+    if intent_path is None or validate is None:
+        return
+    try:
+        path = intent_path(str(home))
+        if not os.path.lexists(path) or os.path.islink(path):
+            return
+        if not os.path.isfile(path):
+            return
+        if held_probe is not None and held_probe(str(home)):
+            return
+        with open(path, "r", encoding="utf-8") as handle:
+            import json
+            pairs_hook = getattr(journal, "_pairs_hook", None)
+            if pairs_hook is not None:
+                record = json.loads(
+                    handle.read(), object_pairs_hook=pairs_hook)
+            else:
+                record = json.loads(handle.read())
+        validated = validate(str(home), record)
+    except errors.CitelineError:
+        raise
+    except Exception:
+        return
+    defer_marker = getattr(journal, "_DEFER_BATCH_RECOVERY", None)
+    if validated is None or validated is defer_marker:
+        return
+    _fail(
+        "JOURNAL_CAP_EXCEEDED",
+        "a batch recovery stands deferred whole at the "
+        "journal length cap, its intent record standing "
+        "over a killed batch's partial entries; this route "
+        "hands out no artefact, figure, or standing record "
+        "on that partial state")
 
 
 def _guard_supplied_path(value):
@@ -704,6 +787,15 @@ def _validate_stored_entries(entries):
             for field in ("snapshot_id", "product_id"):
                 _require_typed_field(
                     payload, field, str, "snapshot")
+            # The path its readers consume stands judged
+            # with the identity strings (Step 17 round 5
+            # entry S17-R5-052): estate_grounds returns it
+            # as the product page path and the watch
+            # coverage count reads it, so a swapped form
+            # refuses at the readers instead of governing
+            # the grounds and the count in its string form.
+            _require_typed_field(
+                payload, "supplied_path", str, "snapshot")
             # The boolean its readers consume stands
             # judged with the identity strings (Step 17
             # round 4 entry S17-R4-055): a string false
@@ -1857,9 +1949,23 @@ def _front_matter_key_count(page_file):
     stands read whole here and the count runs to the
     closing fence wherever it stands. Where the first
     line is not a front matter fence, no block stands
-    and None stands returned. Keys are the block's top
-    level lines in key form, the same lines the
-    extraction front matter reading counts as keys.
+    and None stands returned.
+
+    The block this counter reads is the one block the
+    parser reads (Step 17 round 5 entry S17-R5-057): the
+    block closes at a line whose stripped form is the
+    opening fence or the dots fence, the two closings
+    the acquisition reading and the import seam counter
+    both state, and a block with no closing fence stands
+    as no block at all, its body lines counted as
+    nothing. The flow form stands as the parser reads
+    it: a block whose stripped text opens with a brace
+    stands parsed as a JSON object and its top level
+    keys stand counted, on one line or spread over
+    indented lines alike. The line form counts the
+    lines the parser's own line reading judges as key
+    value pairs, blank lines and comment lines among
+    the lines it passes over.
     """
     try:
         with open(str(page_file), "rb") as handle:
@@ -1879,11 +1985,33 @@ def _front_matter_key_count(page_file):
     lines = text.splitlines()
     if not lines or lines[0].strip() != "---":
         return None
-    count = 0
+    block_lines = []
+    closed = False
     for line in lines[1:]:
-        if line.strip() == "---":
+        if line.strip() in ("---", "..."):
+            closed = True
             break
-        if line and not line[0].isspace() and not line.startswith(
+        block_lines.append(line)
+    if not closed:
+        return None
+    block = "\n".join(block_lines).strip()
+    if block.startswith("{"):
+        import json
+        try:
+            parsed = json.loads(block)
+        except ValueError:
+            parsed = None
+        if isinstance(parsed, dict):
+            return len(parsed)
+    from citeline import acquisition as acquisition_module
+    pair_reading = getattr(
+        acquisition_module, "_front_matter_key_value", None)
+    count = 0
+    for line in block_lines:
+        if pair_reading is not None:
+            if pair_reading(line) is not None:
+                count += 1
+        elif line and not line[0].isspace() and not line.startswith(
                 "#") and ":" in line:
             count += 1
     return count
@@ -1996,6 +2124,94 @@ def _audit_assembly_lock(home):
         yield
 
 
+def _audit_correction_record(stored, true_snapshot_id):
+    """The corrected form of one standing audit record.
+
+    The correction restates two things and no more: the
+    snapshot identity, which stands as the identity of
+    the snapshot entry the record's own batch stored,
+    and the limits statement, which stands rebuilt from
+    the one limits reading the run started under and no
+    other (Step 17 round 5 entry S17-R5-072). The stored
+    record's own limits statement is that reading: its
+    by_limit stands as read at the run's start, so the
+    correction keeps that by_limit whole and restates
+    only the run identity the statement stands under,
+    the identity the record itself carries. No fresh
+    reading of the limits in force stands taken here,
+    so a config shift landing after the batch cannot
+    put the corrected record's statement on a reading
+    the run never enforced.
+    """
+    corrected = copy.deepcopy(stored)
+    if true_snapshot_id is not None:
+        corrected["snapshot_id"] = true_snapshot_id
+    stated = stored.get("limits_in_force")
+    if isinstance(stated, dict):
+        limits = copy.deepcopy(stated)
+        limits["run_id"] = stored.get("run_id")
+        limits.pop("run_reported", None)
+        corrected["limits_in_force"] = limits
+    return corrected
+
+
+def _audit_record_correction_owed(home, audit_sequence, stored):
+    """The correction one standing audit record stands owed,
+    or None where the record already denotes its batch.
+
+    A record stands owed a correction where the snapshot
+    identity it carries is not the identity of the
+    snapshot entry its own batch stored, the entry
+    standing immediately before its own in the journal,
+    or where its limits statement stands under a run
+    identity the record does not carry. Returns the
+    corrected record where one stands owed.
+    """
+    true_snapshot_id = None
+    if isinstance(audit_sequence, int):
+        for entry in _fold(home):
+            if _get(entry, "sequence") == audit_sequence - 1 \
+                    and _get(entry, "entry_kind") == \
+                    "snapshot_registered":
+                true_snapshot_id = _payload(entry).get(
+                    "snapshot_id")
+    stated_limits = stored.get("limits_in_force") or {}
+    if (true_snapshot_id is not None
+            and stored.get("snapshot_id") != true_snapshot_id) \
+            or (isinstance(stated_limits, dict)
+                and stated_limits
+                and stated_limits.get("run_id")
+                != stored.get("run_id")):
+        return _audit_correction_record(stored, true_snapshot_id)
+    return None
+
+
+def _land_audit_correction(home, audit_sequence, stored,
+                           audit_date=None):
+    """Land the correction one audit record stands owed.
+
+    The correction append stands judged at its own site
+    (Step 17 round 5 entry S17-R5-050): where the append
+    cannot land, at the journal cap among its forms, the
+    failure stands as the audit's own refusal, raised to
+    the caller, never passed over in silence with the
+    uncorrected record returned as success. Returns the
+    corrected record where the correction lands, and
+    None where no correction stands owed.
+    """
+    corrected = _audit_record_correction_owed(
+        home, audit_sequence, stored)
+    if corrected is None:
+        return None
+    journal = _journal()
+    journal.append_entry(
+        str(home), "correction",
+        {"supersedes_sequence": audit_sequence,
+         "corrected_record": corrected},
+        audit_date=audit_date)
+    return corrected
+
+
 def _audit_impl(*, home, page_file=None, robots_file=None,
                 evaluated_page_path=None, audit_date=None,
                 product=None, run_id=None):
@@ -2013,12 +2229,51 @@ def _audit_impl(*, home, page_file=None, robots_file=None,
     _recover_interrupted_batch(home)
     if run_id is None and page_file is not None:
         with _audit_assembly_lock(home):
-            return _audit_body(
+            result = _audit_body(
                 home=home, page_file=page_file,
                 robots_file=robots_file,
                 evaluated_page_path=evaluated_page_path,
                 audit_date=audit_date, product=product,
                 run_id=run_id)
+        # The assembly hold stands closed against a batch
+        # intent record planted inside it (Step 17 round 5
+        # entry S17-R5-051): the assembly lock barred the
+        # recovery from judging an intent planted during
+        # the hold, so the intent stands judged here, after
+        # the hold releases and before the assembly's
+        # entries stand reported settled. Where the
+        # judgement lands, the killed batch's rollback
+        # truncates the assembly's own entries with the
+        # batch's, and the audit stands refused at row I-2
+        # instead of returning a record over truncated
+        # entries. Where the record still stands unjudged
+        # after the attempt, at a deferred cap among its
+        # forms, the refusal stands the same, in the
+        # journal's own token for the state it names.
+        journal = _journal()
+        intent_path = getattr(
+            journal, "_batch_intent_path", None)
+        if intent_path is not None and os.path.lexists(
+                intent_path(str(home))):
+            landed = journal.recover_interrupted_batch(
+                str(home))
+            if landed:
+                _fail(
+                    "JOURNAL_VERIFY_FAILED",
+                    "a batch intent record planted inside "
+                    "the assembly hold stood judged after "
+                    "the hold released, and its rollback "
+                    "truncated the assembly's entries; the "
+                    "audit stands refused")
+            _signal_deferred_recovery(home, journal)
+            if os.path.lexists(intent_path(str(home))):
+                _fail(
+                    "JOURNAL_VERIFY_FAILED",
+                    "a batch intent record planted inside "
+                    "the assembly hold stands unjudged after "
+                    "the hold released; the audit stands "
+                    "refused")
+        return result
     return _audit_body(
         home=home, page_file=page_file, robots_file=robots_file,
         evaluated_page_path=evaluated_page_path,
@@ -2138,17 +2393,42 @@ def _audit_body(*, home, page_file=None, robots_file=None,
                 "form request on the standing run nor a "
                 "fresh audit" % ", ".join(fresh_named))
         standing = None
+        standing_sequence = None
         for entry in _fold(home, apply_corrections=True):
             if _get(entry, "entry_kind") != "audit_record":
                 continue
             payload = _payload(entry)
             if payload.get("run_id") == run_id:
                 standing = payload
+                standing_sequence = _get(entry, "sequence")
         if standing is None:
             _fail(
                 "UNKNOWN_ROUND",
                 "no completed audit record stands under the "
                 "identity given: %r" % (run_id,))
+        # The form request reader stands under the stored
+        # audit field discipline its sibling reader
+        # enforces (Step 17 round 5 entry S17-R5-053): the
+        # record stands judged by the same validation the
+        # full fold runs before it stands handed out, so a
+        # swapped field refuses here as it refuses at every
+        # other reader of the stored record.
+        _validate_audit_payload(standing)
+        # A standing record whose assembly correction never
+        # landed, the correction refused at the cap among
+        # its forms, stands healed at this reader where the
+        # correction can land now (Step 17 round 5 entry
+        # S17-R5-050): the correction lands here, rebuilt
+        # from the run's own reading, and the corrected
+        # record stands returned; where the correction
+        # still cannot land, the form request stands
+        # refused with it, never returning the miscited
+        # record as the run's form.
+        healed = _land_audit_correction(
+            home, standing_sequence, standing,
+            audit_date=audit_date)
+        if healed is not None:
+            standing = healed
         result = copy.deepcopy(standing)
         result["audit_run"] = copy.deepcopy(standing)
         return result
@@ -2404,26 +2684,19 @@ def _audit_body(*, home, page_file=None, robots_file=None,
     # of S17-R3-052 states for the entries the append
     # resolved.
     if audit_sequence is not None:
-        true_snapshot_id = stored_snapshot.get("snapshot_id")
-        stated_limits = stored.get("limits_in_force") or {}
-        if (true_snapshot_id is not None
-                and stored.get("snapshot_id") != true_snapshot_id) \
-                or stated_limits.get("run_id") != stored.get(
-                    "run_id"):
-            corrected = copy.deepcopy(stored)
-            if true_snapshot_id is not None:
-                corrected["snapshot_id"] = true_snapshot_id
-            corrected["limits_in_force"] = _limits_in_force(
-                home, stored.get("run_id"))
-            try:
-                journal.append_entry(
-                    str(home), "correction",
-                    {"supersedes_sequence": audit_sequence,
-                     "corrected_record": corrected},
-                    audit_date=audit_date)
-                stored = corrected
-            except Exception:
-                pass
+        # The correction stands landed or the audit stands
+        # refused, never a success reported over a
+        # correction that never landed (Step 17 round 5
+        # entry S17-R5-050): the append failure propagates
+        # as the audit's own refusal, in the recorded
+        # vocabulary of the state that barred it, and the
+        # corrected record is rebuilt from the run's own
+        # start reading by the shared correction builder
+        # (entry S17-R5-072).
+        landed = _land_audit_correction(
+            home, audit_sequence, stored, audit_date=audit_date)
+        if landed is not None:
+            stored = landed
     result = dict(stored)
     result["snapshot"] = stored_snapshot
     result["audit_run"] = dict(stored)
@@ -2634,8 +2907,17 @@ def _import_front_matter_limits(home, answer_file):
     block = "\n".join(block_lines).strip()
     if block.startswith("{"):
         import json
+        written_number = getattr(
+            import_module, "_WrittenNumber", None)
+        render_written = getattr(
+            import_module, "_render_written", None)
         try:
-            parsed = json.loads(block)
+            if written_number is not None:
+                parsed = json.loads(
+                    block, parse_int=written_number,
+                    parse_float=written_number)
+            else:
+                parsed = json.loads(block)
         except Exception:
             return
         if not isinstance(parsed, dict):
@@ -2648,11 +2930,28 @@ def _import_front_matter_limits(home, answer_file):
                 "no partial record" % ("%g" % (key_limit,),))
         if value_limit is not None:
             for value in parsed.values():
-                if isinstance(value, str):
+                # The measurement stands whole on a JSON
+                # numeric value, as the module measurement
+                # the F4 cure at entry S17-R5-033 landed
+                # states (Step 17 round 5 entry
+                # S17-R5-070): a number stands measured by
+                # the length of its written form, at a
+                # whole value position and inside a
+                # container alike, the container standing
+                # rendered in its written form, so the
+                # limit in force stands enforced on this
+                # route as the seam's docstring states.
+                if written_number is not None and isinstance(
+                        value, written_number):
+                    measured = len(str(value))
+                elif isinstance(value, str):
                     measured = len(value)
                 elif isinstance(value, (dict, list)):
-                    measured = len(json.dumps(
-                        value, ensure_ascii=False))
+                    if render_written is not None:
+                        measured = len(render_written(value))
+                    else:
+                        measured = len(json.dumps(
+                            value, ensure_ascii=False))
                 else:
                     measured = 0
                 if measured > value_limit:
@@ -3441,33 +3740,42 @@ def probe_report(*, home, product, round, form=None,
         _require_home(home)
         _recover_interrupted_batch(home)
         _barred_check(home)
-        product_record = _require_product(home, product)
-        round_record = _require_round(home, product_record, round)
-        # The surfacing fold stands taken at the head of
-        # the assembly, under the same instant the round
-        # assembly folds stand on (Step 17 round 4 entry
-        # S17-R4-075): one artefact stands on one fold
-        # instant, so a correction landing between the
-        # assembly folds and the surfacing fold enters
-        # neither side of the artefact in place of the
-        # other, and the whole corrected basis stands
-        # read by the next report over the home.
+        # The whole artefact stands on one fold instant
+        # (Step 17 round 5 entry S17-R5-058): the head fold
+        # stands taken here, before the product and round
+        # resolution, and every corrections aware fold of
+        # the assembly below reads that instant, the
+        # figure side and the failure side together, so a
+        # correction landing during the assembly enters
+        # neither side of this artefact in place of the
+        # other, and the whole corrected basis stands read
+        # by the next report over the home. The round 4
+        # head surfacing of entry S17-R4-075 stands inside
+        # this wider instant unchanged.
+        fold_token = _FOLD_SNAPSHOT.set(
+            _fold(home, apply_corrections=True))
         try:
-            surface_payloads = _failure_record_payloads(home)
-        except errors.CitelineError:
-            raise
-        except Exception:
-            surface_payloads = None
-        result = _probe_report_record(
-            home, product_record, round_record,
-            audit_date=audit_date)
-        _check_run_backstop(home, run_started)
-        if surface_payloads is None:
-            _surface_failure_records(result, home)
-        elif surface_payloads:
-            result["failure_records"] = surface_payloads
-        from citeline import reporting
-        return reporting.render(result, form=form or "advanced")
+            product_record = _require_product(home, product)
+            round_record = _require_round(
+                home, product_record, round)
+            try:
+                surface_payloads = _failure_record_payloads(home)
+            except errors.CitelineError:
+                raise
+            except Exception:
+                surface_payloads = None
+            result = _probe_report_record(
+                home, product_record, round_record,
+                audit_date=audit_date)
+            _check_run_backstop(home, run_started)
+            if surface_payloads is None:
+                _surface_failure_records(result, home)
+            elif surface_payloads:
+                result["failure_records"] = surface_payloads
+            from citeline import reporting
+            return reporting.render(result, form=form or "advanced")
+        finally:
+            _FOLD_SNAPSHOT.reset(fold_token)
     except errors.CitelineError as exc:
         if getattr(exc, "token", None) != "MALFORMED_CALL":
             _append_failure_record(
@@ -3665,6 +3973,66 @@ def export_capture_worksheet(*, home, product, round, queries=None,
 # Guide: calls over the guide component, stored as guide_record.
 # ----------------------------------------------------------------
 
+# The guide store re-read bound, stated in the open
+# where it binds (Step 17 round 5 entry S17-R5-059): the
+# guide assembly re-reads the standing audit record at
+# most this many times while rebuilding its draft on a
+# record that moved, and the store itself stands judged
+# under a sealed hold at the append, as the registry
+# cure at entry S17-R5-006 states its own bound.
+GUIDE_STORE_RE_READ_LIMIT = 5
+
+
+def _store_guide_draft(home, draft, run_id, basis_record,
+                       audit_date):
+    """Store one guide draft, judged at the store.
+
+    The final judgement and the append stand inside one
+    sealed journal hold (Step 17 round 5 entry
+    S17-R5-059): inside the hold the standing audit
+    record stands re-read, and where it differs from the
+    record the draft stands built on, the store stands
+    refused and nothing stands stored, so no guide
+    stands stored on a superseded basis. A correction
+    append attempted by other code inside the hold
+    stands contended at the sealed container and lands
+    nothing, so the append gate form of the race stands
+    closed as the re-read form stands closed. The guide
+    append itself joins the hold under the journal join
+    authorization for its exact payload.
+    """
+    journal = _journal()
+    write_lock = getattr(journal, "_WriteLock", None)
+    join = getattr(journal, "_join_authorization", None)
+    payload = copy.deepcopy(draft)
+    if write_lock is None or join is None:
+        return journal.append_entry(
+            str(home), "guide_record", payload,
+            audit_date=audit_date or draft.get("audit_date"))
+    with write_lock(str(home), kind="batch"):
+        standing = None
+        for entry in _fold(home, apply_corrections=True):
+            if _get(entry, "entry_kind") != "audit_record":
+                continue
+            candidate = _payload(entry)
+            if candidate.get("run_id") == run_id:
+                standing = candidate
+        if standing is None or standing != basis_record:
+            _fail(
+                "VALIDATION_FAILED",
+                "the standing audit record at the guide "
+                "store differs from the record the draft "
+                "stands built on; the guide stands refused "
+                "at the store and nothing stands stored")
+        lock_path = getattr(journal, "_lock_path", None)
+        join_path = lock_path(str(home)) if lock_path \
+            is not None else str(home)
+        with join(join_path, "guide_record", payload):
+            return journal.append_entry(
+                str(home), "guide_record", payload,
+                audit_date=audit_date or draft.get("audit_date"))
+
+
 def _guide_impl(*, home, run_id=None, product=None,
                 round_label=None, audit_date=None):
     """One guide draft, from one audit record or one round.
@@ -3673,7 +4041,11 @@ def _guide_impl(*, home, run_id=None, product=None,
     the one completed record the call names, and stands
     stored as one guide_record entry through the journal.
     A refusal stands as a completed outcome of the draft
-    itself and carries no error value.
+    itself and carries no error value. The re-read loop
+    that rebuilds the draft on a moved record stands
+    bounded at GUIDE_STORE_RE_READ_LIMIT attempts, stated
+    in the open at the constant above, and the store
+    stands judged at the store under _store_guide_draft.
 
     The selector rule (brief Section 5.12) takes exactly
     one of run_id, or product with round label. Both
@@ -3780,7 +4152,7 @@ def _guide_impl(*, home, run_id=None, product=None,
         # stands rebuilt from the standing record, so no
         # stored guide rests on a superseded audit
         # record while citing its run as its source.
-        for _attempt in range(5):
+        for _attempt in range(GUIDE_STORE_RE_READ_LIMIT):
             fresh_record = None
             for entry in _fold(home, apply_corrections=True):
                 if _get(entry, "entry_kind") != "audit_record":
@@ -3810,9 +4182,13 @@ def _guide_impl(*, home, run_id=None, product=None,
             canonical_line=bound_record.get("canonical_line"),
             audit_date=audit_date,
             answers=answers)
-    entry = journal.append_entry(
-        str(home), "guide_record", copy.deepcopy(draft),
-        audit_date=audit_date or draft.get("audit_date"))
+    if run_id is not None:
+        entry = _store_guide_draft(
+            home, draft, run_id, audit_record, audit_date)
+    else:
+        entry = journal.append_entry(
+            str(home), "guide_record", copy.deepcopy(draft),
+            audit_date=audit_date or draft.get("audit_date"))
     result = dict(draft)
     sequence = _get(entry, "sequence", None)
     if sequence is None:

@@ -221,6 +221,53 @@ def _journal_version(home):
 
 
 @contextlib.contextmanager
+def _append_guard(home):
+    """Hold the journal write lock, sealed, across the final
+    version check of one registry cycle and its append.
+
+    A version check standing before an append is a check,
+    not a guard: a correction appended through the journal
+    between the check and the append lands on a view the
+    cycle judged before it (Step 17 round 5 entry
+    S17-R5-006). The final check therefore stands inside
+    this hold, and the cycle append stands inside it too.
+    The hold is the journal lock in its sealed batch form:
+    it grants no join permit and it suspends any permit it
+    joined under, so an append attempted inside the window
+    by any other writer, a correction among them, stands
+    contended and stores nothing, in the journal
+    vocabulary, exactly as a caller in another process
+    stands. The cycle own append joins only through the
+    one call authorization _append_guarded registers for
+    it. Where the journal module offers no lock, the cycle
+    proceeds unguarded, as it stood before this cure.
+    """
+    journal = _journal()
+    lock_class = getattr(journal, "_WriteLock", None)
+    if lock_class is None:
+        yield
+        return
+    with lock_class(str(home), kind="batch"):
+        yield
+
+
+def _append_guarded(home, kind, payload, audit_date):
+    """Append one entry inside _append_guard, authorized
+    for that exact call: the authorization names the entry
+    kind and the payload object of this call, and the
+    journal lock consumes it at the point this append
+    itself takes the lock, so no other append attempted
+    in the window can join on it."""
+    journal = _journal()
+    authorization = getattr(journal, "_join_authorization", None)
+    lock_path = getattr(journal, "_lock_path", None)
+    if authorization is None or lock_path is None:
+        return _append(home, kind, payload, audit_date)
+    with authorization(lock_path(str(home)), kind, payload):
+        return _append(home, kind, payload, audit_date)
+
+
+@contextlib.contextmanager
 def _registry_lock(home):
     """Serialise one registry read, edit, append cycle.
 
@@ -342,11 +389,20 @@ def validate_alias(value):
               "alias must hold more than spaces alone: an "
               "alias that folds to the empty string stands "
               "refused at this boundary")
-    if not any(ch.isalnum() for ch in value):
+    if not any(unicodedata.category(ch).startswith("L")
+               or unicodedata.category(ch) == "Nd"
+               for ch in value):
         _fail("VALIDATION_FAILED",
               "alias must hold a letter or a digit: an alias "
               "with no name in it stands refused at this "
-              "boundary (Step 17 round 4 entry S17-R4-016)")
+              "boundary (Step 17 round 4 entry S17-R4-016, "
+              "the test standing as stated at round 5 entry "
+              "S17-R5-009: a letter is a character of a letter "
+              "category and a digit is a character of the "
+              "decimal number category, so a character of a "
+              "number category that is neither, the letter "
+              "number and other number forms among them, "
+              "counts as neither)")
     if any(mark in value for mark in _ZERO_WIDTH):
         _fail("VALIDATION_FAILED",
               "alias must carry no zero width character")
@@ -622,6 +678,26 @@ def _snapshots(home):
             record = _as_record(payload)
         snapshot_id = record.get("snapshot_id")
         if snapshot_id:
+            # The fold keys its dict by the identity, so the
+            # identity stands judged against the stored field
+            # discipline before the keying, as the readers
+            # that validate first judge it: an identity in a
+            # form that is not a string, an unhashable form
+            # among them, stands refused in the recorded
+            # vocabulary here instead of crashing the fold
+            # raw (Step 17 round 5 entry S17-R5-064).
+            if not isinstance(snapshot_id, str):
+                _fail("VALIDATION_FAILED",
+                      "the stored snapshot record carries "
+                      "snapshot_id in a form its readers "
+                      "cannot use: %r" % (snapshot_id,))
+            product_id = record.get("product_id")
+            if product_id is not None \
+                    and not isinstance(product_id, str):
+                _fail("VALIDATION_FAILED",
+                      "the stored snapshot record carries "
+                      "product_id in a form its readers "
+                      "cannot use: %r" % (product_id,))
             if snapshot_id not in snapshots:
                 order.append(snapshot_id)
             snapshots[snapshot_id] = record
@@ -803,7 +879,19 @@ def _store_change(home, record, audit_date, version=None):
         raise _StaleView()
     record = copy.deepcopy(record)
     record["registry_version"] = int(record.get("registry_version", 1)) + 1
-    _append(home, "registry_change", _payload_product(record), audit_date)
+    payload = _payload_product(record)
+    if version is not None:
+        # The version judgement and the append stand inside
+        # one sealed hold, so no correction can land between
+        # the judgement this append rests on and the append
+        # itself (Step 17 round 5 entry S17-R5-006).
+        with _append_guard(home):
+            if _journal_version(home) != version:
+                raise _StaleView()
+            _append_guarded(
+                home, "registry_change", payload, audit_date)
+    else:
+        _append(home, "registry_change", payload, audit_date)
     return _public_product(record)
 
 
@@ -924,8 +1012,18 @@ def _add_product_cycle(home, name, candidate, stated, audit_date):
                 "allowed values: name %s, canonical_line %s, domain %s"
                 % (existing.get("name"), existing.get("canonical_line"),
                    existing.get("domain")))
-        _append(home, "product_registered", _payload_product(candidate),
-                audit_date)
+        payload = _payload_product(candidate)
+        with _append_guard(home):
+            if _journal_version(home) != version:
+                if _attempt < 4:
+                    continue
+                _fail("VALIDATION_FAILED",
+                      "the registry record moved under every "
+                      "attempt of this cycle, so the cycle "
+                      "writes nothing on a superseded view "
+                      "(Step 17 round 5 entry S17-R5-006)")
+            _append_guarded(
+                home, "product_registered", payload, audit_date)
         return _public_product(candidate)
 
 
@@ -950,7 +1048,11 @@ def set_canonical_line(home, product=None, line=None, audit_date=None,
                 continue
         record = _require_product(home, product)
         record["canonical_line"] = line
-        return _store_change(home, record, audit_date)
+        _fail("VALIDATION_FAILED",
+              "the registry record moved under every "
+              "attempt of this cycle, so the cycle "
+              "writes nothing on a superseded view "
+              "(Step 17 round 5 entry S17-R5-006)")
 
 
 def set_competitors(home, product=None, competitors=None,
@@ -976,7 +1078,11 @@ def set_competitors(home, product=None, competitors=None,
                 continue
         record = _require_product(home, product)
         record["competitors"] = records
-        return _store_change(home, record, audit_date)
+        _fail("VALIDATION_FAILED",
+              "the registry record moved under every "
+              "attempt of this cycle, so the cycle "
+              "writes nothing on a superseded view "
+              "(Step 17 round 5 entry S17-R5-006)")
 
 
 def set_aliases(home, product=None, aliases=None, audit_date=None,
@@ -997,7 +1103,11 @@ def set_aliases(home, product=None, aliases=None, audit_date=None,
                 continue
         record = _require_product(home, product)
         record["aliases"] = alias_list
-        return _store_change(home, record, audit_date)
+        _fail("VALIDATION_FAILED",
+              "the registry record moved under every "
+              "attempt of this cycle, so the cycle "
+              "writes nothing on a superseded view "
+              "(Step 17 round 5 entry S17-R5-006)")
 
 
 def set_query_set(home, product=None, query_set=None, audit_date=None,
@@ -1020,7 +1130,11 @@ def set_query_set(home, product=None, query_set=None, audit_date=None,
         record["query_set"] = query_list
         record["query_set_version"] = int(
             record.get("query_set_version", 1)) + 1
-        return _store_change(home, record, audit_date)
+        _fail("VALIDATION_FAILED",
+              "the registry record moved under every "
+              "attempt of this cycle, so the cycle "
+              "writes nothing on a superseded view "
+              "(Step 17 round 5 entry S17-R5-006)")
 
 
 def set_category(home, product=None, category=None, audit_date=None,
@@ -1041,7 +1155,11 @@ def set_category(home, product=None, category=None, audit_date=None,
                 continue
         record = _require_product(home, product)
         record["category"] = category_list
-        return _store_change(home, record, audit_date)
+        _fail("VALIDATION_FAILED",
+              "the registry record moved under every "
+              "attempt of this cycle, so the cycle "
+              "writes nothing on a superseded view "
+              "(Step 17 round 5 entry S17-R5-006)")
 
 
 def _append_register_failure(home, token, subject, audit_date):
@@ -1148,8 +1266,24 @@ def register_page(home, product=None, snapshot=None, audit_date=None,
             base["snapshot_id"] = snapshot_id
             base["product_id"] = record["product_id"]
             base["is_product_page"] = True
-            _append(home, "snapshot_registered", base, audit_date)
+            with _append_guard(home):
+                if _journal_version(home) != version:
+                    if _attempt < 4:
+                        continue
+                    _fail("VALIDATION_FAILED",
+                          "the registry record moved under "
+                          "every attempt of this cycle, so "
+                          "the cycle writes nothing on a "
+                          "superseded view (Step 17 round 5 "
+                          "entry S17-R5-006)")
+                _append_guarded(
+                    home, "snapshot_registered", base, audit_date)
             return copy.deepcopy(base)
+        _fail("VALIDATION_FAILED",
+              "the registry record moved under every attempt "
+              "of this cycle, so the cycle writes nothing on "
+              "a superseded view (Step 17 round 5 entry "
+              "S17-R5-006)")
 
 
 # Round declaration values. The plan Section 5.1 values stand
@@ -1295,6 +1429,22 @@ def name_round(home, product=None, round_label=None,
                 "detector_version_at_first_import": None,
                 "created_by": "name_round",
             }
-            _append(home, "round_named",
-                    copy.deepcopy(round_record), audit_date)
+            payload = copy.deepcopy(round_record)
+            with _append_guard(home):
+                if _journal_version(home) != version:
+                    if _attempt < 4:
+                        continue
+                    _fail("VALIDATION_FAILED",
+                          "the registry record moved under "
+                          "every attempt of this cycle, so "
+                          "the cycle writes nothing on a "
+                          "superseded view (Step 17 round 5 "
+                          "entry S17-R5-006)")
+                _append_guarded(
+                    home, "round_named", payload, audit_date)
             return copy.deepcopy(round_record)
+        _fail("VALIDATION_FAILED",
+              "the registry record moved under every attempt "
+              "of this cycle, so the cycle writes nothing on "
+              "a superseded view (Step 17 round 5 entry "
+              "S17-R5-006)")

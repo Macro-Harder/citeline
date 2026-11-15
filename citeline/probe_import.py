@@ -58,6 +58,16 @@ _ARCHIVE_MAGICS = (
     bytes.fromhex("526172211A070100"),
     bytes.fromhex("28B52FFD"),
     b"!<arch>\n",
+    b"070701",
+    b"070702",
+    b"MSCF",
+)
+
+_ZIP_MAGICS = (
+    bytes.fromhex("504B0304"),
+    bytes.fromhex("504B0708"),
+    bytes.fromhex("504B0506"),
+    bytes.fromhex("504B0606"),
 )
 
 _SPEAKER_RE = re.compile(
@@ -223,6 +233,9 @@ _DEFAULT_IGNORABLE_RANGES = (
     (0xFFA0, 0xFFA0),
     (0x1D173, 0x1D182),
     (0xE0100, 0xE01EF),
+    (0x2060, 0x206F),
+    (0xFFF0, 0xFFF8),
+    (0xE0000, 0xE0FFF),
 )
 
 
@@ -264,8 +277,9 @@ def _is_head_char(char):
         char == "\ufeff"
         or ord(char) < 0x20
         or ord(char) == 0x7f
+        or 0x80 <= ord(char) <= 0x9f
         or char in " \t\n\r\f"
-        or unicodedata.category(char) in ("Cf", "Zs")
+        or unicodedata.category(char) in ("Cf", "Zs", "Zl", "Zp")
         or _is_default_ignorable(char))
 
 
@@ -358,6 +372,94 @@ def _loads_json(text):
         return None, False
 
 
+def _is_tar_header(variant):
+    """True where the first 512 bytes stand as a tar header.
+
+    A pre POSIX V7 tar carries no ustar marker and no head
+    magic: its header stands judged by its own checksum
+    field, the stored octal sum standing against the sum
+    of the header bytes with that field held as spaces
+    (entry S17-R5-060).
+    """
+    if len(variant) < 512:
+        return False
+    block = variant[:512]
+    if block[0] == 0:
+        return False
+    field = block[148:156].strip(b"\x00 ")
+    if not field:
+        return False
+    try:
+        stored = int(field, 8)
+    except ValueError:
+        return False
+    unsigned = sum(block[:148]) + 8 * 0x20 + sum(block[156:512])
+    signed = sum(
+        byte if byte < 0x80 else byte - 0x100 for byte in block[:148]) \
+        + 8 * 0x20 + sum(
+            byte if byte < 0x80 else byte - 0x100
+            for byte in block[156:512])
+    return stored in (unsigned, signed)
+
+
+_LINE_TERMINATORS = frozenset(
+    chr(code) for code in (
+        0x0A, 0x0D, 0x0B, 0x0C, 0x1C, 0x1D, 0x1E, 0x85, 0x2028, 0x2029))
+
+
+def _pdf_header_at_line_start(variant):
+    """True where a PDF header stands at the start of a line
+    within the first 1,024 bytes of one raw variant.
+
+    A line stands closed by any line terminator the text
+    reading itself uses, and head material standing on the
+    line itself, between the break and the header, stands
+    skipped as the head reading skips it at the head of a
+    file (entry S17-R5-027). The header stands judged by
+    where it starts, so a header starting inside the
+    window stands found whole even where its own bytes
+    run past the window end.
+    """
+    index = 0
+    at_line_start = False
+    total = len(variant)
+    while index < total:
+        first = variant[index]
+        if first < 0x80:
+            char = chr(first)
+            width = 1
+        else:
+            char = None
+            width = 1
+            for candidate_width in (2, 3, 4):
+                try:
+                    decoded = variant[index:index + candidate_width] \
+                        .decode("utf-8")
+                except (UnicodeDecodeError, ValueError):
+                    continue
+                if len(decoded) == 1:
+                    char = decoded
+                    width = candidate_width
+                    break
+            if char is None:
+                at_line_start = False
+                index += 1
+                continue
+        if char in _LINE_TERMINATORS:
+            at_line_start = True
+            index += width
+            continue
+        if at_line_start:
+            if index <= 1024 and variant[index:index + 5] == b"%PDF-":
+                return True
+            if _is_head_char(char):
+                index += width
+                continue
+            at_line_start = False
+        index += width
+    return False
+
+
 def check11_form(raw_bytes, text):
     """Run the six tests of validation check 11.
 
@@ -370,19 +472,30 @@ def check11_form(raw_bytes, text):
         for magic in _ARCHIVE_MAGICS:
             if variant.startswith(magic):
                 return "archive"
+        for magic in _ZIP_MAGICS:
+            if magic in variant:
+                # A zip archive preceded by arbitrary data
+                # stands as the self extracting form, and a
+                # standard reader locates the archive behind
+                # the prefix, so the zip family stands read
+                # behind a prefix as no other family does
+                # (entry S17-R5-028).
+                return "archive"
         if len(variant) >= 262 and variant[257:262] == b"ustar":
             # A tar archive carries no head magic: its
             # ustar marker stands at offset 257 of the
             # first header block (entry S17-R4-064).
             return "archive"
+        if _is_tar_header(variant):
+            return "archive"
         if variant.startswith(b"%PDF-"):
             return "pdf"
-        if b"\n%PDF-" in variant[:1024] \
-                or b"\r%PDF-" in variant[:1024]:
+        if _pdf_header_at_line_start(variant):
             # A PDF header standing at the start of a
             # line near the head of the file, after a
             # junk first line, stands as a PDF header
-            # (entry S17-R4-064).
+            # (entry S17-R4-064, completed at entry
+            # S17-R5-027).
             return "pdf"
     first = _detection_text(text)
     lowered = first.casefold()
@@ -526,6 +639,78 @@ class _WrittenNumber(str):
     """
 
 
+def _holds_tag_construct(text):
+    """True where a key or value text holds a tag construct.
+
+    The D17 control set states no allowance for a tag
+    construct in front matter, at any position: a construct
+    standing at the start of the text, a construct spelling
+    standing as its own word later in the text (an anchor,
+    an alias, a tag, or a directive spelling after the
+    first word), an angle bracket tag spelling anywhere in
+    the text, and a block scalar opening standing as the
+    value all stand refused (entries S17-R4-032,
+    S17-R5-031, and S17-R5-067).
+    """
+    if text.startswith(("!", "&", "*", "%")):
+        return True
+    if re.search(r"<[A-Za-z][^>]*>", text):
+        return True
+    if re.search(r"(?:^|\s)[&*%!][A-Za-z]", text):
+        return True
+    if re.match(r"^[|>](?:[+-]?[0-9]?)?(?:\s|$)", text):
+        return True
+    return False
+
+
+def _json_holds_tag_construct(value):
+    """True where any string in a JSON form value, at any
+    depth, in a key or in a value, holds a tag construct.
+
+    The JSON form of a front matter block stands under the
+    same control set as the line form, whole (entry
+    S17-R5-067).
+    """
+    if isinstance(value, _WrittenNumber):
+        return False
+    if isinstance(value, str):
+        return _holds_tag_construct(_strip_head(value.strip()))
+    if isinstance(value, dict):
+        return any(
+            _holds_tag_construct(_strip_head(str(key).strip()))
+            or _json_holds_tag_construct(item)
+            for key, item in value.items())
+    if isinstance(value, list):
+        return any(_json_holds_tag_construct(item) for item in value)
+    return False
+
+
+def _render_written(value):
+    """One parsed JSON value rendered with its numbers in
+    written form.
+
+    A container value stands measured by this rendering, so
+    a number standing inside a container stands measured by
+    its written form as a number standing as a whole value
+    does, and no conversion of the number, to an integer, to
+    a float, or to infinity, discards that form (entry
+    S17-R5-033).
+    """
+    if isinstance(value, _WrittenNumber):
+        return str(value)
+    if isinstance(value, str):
+        return json.dumps(value, ensure_ascii=False)
+    if isinstance(value, dict):
+        return "{" + ", ".join(
+            json.dumps(str(key), ensure_ascii=False) + ": "
+            + _render_written(item)
+            for key, item in value.items()) + "}"
+    if isinstance(value, list):
+        return "[" + ", ".join(
+            _render_written(item) for item in value) + "]"
+    return json.dumps(value)
+
+
 def _plain_json_value(value):
     """One parsed JSON value with its numbers restored
     to plain numeric form, for rendered measurement of
@@ -637,14 +822,18 @@ def extract_front_matter(text):
             _fail("LIMIT_EXCEEDED",
                   "JSON nesting depth limit is 100, with "
                   "rejection and no partial record")
+        if _json_holds_tag_construct(parsed):
+            _fail("IMPORT_VALIDATION_FAILED",
+                  "the front matter block holds a tag "
+                  "construct, which the front matter "
+                  "control set refuses")
         for value in parsed.values():
             if isinstance(value, _WrittenNumber):
                 measured = len(value)
             elif isinstance(value, str):
                 measured = len(value)
             elif isinstance(value, (dict, list)):
-                measured = len(json.dumps(
-                    _plain_json_value(value), ensure_ascii=False))
+                measured = len(_render_written(value))
             else:
                 measured = 0
             if measured > FRONT_MATTER_VALUE_LIMIT:
@@ -679,9 +868,8 @@ def extract_front_matter(text):
                               "front matter value length limit "
                               "is 4,096 characters, with "
                               "rejection and no partial record")
-                    if continuation.startswith(
-                            ("!", "&", "*", "%")) or re.search(
-                            r"<[A-Za-z][^>]*>", continuation):
+                    if _holds_tag_construct(
+                            _strip_head(continuation)):
                         _fail("IMPORT_VALIDATION_FAILED",
                               "the front matter block holds a "
                               "tag construct, which the front "
@@ -723,8 +911,17 @@ def extract_front_matter(text):
                       + key + " twice; front matter keys "
                       "stand once each")
             seen_keys.add(key)
-            if key.startswith(("!", "&", "*", "%")) or \
-                    re.search(r"<[A-Za-z][^>]*>", key):
+            # The construct and bracket judgements stand on
+            # the key and on the value with any head material
+            # standing in front of the judged text removed, so
+            # one such character, or a space inside a quoted
+            # key, does not move a construct off the judged
+            # position (entry S17-R5-031), and the bracket
+            # judgement stands on the key as on the value
+            # (entry S17-R5-032).
+            judged_key = _strip_head(key)
+            judged_value = _strip_head(value)
+            if _holds_tag_construct(judged_key):
                 # The line form checks stand on the key
                 # position as on the value side (entry
                 # S17-R4-032).
@@ -732,8 +929,13 @@ def extract_front_matter(text):
                       "the front matter block holds a tag "
                       "construct, which the front matter "
                       "control set refuses")
-            if value.startswith(("!", "&", "*", "%")) or \
-                    re.search(r"<[A-Za-z][^>]*>", value):
+            if (judged_key.count("[") != judged_key.count("]")
+                    or judged_key.count("{")
+                    != judged_key.count("}")):
+                _fail("IMPORT_VALIDATION_FAILED",
+                      "a front matter key is not closed: "
+                      + judged_key[:60])
+            if _holds_tag_construct(judged_value):
                 _fail("IMPORT_VALIDATION_FAILED",
                       "the front matter block holds a tag "
                       "construct, which the front matter "
@@ -1068,7 +1270,7 @@ def build_answer_record(validated, *, text, content_hash, form_marks,
     }
 
 
-def _resolve_standing_marker(value, base=None):
+def _resolve_standing_marker(value, base=None, record=None):
     """Resolve the sequence marker in one standing identity.
 
     The marker resolves against the batch position the
@@ -1157,6 +1359,16 @@ def _record_from_body(validated, *, body_text, raw_bytes,
     here too, in a worksheet slot as in a file.
     """
     form = check11_form(raw_bytes, body_text)
+    if form is None:
+        # The body stands judged as the body, as this
+        # reading states its own rule: check 11 runs on
+        # the body exactly as it runs on a standalone
+        # file, so a container standing behind a front
+        # matter block stands at the positions the tests
+        # read in the body itself, and material a
+        # standalone file refuses stands refused here
+        # (entry S17-R5-060).
+        form = check11_form(body_text.encode("utf-8"), body_text)
     if form is not None:
         _form_refusal(form)
     if is_transcript_form(body_text):
@@ -1192,7 +1404,8 @@ def _record_from_body(validated, *, body_text, raw_bytes,
             # by an unresolved marker the batch append would
             # have resolved at its storing sequence (entry
             # S17-R2-097).
-            standing_id = standing_id_resolver(standing_id)
+            standing_id = standing_id_resolver(
+                standing_id, record=standing)
         name = (" (standing answer " + str(standing_id) + ")"
                 if standing_id is not None else "")
         _fail("CONTRADICTORY_IMPORT",
@@ -1252,12 +1465,18 @@ def _worksheet_lines(text):
         # judgement, and a line that reads as the header
         # once that material stands removed stands as
         # the header line itself (entry S17-R4-028).
-        squashed = "".join(
-            char for char in candidate if not _is_head_char(char))
-        expected = "".join(
-            char for char in WORKSHEET_HEADER
-            if not _is_head_char(char))
-        if squashed == expected:
+        # The word structure of the header stands judged:
+        # head material that is not the ordinary space
+        # stands removed for the judgement, and the spaces
+        # that separate the header words stand as written,
+        # so a line the export never wrote, with no
+        # separation, with doubled spaces, with a space
+        # between letters, or with tabs in place of the
+        # spaces, reads as no header (entry S17-R5-029).
+        judged = "".join(
+            char for char in candidate
+            if not _is_head_char(char) or char == " ")
+        if judged == WORKSHEET_HEADER:
             lines[index] = WORKSHEET_HEADER
         else:
             lines[index] = candidate
@@ -1339,29 +1558,30 @@ def _parse_slot_line(line):
         # open, on the judgement limb of S17-R2-036.
         return None
     rest = match.group(2)
-    for marker in _SLOT_FIELD_MARKERS:
-        if rest.count(marker) > 1:
-            # A slot line carries no field marker twice
-            # (entry S17-R4-030).
-            return None
+    # A field marker stands counted in every separator
+    # dressing, not only in the one exact form the export
+    # writes: a marker separated by a tab or by no break
+    # spaces in place of the plain spaces stands as the
+    # marker it is, so a second copy dressed in another
+    # separator stands counted, and a line whose markers
+    # do not stand exactly once each, in the exported
+    # order, is no slot line (entries S17-R4-030 and
+    # S17-R5-030).
+    assignments = []
+    for found in re.finditer(
+            r"(query|engine_label|kind|captured_on|capture_method)"
+            r"\s*=\s*", rest):
+        if found.start() > 0 and not rest[found.start() - 1].isspace():
+            continue
+        assignments.append(found)
+    if [found.group(1) for found in assignments] \
+            != list(_SLOT_FIELDS):
+        return None
     values = {}
-    position = 0
-    starts = {}
-    for field in _SLOT_FIELDS:
-        marker = " " + field + "= "
-        start = rest.find(marker, position)
-        if start < 0:
-            return None
-        if field == _SLOT_FIELDS[0] and start != 0:
-            return None
-        starts[field] = start
-        position = start + len(marker)
-    ordered = [starts[field] for field in _SLOT_FIELDS]
-    for index, field in enumerate(_SLOT_FIELDS):
-        start = starts[field] + len(" " + field + "= ")
-        end = ordered[index + 1] if index + 1 < len(ordered) \
-            else len(rest)
-        values[field] = _slot_value(rest[start:end])
+    for index, found in enumerate(assignments):
+        end = assignments[index + 1].start() \
+            if index + 1 < len(assignments) else len(rest)
+        values[found.group(1)] = _slot_value(rest[found.end():end])
     return {"index": int(digits), "fields": values}
 
 
@@ -1498,35 +1718,60 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
     records = []
     running_standing = list(standing_records or [])
     running_controls = control_count
-    prepared_ids = set()
+    prepared_records = []
     # The standing records stand bucketed by the three
     # fields the comparison judges before any outcome
     # can stand: kind, normalised engine label, and
-    # query. A record in another bucket shares one of
-    # those fields with no candidate this loop builds,
-    # so it can stand as neither a duplicate nor a
-    # contradiction of that candidate, and the
-    # comparison for each slot reads only its own
-    # bucket, beside any record whose bucket key cannot
-    # be hashed, which stands in the overflow list read
-    # at every slot. Preparation therefore costs time
-    # near linear in the number of filled slots on the
-    # shapes entry S17-R4-036 measures, where each slot
-    # carries its own engine label, and its correctness
-    # stands exactly as the whole list comparison
-    # stood, as the same engine controls in the seat
-    # tests pin.
-    buckets = {}
+    # query. Inside a bucket, a candidate can stand as a
+    # duplicate only of a record holding its own content
+    # hash, and as a contradiction only of a record
+    # holding its own capture date, on the comparison
+    # rule itself, so each bucket stands sub-indexed by
+    # content hash and by capture date and the
+    # comparison for each slot reads only the records
+    # standing under its own hash or its own date, in
+    # their standing order, beside any record whose
+    # bucket key cannot be hashed, which stands in the
+    # overflow list read at every slot. Preparation
+    # therefore costs time near linear in the number of
+    # filled slots on the spread shapes entry
+    # S17-R4-036 measures and on the single bucket
+    # distribution a returned sheet presents, where
+    # every slot shares one bucket (entry S17-R5-035),
+    # and its duplicate and contradiction judgements
+    # stand exactly as the whole list comparison stood,
+    # as the same engine controls in the seat tests pin.
+    sub_by_hash = {}
+    sub_by_date = {}
     overflow = []
+    standing_index = 0
+
+    def _index_standing(record, bucket_key, index):
+        entry = (index, record)
+        content_hash = _record_field(record, "content_hash")
+        captured = _record_field(record, "captured_on")
+        date_key = str(captured) if captured is not None else None
+        try:
+            sub_by_hash.setdefault(
+                (bucket_key, content_hash), []).append(entry)
+            sub_by_date.setdefault(
+                (bucket_key, date_key), []).append(entry)
+        except TypeError:
+            overflow.append(entry)
+
     for standing in running_standing:
         bucket_key = (
             _record_field(standing, "kind"),
             _record_field(standing, "engine_label_normalised"),
             _record_field(standing, "query"))
         try:
-            buckets.setdefault(bucket_key, []).append(standing)
+            hash(bucket_key)
         except TypeError:
-            overflow.append(standing)
+            overflow.append((standing_index, standing))
+            standing_index += 1
+            continue
+        _index_standing(standing, bucket_key, standing_index)
+        standing_index += 1
     for slot in filled:
         fields = slot["fields"]
         slot_query = fields.get("query")
@@ -1554,23 +1799,30 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
             query_set=query_set, control_count=running_controls)
         body, _fm = extract_front_matter(slot["body"].strip())
         body_bytes = body.encode("utf-8")
+        body_hash = hashlib.sha256(body_bytes).hexdigest()
         answer_id = None
         if answer_id_prefix is not None:
             answer_id = "%s-%d" % (answer_id_prefix, len(records) + 1)
 
-        def resolve_standing_id(value, _base=answer_sequence_base,
-                                _prepared=prepared_ids):
+        def resolve_standing_id(value, record=None,
+                                _base=answer_sequence_base,
+                                _prepared=prepared_records):
             text = str(value)
             if "{sequence}" not in text:
                 return text
-            if text not in _prepared:
+            if record is None or not any(
+                    record is item for item in _prepared):
                 # The resolver judges only the identities
                 # its own batch prepared (entry
-                # S17-R4-035). A supplied standing identity
-                # carrying the marker spelling stands as
-                # supplied, never rewritten against this
-                # batch base into a name no entry stands
-                # under.
+                # S17-R4-035), judged on the record itself,
+                # never on its identity string: a supplied
+                # standing identity carrying the marker
+                # spelling stands as supplied, even where a
+                # record this batch prepared carries the
+                # same string, so no supplied identity
+                # stands rewritten against this batch base
+                # into a name no entry stands under (entry
+                # S17-R5-034).
                 return text
             # The prefix and its base stand tied together on
             # this surface as on the service route: where no
@@ -1585,11 +1837,19 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
             slot_validated["kind"],
             slot_validated["engine_label_normalised"],
             slot_validated["query"])
+        selected = {}
+        for entry in sub_by_hash.get((candidate_key, body_hash), ()):
+            selected[entry[0]] = entry[1]
+        for entry in sub_by_date.get(
+                (candidate_key, slot_validated["captured_on"]), ()):
+            selected[entry[0]] = entry[1]
+        for entry in overflow:
+            selected[entry[0]] = entry[1]
         record = _record_from_body(
             slot_validated, body_text=body, raw_bytes=body_bytes,
-            content_hash=hashlib.sha256(body_bytes).hexdigest(),
-            standing_records=list(
-                buckets.get(candidate_key, ())) + overflow,
+            content_hash=body_hash,
+            standing_records=[selected[index]
+                              for index in sorted(selected)],
             product=product,
             round=round, product_id=product_id, round_id=round_id,
             answer_id=answer_id,
@@ -1598,13 +1858,13 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
             standing_id_resolver=resolve_standing_id)
         records.append(record)
         running_standing.append(record)
-        if answer_id is not None:
-            prepared_ids.add(str(answer_id))
+        prepared_records.append(record)
         record_key = (
             record.get("kind"),
             record.get("engine_label_normalised"),
             record.get("query"))
-        buckets.setdefault(record_key, []).append(record)
+        _index_standing(record, record_key, standing_index)
+        standing_index += 1
         if record.get("control_flag"):
             running_controls += 1
     return records
