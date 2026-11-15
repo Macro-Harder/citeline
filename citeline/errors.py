@@ -157,11 +157,42 @@ class CitelineError(Exception):
                  refusal_context=None, limit_number=None):
         super().__init__(message)
         self.message = message
+        # The closed set stands enforced here, at the one
+        # place every recorded error passes through (Step
+        # 17 round 3 entry S17-R3-061): a token or row of a
+        # type the vocabulary cannot hold, a token or row
+        # outside the set, and a row and token naming
+        # different rows each stand refused with a plain
+        # ValueError at construction, instead of shipping
+        # with no class and no exit code or raising a raw
+        # TypeError from the vocabulary lookup. An error
+        # carrying neither a row nor a token stands as
+        # before: the internal journal failures carry none.
+        for name, value in (("row", row), ("token", token)):
+            if value is not None and not isinstance(value, str):
+                raise ValueError(
+                    "a recorded error %s must stand as a "
+                    "string from the closed vocabulary: %r"
+                    % (name, value))
         entry = None
         if token is not None:
             entry = _BY_TOKEN.get(token)
+            if entry is None:
+                raise ValueError(
+                    "a recorded error token stands outside "
+                    "the closed vocabulary: %r" % (token,))
         elif row is not None:
             entry = _BY_ROW.get(row)
+            if entry is None:
+                raise ValueError(
+                    "a recorded error row stands outside "
+                    "the closed vocabulary: %r" % (row,))
+        if entry is not None and row is not None \
+                and token is not None \
+                and entry["row"] != row:
+            raise ValueError(
+                "a recorded error row and token name "
+                "different rows: row %r, token %r" % (row, token))
         if token is None and entry is not None:
             token = entry["token"]
         if row is None and entry is not None:

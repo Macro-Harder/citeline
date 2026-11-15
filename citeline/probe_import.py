@@ -249,22 +249,6 @@ def _detection_text(text):
     return _strip_head(text)
 
 
-# The byte forms of the head characters the text reading
-# skips, for the raw magic tests: the byte order mark, the
-# zero width space, joiner, and non joiner, the word
-# joiner, the soft hyphen, and the Mongolian vowel
-# separator, beside the single byte control range.
-_HEAD_BYTE_SEQUENCES = (
-    b"\xef\xbb\xbf",
-    b"\xe2\x80\x8b",
-    b"\xe2\x80\x8c",
-    b"\xe2\x80\x8d",
-    b"\xe2\x81\xa0",
-    b"\xe1\xa0\x8b",
-    b"\xc2\xad",
-)
-
-
 def _raw_variants(raw_bytes):
     """The raw heads the magic tests read.
 
@@ -272,21 +256,40 @@ def _raw_variants(raw_bytes):
     head material in front of them, so a container
     signature stands found wherever a mark, a control
     byte, or a zero width form stands in front of it, in
-    any order and in any number (entry S17-R2-033).
+    any order and in any number (entry S17-R2-033). The
+    raw reading strips the same material the text
+    reading strips: the head of the bytes stands decoded
+    one character at a time, and every character the
+    text head predicate holds, the whole Unicode format
+    category among them, stands removed in its encoded
+    form, not only the seven byte sequences an earlier
+    form of this reading listed, so a format character
+    outside that list shields nothing (entry
+    S17-R3-024).
     """
     variants = [raw_bytes]
     body = raw_bytes
     while body:
-        matched = False
-        for sequence in _HEAD_BYTE_SEQUENCES:
-            if body.startswith(sequence):
-                body = body[len(sequence):]
-                matched = True
-                break
-        if matched:
-            continue
-        if body[0] < 0x20 or body[0] == 0x7f or body[0] == 0x20:
+        first = body[0]
+        if first < 0x20 or first == 0x7f or first == 0x20:
             body = body[1:]
+            continue
+        if first < 0x80:
+            break
+        char = None
+        for width in (2, 3, 4):
+            try:
+                char = body[:width].decode("utf-8")
+            except (UnicodeDecodeError, ValueError):
+                char = None
+                continue
+            if len(char) == 1:
+                break
+            char = None
+        if char is None or len(char) != 1:
+            break
+        if _is_head_char(char):
+            body = body[len(char.encode("utf-8")):]
             continue
         break
     if body != raw_bytes:
@@ -563,14 +566,38 @@ def extract_front_matter(text):
     else:
         seen_keys = set()
         key_count = 0
+        current_value_length = None
         for block_line in block_lines:
             if not block_line.strip() or block_line.lstrip() \
                     .startswith("#"):
                 continue
-            if block_line[0] in " \t":
-                continue
             pair = _front_matter_key_value(block_line)
             if pair is None:
+                if block_line[0] in " \t" \
+                        and current_value_length is not None:
+                    # An indented line with no key of its own
+                    # stands as a continuation of the value
+                    # above it, and the line form checks stand
+                    # on it as on a top level line: its text
+                    # counts toward that value length, and a
+                    # tag construct on it stands refused
+                    # (entry S17-R3-027).
+                    continuation = block_line.strip()
+                    current_value_length += len(continuation)
+                    if current_value_length \
+                            > FRONT_MATTER_VALUE_LIMIT:
+                        _fail("LIMIT_EXCEEDED",
+                              "front matter value length limit "
+                              "is 4,096 characters, with "
+                              "rejection and no partial record")
+                    if continuation.startswith(
+                            ("!", "&", "*", "%")) or re.search(
+                            r"<[A-Za-z][^>]*>", continuation):
+                        _fail("IMPORT_VALIDATION_FAILED",
+                              "the front matter block holds a "
+                              "tag construct, which the front "
+                              "matter control set refuses")
+                    continue
                 _fail("IMPORT_VALIDATION_FAILED",
                       "a front matter line holds no key and "
                       "value: " + block_line.strip()[:60])
@@ -585,6 +612,7 @@ def extract_front_matter(text):
                       "front matter value length limit is "
                       "4,096 characters, with rejection and "
                       "no partial record")
+            current_value_length = len(value)
             if not key:
                 _fail("IMPORT_VALIDATION_FAILED",
                       "a front matter line holds no key: "
@@ -1066,17 +1094,19 @@ def _worksheet_lines(text):
     A blank line or a control byte saved in front of the
     header does not move the sheet off its head: leading
     lines that hold nothing but head material stand
-    skipped, and head material standing on the header line
-    itself stands stripped, so the sheet reads as the
-    sheet it is (entry S17-R2-034). The header line stands
-    first in the returned list, where one stands.
+    skipped, whether that material stands on its own line
+    or mixed with spaces, and head material standing on
+    the header line itself stands stripped, so the sheet
+    reads as the sheet it is (entry S17-R2-034, completed
+    at entry S17-R3-025 for head material on its own
+    line). The header line stands first in the returned
+    list, where one stands.
     """
     lines = text.splitlines()
     index = 0
     while index < len(lines):
         line = lines[index]
-        if line.strip(" \t") == "" and all(
-                _is_head_char(char) for char in line):
+        if all(_is_head_char(char) for char in line):
             index += 1
             continue
         stripped = line
@@ -1146,17 +1176,22 @@ def _parse_slot_line(line):
         return None
     rest = match.group(2)
     values = {}
-    for index, field in enumerate(_SLOT_FIELDS):
+    position = 0
+    starts = {}
+    for field in _SLOT_FIELDS:
         marker = " " + field + "= "
-        start = rest.find(marker)
+        start = rest.find(marker, position)
         if start < 0:
             return None
-        start += len(marker)
-        end = len(rest)
-        for other in _SLOT_FIELDS[index + 1:]:
-            other_at = rest.find(" " + other + "= ", start)
-            if other_at >= 0:
-                end = min(end, other_at)
+        if field == _SLOT_FIELDS[0] and start != 0:
+            return None
+        starts[field] = start
+        position = start + len(marker)
+    ordered = [starts[field] for field in _SLOT_FIELDS]
+    for index, field in enumerate(_SLOT_FIELDS):
+        start = starts[field] + len(" " + field + "= ")
+        end = ordered[index + 1] if index + 1 < len(ordered) \
+            else len(rest)
         values[field] = _slot_value(rest[start:end])
     return {"index": int(match.group(1)), "fields": values}
 
@@ -1327,14 +1362,20 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
 
         def resolve_standing_id(value, _base=answer_sequence_base):
             text = str(value)
-            if _base is None or "{sequence}" not in text:
+            if "{sequence}" not in text:
                 return text
             match = re.search(r"-(\d+)$", text)
-            if not match:
-                return text
-            slot_number = int(match.group(1))
+            slot_number = int(match.group(1)) if match else 1
+            # The prefix and its base stand tied together on
+            # this surface as on the service route: where no
+            # base stands supplied, the marker resolves
+            # against the batch position itself, the sequence
+            # this module surface knows, so the refusal names
+            # a resolved identity and never the unresolved
+            # marker (entry S17-R3-028).
+            base = _base if _base is not None else 1
             return text.replace(
-                "{sequence}", str(_base + slot_number - 1))
+                "{sequence}", str(base + slot_number - 1))
 
         record = _record_from_body(
             slot_validated, body_text=body, raw_bytes=body_bytes,

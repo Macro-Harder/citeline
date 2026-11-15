@@ -254,8 +254,13 @@ def _normalise_host(raw_host):
     folded with one trailing dot stripped and compared in
     its A label form. A host holding an empty label is
     malformed and stands as None, counting no citation.
+    A host that still holds a percent character after the
+    one decode is malformed on the second limb of item
+    148 and stands as None in the same way.
     """
     text = unquote(str(raw_host))
+    if "%" in text:
+        return None
     for separator in _DOT_SEPARATORS:
         text = text.replace(separator, ".")
     text = unicodedata.normalize("NFC", text).strip()
@@ -285,7 +290,11 @@ def _host_of(target):
         return None
     host = match.group(1)
     host = host.rsplit("@", 1)[-1]
-    host = host.split(":", 1)[0]
+    if host.startswith("["):
+        closing = host.find("]")
+        host = host[:closing + 1] if closing >= 0 else host
+    else:
+        host = host.split(":", 1)[0]
     return _normalise_host(host)
 
 
@@ -368,15 +377,25 @@ def _canonical_target(target):
     same form the detection canonical form builds, so two
     stated equivalent forms share one key and count once.
     """
+    target = (target or "").strip()
     match = re.match(
         r"^[A-Za-z][A-Za-z0-9+.-]*://([^/?#]+)([^?#]*)"
         r"(?:\?([^#]*))?(?:#.*)?$",
-        target or "",
+        target,
     )
     if not match:
         return target
     authority = match.group(1).rsplit("@", 1)[-1]
-    host_part, _, port_part = authority.partition(":")
+    if authority.startswith("["):
+        closing = authority.find("]")
+        if closing >= 0:
+            host_part = authority[:closing + 1]
+            rest = authority[closing + 1:]
+            port_part = rest[1:] if rest.startswith(":") else ""
+        else:
+            host_part, port_part = authority, ""
+    else:
+        host_part, _, port_part = authority.partition(":")
     host = _normalise_host(host_part)
     if host is None:
         return target
@@ -399,7 +418,9 @@ def _canonical_target(target):
 
 
 _TEXT_URL_PATTERN = re.compile(
-    r"https?://[^\s<>\"'()\[\]{}]+", re.IGNORECASE
+    r"https?://(?:\[[^\]\s]+\](?::\d+)?"
+    r"(?:/[^\s<>\"'(){}]*)?|[^\s<>\"'()\[\]{}]+)",
+    re.IGNORECASE
 )
 
 
@@ -539,11 +560,14 @@ def _mask(text, spans):
 
 _QUOTED_SPAN_PATTERN = re.compile(
     r'"[^"\n]*"|"[^"\n]*”|“[^"\n]*"|“[^”\n]*”'
-    r"|«[^»\n]*»|„[^“\n]*“|‘[^’\n]*’"
+    r"|«[^»\n]*»|»[^«\n]*«|„[^“\n]*“"
+    r"|‘[^’\n]*(?:’(?=[A-Za-z])[^’\n]*)*’"
+    r"|「[^」\n]*」|『[^』\n]*』"
+    r"|＂[^＂\n]*＂|‹[^›\n]*›|″[^″\n]*″|‚[^‘\n]*‘"
 )
 
 _ANY_SCHEME_URL_PATTERN = re.compile(
-    r"[A-Za-z][A-Za-z0-9+.-]*://[^\s<>\"'()\[\]{}]+"
+    r"[A-Za-z][A-Za-z0-9+.-]*://[^\s<>\"'{}]+"
 )
 
 _MONTH_ABBREVIATIONS = (
@@ -581,6 +605,30 @@ def _statistic_analysis(page):
             while found >= 0:
                 masked = _mask(masked, [(found, found + len(target))])
                 found = masked.find(target, found + len(target))
+    # The ISO datetime form stands masked whole before the
+    # plain date mask can take its date part and leave the
+    # time standing as a remainder, in the T form and in
+    # the space separated form alike. A year and month
+    # fragment stands masked on the same exclusion.
+    masked = _mask(
+        masked,
+        [
+            (m.start(), m.end())
+            for m in re.finditer(
+                r"\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}"
+                r"(?::\d{2})?\b",
+                masked,
+            )
+        ],
+    )
+    masked = _mask(
+        masked,
+        [
+            (m.start(), m.end())
+            for m in re.finditer(
+                r"\b\d{4}-\d{2}(?![-\d])", masked)
+        ],
+    )
     # A date fragment counts nothing, in either date form.
     masked = _mask(
         masked,
@@ -656,6 +704,10 @@ def _statistic_analysis(page):
         r"\b\d{1,2}\s+(?:" + month_alt + r")\.?\s+\d{2,4}\b",
         r"\b\d{1,2}-(?:" + month_alt + r")\.?-\d{2,4}\b",
         r"\b(?:" + month_alt + r")\.?-\d{1,2}-\d{2,4}\b",
+        r"\b\d{1,2}\s+(?:" + month_alt + r")\.?\s*,\s*\d{2,4}\b",
+        r"\b\d{4}\s+(?:" + month_alt + r")\.?\s*,\s*\d{1,2}\b",
+        r"\b\d{4}\s*,\s*(?:" + month_alt + r")\.?\s+\d{1,2}\b",
+        r"\b(?:" + month_alt + r")\.?\s*,\s*\d{1,2}\s+\d{2,4}\b",
         r"\bT\d{2}:\d{2}(?::\d{2})?\b",
     ):
         masked = _mask(
@@ -675,17 +727,18 @@ def _statistic_analysis(page):
         ],
     )
     # A figure the sentence itself names as its version
-    # counts nothing either, in the two part form as in
-    # the longer form: the naming word stands beside the
-    # figure in the sentence that carries it, with a
-    # colon between them, or with the word is between
-    # them, as well as standing directly beside it.
+    # counts nothing either, in the one part form as in
+    # the two part and longer forms: the naming word
+    # stands beside the figure in the sentence that
+    # carries it, with a colon between them, or with the
+    # word is between them, as well as standing directly
+    # beside it.
     masked = _mask(
         masked,
         [
             (m.start(), m.end())
             for m in re.finditer(
-                r"\bversion(?:\s*:\s*|\s+is\s+|\s+)\d+(?:\.\d+)+\b",
+                r"\bversion(?:\s*:\s*|\s+is\s+|\s+)\d+(?:\.\d+)*\b",
                 masked, re.IGNORECASE
             )
         ],

@@ -450,7 +450,11 @@ def _failure_record_payloads(body):
     payloads = []
 
     def note(item):
-        if isinstance(item, dict) and item not in payloads:
+        # Every stored payload stands collected, in order:
+        # two identical stored records are two records, and
+        # a membership test here would collapse a retried
+        # failure into one (Step 17 round 3 entry S17-R3-063).
+        if isinstance(item, dict):
             payloads.append(item)
 
     if isinstance(body, dict):
@@ -581,11 +585,15 @@ def _apply_guide_texts(body):
     # values. No other field of the record, and no marker
     # shaped value anywhere in it, chooses the statement.
     basis = body.get("selection_basis")
-    if isinstance(basis, str) and "fallback" in basis.lower():
+    # The basis stands judged as a stated form whole, not
+    # as a substring: a value that negates, combines, or
+    # embeds the stated words is no stated form and renders
+    # no statement (Step 17 round 3 entry S17-R3-044).
+    stated = basis.strip().casefold() if isinstance(basis, str) \
+        else None
+    if stated == "fallback":
         body["selection_statement"] = FALLBACK_STATEMENT
-    elif isinstance(basis, str) and (
-            "preference" in basis.lower()
-            or "preferred" in basis.lower()):
+    elif stated in ("preference", "preferred"):
         body["selection_statement"] = PREFERENCE_STATEMENT
     else:
         body.pop("selection_statement", None)
@@ -634,18 +642,23 @@ def _apply_control_failure_notice(body):
         and body.get("control_failure_notice") == (
             "a control in this round failed, and no action "
             "stands produced from this round"))
-    if flagged:
-        body["control_failure_notice"] = CONTROL_FAILURE_NOTICE
-        return
-    if guide_notice:
-        return
-    body.pop("control_failure_notice", None)
+    # The nested removal runs on every path, not only on
+    # the path where no flag and no guide notice stands:
+    # a spoofed notice in a nested object stands removed
+    # beside the fixed notice as on the empty path (Step
+    # 17 round 3 entry S17-R3-043).
     for obj in _walk(body):
         if obj is body:
             continue
         for key in ("control_failure_notice", "control_notice",
                     "failed_control_notice"):
             obj.pop(key, None)
+    if flagged:
+        body["control_failure_notice"] = CONTROL_FAILURE_NOTICE
+        return
+    if guide_notice:
+        return
+    body.pop("control_failure_notice", None)
 
 
 def _apply_methods_note_version(body):
@@ -801,6 +814,10 @@ def _advanced_body(record):
     if _is_query_set_report(body):
         body.setdefault("overlap_statement", _OVERLAP_STATEMENT)
         body.setdefault("coverage_statement", _COVERAGE_STATEMENT)
+    # The presence only scope discipline stands in every
+    # form, the Simple form included, so the scope pass
+    # runs on the body every rendering form derives from.
+    _apply_agentic_scope(body)
     return body
 
 
@@ -830,9 +847,25 @@ def _apply_agentic_scope(body):
     for obj in _walk(body):
         if "claim_type" in obj and "value" in obj:
             continue
-        carries_rate = "wilson_low" in obj and "tier" in obj
-        carries_tier = "tier" in obj and ("rate" in obj or "n" in obj)
-        if carries_rate or carries_tier:
+        # The pass own stated rule: any record object
+        # carrying a score, a rate, or a tier also carries
+        # the scope value in that same object. The shape
+        # test stands on that rule whole, not on two
+        # shapes: a tier beside a count, a bare rate, and
+        # a bare score key each carry the value (Step 17
+        # round 3 entry S17-R3-042). A score standing as a
+        # record object is the ScoreObject itself, whose
+        # claim type the fixed texts pass governs through
+        # its value field, so a dict score value here
+        # names that nested object, not a score figure
+        # this object carries.
+        carries = (
+            "tier" in obj
+            or "rate" in obj
+            or ("score" in obj
+                and not isinstance(obj.get("score"), dict))
+            or ("wilson_low" in obj and "tier" in obj))
+        if carries:
             # The scope value stands assigned outright on
             # an object that carries a rate or a tier, in
             # the fixed scope discipline: no field of the
@@ -1056,6 +1089,18 @@ def _rate_value_text(value):
     return _scalar_text(value)
 
 
+def _figure_text(value):
+    """One figure in the Simple form at the precision the
+    product states for its disclosed figures, four decimal
+    places for a float, so no printed position stands at
+    full stored precision (Step 17 round 3 entry
+    S17-R3-045). A figure in no float form stands as the
+    plain scalar text stands."""
+    if isinstance(value, float):
+        return _rate_value_text(value)
+    return _scalar_text(value)
+
+
 def _is_rate_object(node):
     return (
         isinstance(node, dict)
@@ -1200,7 +1245,9 @@ def _emit(lines, key, value, depth, suppress_anchor_bare=False,
         return
     if isinstance(value, float) and (
             key in _TREND_RATE_KEYS
-            or key in ("rate", "share", "percent")
+            or key in ("rate", "share", "percent", "value",
+                       "total_weight", "proportion", "ratio",
+                       "earned", "weight", "applicable_weight")
             or key in ("wilson_low", "wilson_high")
             or key.startswith("wilson_")
             or "_rate" in key
@@ -1541,7 +1588,7 @@ def _render_audit_simple(body):
                 lines.append(
                     "The score rests on %d checks, with a total "
                     "weight of %s."
-                    % (len(checks_named), _scalar_text(weight)))
+                    % (len(checks_named), _figure_text(weight)))
         if score.get("cap_status"):
             lines.append(
                 "The evidence cap holds the score at 39 for "
@@ -1618,8 +1665,8 @@ def _render_audit_simple(body):
             "  %s: earned %s of weight %s, status %s, reason "
             "%s, evidence class %s."
             % (_scalar_text(check.get("check_id")),
-               _scalar_text(check.get("earned")),
-               _scalar_text(check.get("weight")),
+               _figure_text(check.get("earned")),
+               _figure_text(check.get("weight")),
                _scalar_text(check.get("status")),
                _scalar_text(check.get("reason_code")),
                _scalar_text(check.get("evidence_class"))))
@@ -1845,10 +1892,17 @@ def _carries_score_band(body):
     return False
 
 
-_INTERROGATIVE_STARTERS = {
-    "what", "how", "why", "when", "where", "which", "who",
-    "is", "are", "can", "could", "does", "do", "did", "will",
-}
+_INTERROGATIVE_WORDS = (
+    "what", "which", "how", "why", "when", "where", "who",
+    "whose", "can", "could", "should", "would", "is", "does",
+    "do", "did",
+)
+
+_COMPARISON_MARKERS = (
+    "vs", "versus", "compared to", "compared with",
+    "alternative", "alternatives", "better than",
+    "difference between",
+)
 
 
 def _fold(text):
@@ -1856,16 +1910,47 @@ def _fold(text):
     return " ".join(folded.split())
 
 
+def _word_tokens(text):
+    """The word tokens of one text, on the matching form
+    the brief states: case insensitive over word tokens,
+    words as alphanumeric tokens."""
+    return re.findall(r"[^\W_]+", _fold(text), flags=re.UNICODE)
+
+
+def _tokens_match(tokens, entry_tokens):
+    """True where an entry stands in a token list as a
+    consecutive token sequence. An entry folding to no
+    token matches nothing (Step 17 round 3 entries
+    S17-R3-056 and S17-R3-057)."""
+    if not tokens or not entry_tokens:
+        return False
+    width = len(entry_tokens)
+    return any(
+        tokens[index:index + width] == entry_tokens
+        for index in range(len(tokens) - width + 1))
+
+
+def _name_in(tokens, names):
+    return any(
+        _tokens_match(tokens, _word_tokens(name))
+        for name in names if isinstance(name, str))
+
+
 def _classify_query(query, product_names, competitor_names):
-    folded = _fold(query)
-    first_word = folded.split(" ", 1)[0].strip("?") if folded else ""
-    interrogative = first_word in _INTERROGATIVE_STARTERS \
-        or folded.endswith("?")
-    comparison = " vs " in folded or " versus " in folded
-    named_product = any(
-        name and _fold(name) in folded for name in product_names)
-    named_competitor = any(
-        name and _fold(name) in folded for name in competitor_names)
+    tokens = _word_tokens(query)
+    interrogative = any(
+        _tokens_match(tokens, [word])
+        for word in _INTERROGATIVE_WORDS)
+    comparison = any(
+        _tokens_match(tokens, _word_tokens(marker))
+        for marker in _COMPARISON_MARKERS)
+    named_product = _name_in(tokens, product_names)
+    named_competitor = _name_in(tokens, competitor_names)
+    if named_competitor:
+        # The comparison form also stands where a
+        # registered competitor name or alias stands in
+        # the query (Step 17 round 3 entry S17-R3-054).
+        comparison = True
     bare_topic = not (interrogative or comparison or named_product
                       or named_competitor)
     return {
@@ -1923,8 +2008,20 @@ def derive_query_set_report(product):
             record.get("competitors"), "competitors"):
         if isinstance(competitor, dict):
             competitor_names.append(competitor.get("name"))
-            competitor_names.extend(_collection(
-                competitor.get("aliases"), "competitor aliases"))
+            aliases = competitor.get("aliases")
+            if aliases is not None:
+                # Competitor aliases stand judged here as
+                # at the product record reader: a form that
+                # is no list of strings is a type swapped
+                # field, refused in the open instead of
+                # standing converted by string form into a
+                # name (Step 17 round 3 entry S17-R3-058).
+                if not isinstance(aliases, (list, tuple)) or any(
+                        not isinstance(item, str) for item in aliases):
+                    raise ValueError(
+                        "competitor aliases must stand as a list "
+                        "of strings, not as %r" % (aliases,))
+                competitor_names.extend(aliases)
         elif competitor:
             competitor_names.append(competitor)
     counts = {
@@ -2143,9 +2240,14 @@ def _rule_text_changed_rows(first, second, existing):
             "texts") or []
         second_texts = (second_groups.get(token) or {}).get(
             "texts") or []
-        removed = list(
+        # The pairing below reads the two lists in a fixed
+        # sorted order, never in the order the rules stand
+        # written in either file, so one rule set change
+        # pairs the same way and reports at one size under
+        # either rule order.
+        removed = sorted(
             (Counter(first_texts) - Counter(second_texts)).elements())
-        added = list(
+        added = sorted(
             (Counter(second_texts) - Counter(first_texts)).elements())
         if not removed and not added:
             continue

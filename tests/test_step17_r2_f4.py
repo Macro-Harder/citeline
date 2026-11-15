@@ -642,10 +642,11 @@ class Test083KillInsideBatch(KillBase):
                    "rule_fired": "SEED_AFTER_KILL"}
         journal.append_entry(str(self.home), "failure_record", payload,
                              audit_date=AUDIT_DATE)
-        self.assertEqual(entry_count(self.home), before + 1)
+        self.assertEqual(entry_count(self.home), before + 2)
         records = payloads_of_kind(self.home, "failure_record")
         self.assertEqual(
-            [r.get("error_value") for r in records], ["SEED_AFTER_KILL"])
+            [r.get("error_value") for r in records],
+            ["interrupted_batch", "SEED_AFTER_KILL"])
         self.assertTrue(journal.verify_chain(str(self.home))["passed"])
 
 

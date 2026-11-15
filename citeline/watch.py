@@ -118,6 +118,27 @@ def _failure_fields(exc):
 
 
 def _open_plan(plan_file):
+    # The plan file path itself stands judged before any
+    # filesystem call can raise on it (Step 17 round 3
+    # entry S17-R3-049, in the family of S17-R2-077 and
+    # S17-R2-078): a path string carrying a NUL character
+    # or a lone surrogate names no file at all, and refuses
+    # at open as MALFORMED_CALL, in the governed form the
+    # unreadable plan file already answers in, never as a
+    # raw ValueError or UnicodeEncodeError.
+    if isinstance(plan_file, str):
+        if "\x00" in plan_file:
+            _fail(
+                "MALFORMED_CALL",
+                "the WatchPlan file path holds a NUL "
+                "character and names no file")
+        try:
+            plan_file.encode("utf-8")
+        except UnicodeEncodeError:
+            _fail(
+                "MALFORMED_CALL",
+                "the WatchPlan file path holds a lone "
+                "surrogate and names no file")
     try:
         info = os.lstat(str(plan_file))
     except OSError as exc:
@@ -400,7 +421,8 @@ def _validate_plan(plan):
         # surrogate cannot name a path at all, and refuses
         # at open as MALFORMED_CALL, before the identity
         # reading below runs any path call on it.
-        for field in ("page_file", "robots_file"):
+        for field in ("page_file", "robots_file",
+                      "evaluated_page_path"):
             value = target.get(field)
             if not isinstance(value, str):
                 continue
@@ -662,7 +684,13 @@ def _standing_product_page_snapshot_count(home, products):
         if isinstance(record, dict) and record.get("product_id")}
     try:
         from citeline import journal
-        entries = journal.fold(str(home))
+        # The coverage count folds with corrections, as
+        # the reporting readers do (Step 17 round 3 entry
+        # S17-R3-064): a registration a correction
+        # superseded to not a product page counts as no
+        # standing product page snapshot here, as it
+        # counts nowhere else.
+        entries = journal.fold(str(home), apply_corrections=True)
     except Exception:
         return 0, set()
     latest = {}
@@ -716,8 +744,15 @@ def _cadence_interval_days(cadence):
     if text in words:
         return words[text]
     import re
+    # The form stands exactly as the docstring states
+    # (Step 17 round 3 entry S17-R3-059): the word every
+    # stands required, the digits stand as Latin digits,
+    # and a zero count names no interval, because a zero
+    # interval is no cadence and its forward count would
+    # stand as a computed figure where the absence form
+    # belongs.
     match = re.fullmatch(
-        r"(?:every\s+)?(\d+)\s+(day|days|week|weeks|month|months"
+        r"every\s+([0-9]+)\s+(day|days|week|weeks|month|months"
         r"|year|years)", text)
     if match:
         # The conversion stands bounded (Step 17 round 2
@@ -728,6 +763,8 @@ def _cadence_interval_days(cadence):
         # stored their records.
         digits = match.group(1)
         if len(digits) > 6:
+            return None
+        if int(digits) == 0:
             return None
         unit_days = {"day": 1, "days": 1, "week": 7, "weeks": 7,
                      "month": 30, "months": 30, "year": 365,

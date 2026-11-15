@@ -674,10 +674,31 @@ def _strip_detection_exclusions(text):
     return "\n".join(out)
 
 
+_COMMENT_CLOSE_RE = re.compile(r"--!?>")
+
+
+def _comment_close(text, start):
+    """The close of the comment that opens at start, found
+    in one search bounded to that comment: the search runs
+    from the comment opening to the first closing spelling
+    of either form and no further, so a run of comments
+    closed in one spelling pays no remainder scan per
+    comment for the spelling that is not there (Step 17
+    round 3 entry S17-R3-010). Returns the index just past
+    the closing spelling, or None where the comment never
+    closes."""
+    match = _COMMENT_CLOSE_RE.search(text, start + 4)
+    if match is None:
+        return None
+    return match.end()
+
+
 def _skip_leading_furniture(text):
     """Step over the leading furniture of a document: HTML
-    comments and XML or processing instruction forms that
-    stand before its own content. A comment ends where the
+    comments, XML or processing instruction forms, bogus
+    declaration forms, and CDATA sections that stand
+    before its own content (Step 17 round 3 entry
+    S17-R3-015). A comment ends where the
     parser ends it, at the two hyphen close or at the bang
     close, and the two abrupt spellings stand as complete
     comments. An unterminated form steps over nothing and
@@ -694,19 +715,29 @@ def _skip_leading_furniture(text):
             if text.startswith("<!--->", index):
                 index += 6
                 continue
-            ends = [pos for pos in (
-                text.find("-->", index + 4),
-                text.find("--!>", index + 4)) if pos >= 0]
-            if not ends:
+            close = _comment_close(text, index)
+            if close is None:
                 return text[index:]
-            end = min(ends)
-            index = end + (4 if text.startswith("--!>", end) else 3)
+            index = close
             continue
         if text.startswith("<?", index):
             close = text.find("?>", index + 2)
             if close < 0:
                 return text[index:]
             index = close + 2
+            continue
+        if text.startswith("<![CDATA[", index):
+            close = text.find("]]>", index + 9)
+            if close < 0:
+                return text[index:]
+            index = close + 3
+            continue
+        if text.startswith("<!", index) \
+                and text[index:index + 9].casefold() != "<!doctype":
+            close = _scan_tag_end(text, index)
+            if close < 0:
+                return text[index:]
+            index = close + 1
             continue
         return text[index:]
 
@@ -725,7 +756,8 @@ def _content_format(text):
                 r"sub|sup|i|b|u|s|a|img|video|audio|canvas|svg|"
                 r"details|summary|address|hr|br|wbr|button|"
                 r"textarea|select|label|iframe|title|hgroup|"
-                r"legend|script|style)\b",
+                r"legend|script|style|dialog|template|noscript|"
+                r"picture|object|embed|menu)\b",
                 probe):
         return "html"
     for line in visible.splitlines():
@@ -839,6 +871,51 @@ def _scan_tag_end(text, start):
     return -1
 
 
+def _tag_self_closed(chunk, name_end):
+    """Whether one opening tag chunk stands self closed, as
+    the parser reads it (Step 17 round 3 entries S17-R3-013
+    and S17-R3-014). The self closing flag is a slash that
+    stands between attributes, immediately before the
+    closing bracket. A slash inside a quoted attribute
+    value is value text, a slash inside an unquoted
+    attribute value is part of that value, and a slash
+    separated from the bracket by space is ignored, so in
+    each of those forms the element still opens. The scan
+    walks the tag once, attribute by attribute, on the
+    same terms _scan_tag_end reads a tag whole."""
+    index = name_end
+    length = len(chunk)
+    while index < length:
+        while index < length and chunk[index] in " \t\r\n\f":
+            index += 1
+        if index >= length or chunk[index] == ">":
+            return False
+        if chunk[index] == "/":
+            if index + 1 < length and chunk[index + 1] == ">":
+                return True
+            index += 1
+            continue
+        while index < length and chunk[index] not in " \t\r\n\f=/>":
+            index += 1
+        while index < length and chunk[index] in " \t\r\n\f":
+            index += 1
+        if index < length and chunk[index] == "=":
+            index += 1
+            while index < length and chunk[index] in " \t\r\n\f":
+                index += 1
+            if index < length and chunk[index] in ("\"", "'"):
+                quote = chunk[index]
+                index += 1
+                while index < length and chunk[index] != quote:
+                    index += 1
+                index += 1
+            else:
+                while index < length \
+                        and chunk[index] not in " \t\r\n\f>":
+                    index += 1
+    return False
+
+
 def _leading_structure(text):
     """Read the file's own leading structure as markup.
 
@@ -866,13 +943,10 @@ def _leading_structure(text):
             if text.startswith("<!--->", lt):
                 index = lt + 6
                 continue
-            ends = [pos for pos in (
-                text.find("-->", lt + 4),
-                text.find("--!>", lt + 4)) if pos >= 0]
-            if not ends:
+            close = _comment_close(text, lt)
+            if close is None:
                 break
-            end = min(ends)
-            index = end + (4 if text.startswith("--!>", end) else 3)
+            index = close
             continue
         if text.startswith("<![CDATA[", lt):
             end = text.find("]]>", lt + 9)
@@ -901,7 +975,7 @@ def _leading_structure(text):
         name = match.group(2).casefold()
         if not closing and name == "html":
             return doctypes, chunk
-        self_closed = chunk[:-1].rstrip().endswith("/")
+        self_closed = _tag_self_closed(chunk, 1 + len(match.group(2)))
         if not closing and not self_closed and name in (
                 "script", "style", "textarea", "title"):
             close_match = re.search(
@@ -910,7 +984,7 @@ def _leading_structure(text):
             if close_match is None:
                 break
             close_start = end + 1 + close_match.start()
-            close_end = text.find(">", close_start)
+            close_end = _scan_tag_end(text, close_start)
             if close_end < 0:
                 break
             index = close_end + 1
@@ -1052,10 +1126,24 @@ def _read_supplied_file(page_path, size_limit_bytes=None):
 # ordinary U+FEFF character in the decoded text.
 # ----------------------------------------------------------------
 
-def _front_matter(text, fmt, notes):
+def _front_matter(text, fmt, notes, block_limit_bytes=None,
+                  value_limit=None):
     """Front matter handling. Front matter that fails the
     D17 control set fails closed: a tag construct standing
-    in front matter is that failure in this module."""
+    in front matter is that failure in this module.
+
+    The block size and value length limits stand as the
+    limits in force for the run where the caller states
+    them (Step 17 round 3 entry S17-R3-068): one reading
+    of the limits in force governs the audit record's
+    statement and this enforcement, so the brief default
+    constants stand only where no value in force reaches
+    this reading, as at the page size gate.
+    """
+    if not isinstance(block_limit_bytes, (int, float)):
+        block_limit_bytes = _FRONT_MATTER_BLOCK_LIMIT
+    if not isinstance(value_limit, (int, float)):
+        value_limit = _FRONT_MATTER_VALUE_LIMIT
     if fmt != "markdown":
         return text
     if not text.startswith("---"):
@@ -1066,18 +1154,20 @@ def _front_matter(text, fmt, notes):
     for index in range(1, len(lines)):
         if lines[index].strip() in ("---", "..."):
             block = "\n".join(lines[1:index])
-            if len(block.encode("utf-8")) > _FRONT_MATTER_BLOCK_LIMIT:
+            if len(block.encode("utf-8")) > block_limit_bytes:
                 _fail("LIMIT_EXCEEDED",
-                      "front matter block size limit is 16 KiB, "
-                      "with rejection and no partial record")
+                      "front matter block size limit is %s KiB, "
+                      "with rejection and no partial record"
+                      % ("%g" % (block_limit_bytes / 1024),))
             for block_line in lines[1:index]:
                 if ":" in block_line:
                     value = block_line.split(":", 1)[1].strip()
-                    if len(value) > _FRONT_MATTER_VALUE_LIMIT:
+                    if len(value) > value_limit:
                         _fail("LIMIT_EXCEEDED",
                               "front matter value length per key "
-                              "limit is 4,096 characters, with "
-                              "rejection and no partial record")
+                              "limit is %s characters, with "
+                              "rejection and no partial record"
+                              % ("%g" % (value_limit,),))
             if re.search(r"(?m)^[^#\n]*:\s*(!|&|\*|%)", block) or \
                     re.search(r"<[A-Za-z][^>]*>", block):
                 _fail("PAGE_EXTRACTION_FAILED",
@@ -1964,7 +2054,17 @@ def _extract_inner(home, product_id, page_path, declared_format,
     declared = detection["declared_format"]
     if declared is not None and declared != fmt:
         notes.append("format_disagreement")
-    text = _front_matter(text, fmt, notes)
+    fm_block_value = (
+        limits_in_force.get("front_matter_block_size")
+        or {}).get("value")
+    fm_block_bytes = fm_block_value * 1024 if isinstance(
+        fm_block_value, (int, float)) else None
+    fm_value_limit = (
+        limits_in_force.get("front_matter_value_length_per_key")
+        or {}).get("value")
+    text = _front_matter(
+        text, fmt, notes, block_limit_bytes=fm_block_bytes,
+        value_limit=fm_value_limit)
     # The extracted text limit in force over this home
     # governs the extraction, not only the brief default:
     # a config set value reaches this path through the

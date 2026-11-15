@@ -30,7 +30,6 @@ no wrapper outcome is produced for a wrapped target, which is
 recorded as the target as written.
 """
 
-import math
 import re
 import unicodedata
 from urllib.parse import urlsplit
@@ -52,17 +51,89 @@ _UNRESERVED = frozenset(
 _HEX = frozenset("0123456789abcdefABCDEF")
 
 _LINK_RE = re.compile(r"\[([^\]]*)\]\(\s*([^)\s]+)(?:\s+[^)]*)?\)")
+_LINK_OPEN_RE = re.compile(r"\[[^\]]*\]\(")
+
+
+def _iter_links(text):
+    """Yield (start, end, target) for each markdown link.
+
+    The destination is read as one token or as an angle
+    bracket form, and an optional title after it is read in
+    its stated forms: a double quoted title, a single quoted
+    title, or a parenthesis title. A title is read to its own
+    closing mark, so a closing parenthesis inside a quoted
+    title does not end the link, and a parenthesis title ends
+    at the parenthesis that stands before the link's own
+    closing parenthesis.
+    """
+    index = 0
+    while index < len(text):
+        match = _LINK_OPEN_RE.search(text, index)
+        if not match:
+            return
+        position = match.end()
+        while position < len(text) and text[position] in " \t":
+            position += 1
+        if position < len(text) and text[position] == "<":
+            close = text.find(">", position + 1)
+            if close < 0:
+                index = match.start() + 1
+                continue
+            target = text[position + 1:close]
+            position = close + 1
+        else:
+            start = position
+            while (position < len(text)
+                   and text[position] not in " \t)"):
+                position += 1
+            target = text[start:position]
+        while position < len(text) and text[position] in " \t":
+            position += 1
+        if position < len(text) and text[position] in "\"'(":
+            opener = text[position]
+            if opener == "(":
+                end = -1
+                scan = position + 1
+                while True:
+                    candidate = text.find(")", scan)
+                    if candidate < 0:
+                        break
+                    after = candidate + 1
+                    while (after < len(text)
+                           and text[after] in " \t"):
+                        after += 1
+                    if after < len(text) and text[after] == ")":
+                        end = candidate
+                        break
+                    scan = candidate + 1
+                if end < 0:
+                    index = match.start() + 1
+                    continue
+                position = end + 1
+            else:
+                end = text.find(opener, position + 1)
+                if end < 0:
+                    index = match.start() + 1
+                    continue
+                position = end + 1
+            while position < len(text) and text[position] in " \t":
+                position += 1
+        if position < len(text) and text[position] == ")":
+            yield (match.start(), position + 1, target)
+            index = position + 1
+        else:
+            index = match.start() + 1
 _URL_RE = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*://[^\s<>\]\)\"']+")
 _BRACKET_RE = re.compile(r"\[(\d+)\]")
 _HEADING_RE = re.compile(r"^\s{0,3}(#{1,6})\s+(.*?)\s*$")
 _MARKER_RE = re.compile(r"^(?:[-*+]|\d+[.)]|[A-Za-z][.)])\s+(.+)$")
 _BARE_HOST_RE = re.compile(
-    r"^(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}(?:/\S*)?$")
+    r"^(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}\.?(?::[0-9]+)?\.?(?:/\S*)?$")
 _REF_ENTRY_RE = re.compile(
     r"^\s*(?:[-*+]\s*)?\[?(\d+)\]?\s*[.)]\s+(\S+)(?:\s+.*)?$")
 _BARE_DOMAIN_TOKEN_RE = re.compile(
     r"(?<![A-Za-z0-9._-])(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}"
-    r"(?::[0-9]+)?\.?(?:[/?#]\S*)?")
+    r"\.?(?::[0-9]+)?\.?(?:[/?#]\S*)?")
 _REFERENCE_DEFINITION_RE = re.compile(r"^\s{0,3}\[[^\]]+\]:\s*\S+")
 _REF_DEF_START_RE = re.compile(r"^\s{0,3}\[[^\]]+\]:\s*(.*)$")
 _SETEXT_UNDERLINE_RE = re.compile(r"^\s{0,3}(=+|-+)\s*$")
@@ -70,7 +141,7 @@ _REF_ENTRY_HEAD_RE = re.compile(
     r"^\s*(?:[-*+]\s*)?(?:\[(\d+)\]\s*(?:[.)]\s*)?|(\d+)\s*[.)]\s+)"
     r"(.+)$")
 _BARE_ENTRY_TARGET_RE = re.compile(
-    r"^(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}(?::[0-9]+)?$")
+    r"^(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}\.?(?::[0-9]+)?\.?$")
 
 
 def _target_is_valid(target):
@@ -91,6 +162,43 @@ def _target_is_valid(target):
     except ValueError:
         return False
     return True
+
+
+def _is_title_text(text):
+    """Whether a text stands whole in one of the three title
+    forms: double quoted, single quoted, or parenthesised."""
+    stripped = text.strip()
+    if len(stripped) < 2:
+        return False
+    return ((stripped[0] == '"' and stripped[-1] == '"')
+            or (stripped[0] == "'" and stripped[-1] == "'")
+            or (stripped[0] == "(" and stripped[-1] == ")"))
+
+
+def _definition_tail(text):
+    """Read a destination at the head of a text.
+
+    Returns the text standing after the destination where
+    the text is a destination with at most a title after it,
+    and None where it is not: a destination is one token or
+    an angle bracket form, and what follows it may be empty
+    or one title in a title form. Anything else standing
+    after the destination is prose, not a definition tail.
+    """
+    stripped = text.strip()
+    if not stripped:
+        return None
+    if stripped.startswith("<"):
+        close = stripped.find(">")
+        if close < 0:
+            return None
+        rest = stripped[close + 1:].strip()
+    else:
+        parts = stripped.split(None, 1)
+        rest = parts[1].strip() if len(parts) > 1 else ""
+    if rest == "" or _is_title_text(rest):
+        return rest
+    return None
 
 
 def _mask_non_answer_text(text):
@@ -125,18 +233,36 @@ def _mask_non_answer_text(text):
         match = _REF_DEF_START_RE.match(line)
         if not match:
             continue
-        masked_line_indexes.add(idx)
+        remainder = match.group(1)
+        if remainder.strip():
+            # A definition line stands only where what follows
+            # the label is a destination with at most a title
+            # after it. Prose standing in label form, a
+            # destination followed by untitled words, is not a
+            # definition and its line stands unmasked.
+            tail = _definition_tail(remainder)
+            if tail is None:
+                continue
+            masked_line_indexes.add(idx)
+            if tail == "" and idx + 1 < len(lines) \
+                    and _is_title_text(lines[idx + 1]):
+                masked_line_indexes.add(idx + 1)
+            continue
+        # The split form: the destination stands on the
+        # following line, and it must read as a destination
+        # with at most a title after it for either line to
+        # stand masked.
         following = idx + 1
-        if not match.group(1).strip():
-            if following < len(lines) and lines[following].strip():
-                masked_line_indexes.add(following)
-                following += 1
-        if following < len(lines):
-            title = lines[following]
-            stripped = title.strip()
-            if (title[:1] in (" ", "\t") and stripped[:1]
-                    in ("\"", "'", "(")):
-                masked_line_indexes.add(following)
+        if following >= len(lines) or not lines[following].strip():
+            continue
+        tail = _definition_tail(lines[following])
+        if tail is None:
+            continue
+        masked_line_indexes.add(idx)
+        masked_line_indexes.add(following)
+        if tail == "" and following + 1 < len(lines) \
+                and _is_title_text(lines[following + 1]):
+            masked_line_indexes.add(following + 1)
     position = 0
     line_spans = []
     for idx, line in enumerate(lines):
@@ -335,8 +461,8 @@ def _mask_spans(text, spans):
 
 
 def _link_spans(text):
-    return [(match.start(), match.end(), match.group(2))
-            for match in _LINK_RE.finditer(text)]
+    return [(start, end, target)
+            for start, end, target in _iter_links(text)]
 
 
 def _bare_url_spans(text, excluded):
@@ -373,18 +499,15 @@ def _masked_for_mentions(text):
     """Text with link targets and bare URLs masked at equal
     length, item 46, so masking shifts no later offset."""
     spans = []
-    for match in _LINK_RE.finditer(text):
+    for start, end, _target in _iter_links(text):
         # The target opening parenthesis is the one standing
         # at the link delimiter, judged from the link's own
         # target parenthesis. A parenthesis inside the link
         # text stands before it and is not the mask start, so
         # link text after such a parenthesis stays searched.
-        delimiter = match.group(0).find("](")
-        if delimiter >= 0:
-            open_paren = match.start() + delimiter + 1
-        else:
-            open_paren = match.group(0).rindex("(") + match.start()
-        spans.append((open_paren, match.end()))
+        delimiter = text.find("](", start, end)
+        open_paren = delimiter + 1 if delimiter >= 0 else start
+        spans.append((open_paren, end))
     masked = _mask_spans(text, spans)
     url_spans = [(start, end) for start, end, _
                  in _bare_url_spans(masked, [])]
@@ -442,11 +565,13 @@ def _scan_mentions(masked_text, names):
             origin = fold_map[index]
             origin_end = fold_map[end - 1] + 1 if end > index else origin
             if origin > 0 and (supplied_text[origin - 1].isalpha()
-                               or supplied_text[origin - 1].isdigit()):
+                               or supplied_text[origin - 1].isdigit()
+                               or supplied_text[origin - 1] == "_"):
                 continue
             if origin_end < len(supplied_text) and (
                     supplied_text[origin_end].isalpha()
-                    or supplied_text[origin_end].isdigit()):
+                    or supplied_text[origin_end].isdigit()
+                    or supplied_text[origin_end] == "_"):
                 continue
             matched = (origin, name, end)
             break
@@ -462,9 +587,19 @@ def _domain_offsets(masked_text, domain):
     if not domain:
         return []
     needle = unicodedata.normalize("NFC", str(domain)).casefold()
+    for separator in ("\uff0e", "\u3002", "\uff61"):
+        needle = needle.replace(separator, ".")
     found = []
     start = 0
     supplied_text = unicodedata.normalize("NFC", masked_text)
+    # The non ASCII dot separators of item 149 are mapped to
+    # a full stop before the search, as normalise_host maps
+    # them for the URL host reading. Each separator is one
+    # character and its mapping is one character, so every
+    # position in the searched text stands at its supplied
+    # position.
+    for separator in ("\uff0e", "\u3002", "\uff61"):
+        supplied_text = supplied_text.replace(separator, ".")
     folded_text, fold_map = _fold_with_map(supplied_text)
     while True:
         index = folded_text.find(needle, start)
@@ -478,7 +613,7 @@ def _domain_offsets(masked_text, domain):
                       if origin_end < len(supplied_text) else "")
         before_ok = not (
             before_char.isalpha() or before_char.isdigit()
-            or before_char in ("-", "@"))
+            or before_char in ("-", "@", "_"))
         if after_char == ".":
             # The boundary is judged on what follows the dot.
             # A label character after the dot continues the
@@ -490,11 +625,11 @@ def _domain_offsets(masked_text, domain):
                          if origin_end + 1 < len(supplied_text) else "")
             after_ok = not (
                 following.isalpha() or following.isdigit()
-                or following == "-")
+                or following in ("-", "_"))
         else:
             after_ok = not (
                 after_char.isalpha() or after_char.isdigit()
-                or after_char == "-")
+                or after_char in ("-", "_"))
         if before_ok and after_ok:
             found.append(origin)
         start = index + 1
@@ -502,10 +637,15 @@ def _domain_offsets(masked_text, domain):
 
 def _clean_heading_text(text):
     """Clean a heading's text for the closed set comparison:
-    trailing punctuation of any kind is ignored, item 160."""
+    punctuation of any kind is ignored at the head of the
+    heading text as at its tail, item 160, so a heading whose
+    text stands wrapped in emphasis marks or quotation marks
+    cleans to the same string as the plain heading."""
     cleaned = text.strip()
     while cleaned and not cleaned[-1].isalnum():
         cleaned = cleaned[:-1]
+    while cleaned and not cleaned[0].isalnum():
+        cleaned = cleaned[1:]
     return cleaned.strip().casefold()
 
 
@@ -612,12 +752,14 @@ def _is_item_line(line):
         return True
     if _BARE_HOST_RE.match(stripped):
         return True
-    if _LINK_RE.fullmatch(stripped):
+    links = list(_iter_links(stripped))
+    if (len(links) == 1 and links[0][0] == 0
+            and links[0][1] == len(stripped)):
         return True
     match = _MARKER_RE.match(stripped)
     if match:
         content = match.group(1).strip()
-        if _URL_RE.search(content) or _LINK_RE.search(content):
+        if _URL_RE.search(content) or list(_iter_links(content)):
             return True
         if _BARE_HOST_RE.match(content):
             return True
@@ -632,9 +774,9 @@ def _entry_target(rest):
     rest = rest.strip()
     if not rest:
         return ""
-    link = _LINK_RE.search(rest)
+    link = next(_iter_links(rest), None)
     if link:
-        return link.group(2)
+        return link[2]
     angle = re.search(r"<([^>\s]+)>", rest)
     if angle:
         return angle.group(1)
@@ -849,6 +991,148 @@ def _shingles(normalised_text):
             for index in range(len(words) - 4)} if len(words) >= 5 else set()
 
 
+def _similar_components(type_sets):
+    """The components of the similarity graph over distinct
+    non empty shingle sets, computed exactly.
+
+    Two sets are similar where their shared count stands at
+    the 0.80 Jaccard bound, judged in integers as shared
+    times 9 standing at least 4 times the sum of the sizes.
+    No structure grows with the number of pairs and no subset
+    of a set is ever stored: an inverted index over single
+    shingles stands in place of both.
+
+    Each component is grown from one seed set. One counting
+    pass over the seed's postings reads its shared count
+    with every unvisited set, with a shingle standing in
+    every unvisited set counted once as a base, and every
+    set similar to the seed joins at once, which settles a
+    clique shape in that one pass. An unvisited set can join
+    later only through a member already in the component,
+    and its shared count with such a member stands at most
+    its shared count with the seed plus the part of the
+    member standing outside the seed, so every unvisited set
+    under that bound for every member stands excluded in
+    bulk. The sets the bound leaves open are few on the
+    shapes a round carries, and each is judged exactly
+    against the members, newest first, pass by pass until a
+    pass adds nothing.
+    """
+    count = len(type_sets)
+    postings = {}
+    for index, shingle_set in enumerate(type_sets):
+        for shingle in shingle_set:
+            postings.setdefault(shingle, []).append(index)
+    frequency = {shingle: len(members)
+                 for shingle, members in postings.items()}
+    buckets = {}
+    for shingle, freq in frequency.items():
+        buckets.setdefault(freq, set()).add(shingle)
+    visited = [False] * count
+    by_size = {}
+    for index, shingle_set in enumerate(type_sets):
+        by_size.setdefault(len(shingle_set), set()).add(index)
+    remaining = count
+
+    def mark(index):
+        nonlocal remaining
+        visited[index] = True
+        remaining -= 1
+        by_size[len(type_sets[index])].discard(index)
+        for shingle in type_sets[index]:
+            freq = frequency[shingle]
+            bucket = buckets.get(freq)
+            if bucket is not None:
+                bucket.discard(shingle)
+            if freq > 1:
+                frequency[shingle] = freq - 1
+                buckets.setdefault(freq - 1, set()).add(shingle)
+            else:
+                del frequency[shingle]
+
+    components = []
+    for seed in range(count):
+        if visited[seed]:
+            continue
+        seed_set = type_sets[seed]
+        seed_size = len(seed_set)
+        component = [seed]
+        members = [seed]
+        mark(seed)
+        universal = buckets.get(remaining, ()) if remaining else ()
+        base = sum(1 for shingle in seed_set if shingle in universal)
+        counts = {}
+        for shingle in seed_set:
+            if shingle in universal:
+                continue
+            for other in postings[shingle]:
+                if not visited[other]:
+                    counts[other] = counts.get(other, 0) + 1
+
+        def shared_with_seed(other):
+            return base + counts.get(other, 0)
+
+        max_added = 0
+        min_member_size = seed_size
+
+        def join(other):
+            nonlocal max_added, min_member_size
+            mark(other)
+            component.append(other)
+            members.append(other)
+            added = len(type_sets[other]) - len(seed_set & type_sets[other])
+            if added > max_added:
+                max_added = added
+            if len(type_sets[other]) < min_member_size:
+                min_member_size = len(type_sets[other])
+
+        first_layer = []
+        for other, shared_count in counts.items():
+            shared = base + shared_count
+            if shared * 9 >= 4 * (seed_size + len(type_sets[other])):
+                first_layer.append(other)
+        if base:
+            for size, size_members in list(by_size.items()):
+                if size_members and base * 9 >= 4 * (seed_size + size):
+                    first_layer.extend(size_members)
+        for other in first_layer:
+            if not visited[other]:
+                join(other)
+        while True:
+            pool = []
+            for other in counts:
+                if visited[other]:
+                    continue
+                threshold = -(-4 * (len(type_sets[other])
+                                     + min_member_size) // 9)
+                if shared_with_seed(other) + max_added >= threshold:
+                    pool.append(other)
+            if base + max_added >= 0:
+                for size, size_members in list(by_size.items()):
+                    if not size_members:
+                        continue
+                    threshold = -(-4 * (size + min_member_size) // 9)
+                    if base + max_added >= threshold:
+                        for other in size_members:
+                            if other not in counts:
+                                pool.append(other)
+            additions = []
+            for other in pool:
+                other_set = type_sets[other]
+                for member in reversed(members):
+                    shared = len(other_set & type_sets[member])
+                    if shared * 9 >= 4 * (len(other_set)
+                                          + len(type_sets[member])):
+                        additions.append(other)
+                        break
+            if not additions:
+                break
+            for other in additions:
+                if not visited[other]:
+                    join(other)
+        components.append(component)
+    return components
+
 def cluster_answers(texts):
     """Cluster answers by the shingle rule, item 20 of Section 5.8.
 
@@ -895,42 +1179,16 @@ def cluster_answers(texts):
         members = groups[key]
         for index in members[1:]:
             union(members[0], index)
-    if not any(not key[0] for key in keys):
-        sizes = {len(key[0]) for key in keys}
-        if len(sizes) == 1 and keys:
-            size = sizes.pop()
-            alpha = -(-8 * size // 9)
-            deletions = size - alpha
-            import itertools
-            if size and math.comb(size, deletions) <= 2000:
-                # Two sets of this size are similar exactly
-                # where they share a subset of alpha shingles,
-                # so grouping by those subsets joins every
-                # similar pair without storing one result
-                # per pair.
-                by_subset = {}
-                for group_index, key in enumerate(keys):
-                    ordered = sorted(key[0], key=hash)
-                    for subset in itertools.combinations(
-                            ordered, alpha):
-                        by_subset.setdefault(subset, []).append(
-                            group_index)
-                for members in by_subset.values():
-                    for other in members[1:]:
-                        union(groups[keys[members[0]]][0],
-                              groups[keys[other]][0])
-                return [find(index) for index in range(len(texts))]
-    for first in range(len(keys)):
-        for second in range(first + 1, len(keys)):
-            first_set = keys[first][0]
-            second_set = keys[second][0]
-            if not first_set or not second_set:
-                similar = normalised[groups[keys[first]][0]] == \
-                    normalised[groups[keys[second]][0]]
-            else:
-                shared = len(first_set & second_set)
-                union_size = len(first_set) + len(second_set) - shared
-                similar = union_size > 0 and shared / union_size >= 0.80
-            if similar:
-                union(groups[keys[first]][0], groups[keys[second]][0])
+    # A group with an empty shingle set is similar only to a
+    # group with the same normalised text, and identical
+    # empty groups already stand joined by their group key,
+    # so the component search runs over the non empty groups
+    # only and every other group stands as its own cluster.
+    nonempty_keys = [key for key in keys if key[0]]
+    if nonempty_keys:
+        type_sets = [key[0] for key in nonempty_keys]
+        for component in _similar_components(type_sets):
+            first_member = groups[nonempty_keys[component[0]]][0]
+            for other in component[1:]:
+                union(first_member, groups[nonempty_keys[other]][0])
     return [find(index) for index in range(len(texts))]

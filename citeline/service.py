@@ -208,6 +208,39 @@ def _require_home(home):
             "the home stands missing: %s" % (home,))
 
 
+def _recover_interrupted_batch(home):
+    """Roll back a killed batch before a read judges state.
+
+    Recovery stood only on the append paths, so a read
+    only route presented a killed batch's partial entries
+    as ordinary state, indefinitely, until an unrelated
+    append rolled them away and silently falsified the
+    report already handed out (Step 17 round 3 entry
+    S17-R3-029, reopening S17-R2-083 on its read side).
+    Every reading route of this layer now runs the
+    journal recovery first, on the discipline the journal
+    seat landed: the recovery itself validates the intent
+    record, restores the journal and the anchor, and
+    appends its own record of having run. Where no home
+    stands, or the home stands held by a live batch,
+    nothing happens here: the live batch owns its own
+    rollback, and a missing home creates nothing.
+    """
+    try:
+        if not os.path.isdir(str(home)):
+            return
+    except (ValueError, UnicodeError):
+        return
+    journal = _journal()
+    recover = getattr(journal, "recover_interrupted_batch", None)
+    if recover is None:
+        return
+    try:
+        recover(str(home))
+    except Exception:
+        pass
+
+
 def _guard_supplied_path(value):
     """Refuse a supplied path no filesystem call can state.
 
@@ -542,6 +575,11 @@ def _validate_product_record(record):
             not isinstance(item, (str, dict))
             or (isinstance(item, dict)
                 and not isinstance(item.get("name"), str))
+            or (isinstance(item, dict)
+                and item.get("aliases") is not None
+                and (not isinstance(item.get("aliases"), list)
+                     or any(not isinstance(alias, str)
+                            for alias in item.get("aliases"))))
             for item in competitors)
         if bad:
             _fail(
@@ -552,15 +590,64 @@ def _validate_product_record(record):
 
 
 def _validate_answer_payload(payload):
-    """The stored answer field discipline at the readers."""
+    """The stored answer field discipline at the readers.
+
+    The string fields stand judged as before, and the non
+    string fields its readers consume stand judged with
+    them (Step 17 round 3 entry S17-R3-048, reopening
+    S17-R2-081): the answer size stands as a record whose
+    character and word counts stand as whole numbers a
+    reader can sum, the control flag stands as a boolean,
+    and the control kind stands as a string or no value.
+    A swapped form refuses VALIDATION_FAILED naming the
+    field, instead of crashing one reader on a sum and
+    silently falsifying another on a truthiness test.
+    """
     if not isinstance(payload, dict):
         return
     for field in ("answer_text", "query", "captured_on",
                   "capture_method", "engine_label_original",
                   "engine_label_normalised", "kind", "round",
                   "product", "round_id", "product_id",
-                  "answer_id"):
+                  "answer_id", "content_hash", "integrity_note",
+                  "control_kind"):
         _require_typed_field(payload, field, str, "answer")
+    control_flag = payload.get("control_flag")
+    if control_flag is not None and not isinstance(
+            control_flag, bool):
+        _fail(
+            "VALIDATION_FAILED",
+            "the stored answer record carries control_flag "
+            "in a form its readers cannot use: %r"
+            % (control_flag,))
+    size = payload.get("answer_size")
+    if size is not None:
+        bad = not isinstance(size, dict)
+        if not bad:
+            for key in ("characters", "words"):
+                value = size.get(key)
+                if value is None:
+                    continue
+                if isinstance(value, bool) \
+                        or not isinstance(value, int):
+                    bad = True
+                    break
+                try:
+                    float(value)
+                except OverflowError:
+                    # A count no reader can state as a
+                    # figure stands in no usable form: the
+                    # status average divides its sum, and a
+                    # count past the float range raises a
+                    # raw OverflowError there.
+                    bad = True
+                    break
+        if bad:
+            _fail(
+                "VALIDATION_FAILED",
+                "the stored answer record carries "
+                "answer_size in a form its readers cannot "
+                "use: %r" % (size,))
 
 
 def _validate_audit_payload(payload):
@@ -634,6 +721,7 @@ def status(*, home):
     that stand, including barred and broken chain homes.
     """
     _require_home(home)
+    _recover_interrupted_batch(home)
     journal = _journal()
     snapshot = journal.status_snapshot(str(home))
     result = dict(snapshot)
@@ -672,6 +760,12 @@ def status(*, home):
     answers = [
         entry for entry in entries
         if _get(entry, "entry_kind") == "answer_imported"]
+    for entry in answers:
+        # The capacity outlook consumes the answer size
+        # figures, so the stored answer discipline stands
+        # judged here as at the report readers (Step 17
+        # round 3 entry S17-R3-048).
+        _validate_answer_payload(_payload(entry))
     if not answers:
         outlook["answer_average"] = (
             "no average stands: no imported answer stands in "
@@ -711,6 +805,7 @@ def verify(*, home):
     claimed as verified.
     """
     _require_home(home)
+    _recover_interrupted_batch(home)
     journal = _journal()
     chain = journal.verify_chain(str(home))
     result = dict(chain)
@@ -1059,6 +1154,7 @@ def staleness_view(*, home):
     not an error and not an empty graph reading as current.
     """
     _require_home(home)
+    _recover_interrupted_batch(home)
     _barred_check(home)
     # The staleness assembly reads corrections as the
     # other reporting readers do (Step 17 round 2 entry
@@ -1081,8 +1177,12 @@ def staleness_view(*, home):
             answers_by_round.setdefault(
                 payload["round_id"], []).append(payload)
     rows = []
-    round_order = []
-    round_payloads = {}
+    # Every round record stands on its own row, in journal
+    # order: two round records sharing one round identity
+    # are two records as the journal counts them, and no
+    # mapping by identity merges the later over the earlier
+    # (Step 17 round 3 entry S17-R3-066).
+    round_records = []
     for entry in entries:
         kind = _get(entry, "entry_kind")
         payload = _payload(entry)
@@ -1093,12 +1193,9 @@ def staleness_view(*, home):
                 ("query_set_version",),
                 products.get(payload.get("product_id")))))
         elif kind == "round_named":
-            record_id = payload.get("round_id")
-            if record_id not in round_payloads:
-                round_order.append(record_id)
-            round_payloads[record_id] = (entry, payload)
-    for record_id in round_order:
-        entry, payload = round_payloads[record_id]
+            round_records.append((entry, payload))
+    for entry, payload in round_records:
+        record_id = payload.get("round_id")
         extras = list(answers_by_round.get(record_id, ()))
         # The round's query set axis binds from the
         # product record as it stood at the round's first
@@ -1239,6 +1336,12 @@ set_category.__signature__ = inspect.Signature(parameters=[
 def register_page(*, home, product, snapshot, audit_date=None):
     audit_date = _validate_audit_date(audit_date)
     _require_home(home)
+    # The registration judgement reads the fold before its
+    # own append runs any recovery, so the recovery stands
+    # run here first: an orphan snapshot of a killed batch
+    # stands as no standing snapshot to this route (Step
+    # 17 round 3 entry S17-R3-029).
+    _recover_interrupted_batch(home)
     registry = _registry()
     try:
         return registry.register_page(
@@ -1286,6 +1389,12 @@ def list_products(*, home):
     the registry component folds them, in the order their
     registration entries stand.
     """
+    # The home check stands here as its sibling routes run
+    # it (Step 17 round 3 entry S17-R3-050): a home path no
+    # filesystem call can state answers HOME_MISSING at
+    # row U-6, never a bare ValueError from the fold below.
+    _require_home(home)
+    _recover_interrupted_batch(home)
     journal = _journal()
     # A journal that does not parse stands signalled in
     # the governed value its sibling readers give, never
@@ -1328,6 +1437,7 @@ def estate_grounds(*, home, product):
     journal order. Both readings run over the journal fold
     in this one call.
     """
+    _recover_interrupted_batch(home)
     _validate_stored_entries(_fold(home, apply_corrections=True))
     record = _find_product(home, product)
     if record is None:
@@ -1754,7 +1864,64 @@ def _cap_evidence_spans(check_results, by_limit):
     return capped
 
 
+@contextlib.contextmanager
+def _audit_assembly_lock(home):
+    """Hold the home write lock across one audit assembly.
+
+    The audit assembly computes its run identity and its
+    snapshot citation from the standing entry count, and
+    reads its limits under that run identity: where an
+    unrelated append lands between that reading and the
+    batch, the stored record cites a snapshot that denotes
+    another entry or none, and states limits read under an
+    identity the record does not carry (Step 17 round 3
+    entry S17-R3-052). The assembly therefore stands
+    inside the journal write lock, as the import
+    judgement stands inside it: an append that meets the
+    hold stands contended and stores nothing, the batch
+    appends inside the hold join it, and the identities
+    the assembly computed stand as the identities the
+    storing entries resolve.
+    """
+    journal = _journal()
+    lock_class = getattr(journal, "_WriteLock", None)
+    if lock_class is None:
+        yield
+        return
+    with lock_class(str(home)):
+        yield
+
+
 def _audit_impl(*, home, page_file=None, robots_file=None,
+                evaluated_page_path=None, audit_date=None,
+                product=None, run_id=None):
+    """One audit: recovery first, then the assembly.
+
+    A killed batch standing on the home stands recovered
+    before any count this assembly reads (Step 17 round 3
+    entry S17-R3-029), and a fresh audit's assembly and
+    its batch stand inside the write lock (entry
+    S17-R3-052), so no append and no recovery truncation
+    inside the invocation moves the snapshot or the run
+    the record names.
+    """
+    _require_home(home)
+    _recover_interrupted_batch(home)
+    if run_id is None and page_file is not None:
+        with _audit_assembly_lock(home):
+            return _audit_body(
+                home=home, page_file=page_file,
+                robots_file=robots_file,
+                evaluated_page_path=evaluated_page_path,
+                audit_date=audit_date, product=product,
+                run_id=run_id)
+    return _audit_body(
+        home=home, page_file=page_file, robots_file=robots_file,
+        evaluated_page_path=evaluated_page_path,
+        audit_date=audit_date, product=product, run_id=run_id)
+
+
+def _audit_body(*, home, page_file=None, robots_file=None,
                 evaluated_page_path=None, audit_date=None,
                 product=None, run_id=None):
     """One audit, assembled as caller over its components.
@@ -1811,6 +1978,14 @@ def _audit_impl(*, home, page_file=None, robots_file=None,
     _require_home(home)
     _guard_supplied_path(page_file)
     _guard_supplied_path(robots_file)
+    # The evaluated page path stands under the same guard
+    # (Step 17 round 3 entry S17-R3-046): it is stored on
+    # the snapshot and on the audit record, so an unsafe
+    # form reaches the journal hashing in stored form,
+    # and the guard refuses it here in the governed
+    # vocabulary the audit wrapper converts, as it refuses
+    # its sibling paths.
+    _guard_supplied_path(evaluated_page_path)
     run_started = _clock()
     run_candidate = None
     start_limits = None
@@ -2126,7 +2301,18 @@ def audit(*, home, page_file=None, robots_file=None,
     and contention exceptions stand in the appending
     helper, as they stand for the import route.
     """
-    audit_date = _validate_audit_date(audit_date)
+    try:
+        audit_date = _validate_audit_date(audit_date)
+    except errors.CitelineError as exc:
+        # The date validation stands inside the recording
+        # discipline (Step 17 round 3 entry S17-R3-047):
+        # its refusal appends exactly one failure record,
+        # as every other governed failure of the route.
+        _append_failure_record(
+            home, "audit", exc,
+            page_file if page_file is not None else run_id,
+            audit_date)
+        raise
     try:
         return _audit_impl(
             home=home, page_file=page_file,
@@ -2252,6 +2438,132 @@ def _import_preflight(home, answer_file, extra_entries):
         pass
 
 
+def _import_front_matter_limits(home, answer_file):
+    """The front matter limits in force at the import seam.
+
+    The import adapter receives no home, so the brief
+    values govern inside it, on the bound recorded at
+    entry S17-R2-037. At this seam the home stands known,
+    so the limits in force stand enforced here over the
+    answer file's head block, as the audit preflight
+    enforces its front matter key count at its seam
+    (Step 17 round 3 entry S17-R3-068, import limb):
+    limit 11, block size, limit 12, key count, and limit
+    17, value length, measured in the forms the component
+    measures on a head block. Worksheet slot bodies carry
+    blocks of their own inside the sheet and stand under
+    the adapter reading; this seam reaches the head block
+    of the file as supplied, and no further.
+    """
+    block_limit = _limit_value(home, "front_matter_block_size")
+    key_limit = _limit_value(home, "front_matter_key_count")
+    value_limit = _limit_value(
+        home, "front_matter_value_length_per_key")
+    if block_limit is None and key_limit is None \
+            and value_limit is None:
+        return
+    try:
+        from citeline import probe_import as import_module
+        _raw, text, _hash = import_module.read_answer_file(
+            str(answer_file))
+    except Exception:
+        return
+    strip = getattr(import_module, "_strip_head", None)
+    working = strip(text) if strip is not None else text
+    lines = working.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return
+    closing = None
+    for index in range(1, len(lines)):
+        if lines[index].strip() in ("---", "..."):
+            closing = index
+            break
+    if closing is None:
+        return
+    block_lines = lines[1:closing]
+    if block_limit is not None and len(
+            "\n".join(block_lines).encode("utf-8")) \
+            > block_limit * 1024:
+        _fail(
+            "LIMIT_EXCEEDED",
+            "front matter block size limit is %s KiB in "
+            "force for this home, with rejection and no "
+            "partial record" % ("%g" % (block_limit,),))
+    block = "\n".join(block_lines).strip()
+    if block.startswith("{"):
+        import json
+        try:
+            parsed = json.loads(block)
+        except Exception:
+            return
+        if not isinstance(parsed, dict):
+            return
+        if key_limit is not None and len(parsed) > key_limit:
+            _fail(
+                "LIMIT_EXCEEDED",
+                "front matter key count limit is %s in "
+                "force for this home, with rejection and "
+                "no partial record" % ("%g" % (key_limit,),))
+        if value_limit is not None:
+            for value in parsed.values():
+                if isinstance(value, str):
+                    measured = len(value)
+                elif isinstance(value, (dict, list)):
+                    measured = len(json.dumps(
+                        value, ensure_ascii=False))
+                else:
+                    measured = 0
+                if measured > value_limit:
+                    _fail(
+                        "LIMIT_EXCEEDED",
+                        "front matter value length limit is "
+                        "%s characters in force for this "
+                        "home, with rejection and no partial "
+                        "record" % ("%g" % (value_limit,),))
+        return
+    key_value = getattr(
+        import_module, "_front_matter_key_value", None)
+    if key_value is None:
+        return
+    key_count = 0
+    current_length = None
+    for block_line in block_lines:
+        if not block_line.strip() or block_line.lstrip() \
+                .startswith("#"):
+            continue
+        pair = key_value(block_line)
+        if pair is None:
+            if block_line[0] in " \t" \
+                    and current_length is not None:
+                current_length += len(block_line.strip())
+                if value_limit is not None \
+                        and current_length > value_limit:
+                    _fail(
+                        "LIMIT_EXCEEDED",
+                        "front matter value length limit "
+                        "is %s characters in force for "
+                        "this home, with rejection and no "
+                        "partial record"
+                        % ("%g" % (value_limit,),))
+            continue
+        key_count += 1
+        current_length = len(pair[1])
+        if value_limit is not None \
+                and current_length > value_limit:
+            _fail(
+                "LIMIT_EXCEEDED",
+                "front matter value length limit is %s "
+                "characters in force for this home, with "
+                "rejection and no partial record"
+                % ("%g" % (value_limit,),))
+    if key_limit is not None and key_count > key_limit:
+        _fail(
+            "LIMIT_EXCEEDED",
+            "front matter key count limit is %s in force "
+            "for this home, with rejection and no partial "
+            "record" % ("%g" % (key_limit,),))
+
+
 def _worksheet_record_count(answer_file):
     """The records one worksheet import would append.
 
@@ -2315,6 +2627,21 @@ def probe_import(*, home, answer_file=None, product=None,
     """
     _require_home(home)
     try:
+        # The audit date stands under the service
+        # validator's stated discipline and token, as on
+        # every sibling route (Step 17 round 3 entry
+        # S17-R3-060): the input stands normalised here,
+        # before the component parser reads it, so a
+        # datetime or an integer in basic ISO form stands
+        # accepted and recorded as its ISO date text, and
+        # a bad string refuses VALIDATION_FAILED, the one
+        # token the other operations name this failure in.
+        audit_date = _validate_audit_date(audit_date)
+    except errors.CitelineError as exc:
+        _append_failure_record(
+            home, "probe import", exc, answer_file, audit_date)
+        raise
+    try:
         _guard_supplied_path(answer_file)
     except Exception as exc:
         # The supplied path guard stands at this route's
@@ -2354,6 +2681,7 @@ def probe_import(*, home, answer_file=None, product=None,
             if record_count:
                 preflight_extra += record_count - 1
         _import_preflight(home, answer_file, preflight_extra)
+        _import_front_matter_limits(home, answer_file)
         # Limits 31 and 3's seam companions, enforced at
         # the values in force before the file's validation
         # runs (Step 17 entries S17-R1-038 and
@@ -2584,13 +2912,21 @@ def _failure_record_payloads(home):
     routes hand to rendering (Step 17 round 2 entry
     S17-R2-101): the stored failure record payloads of
     the home, in journal order, complete as appended.
+
+    The fold stands corrections aware, as the reporting
+    readers fold (Step 17 round 3 entry S17-R3-064): a
+    correction superseding a failure record governs the
+    surface, as it governs every other reporting reader.
+    And a stored entry stands on the surface whatever
+    its payload holds (entry S17-R3-067): an entry
+    holding an empty payload is a stored failure record,
+    and it surfaces as one, instead of the home reading
+    as if no failure stands.
     """
     payloads = []
-    for entry in _fold(home):
+    for entry in _fold(home, apply_corrections=True):
         if _get(entry, "entry_kind") == "failure_record":
-            payload = _payload(entry)
-            if payload:
-                payloads.append(payload)
+            payloads.append(_payload(entry))
     return payloads
 
 
@@ -2924,10 +3260,16 @@ def probe_report(*, home, product, round, form=None,
     appends exactly one failure record (Step 17 entry
     S17-R1-085), as the audit route states.
     """
-    audit_date = _validate_audit_date(audit_date)
+    try:
+        audit_date = _validate_audit_date(audit_date)
+    except errors.CitelineError as exc:
+        _append_failure_record(
+            home, "probe report", exc, round, audit_date)
+        raise
     run_started = _clock()
     try:
         _require_home(home)
+        _recover_interrupted_batch(home)
         _barred_check(home)
         product_record = _require_product(home, product)
         round_record = _require_round(home, product_record, round)
@@ -2993,10 +3335,16 @@ def probe_trend(*, home, product, round_a, round_b, form=None,
     the assembled trend in the requested form, as the
     probe report home does.
     """
-    audit_date = _validate_audit_date(audit_date)
+    try:
+        audit_date = _validate_audit_date(audit_date)
+    except errors.CitelineError as exc:
+        _append_failure_record(
+            home, "probe trend", exc, round_a, audit_date)
+        raise
     run_started = _clock()
     try:
         _require_home(home)
+        _recover_interrupted_batch(home)
         _barred_check(home)
         product_record = _require_product(home, product)
         first = _require_round(home, product_record, round_a)
@@ -3052,9 +3400,15 @@ def query_set_report(*, home, product, form=None, audit_date=None):
     The home returns the reporting pipeline rendering of
     the derived report in the requested form.
     """
-    audit_date = _validate_audit_date(audit_date)
+    try:
+        audit_date = _validate_audit_date(audit_date)
+    except errors.CitelineError as exc:
+        _append_failure_record(
+            home, "query set report", exc, product, audit_date)
+        raise
     try:
         _require_home(home)
+        _recover_interrupted_batch(home)
         _barred_check(home)
         product_record = _require_product(home, product)
         _validate_product_record(product_record)
@@ -3142,6 +3496,7 @@ def _guide_impl(*, home, run_id=None, product=None,
     # over a missing home answers HOME_MISSING and creates
     # nothing (Step 17 round 2 entry S17-R2-071).
     _require_home(home)
+    _recover_interrupted_batch(home)
     _barred_check(home)
     if run_id is not None and (
             product is not None or round_label is not None):
@@ -3245,7 +3600,14 @@ def guide(*, home, run_id=None, product=None, round_label=None,
     cap appends exactly one failure record (Step 17 entry
     S17-R1-085), as the audit route states.
     """
-    audit_date = _validate_audit_date(audit_date)
+    try:
+        audit_date = _validate_audit_date(audit_date)
+    except errors.CitelineError as exc:
+        _append_failure_record(
+            home, "guide", exc,
+            run_id if run_id is not None else round_label,
+            audit_date)
+        raise
     try:
         return _guide_impl(
             home=home, run_id=run_id, product=product,

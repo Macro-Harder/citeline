@@ -518,27 +518,109 @@ def _is_plausible_entry_prefix(partial):
         return False
     if len(text) > 1 and text[1] != '"':
         return False
+    # The admitted characters must also stand in an order a
+    # canonical token can stand in: a number carries at most
+    # one decimal point, one exponent, and signs only where
+    # the number grammar places them, and a literal value
+    # stands only as a prefix of true, false, or null,
+    # complete before any delimiter closes it. Brace led
+    # text in any other shape is no entry prefix, whoever
+    # holds the lock (Step 17 round 3 entry S17-R3-006).
     stack = []
     in_string = False
-    escaped = False
     closed = False
-    for char in text:
+    token = None
+    number_state = None
+    literal_word = None
+    literal_target = None
+    string_just_closed = False
+    value_just_ended = False
+    index = 0
+    while index < len(text):
+        char = text[index]
         if closed:
             return False
         if in_string:
-            if escaped:
-                escaped = False
-            elif char == "\\":
-                escaped = True
-            elif char == '"':
-                in_string = False
-            elif ord(char) < 0x20:
+            if char == "\\":
+                if index + 1 >= len(text):
+                    break
+                following = text[index + 1]
+                if following in '"\\/bfnrt':
+                    index += 2
+                    continue
+                if following == "u":
+                    digits = text[index + 2:index + 6]
+                    if any(c not in "0123456789abcdefABCDEF"
+                           for c in digits):
+                        return False
+                    index += 2 + len(digits)
+                    if len(digits) < 4:
+                        break
+                    continue
                 return False
+            if char == '"':
+                in_string = False
+                string_just_closed = True
+                value_just_ended = True
+                index += 1
+                continue
+            if ord(char) < 0x20:
+                return False
+            index += 1
             continue
+        if token == "literal":
+            if char.isalpha():
+                literal_word += char
+                if not literal_target.startswith(literal_word):
+                    return False
+                index += 1
+                continue
+            if literal_word != literal_target:
+                return False
+            token = None
+            literal_word = None
+            literal_target = None
+            value_just_ended = True
+            if char not in ":,}]":
+                return False
+        elif token == "number":
+            if char.isdigit():
+                if number_state == "minus":
+                    number_state = "int"
+                elif number_state == "frac_start":
+                    number_state = "frac"
+                elif number_state in ("exp_start", "exp_sign"):
+                    number_state = "exp"
+                index += 1
+                continue
+            if char == "." and number_state == "int":
+                number_state = "frac_start"
+                index += 1
+                continue
+            if char in "eE" and number_state in ("int", "frac"):
+                number_state = "exp_start"
+                index += 1
+                continue
+            if char in "+-" and number_state == "exp_start":
+                number_state = "exp_sign"
+                index += 1
+                continue
+            if number_state in ("minus", "frac_start",
+                                "exp_start", "exp_sign"):
+                return False
+            token = None
+            number_state = None
+            value_just_ended = True
+            if char not in ":,}]":
+                return False
         if char == '"':
             in_string = True
+            string_just_closed = False
+            value_just_ended = False
         elif char in "{[":
             stack.append(char)
+            string_just_closed = False
+            value_just_ended = False
         elif char in "}]":
             if not stack:
                 return False
@@ -547,10 +629,35 @@ def _is_plausible_entry_prefix(partial):
                 return False
             if not stack:
                 closed = True
-        elif char in ":,.0123456789-+truefalsn":
-            continue
+            string_just_closed = False
+            value_just_ended = True
+        elif char == ":":
+            # A colon stands only after a key string, never
+            # after another colon or a value.
+            if not string_just_closed:
+                return False
+            string_just_closed = False
+            value_just_ended = False
+        elif char == ",":
+            if not value_just_ended:
+                return False
+            string_just_closed = False
+            value_just_ended = False
+        elif char == "-" or char.isdigit():
+            token = "number"
+            number_state = "minus" if char == "-" else "int"
+            string_just_closed = False
+            value_just_ended = False
+        elif char in "tfn":
+            token = "literal"
+            literal_word = char
+            literal_target = {"t": "true", "f": "false",
+                              "n": "null"}[char]
+            string_just_closed = False
+            value_just_ended = False
         else:
             return False
+        index += 1
     return True
 
 
@@ -577,24 +684,34 @@ def _raise_value_in_range(payload):
     return 1 <= raised <= ceiling
 
 
-def _correction_form_ok(payload):
+def _correction_form_ok(payload, position=None):
     """Whether a correction payload carries the form the
     append path requires: a whole number supersedes value
-    and a corrected record that is a record. The form is
-    judged here, at scan and at replay, as the append path
-    judges it (Step 17 round 2 entry S17-R2-002)."""
-    if type(payload.get("supersedes_sequence")) is not int:
+    and a corrected record that is a record. Where the
+    correction own position in the chain stands known, at
+    scan and at replay, the supersedes value must also
+    name an entry standing at or before the correction
+    itself, the range the append path judges at row U-8.
+    A correction superseding its own sequence stands
+    inside that range, so the standing vector V-10 keeps
+    its governed form (Step 17 round 2 entry S17-R2-002,
+    reopened at round 3 entry S17-R3-007)."""
+    supersedes = payload.get("supersedes_sequence")
+    if type(supersedes) is not int:
+        return False
+    if position is not None and not 1 <= supersedes <= position:
         return False
     return isinstance(payload.get("corrected_record"), dict)
 
 
-def _special_payload_reason(parsed):
+def _special_payload_reason(parsed, position=None):
     """The scan reason a special payload form fails, or None."""
     kind = parsed.get("entry_kind")
     payload = parsed.get("payload") or {}
     if kind == "limit_raise" and not _raise_value_in_range(payload):
         return "raise_value"
-    if kind == "correction" and not _correction_form_ok(payload):
+    if kind == "correction" and not _correction_form_ok(
+            payload, position):
         return "correction_form"
     return None
 
@@ -651,6 +768,7 @@ def _scan(home, partial_mode="probe"):
             partial = segments[-1]
     scan.entry_count = len(scan.lines)
     scan.parsed = [_parse_line(raw) for raw in scan.lines]
+    seen_raises = []
     if partial is not None:
         if partial_mode == "probe" and _lock_held_by_other(home) \
                 and _is_plausible_entry_prefix(partial):
@@ -658,7 +776,6 @@ def _scan(home, partial_mode="probe"):
         elif partial_mode == "ignore":
             scan.partial_ignored = True
     previous_raw = None
-    seen_raises = set()
     for index, raw in enumerate(scan.lines, start=1):
         parsed = scan.parsed[index - 1]
         reason = None
@@ -690,22 +807,30 @@ def _scan(home, partial_mode="probe"):
                 else:
                     if rendered != raw:
                         reason = "noncanonical"
-                    elif _special_payload_reason(parsed) is not None:
-                        reason = _special_payload_reason(parsed)
+                    elif _special_payload_reason(
+                            parsed, index) is not None:
+                        reason = _special_payload_reason(
+                            parsed, index)
                     elif parsed.get("entry_kind") == "limit_raise":
                         # The one raise per run and limit rule
                         # is a property of the chain, not of
                         # one writing route: a supplied chain
                         # carrying two raises for one run and
                         # limit does not verify (Step 17 entry
-                        # S17-R1X-010).
+                        # S17-R1X-010). The raise key stands
+                        # judged by equality, as the append
+                        # path and effective_limits judge it,
+                        # so numeric spellings of one value
+                        # stand as one raise (Step 17 round 3
+                        # entry S17-R3-005).
                         payload = parsed.get("payload") or {}
-                        raise_key = (repr(payload.get("run_id")),
-                                     repr(payload.get("limit")))
-                        if raise_key in seen_raises:
+                        raise_key = (payload.get("run_id"),
+                                     payload.get("limit"))
+                        if any(raise_key == seen
+                               for seen in seen_raises):
                             reason = "duplicate_raise"
                         else:
-                            seen_raises.add(raise_key)
+                            seen_raises.append(raise_key)
         if reason is not None:
             scan.failure = {"position": index, "reason": reason,
                             "row": "I-2"}
@@ -726,6 +851,12 @@ def _entries_with_hash(scan):
     for parsed in scan.parsed:
         if isinstance(parsed, dict):
             entry = dict(parsed)
+            # The payload stands copied out of the scan
+            # cache, so a caller mutation of a fold result
+            # cannot write back into what later reads in
+            # this process return (Step 17 round 3 entry
+            # S17-R3-008).
+            entry["payload"] = copy.deepcopy(parsed.get("payload"))
             try:
                 entry["entry_hash"] = entry_hash(entry)
             except (JournalError, ValueError, ArithmeticError):
@@ -1194,11 +1325,14 @@ class _WriteLock:
     a holder ends bars nothing.
     """
 
-    def __init__(self, home):
+    def __init__(self, home, kind="container"):
         self.home = str(home)
         self.handle = None
         self._nested = False
         self._invocation = object()
+        self._kind = kind
+        self._granted = False
+        self._suspended = False
 
     def __enter__(self):
         os.makedirs(self.home, exist_ok=True)
@@ -1206,23 +1340,35 @@ class _WriteLock:
         with _HELD_LOCKS_GUARD:
             held = _HELD_LOCKS.get(path)
             if held is not None:
-                # Re-entry is judged by invocation and by
-                # thread, not by process alone. A caller
-                # joins a standing hold only where it runs
-                # on the holder thread inside the holder
-                # invocation itself, as the single entry
-                # appends inside one batch append do. Any
-                # other caller in this process, on any other
-                # thread or in any other invocation, stands
-                # contended at row X-10 and stores nothing,
-                # exactly as a caller in another process
-                # does (Step 17 round 2 entry S17-R2-001).
+                # Re-entry is judged by thread and by join
+                # permit, not by process or thread alone. A
+                # caller joins a standing hold only where it
+                # runs on the holder thread while a join
+                # permit stands for this home on this thread.
+                # A permit stands only inside a container
+                # hold: a batch append, a recovery, a replay,
+                # or a caller that took the lock to judge
+                # appends it then makes, as the service import
+                # judgement does. A single entry append takes
+                # the lock as a leaf and grants no permit, and
+                # an append that joins under a permit suspends
+                # that permit for its own duration, so no
+                # invocation that runs inside an append, a
+                # payload deepcopy hook among them, can join:
+                # it stands contended at row X-10 and stores
+                # nothing, exactly as a caller in another
+                # process does (Step 17 round 2 entry
+                # S17-R2-001, reopened at round 3 entry
+                # S17-R3-001).
                 handle, depth, owner_thread, invocation = held
                 if threading.get_ident() == owner_thread \
-                        and invocation in _active_invocations(path):
+                        and _join_permit_count(path) > 0:
                     _HELD_LOCKS[path] = (
                         handle, depth + 1, owner_thread, invocation)
                     self._nested = True
+                    if self._kind == "append":
+                        _change_join_permit(path, -1)
+                        self._suspended = True
                     return self
                 raise JournalError(
                     "a writing invocation already holds this home",
@@ -1255,6 +1401,9 @@ class _WriteLock:
             _HELD_LOCKS[path] = (
                 handle, 1, threading.get_ident(), self._invocation)
             _active_invocations(path).append(self._invocation)
+            if self._kind == "container":
+                _change_join_permit(path, 1)
+                self._granted = True
             return self
 
     def __exit__(self, exc_type, exc, tb):
@@ -1265,8 +1414,15 @@ class _WriteLock:
                 if held is not None:
                     _HELD_LOCKS[path] = (
                         held[0], held[1] - 1, held[2], held[3])
+                if self._suspended:
+                    _change_join_permit(path, 1)
+                    self._suspended = False
             self._nested = False
             return False
+        if self._granted:
+            with _HELD_LOCKS_GUARD:
+                _change_join_permit(path, -1)
+            self._granted = False
         if self.handle is not None:
             try:
                 fcntl.flock(self.handle, fcntl.LOCK_UN)
@@ -1302,6 +1458,22 @@ def _active_invocations(path):
     return active.setdefault(path, [])
 
 
+def _join_permit_count(path):
+    """The join permits standing for one path on this thread."""
+    permits = getattr(_LOCK_LOCAL, "permits", None)
+    if permits is None:
+        return 0
+    return permits.get(path, 0)
+
+
+def _change_join_permit(path, delta):
+    permits = getattr(_LOCK_LOCAL, "permits", None)
+    if permits is None:
+        permits = {}
+        _LOCK_LOCAL.permits = permits
+    permits[path] = permits.get(path, 0) + delta
+
+
 def _write_anchor(anchor_path, head_hash, sequence):
     directory = os.path.dirname(anchor_path) or "."
     os.makedirs(directory, exist_ok=True)
@@ -1315,6 +1487,18 @@ def _write_anchor(anchor_path, head_hash, sequence):
         os.fsync(handle.fileno())
     try:
         os.replace(temporary, anchor_path)
+    except FileNotFoundError:
+        # The temporary stands lost under its writer before
+        # its link step: the condition row X-13 names, in
+        # the vocabulary that row states (Step 17 round 3
+        # entry S17-R3-062).
+        try:
+            os.unlink(temporary)
+        except OSError:
+            pass
+        raise JournalError(
+            "the anchor temporary was lost before its link "
+            "step", row="X-13", token="TEMPORARY_LOST")
     except OSError:
         try:
             os.unlink(temporary)
@@ -1336,18 +1520,28 @@ def _restore_journal_size(path, size):
         _scan_cache.pop(cache_key, None)
 
 
-def _resolve_sequence_identity(value, sequence):
+_IDENTITY_MARKER_FIELDS = frozenset(
+    ("snapshot_id", "run_id", "answer_id"))
+
+
+def _resolve_sequence_identity(value, sequence, field=None):
     """Resolve the {sequence} identity marker in one payload.
 
-    Every string value in the payload, at any depth, has
-    the marker replaced by the sequence the append assigns,
-    in decimal form. Values carrying no marker stand as
-    they stand.
+    Resolution stands confined to the identity fields the
+    mechanism was charged with resolving: snapshot_id,
+    run_id, and answer_id, at any depth. A string standing
+    in any other field is caller text and stands stored
+    exactly as written, marker spelling included (Step 17
+    round 3 entry S17-R3-009). Values carrying no marker
+    stand as they stand.
     """
     if isinstance(value, str):
-        return value.replace("{sequence}", str(sequence))
+        if field in _IDENTITY_MARKER_FIELDS:
+            return value.replace("{sequence}", str(sequence))
+        return value
     if isinstance(value, dict):
-        return {name: _resolve_sequence_identity(item, sequence)
+        return {name: _resolve_sequence_identity(item, sequence,
+                                                 field=name)
                 for name, item in value.items()}
     if isinstance(value, (list, tuple)):
         return [_resolve_sequence_identity(item, sequence)
@@ -1372,9 +1566,11 @@ def _write_batch_intent(home, journal_size, anchor_path, anchor_bytes,
     still be rolled back whole by the next invocation that
     finds this record standing (Step 17 round 2 entry
     S17-R2-083, on the S17-R1-089 batch discipline). A
-    failure to record the intent degrades the batch to the
-    exception rollback alone and never bars the batch
-    itself.
+    failure to record the intent stands reported to the
+    caller, which bars the batch in the journal vocabulary:
+    a batch never runs with its kill protection silently
+    off (Step 17 round 3 entry S17-R3-053). Returns True
+    where the record stands written.
     """
     record = {
         "journal_size": journal_size,
@@ -1390,7 +1586,8 @@ def _write_batch_intent(home, journal_size, anchor_path, anchor_bytes,
             handle.flush()
             os.fsync(handle.fileno())
     except OSError:
-        pass
+        return False
+    return True
 
 
 def _clear_batch_intent(home):
@@ -1410,10 +1607,15 @@ def recover_interrupted_batch(home):
     content the record names, and the record stands
     removed, so no partial batch stands as ordinary state
     and the import it belonged to can be run again whole
-    (entry S17-R2-083). Returns True where a recovery
-    landed. Where the home stands held by a live batch,
-    or no record stands, nothing happens here: the live
-    batch owns its own rollback.
+    (entry S17-R2-083). The record stands validated
+    against the standing journal and the home before any
+    of that acts (round 3 entry S17-R3-002), and a landed
+    recovery appends its own failure record stating that
+    it ran (round 3 entry S17-R3-065, under the Manager
+    ruling recorded in the step record). Returns True
+    where a recovery landed. Where the home stands held
+    by a live batch, or no record stands, nothing happens
+    here: the live batch owns its own rollback.
     """
     home = str(home)
     intent_path = _batch_intent_path(home)
@@ -1425,32 +1627,61 @@ def recover_interrupted_batch(home):
                 with open(intent_path, "r",
                           encoding="utf-8") as handle:
                     record = json.loads(handle.read())
-                journal_size = record["journal_size"]
-                if type(journal_size) is not int or journal_size < 0:
-                    raise ValueError("batch intent holds no size")
-            except (OSError, ValueError, KeyError, TypeError):
+            except (OSError, ValueError):
                 # A record that does not read names no batch
                 # state to restore: it can only be the debris
                 # of a kill before the first entry landed,
                 # which appended nothing.
                 _clear_batch_intent(home)
                 return False
+            validated = _validate_batch_intent(home, record)
+            if validated is None:
+                # A record whose fields do not stand against
+                # the standing journal and the home names no
+                # batch this recovery may act on: it stands
+                # cleared and nothing is truncated, written,
+                # or deleted on its word (Step 17 round 3
+                # entry S17-R3-002).
+                _clear_batch_intent(home)
+                return False
+            journal_size, count, anchor_path, anchor_bytes, \
+                restored_count = validated
             _restore_journal_size(journal_path(home), journal_size)
-            anchor_path = record.get("anchor_path")
-            if anchor_path:
-                anchor_bytes = record.get("anchor_bytes")
+            if anchor_path is not None:
                 try:
                     if anchor_bytes is None:
                         if os.path.exists(anchor_path):
                             os.unlink(anchor_path)
                     else:
                         with open(anchor_path, "wb") as handle:
-                            handle.write(base64.b64decode(
-                                anchor_bytes))
+                            handle.write(anchor_bytes)
                             handle.flush()
                             os.fsync(handle.fileno())
-                except (OSError, ValueError):
+                except OSError:
                     pass
+            # The recovery itself stands recorded, under
+            # the Manager ruling on entry S17-R3-065: a
+            # failure record entry, appended through the
+            # ordinary append path under this same hold,
+            # stating that a recovery ran, the interrupted
+            # batch it answered, and the point the journal
+            # stands restored to. No new entry kind stands
+            # invented. A failure of this append leaves the
+            # recovery itself standing.
+            payload = {
+                "operation": "recovery",
+                "error_value": "interrupted_batch",
+                "subject_identity": "batch of %d entries" % count,
+                "date": None,
+                "rule_fired": "interrupted_batch",
+                "batch_count": count,
+                "restored_journal_size": journal_size,
+                "restored_entry_count": restored_count,
+            }
+            try:
+                append_entry(home, "failure_record", payload)
+            except Exception:
+                pass
             _clear_batch_intent(home)
             return True
     except JournalError:
@@ -1458,6 +1689,93 @@ def recover_interrupted_batch(home):
         # cannot be given: the batch, if any, is not this
         # caller's to recover.
         return False
+
+
+def _validate_batch_intent(home, record):
+    """Validate one batch intent record against the standing
+    journal and the home, or return None where it does not
+    stand.
+
+    The record is read as a claim to verify, as the journal
+    own lines are read, never as instructions (Step 17
+    round 3 entry S17-R3-002). Its journal size must stand
+    at a line boundary of the standing journal and no past
+    it. Its count must cover the entries standing past
+    that size, and no tail longer than the batch it names
+    may stand rolled back on its word. Its anchor path
+    must be the home anchor path as the config resolves
+    it, and its anchor content must be the recording the
+    product own writer writes for the head the size names,
+    or no content where that size names no entry or no
+    anchor stands configured. On success returns the
+    journal size, the count, the resolved anchor path, the
+    decoded anchor bytes, and the entry count the size
+    names.
+    """
+    if not isinstance(record, dict):
+        return None
+    journal_size = record.get("journal_size")
+    count = record.get("count")
+    if type(journal_size) is not int or journal_size < 0:
+        return None
+    if type(count) is not int or count < 0:
+        return None
+    anchor_bytes_field = record.get("anchor_bytes")
+    anchor_bytes = None
+    if anchor_bytes_field is not None:
+        if not isinstance(anchor_bytes_field, str):
+            return None
+        try:
+            anchor_bytes = base64.b64decode(
+                anchor_bytes_field, validate=True)
+        except ValueError:
+            return None
+    try:
+        with open(journal_path(home), "rb") as handle:
+            standing = handle.read()
+    except FileNotFoundError:
+        standing = b""
+    except OSError:
+        return None
+    if journal_size > len(standing):
+        return None
+    if journal_size > 0 and not standing[:journal_size].endswith(b"\n"):
+        return None
+    prefix = standing[:journal_size]
+    restored_count = prefix.count(b"\n") if prefix else 0
+    total_count = standing.count(b"\n")
+    if standing and not standing.endswith(b"\n"):
+        total_count += 1
+    beyond = total_count - restored_count
+    if beyond < 0 or beyond > count:
+        return None
+    try:
+        values, _warnings, _present = _read_config_values(home)
+    except Exception:
+        return None
+    configured = values.get("anchor_path")
+    expected_anchor = _resolve_anchor_path(home, configured) \
+        if configured else None
+    if record.get("anchor_path") != expected_anchor:
+        return None
+    if expected_anchor is None:
+        if anchor_bytes is not None:
+            return None
+        return (journal_size, count, None, None, restored_count)
+    if restored_count == 0:
+        if anchor_bytes is not None:
+            return None
+        return (journal_size, count, expected_anchor, None,
+                restored_count)
+    lines = standing.split(b"\n")
+    head_line = lines[restored_count - 1]
+    expected_bytes = ("%s %d\n" % (
+        hashlib.sha256(head_line).hexdigest(),
+        restored_count)).encode("utf-8")
+    if anchor_bytes != expected_bytes:
+        return None
+    return (journal_size, count, expected_anchor, anchor_bytes,
+            restored_count)
 
 
 def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
@@ -1493,7 +1811,7 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
         _batch_held = _lock_path(home) in _HELD_LOCKS
     if not _batch_held:
         recover_interrupted_batch(home)
-    with _WriteLock(home):
+    with _WriteLock(home, kind="append"):
         scan = _scan(home, "torn")
         if scan.failure is not None:
             raise JournalError(
@@ -1594,14 +1912,18 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
         }
         # Identity derivation, on the plan identifier
         # derivation table: a payload string carrying the
-        # {sequence} marker stands for the identity derived
-        # from the journal sequence of the entry that stores
-        # the record, and the marker is resolved here, under
-        # the write lock, at the moment the sequence stands
-        # assigned, so no caller side count read can mint an
-        # identity another append also mints (Step 17 entry
-        # S17-R1-077, cured at the service seam in seat F7
-        # with this one mechanism in the append path).
+        # {sequence} marker in an identity field stands for
+        # the identity derived from the journal sequence of
+        # the entry that stores the record, and the marker
+        # is resolved here, under the write lock, at the
+        # moment the sequence stands assigned, so no caller
+        # side count read can mint an identity another
+        # append also mints (Step 17 entry S17-R1-077,
+        # cured at the service seam in seat F7 with this
+        # one mechanism in the append path). Resolution
+        # stands confined to the identity fields, so caller
+        # text in every other field stands stored as
+        # written (Step 17 round 3 entry S17-R3-009).
         entry["payload"] = _resolve_sequence_identity(
             entry["payload"], entry["sequence"])
         if _container_depth(entry) > MAX_DEPTH:
@@ -1653,6 +1975,16 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
             try:
                 _write_anchor(resolved_anchor, entry["entry_hash"],
                               entry["sequence"])
+            except JournalError:
+                # A lost anchor temporary reports in its own
+                # vocabulary at row X-13 (entry S17-R3-062);
+                # the append stands rolled back all the same,
+                # and the error stands as it was raised.
+                _restore_journal_size(path, original_size)
+                for cache_key in [key for key in _scan_cache
+                                  if key[0] == path]:
+                    _scan_cache.pop(cache_key, None)
+                raise
             except OSError:
                 # An anchor write that fails is not swallowed:
                 # the append stands rolled back and the
@@ -1761,8 +2093,20 @@ def append_entries_atomic(home, entries, audit_date=None, run_id=None):
                     anchor_bytes = handle.read()
             except OSError:
                 anchor_bytes = None
-        _write_batch_intent(home, original_size, resolved_anchor,
-                            anchor_bytes, len(prepared))
+        if not _write_batch_intent(home, original_size,
+                                   resolved_anchor, anchor_bytes,
+                                   len(prepared)):
+            # The intent record stands unwritten, so the
+            # batch would run with its kill protection off:
+            # it stands refused before any entry lands, in
+            # the journal vocabulary, as the anchor intent
+            # failure of the append path stands refused
+            # (Step 17 round 3 entry S17-R3-053).
+            raise JournalError(
+                "the batch intent record could not be "
+                "written; the batch stands refused before "
+                "any entry lands", row="I-2",
+                token="JOURNAL_VERIFY_FAILED")
         appended = []
         try:
             for entry_kind, payload in prepared:
@@ -1770,7 +2114,14 @@ def append_entries_atomic(home, entries, audit_date=None, run_id=None):
                     home, entry_kind, payload,
                     audit_date=audit_date, run_id=run_id))
         except Exception:
-            _clear_batch_intent(home)
+            # The rollback restores first and clears the
+            # intent record last, the order the recovery
+            # path itself stands in: a kill inside the
+            # rollback then leaves the record standing over
+            # the restored journal, and the next invocation
+            # recovers from it, instead of leaving a partial
+            # batch standing as ordinary state with no
+            # record (Step 17 round 3 entry S17-R3-004).
             _restore_journal_size(path, original_size)
             if resolved_anchor is not None:
                 try:
@@ -1784,6 +2135,7 @@ def append_entries_atomic(home, entries, audit_date=None, run_id=None):
                             os.fsync(handle.fileno())
                 except OSError:
                     pass
+            _clear_batch_intent(home)
             raise
         _clear_batch_intent(home)
         return appended
@@ -1890,7 +2242,7 @@ def _validate_chain_lines(lines):
     limit raise discipline.
     """
     previous_raw = None
-    seen_raises = set()
+    seen_raises = []
     for index, raw in enumerate(lines, start=1):
         parsed = _parse_line(raw)
         if parsed is None or not isinstance(parsed, dict):
@@ -1918,15 +2270,15 @@ def _validate_chain_lines(lines):
             return index
         if rendered != raw:
             return index
-        if _special_payload_reason(parsed) is not None:
+        if _special_payload_reason(parsed, index) is not None:
             return index
         if parsed.get("entry_kind") == "limit_raise":
             payload = parsed.get("payload") or {}
-            raise_key = (repr(payload.get("run_id")),
-                         repr(payload.get("limit")))
-            if raise_key in seen_raises:
+            raise_key = (payload.get("run_id"),
+                         payload.get("limit"))
+            if any(raise_key == seen for seen in seen_raises):
                 return index
-            seen_raises.add(raise_key)
+            seen_raises.append(raise_key)
         previous_raw = raw
     return None
 
@@ -1980,6 +2332,14 @@ def replay(home, entries, resume=False):
         if raw.endswith(b"\n"):
             raw = raw[:-1]
         lines.append(raw)
+    # Replay is a writing invocation, and it stands inside
+    # the recovery discipline as the other writing paths
+    # do: a batch intent standing over this home stands
+    # recovered before the replay validates or writes, so
+    # no replayed entry lands on a partial batch the next
+    # append recovery would erase after the replay
+    # reported success (Step 17 round 3 entry S17-R3-003).
+    recover_interrupted_batch(home)
     with _WriteLock(home):
         scan = _scan(home, "torn")
         if scan.failure is not None:
@@ -2080,6 +2440,19 @@ def replay(home, entries, resume=False):
                     handle.flush()
                     os.fsync(handle.fileno())
                 os.replace(temporary, path)
+            except FileNotFoundError:
+                # The temporary stands lost under its writer
+                # before its link step: the condition row
+                # X-13 names (Step 17 round 3 entry
+                # S17-R3-062).
+                try:
+                    os.unlink(temporary)
+                except OSError:
+                    pass
+                raise JournalError(
+                    "the replay temporary was lost before "
+                    "its link step", row="X-13",
+                    token="TEMPORARY_LOST")
             except OSError:
                 try:
                     os.unlink(temporary)
@@ -2097,6 +2470,12 @@ def replay(home, entries, resume=False):
                 _write_anchor(resolved_anchor,
                               hashlib.sha256(candidate[-1]).hexdigest(),
                               len(candidate))
+            except JournalError:
+                # A lost anchor temporary reports in its own
+                # vocabulary at row X-13 (entry S17-R3-062);
+                # the replay stands rolled back all the same.
+                rollback_write()
+                raise
             except OSError:
                 # An anchor write failure is not swallowed:
                 # the replay stands rolled back and the

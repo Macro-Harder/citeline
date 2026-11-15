@@ -228,7 +228,15 @@ class TestD18AuditDateValidation(F5Case):
         self.assert_bad_date_refused(lambda: service.audit(
             home=str(self.home), page_file=str(PAGE),
             audit_date="banana"))
-        self.assertEqual(len(journal_entries(self.home)), before)
+        self.assertEqual(len(journal_entries(self.home)), before + 1)
+        appended = journal_entries(self.home)[-1]
+        self.assertEqual(appended.get("entry_kind"), "failure_record")
+        payload = appended.get("payload") or {}
+        self.assertEqual(payload.get("operation"), "audit")
+        self.assertEqual(payload.get("error_value"), "VALIDATION_FAILED")
+        self.assertEqual(payload.get("rule_fired"), "VALIDATION_FAILED")
+        self.assertEqual(payload.get("subject_identity"), str(PAGE))
+        self.assertEqual(payload.get("date"), "banana")
 
     def test_probe_report_refuses_a_non_date_audit_date(self):
         self.seed_product()

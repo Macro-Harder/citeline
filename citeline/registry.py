@@ -127,14 +127,23 @@ def _append(home, kind, payload, audit_date):
 
 
 def _fold(home):
+    """The registry fold, corrections aware as the product
+    fold stands: a corrected record stands in place of the
+    superseded entry record for every reader in this
+    module, the snapshot and round reads included, so no
+    registry writing operation judges by a superseded view
+    (Step 17 round 3 entry S17-R3-012)."""
     journal = _journal()
     fold = getattr(journal, "fold", None)
     if fold is None:
         return []
     try:
-        entries = fold(home)
+        entries = fold(home, apply_corrections=True)
     except TypeError:
-        entries = fold(str(home))
+        try:
+            entries = fold(home)
+        except TypeError:
+            entries = fold(str(home))
     if entries is None:
         return []
     return list(entries)
@@ -297,6 +306,11 @@ def validate_alias(value):
     if len(value) < 3:
         _fail("VALIDATION_FAILED",
               "alias must be 3 characters or more")
+    if not value.strip():
+        _fail("VALIDATION_FAILED",
+              "alias must hold more than spaces alone: an "
+              "alias that folds to the empty string stands "
+              "refused at this boundary")
     if any(mark in value for mark in _ZERO_WIDTH):
         _fail("VALIDATION_FAILED",
               "alias must carry no zero width character")
@@ -599,6 +613,7 @@ def _normalise_competitor(value, index=0):
         domain = getattr(value, "domain", "")
         aliases = getattr(value, "aliases", [])
         competitor_id = getattr(value, "competitor_id", None)
+    _stated_id = competitor_id
     name = validate_name(name, "competitor name")
     if not _slugify(name):
         _fail("VALIDATION_FAILED",
@@ -619,7 +634,50 @@ def _normalise_competitor(value, index=0):
         "name": name,
         "domain": domain,
         "aliases": list(aliases),
+        "_id_stated": bool(_stated_id),
     }
+
+
+def _assign_competitor_identities(records):
+    """Assign competitor identities unique across the whole
+    suffix namespace of one product record.
+
+    A repeated base takes a counter suffix, and the counter
+    stands judged against every base in the record as well
+    as against every identity already assigned, so a
+    suffixed identity never lands on the natural identity
+    of another competitor in the same record (Step 17
+    round 3 entry S17-R3-011). Where a competitor stated
+    its own identity and a suffix would store it under a
+    different identity, the call stands refused instead of
+    the stated identity standing silently rewritten.
+    """
+    all_bases = {competitor_id_for_name(record["name"])
+                 for record in records}
+    used = set()
+    assigned = []
+    for record in records:
+        stated = record.pop("_id_stated", False)
+        base = competitor_id_for_name(record["name"])
+        if base not in used:
+            record["competitor_id"] = base
+            used.add(base)
+            assigned.append(record)
+            continue
+        if stated:
+            _fail("VALIDATION_FAILED",
+                  "a stated competitor_id would stand stored "
+                  "under a different, suffixed identity for "
+                  "competitor %s" % record["name"])
+        counter = 2
+        candidate = "%s-%d" % (base, counter)
+        while candidate in used or candidate in all_bases:
+            counter += 1
+            candidate = "%s-%d" % (base, counter)
+        record["competitor_id"] = candidate
+        used.add(candidate)
+        assigned.append(record)
+    return assigned
 
 
 def _require_list(value, what):
@@ -769,16 +827,9 @@ def add_product(home, name=None, canonical_line=None, domain=None,
         validate_slug(kwargs["slug"])
     if competitors is not None:
         _require_list(competitors, "competitors")
-    competitor_records = []
-    seen_ids = {}
-    for index, competitor in enumerate(competitors or []):
-        record = _normalise_competitor(competitor, index)
-        base = record["competitor_id"]
-        count = seen_ids.get(base, 0)
-        if count:
-            record["competitor_id"] = "%s-%d" % (base, count + 1)
-        seen_ids[base] = count + 1
-        competitor_records.append(record)
+    competitor_records = _assign_competitor_identities([
+        _normalise_competitor(competitor, index)
+        for index, competitor in enumerate(competitors or [])])
     if len(competitor_records) > _LIMIT_COMPETITORS:
         _fail("LIMIT_EXCEEDED", "competitors per product limit is 100")
     alias_list = _validate_aliases(aliases)
@@ -851,16 +902,9 @@ def set_competitors(home, product=None, competitors=None,
     if competitors is None:
         competitors = kwargs.get("competitor_change", [])
     _require_list(competitors, "competitors")
-    records = []
-    seen_ids = {}
-    for index, competitor in enumerate(competitors or []):
-        record_in = _normalise_competitor(competitor, index)
-        base = record_in["competitor_id"]
-        count = seen_ids.get(base, 0)
-        if count:
-            record_in["competitor_id"] = "%s-%d" % (base, count + 1)
-        seen_ids[base] = count + 1
-        records.append(record_in)
+    records = _assign_competitor_identities([
+        _normalise_competitor(competitor, index)
+        for index, competitor in enumerate(competitors or [])])
     if len(records) > _LIMIT_COMPETITORS:
         _fail("LIMIT_EXCEEDED", "competitors per product limit is 100")
     _require_product(home, product)

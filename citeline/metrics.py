@@ -165,108 +165,226 @@ def _texts_similar(first, second):
     return len(first_set & second_set) / len(union) >= 0.80
 
 
-def _chained_pair_loop(unique_sets, weights):
-    """Chained determination over distinct shingle sets by a
-    pair loop that stores no per pair result. The loop stops
-    as soon as the outcome is settled: the similarity graph
-    stands connected and both a similar pair and a pair that
-    is not similar stand found."""
-    count = len(unique_sets)
-    parent = list(range(count))
+def _similar_components(type_sets):
+    """The components of the similarity graph over distinct
+    non empty shingle sets, computed exactly.
 
-    def find(node):
-        while parent[node] != node:
-            parent[node] = parent[parent[node]]
-            node = parent[node]
-        return node
+    Two sets are similar where their shared count stands at
+    the 0.80 Jaccard bound, judged in integers as shared
+    times 9 standing at least 4 times the sum of the sizes.
+    No structure grows with the number of pairs and no subset
+    of a set is ever stored: an inverted index over single
+    shingles stands in place of both.
 
-    roots = count
-    similar_found = any(weight > 1 for weight in weights)
-    nonsimilar_found = False
-    for first in range(count):
-        first_set = unique_sets[first]
-        for second in range(first + 1, count):
-            second_set = unique_sets[second]
-            shared = len(first_set & second_set)
-            union_size = len(first_set) + len(second_set) - shared
-            if union_size > 0 and shared / union_size >= 0.80:
-                similar_found = True
-                root_first, root_second = find(first), find(second)
-                if root_first != root_second:
-                    parent[root_first] = root_second
-                    roots -= 1
-            else:
-                nonsimilar_found = True
-            if roots == 1 and similar_found and nonsimilar_found:
-                return True
-    return roots == 1 and similar_found and nonsimilar_found
-
-
-def _chained_d1_nonsimilar(unique_sets, size):
-    """Whether a non similar pair stands among equal size sets
-    whose size leaves one deletion, judged exactly. Every set
-    similar to the first set differs from it in one element at
-    most, so each such set is the first set with one element
-    swapped out for one outside value. Two sets from different
-    swap classes are similar exactly where their outside
-    values agree."""
-    first_set = unique_sets[0]
-    for other in unique_sets[1:]:
-        if len(first_set & other) < size - 1:
-            return True
-    combos = []
-    for other in unique_sets[1:]:
-        missing = first_set - other
-        if len(missing) != 1:
-            continue
-        combos.append((next(iter(missing)),
-                       next(iter(other - first_set))))
-    if len({item[0] for item in combos}) < 2:
-        return False
-    first_combo = combos[0]
-    for combo in combos:
-        if combo[0] != first_combo[0] and combo[1] != first_combo[1]:
-            return True
-    for combo in combos:
-        if combo[0] == first_combo[0] and combo[1] != first_combo[1]:
-            for other in combos:
-                if other[0] != first_combo[0]:
-                    return True
-    return False
-
-
-def _chained_scan_nonsimilar(unique_sets, alpha):
-    """Whether a non similar pair stands among equal size
-    sets, by counting shared shingles per set through an
-    inverted index rather than storing pair results."""
+    Each component is grown from one seed set. One counting
+    pass over the seed's postings reads its shared count
+    with every unvisited set, with a shingle standing in
+    every unvisited set counted once as a base, and every
+    set similar to the seed joins at once, which settles a
+    clique shape in that one pass. An unvisited set can join
+    later only through a member already in the component,
+    and its shared count with such a member stands at most
+    its shared count with the seed plus the part of the
+    member standing outside the seed, so every unvisited set
+    under that bound for every member stands excluded in
+    bulk. The sets the bound leaves open are few on the
+    shapes a round carries, and each is judged exactly
+    against the members, newest first, pass by pass until a
+    pass adds nothing.
+    """
+    count = len(type_sets)
     postings = {}
-    for index, shingle_set in enumerate(unique_sets):
+    for index, shingle_set in enumerate(type_sets):
         for shingle in shingle_set:
             postings.setdefault(shingle, []).append(index)
-    total = len(unique_sets)
-    for index, shingle_set in enumerate(unique_sets):
+    frequency = {shingle: len(members)
+                 for shingle, members in postings.items()}
+    buckets = {}
+    for shingle, freq in frequency.items():
+        buckets.setdefault(freq, set()).add(shingle)
+    visited = [False] * count
+    by_size = {}
+    for index, shingle_set in enumerate(type_sets):
+        by_size.setdefault(len(shingle_set), set()).add(index)
+    remaining = count
+
+    def mark(index):
+        nonlocal remaining
+        visited[index] = True
+        remaining -= 1
+        by_size[len(type_sets[index])].discard(index)
+        for shingle in type_sets[index]:
+            freq = frequency[shingle]
+            bucket = buckets.get(freq)
+            if bucket is not None:
+                bucket.discard(shingle)
+            if freq > 1:
+                frequency[shingle] = freq - 1
+                buckets.setdefault(freq - 1, set()).add(shingle)
+            else:
+                del frequency[shingle]
+
+    components = []
+    for seed in range(count):
+        if visited[seed]:
+            continue
+        seed_set = type_sets[seed]
+        seed_size = len(seed_set)
+        component = [seed]
+        members = [seed]
+        mark(seed)
+        universal = buckets.get(remaining, ()) if remaining else ()
+        base = sum(1 for shingle in seed_set if shingle in universal)
         counts = {}
-        for shingle in shingle_set:
+        for shingle in seed_set:
+            if shingle in universal:
+                continue
             for other in postings[shingle]:
-                if other != index:
+                if not visited[other]:
                     counts[other] = counts.get(other, 0) + 1
-        if len(counts) < total - 1:
-            return True
-        if any(value < alpha for value in counts.values()):
-            return True
-    return False
+
+        def shared_with_seed(other):
+            return base + counts.get(other, 0)
+
+        max_added = 0
+        min_member_size = seed_size
+
+        def join(other):
+            nonlocal max_added, min_member_size
+            mark(other)
+            component.append(other)
+            members.append(other)
+            added = len(type_sets[other]) - len(seed_set & type_sets[other])
+            if added > max_added:
+                max_added = added
+            if len(type_sets[other]) < min_member_size:
+                min_member_size = len(type_sets[other])
+
+        first_layer = []
+        for other, shared_count in counts.items():
+            shared = base + shared_count
+            if shared * 9 >= 4 * (seed_size + len(type_sets[other])):
+                first_layer.append(other)
+        if base:
+            for size, size_members in list(by_size.items()):
+                if size_members and base * 9 >= 4 * (seed_size + size):
+                    first_layer.extend(size_members)
+        for other in first_layer:
+            if not visited[other]:
+                join(other)
+        while True:
+            pool = []
+            for other in counts:
+                if visited[other]:
+                    continue
+                threshold = -(-4 * (len(type_sets[other])
+                                     + min_member_size) // 9)
+                if shared_with_seed(other) + max_added >= threshold:
+                    pool.append(other)
+            if base + max_added >= 0:
+                for size, size_members in list(by_size.items()):
+                    if not size_members:
+                        continue
+                    threshold = -(-4 * (size + min_member_size) // 9)
+                    if base + max_added >= threshold:
+                        for other in size_members:
+                            if other not in counts:
+                                pool.append(other)
+            additions = []
+            for other in pool:
+                other_set = type_sets[other]
+                for member in reversed(members):
+                    shared = len(other_set & type_sets[member])
+                    if shared * 9 >= 4 * (len(other_set)
+                                          + len(type_sets[member])):
+                        additions.append(other)
+                        break
+            if not additions:
+                break
+            for other in additions:
+                if not visited[other]:
+                    join(other)
+        components.append(component)
+    return components
+
+def _sets_clique(type_sets):
+    """Whether every pair of distinct sets stands similar.
+
+    The sets are read against the first set: a set stands
+    described by the part of the first set it misses and the
+    part it adds, and the shared count of any two sets is
+    the first set's size less the union of their missed
+    parts, plus the overlap of their added parts. Pairs are
+    judged in groups sharing one missed part first, by
+    bounds on those two terms, and pair by pair only where
+    the bounds leave a pair open. A set that is not similar
+    to the first set settles the question at once.
+    """
+    pivot = type_sets[0]
+    pivot_size = len(pivot)
+    groups = {}
+    for shingle_set in type_sets:
+        shared = len(pivot & shingle_set)
+        if shared * 9 < 4 * (pivot_size + len(shingle_set)):
+            return False
+        missing = pivot - shingle_set
+        added = shingle_set - pivot
+        groups.setdefault(missing, []).append((added, len(shingle_set)))
+    group_items = list(groups.items())
+    for first_index in range(len(group_items)):
+        for second_index in range(first_index, len(group_items)):
+            missing_first, entries_first = group_items[first_index]
+            missing_second, entries_second = group_items[second_index]
+            base = pivot_size - len(missing_first | missing_second)
+            if first_index == second_index:
+                if len(entries_first) < 2:
+                    continue
+                sizes = sorted(size for _added, size in entries_first)
+                add_sizes = sorted(
+                    len(added) for added, _size in entries_first)
+                max_sum = sizes[-1] + sizes[-2]
+                min_sum = sizes[0] + sizes[1]
+                max_overlap = add_sizes[-2]
+            else:
+                sizes_first = [size for _added, size in entries_first]
+                sizes_second = [size for _added, size in entries_second]
+                max_sum = max(sizes_first) + max(sizes_second)
+                min_sum = min(sizes_first) + min(sizes_second)
+                max_overlap = min(
+                    max(len(added) for added, _size in entries_first),
+                    max(len(added) for added, _size in entries_second))
+            # The base alone reaches the largest threshold
+            # any pair in this group pair can carry.
+            if base >= -(-4 * max_sum // 9):
+                continue
+            if base + max_overlap < -(-4 * min_sum // 9):
+                return False
+            if first_index == second_index:
+                pairs = [(entries_first[a], entries_first[b])
+                         for a in range(len(entries_first))
+                         for b in range(a + 1, len(entries_first))]
+            else:
+                pairs = [(entry_first, entry_second)
+                         for entry_first in entries_first
+                         for entry_second in entries_second]
+            for (added_first, size_first), (added_second, size_second) \
+                    in pairs:
+                shared = base + len(added_first & added_second)
+                if shared * 9 < 4 * (size_first + size_second):
+                    return False
+    return True
 
 
 def _cluster_chained(shingle_sets):
     """Whether one cluster stands chained, on the cost shape
     the round cap requires. No structure in this computation
-    grows with the number of pairs: duplicate sets are
-    grouped first, equal size sets are joined through shared
-    subsets of the size a similar pair must share, and the
-    remaining shapes run a pair loop that stores nothing and
-    stops when its outcome is settled."""
-    import itertools
-
+    grows with the number of pairs and no subset of a set is
+    stored: duplicate sets are grouped first, the similarity
+    graph's components are found through a single shingle
+    inverted index, and a connected graph stands chained
+    exactly where its sets do not form a clique, which the
+    clique reading judges from the sets' parts against one
+    pivot set rather than pair by pair."""
     if len(shingle_sets) < 2:
         return False
     if any(not shingle_set for shingle_set in shingle_sets):
@@ -277,57 +395,17 @@ def _cluster_chained(shingle_sets):
         # apart from the rest. Neither shape is chained.
         return False
     unique = {}
-    weights = []
     unique_sets = []
     for shingle_set in shingle_sets:
         key = frozenset(shingle_set)
         if key not in unique:
             unique[key] = len(unique_sets)
             unique_sets.append(key)
-            weights.append(0)
-        weights[unique[key]] += 1
     if len(unique_sets) == 1:
         return False
-    sizes = {len(shingle_set) for shingle_set in unique_sets}
-    if len(sizes) != 1:
-        return _chained_pair_loop(unique_sets, weights)
-    size = sizes.pop()
-    alpha = -(-8 * size // 9)
-    deletions = size - alpha
-    if deletions == 0:
+    if len(_similar_components(unique_sets)) != 1:
         return False
-    if len(unique_sets) <= 400:
-        return _chained_pair_loop(unique_sets, weights)
-    if math.comb(size, deletions) > 2000:
-        return _chained_pair_loop(unique_sets, weights)
-    parent = list(range(len(unique_sets)))
-
-    def find(node):
-        while parent[node] != node:
-            parent[node] = parent[parent[node]]
-            node = parent[node]
-        return node
-
-    similar_found = any(weight > 1 for weight in weights)
-    by_subset = {}
-    for index, shingle_set in enumerate(unique_sets):
-        for subset in itertools.combinations(
-                sorted(shingle_set), alpha):
-            by_subset.setdefault(subset, []).append(index)
-    for members in by_subset.values():
-        if len(members) > 1:
-            similar_found = True
-        for other in members[1:]:
-            root_first, root_other = find(members[0]), find(other)
-            if root_first != root_other:
-                parent[root_first] = root_other
-    if len({find(index) for index in range(len(unique_sets))}) != 1:
-        return False
-    if not similar_found:
-        return False
-    if deletions == 1:
-        return _chained_d1_nonsimilar(unique_sets, size)
-    return _chained_scan_nonsimilar(unique_sets, alpha)
+    return not _sets_clique(unique_sets)
 
 
 def _rate_block(answers, key, effective_n):
@@ -380,6 +458,30 @@ def _competitor_outcome(answer, name):
     return None
 
 
+def _is_competitor_record(entry):
+    """Whether a competitor entry stands in record form: a
+    mapping, or an object carrying a name. A plain string, a
+    number, or a bare value stands in no record form."""
+    if isinstance(entry, dict):
+        return True
+    if entry is None or isinstance(entry, (
+            str, bytes, int, float, bool, complex,
+            list, tuple, set, frozenset)):
+        return False
+    return hasattr(entry, "name")
+
+
+def _validate_competitor_entry(entry):
+    entry_name = _get(entry, "name", None)
+    if entry_name is not None and not isinstance(entry_name, str):
+        raise ValueError("per_competitor name must be a string")
+    for outcome_name in ("named", "cited"):
+        value = _get(entry, outcome_name, None)
+        if value is not None and not isinstance(value, bool):
+            raise ValueError(
+                "per_competitor " + outcome_name + " must be a boolean")
+
+
 def _validate_answer_shape(item):
     """Refuse an AnswerMetrics value outside its stated shape.
 
@@ -423,6 +525,10 @@ def _validate_answer_shape(item):
         if isinstance(value, float) and (
                 not math.isfinite(value) or value != int(value)):
             raise ValueError(name + " must be a whole count")
+    for name in ("named", "named_early", "cited"):
+        value = _get(item, name, None)
+        if value is not None and not isinstance(value, bool):
+            raise ValueError(name + " must be a boolean")
     for field_name in ("per_competitor", "competitors"):
         entries = _get(item, field_name, None)
         if entries is None:
@@ -431,17 +537,18 @@ def _validate_answer_shape(item):
             raise ValueError(
                 "per_competitor must be a list or a mapping")
         if isinstance(entries, dict):
-            for key in entries:
+            for key, outcome in entries.items():
                 if not isinstance(key, str):
                     raise ValueError(
                         "per_competitor names must be strings")
+                if _is_competitor_record(outcome):
+                    _validate_competitor_entry(outcome)
             continue
         for entry in entries:
-            entry_name = _get(entry, "name", None)
-            if entry_name is not None and not isinstance(
-                    entry_name, str):
+            if not _is_competitor_record(entry):
                 raise ValueError(
-                    "per_competitor name must be a string")
+                    "per_competitor entries must be records")
+            _validate_competitor_entry(entry)
 
 
 def round_metrics(answers, kind, frame=None, datum=None,
@@ -476,8 +583,13 @@ def round_metrics(answers, kind, frame=None, datum=None,
         except TypeError:
             raise ValueError("competitors must be a list of competitors")
         for comp in competitors:
-            comp_name = comp if isinstance(comp, str) else _get(
-                comp, "name", None)
+            if isinstance(comp, str):
+                continue
+            if not _is_competitor_record(comp):
+                raise ValueError(
+                    "competitors entries must be competitor "
+                    "records or names")
+            comp_name = _get(comp, "name", None)
             if comp_name is not None and not isinstance(comp_name, str):
                 raise ValueError("competitor name must be a string")
 
