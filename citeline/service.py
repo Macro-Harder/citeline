@@ -3175,6 +3175,39 @@ def _import_preflight(home, answer_file, extra_entries):
         pass
 
 
+def _service_container_value_measure(value):
+    """The container measure in this module's own form.
+
+    The measure stands identical to the import reading
+    measure at entry S17-R7-032, completed at the key
+    position at entry S17-R8-016: a string standing inside
+    a container, as a value or as a key, stands measured
+    by its length in characters, a number standing inside
+    it by its written form (a written number stands as a
+    string holding its token, so its length stands as its
+    token length), and the container marks, quote marks,
+    and separators of a rendering count for nothing. It
+    stands as the fallback measure of
+    _import_front_matter_limits where the import module's
+    measure does not stand, in place of any rendered
+    measure, so no rendered fallback reopens the split
+    at the sizes entry S17-R8-028 works (Step 17 round 8,
+    the F2 and F4 seams stated for this seat).
+    """
+    if isinstance(value, str):
+        return len(value)
+    if isinstance(value, dict):
+        return sum(
+            _service_container_value_measure(key)
+            + _service_container_value_measure(item)
+            for key, item in value.items())
+    if isinstance(value, (list, tuple)):
+        return sum(
+            _service_container_value_measure(item)
+            for item in value)
+    return 0
+
+
 def _import_front_matter_limits(home, answer_file):
     """The front matter limits in force at the import seam.
 
@@ -3240,8 +3273,6 @@ def _import_front_matter_limits(home, answer_file):
         import json
         written_number = getattr(
             import_module, "_WrittenNumber", None)
-        render_written = getattr(
-            import_module, "_render_written", None)
         try:
             if written_number is not None:
                 parsed = json.loads(
@@ -3291,19 +3322,24 @@ def _import_front_matter_limits(home, answer_file):
                     # inside it by its written form, and the
                     # container marks, quote marks, and
                     # separators of a rendering counting for
-                    # nothing. The rendered measure stands
-                    # as the fallback where the import
-                    # module's measure does not stand.
+                    # nothing. Where the import module's
+                    # measure does not stand, the fallback
+                    # stands on the same measure in this
+                    # module's own form at
+                    # _service_container_value_measure, keys
+                    # counted beside values, and no rendered
+                    # measure stands as a fallback (Step 17
+                    # round 8 entries S17-R8-028 and
+                    # S17-R8-016, the F2 and F4 seams stated
+                    # for this seat).
                     container_measure = getattr(
                         import_module,
                         "_container_value_measure", None)
                     if container_measure is not None:
                         measured = container_measure(value)
-                    elif render_written is not None:
-                        measured = len(render_written(value))
                     else:
-                        measured = len(json.dumps(
-                            value, ensure_ascii=False))
+                        measured = \
+                            _service_container_value_measure(value)
                 else:
                     measured = 0
                 if measured > value_limit:

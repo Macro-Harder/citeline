@@ -95,11 +95,13 @@ def _get(record, name, default=None):
 # reporting module: an apostrophe grouping, an underscore
 # grouping inside the exponent part, and an underscore
 # digit inside the letter suffix (Step 17 round 7 entry
-# S17-R7-041).
+# S17-R7-041), and on the composed suffix dressings of
+# round 8, in the same shape as the reporting module
+# (Step 17 round 8 entry S17-R8-022).
 _WORD_TOKEN_PATTERN = (
     r"\d+(?:[,_']\d{3})*(?:\.\d+)*"
     r"(?:[eE][+-]?\d+(?:_\d+)*)?"
-    r"(?:[^\W\d_]+(?:_\d+)?[0-9]*)*"
+    r"(?:[^\W\d_]+[0-9]*(?:_\d+)*)*"
     r"|[^\W_]+(?:\.\d+)*")
 
 

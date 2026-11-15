@@ -334,6 +334,15 @@ def _plan_warnings(plan, targets):
         # options under Captain JP's rulings; this warning
         # rules neither mode away, it names the field the
         # estate round does not read.
+        second_round = plan.get("second_round")
+        if isinstance(second_round, str) and second_round:
+            warnings.append(
+                "WatchPlan second_round: %s; the plan "
+                "scope stands as estate, the estate round "
+                "runs on the grounds rounds and reads no "
+                "second_round field, so the label stands "
+                "disregarded and the round runs without "
+                "it" % (second_round,))
         if isinstance(second_rounds, dict):
             for key in second_rounds:
                 if isinstance(key, str):

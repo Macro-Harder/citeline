@@ -185,7 +185,16 @@ def _similar_components(type_sets):
     similar to the seed joins at once, which settles a
     clique shape in that one pass, at a price set by the
     prefix postings in place of the postings of the whole
-    seed. The component then grows
+    seed. Where the prefix postings stand wide, so the
+    candidates they name stand at a large part of the
+    unvisited sets, the seed pass stands in a counting form
+    over posting bitsets instead: the shared count of every
+    unvisited set with the seed stands counted in parallel
+    bit planes, and the sets reaching the threshold for
+    their size stand named from the count, the same exact
+    judgement at a price set by the width of the
+    computation in place of the candidate count. The
+    component then grows
     layer by layer from the sets that joined last, the
     frontier. A set can join through a frontier member only
     where it shares a shingle with one, so the candidates of
@@ -264,6 +273,73 @@ def _similar_components(type_sets):
             postings, key=lambda item: (len(postings[item]), item))):
         shingle_rank[ident] = rank
     ordered_cache = {}
+    # Posting bitsets over the set indices, built lazily
+    # per shingle the first time the wide seed reading
+    # needs one and kept for the computation: bit position
+    # index stands for the set of that index, in a byte
+    # array read as a little endian integer. The size masks
+    # stand built once, and the visited mask stands kept
+    # by mark below, so the wide reading names its sets
+    # from the masks alone.
+    bit_width = (count + 7) // 8
+    all_mask = (1 << count) - 1 if count else 0
+    bit_postings = {}
+    size_masks = {}
+    for mask_index, mask_set in enumerate(sets):
+        size_masks[len(mask_set)] = size_masks.get(
+            len(mask_set), 0) | (1 << mask_index)
+    visited_mask = 0
+
+    def bit_posting(ident):
+        posting = bit_postings.get(ident)
+        if posting is None:
+            packed = bytearray(bit_width)
+            for other in postings[ident]:
+                packed[other >> 3] |= 1 << (other & 7)
+            posting = int.from_bytes(packed, "little")
+            bit_postings[ident] = posting
+        return posting
+
+    def wide_seed_layer(thresholds):
+        # The shared count of every set with the seed,
+        # counted in parallel: one bit plane per bit of the
+        # count, each seed shingle posting added into the
+        # planes in turn. A set stands in the layer where
+        # its count reaches the threshold for its size, the
+        # comparison standing read from the planes per size
+        # in bitwise form, so no candidate stands judged
+        # set against set on this reading.
+        planes = []
+        for ident in seed_set:
+            carry = bit_posting(ident)
+            level = 0
+            while carry:
+                if level == len(planes):
+                    planes.append(0)
+                next_carry = planes[level] & carry
+                planes[level] ^= carry
+                carry = next_carry
+                level += 1
+        unvisited_mask = all_mask & ~visited_mask
+        layer = []
+        for size, threshold in thresholds.items():
+            equal = all_mask
+            greater = 0
+            top = max(len(planes), threshold.bit_length())
+            for bit in range(top - 1, -1, -1):
+                plane = planes[bit] if bit < len(planes) else 0
+                if (threshold >> bit) & 1:
+                    equal &= plane
+                else:
+                    greater |= equal & plane
+                    equal &= all_mask ^ plane
+            mask = (greater | equal) & size_masks[size] \
+                & unvisited_mask
+            while mask:
+                lowest = mask & -mask
+                layer.append(lowest.bit_length() - 1)
+                mask ^= lowest
+        return sorted(layer)
 
     def ordered_set(index):
         ordered = ordered_cache.get(index)
@@ -274,8 +350,9 @@ def _similar_components(type_sets):
         return ordered
 
     def mark(index):
-        nonlocal remaining
+        nonlocal remaining, visited_mask
         visited[index] = True
+        visited_mask |= 1 << index
         remaining -= 1
         by_size[len(sets[index])].discard(index)
         for ident in sets[index]:
@@ -309,31 +386,45 @@ def _similar_components(type_sets):
         # in possible_positions below.
         first_layer = []
         if remaining:
-            lowest_threshold = None
+            thresholds = {}
             for size, size_members in by_size.items():
                 if not size_members:
                     continue
                 if min(seed_size, size) * 9 < 4 * (seed_size + size):
                     continue
-                threshold = -(-4 * (seed_size + size) // 9)
-                if lowest_threshold is None or \
-                        threshold < lowest_threshold:
-                    lowest_threshold = threshold
-            if lowest_threshold is not None:
+                thresholds[size] = -(-4 * (seed_size + size) // 9)
+            if thresholds:
+                lowest_threshold = min(thresholds.values())
                 prefix_length = seed_size - lowest_threshold + 1
                 if prefix_length < 1:
                     prefix_length = 1
                 if prefix_length > seed_size:
                     prefix_length = seed_size
-                candidates = set()
-                for shingle in ordered_set(seed)[:prefix_length]:
-                    for other in postings[shingle]:
-                        if not visited[other]:
-                            candidates.add(other)
-                for other in sorted(candidates):
-                    shared = len(sets[other] & seed_set)
-                    if shared * 9 >= 4 * (seed_size + len(sets[other])):
-                        first_layer.append(other)
+                prefix = ordered_set(seed)[:prefix_length]
+                # The wide reading stands taken where the
+                # prefix postings name a large part of the
+                # unvisited sets in total: there the exact
+                # judgement per candidate prices the pass at
+                # the candidate count times the set size, and
+                # the counting form over the posting bitsets
+                # prices it at the width of the computation
+                # instead, naming the same layer.
+                wide = remaining >= 256 and seed_size <= 2000 \
+                    and sum(unvisited_count[shingle]
+                            for shingle in prefix) > 1024
+                if wide:
+                    first_layer = wide_seed_layer(thresholds)
+                else:
+                    candidates = set()
+                    for shingle in prefix:
+                        for other in postings[shingle]:
+                            if not visited[other]:
+                                candidates.add(other)
+                    for other in sorted(candidates):
+                        shared = len(sets[other] & seed_set)
+                        if shared * 9 >= 4 * (
+                                seed_size + len(sets[other])):
+                            first_layer.append(other)
         frontier = []
         for other in first_layer:
             if not visited[other]:
@@ -740,6 +831,112 @@ def _sets_clique(type_sets):
         (size for _missing, _added, size in rest), reverse=True)
     pair_floor = pivot_size - len(missing_union) + len(common_added)
     if pair_floor * 9 >= 4 * (largest_sizes[0] + largest_sizes[1]):
+        return True
+    if len(rest) >= 300:
+        # The wide reading of the group pair scan. A pair
+        # shares the pivot size less both missed sizes plus
+        # the overlap of the two patterns, a pattern standing
+        # as the missed parts and the added parts of a set
+        # together, the cross parts standing empty because a
+        # missed part stands in the pivot and an added part
+        # stands outside it. The scan below prices a pair at
+        # mask work on masks whose width grows with the
+        # family, so at this scale the pair counts stand
+        # read in parallel instead: the patterns stand
+        # reduced to the parts standing in at least three
+        # sets, a part standing in at most two sets standing
+        # in the overlap of at most one pair beside its own,
+        # and the overlap of every set with one set standing
+        # counted over the reduced parts in bit planes over
+        # the family. A pair the reduced count leaves under
+        # its threshold stands judged exactly on its full
+        # patterns before it can settle the reading, so the
+        # reduced count names candidates only and the
+        # judgement stands exact. A part standing in every
+        # remaining set adds one to every count of its set
+        # and stands read as a constant in place of a
+        # posting.
+        patterns = [missing | added
+                    for missing, added, _size in rest]
+        pattern_frequency = {}
+        for pattern in patterns:
+            for shingle in pattern:
+                pattern_frequency[shingle] = \
+                    pattern_frequency.get(shingle, 0) + 1
+        reduced = {shingle for shingle, frequency
+                   in pattern_frequency.items() if frequency >= 3}
+        occurrences = {shingle: [] for shingle in reduced}
+        for position, pattern in enumerate(patterns):
+            for shingle in pattern & reduced:
+                occurrences[shingle].append(position)
+        rest_count = len(rest)
+        packed_width = (rest_count + 7) // 8
+        wide_all = (1 << rest_count) - 1
+        wide_postings = {}
+
+        def wide_posting(shingle):
+            posting = wide_postings.get(shingle)
+            if posting is None:
+                packed = bytearray(packed_width)
+                for position in occurrences[shingle]:
+                    packed[position >> 3] |= 1 << (position & 7)
+                posting = int.from_bytes(packed, "little")
+                wide_postings[shingle] = posting
+            return posting
+
+        group_masks = {}
+        for position, (missing, _added, size) in enumerate(rest):
+            key = (size, len(missing))
+            group_masks[key] = group_masks.get(key, 0) | (1 << position)
+        for first_position, (missing_first, _added_first,
+                             size_first) in enumerate(rest):
+            planes = []
+            universal = 0
+            for shingle in patterns[first_position] & reduced:
+                if pattern_frequency[shingle] == rest_count:
+                    universal += 1
+                    continue
+                carry = wide_posting(shingle)
+                level = 0
+                while carry:
+                    if level == len(planes):
+                        planes.append(0)
+                    next_carry = planes[level] & carry
+                    planes[level] ^= carry
+                    carry = next_carry
+                    level += 1
+            for (size_second, missed_second), group_mask \
+                    in group_masks.items():
+                numerator = 4 * (size_first + size_second) - 9 * (
+                    pivot_size - len(missing_first) - missed_second)
+                required = -(-numerator // 9) if numerator > 0 else 0
+                required -= universal
+                if required <= 0:
+                    continue
+                equal = wide_all
+                greater = 0
+                top = max(len(planes), required.bit_length())
+                for bit in range(top - 1, -1, -1):
+                    plane = planes[bit] if bit < len(planes) else 0
+                    if (required >> bit) & 1:
+                        equal &= plane
+                    else:
+                        greater |= equal & plane
+                        equal &= wide_all ^ plane
+                failing = group_mask & (wide_all ^ (greater | equal))
+                failing &= ~(1 << first_position)
+                while failing:
+                    lowest = failing & -failing
+                    second_position = lowest.bit_length() - 1
+                    failing ^= lowest
+                    missing_second, _added_second, size_b = \
+                        rest[second_position]
+                    shared = pivot_size - len(missing_first) \
+                        - len(missing_second) + len(
+                            patterns[first_position]
+                            & patterns[second_position])
+                    if shared * 9 < 4 * (size_first + size_b):
+                        return False
         return True
     pivot_index = {shingle: index for index, shingle in enumerate(pivot)}
     # The added masks stand over the added parts that can

@@ -1504,6 +1504,37 @@ def _fm_strip_head_edges(text):
     return text[start:end]
 
 
+def _fm_remove_interior_head(text):
+    """The text with head material removed at any position,
+    as the import side reading states at its
+    _remove_interior_head: head material standing inside
+    a judged form, between the letters of a key name or
+    between the dashes of a fence, stands removed, while
+    whitespace standing inside the form stands as written
+    (Step 17 round 8 entries S17-R8-004 and S17-R8-005)."""
+    return "".join(
+        char for char in text
+        if not _fm_is_head_char(char) or char.isspace())
+
+
+def _fm_judged_key(key):
+    """One front matter key as the duplicate judgement
+    reads it: head material removed at both edges and at
+    any position inside the name, as the import side
+    reading states at its _judged_key (Step 17 round 8
+    entry S17-R8-004)."""
+    return _fm_remove_interior_head(_fm_strip_head_edges(key))
+
+
+def _fm_judged_fence(line):
+    """One fence line as the fence judgement reads it:
+    head material removed at both edges and between the
+    fence characters themselves, as the import side
+    reading states at its _judged_fence (Step 17 round 8
+    entry S17-R8-005)."""
+    return _fm_remove_interior_head(_fm_strip_head_edges(line))
+
+
 def _fm_holds_tag_construct(text):
     """True where a key or value text holds a tag
     construct, on the terms the import side reading
@@ -1521,17 +1552,37 @@ def _fm_holds_tag_construct(text):
     sign before the indentation digit and the digit
     before the sign; and a construct stands judged
     directly after a flow opening bracket, as after the
-    start of the text and after whitespace)."""
+    start of the text and after whitespace, completed at
+    round 8 entry S17-R8-003 to the import side landed
+    forms of round 7 entry S17-R7-030: an angle bracket
+    spelling opens on the caret, and a construct stands
+    judged directly after the separator standing between
+    two flow items, after the colon of a flow mapping,
+    after a semicolon, after a quote, and after an
+    opening parenthesis)."""
     if text.startswith(("!", "&", "*", "%")):
         return True
     if re.search(
-            r"<[A-Za-z0-9\-._;/?:@&=+$,!~*'()%\[\]][^>]*>", text):
+            r"<[A-Za-z0-9\-._;/?:@&=+$,!~*'()%\[\]\^][^>]*>", text):
         return True
-    if re.search(r"(?:^|[\s\[\{])[&*%!][A-Za-z]", text):
+    if re.search(r"(?:^|[\s\[\{,;:\"'\(])[&*%!][A-Za-z]", text):
         return True
     if re.match(r"^[|>](?:[+-]?[0-9]?|[0-9][+-])?(?:\s|$)", text):
         return True
     return False
+
+
+class _FmWrittenNumber(str):
+    """A JSON number carrying its written form, as the
+    import side reading holds it at its _WrittenNumber.
+
+    The JSON form value length check measures a numeric
+    value by its written form, as it measures a string by
+    its length. Parsing a number into a plain int or
+    float loses that form, a float in particular rendering
+    far shorter than it stands written, so the reader
+    holds the token text itself (Step 17 round 8 entry
+    S17-R8-006)."""
 
 
 def _fm_json_holds_tag_construct(value):
@@ -1539,6 +1590,8 @@ def _fm_json_holds_tag_construct(value):
     value, at any depth, in a key or in a value, holds a
     tag construct, as the import side reading judges the
     JSON form whole (Step 17 round 6 entry S17-R6-012)."""
+    if isinstance(value, _FmWrittenNumber):
+        return False
     if isinstance(value, str):
         return _fm_holds_tag_construct(_fm_strip_head(value.strip()))
     if isinstance(value, dict):
@@ -1568,35 +1621,61 @@ def _fm_json_depth(value):
     return depth
 
 
+def _fm_container_value_measure(value):
+    """The length a container value stands measured by,
+    as the import side reading states at its
+    _container_value_measure: a string standing inside a
+    container stands measured by its length in characters,
+    the one measure a string standing as a whole value
+    stands measured by, and a number standing inside a
+    container stands measured by its written form, as a
+    number standing as a whole value does, and the
+    container marks, the quote marks, and the separators
+    of the rendering count for nothing in the measure
+    (Step 17 round 8 entry S17-R8-028, on the cure at
+    round 7 entry S17-R7-032)."""
+    if isinstance(value, _FmWrittenNumber):
+        return len(value)
+    if isinstance(value, str):
+        return len(value)
+    if isinstance(value, dict):
+        return sum(
+            _fm_container_value_measure(item)
+            for item in value.values())
+    if isinstance(value, list):
+        return sum(
+            _fm_container_value_measure(item) for item in value)
+    return 0
+
+
 def _fm_json_value_length(value):
     """The measured length of one JSON form value, on the
     measure the import side reading states: a string
     stands measured by its length in characters, a number
-    by its written form, and a container by its rendering
-    with its strings in characters and its numbers in
-    written form (Step 17 round 7 entry S17-R7-013)."""
+    by its written form, held at parse time as
+    _FmWrittenNumber, and a container by the sum of its
+    member measures on _fm_container_value_measure, with
+    the container marks counting for nothing (Step 17
+    round 7 entry S17-R7-013, completed at round 8 entries
+    S17-R8-006 and S17-R8-028)."""
+    if isinstance(value, _FmWrittenNumber):
+        return len(value)
     if isinstance(value, str):
         return len(value)
     if isinstance(value, bool) or value is None:
         return 0
     if isinstance(value, (int, float)):
         return len(str(value))
-    if isinstance(value, dict):
-        rendered = "{" + ", ".join(
-            '"' + str(key) + '": '
-            + _fm_json_rendered(item)
-            for key, item in value.items()) + "}"
-        return len(rendered)
-    if isinstance(value, list):
-        rendered = "[" + ", ".join(
-            _fm_json_rendered(item) for item in value) + "]"
-        return len(rendered)
+    if isinstance(value, (dict, list)):
+        return _fm_container_value_measure(value)
     return 0
 
 
 def _fm_json_rendered(value):
     """One JSON value rendered for the container measure
     at _fm_json_value_length."""
+    if isinstance(value, _FmWrittenNumber):
+        return str(value)
     if isinstance(value, str):
         return '"' + value + '"'
     if isinstance(value, bool) or value is None:
@@ -1659,15 +1738,30 @@ def _front_matter(text, fmt, notes, block_limit_bytes=None,
     # opening fence, or at either edge of either fence
     # line, does not move the block off the reading, as
     # the import side reading states for its opening
-    # fence (Step 17 round 7 entry S17-R7-014).
+    # fence (Step 17 round 7 entry S17-R7-014), completed
+    # at round 8 entry S17-R8-005 on head material
+    # standing between the fence characters themselves,
+    # through _fm_judged_fence at both fences.
     working = _fm_strip_head(text)
     lines = working.splitlines()
-    if not lines or _fm_strip_head_edges(lines[0]) != "---":
+    if not lines or _fm_judged_fence(lines[0]) != "---":
         return text
     for index in range(1, len(lines)):
-        if _fm_strip_head_edges(lines[index]) in ("---", "..."):
+        if _fm_judged_fence(lines[index]) in ("---", "..."):
             block = "\n".join(lines[1:index])
-            if len(block.encode("utf-8")) > block_limit_bytes:
+            # The block size stands measured on the block
+            # as it stands in the file, the lines between
+            # the fences with the terminators the file
+            # closes them with, at their file width, so a
+            # carriage return standing in a terminator
+            # counts at its width on every block line, as
+            # the import side reading cured at round 7
+            # entry S17-R7-033 measures it (Step 17 round
+            # 8 entry S17-R8-007).
+            kept_lines = working.splitlines(keepends=True)
+            block_in_file = "".join(kept_lines[1:index])
+            if len(block_in_file.encode("utf-8")) \
+                    > block_limit_bytes:
                 _fail("LIMIT_EXCEEDED",
                       "front matter block size limit is %s KiB, "
                       "with rejection and no partial record"
@@ -1702,19 +1796,22 @@ def _front_matter(text, fmt, notes, block_limit_bytes=None,
                 def _no_duplicates(pairs):
                     seen = set()
                     for key, _value in pairs:
-                        if key in seen:
+                        judged = _fm_judged_key(str(key))
+                        if judged in seen:
                             _fail("PAGE_EXTRACTION_FAILED",
                                   "the front matter block in "
                                   "JSON form holds the key "
-                                  + str(key) + " twice; front "
+                                  + judged + " twice; front "
                                   "matter keys stand once each")
-                        seen.add(key)
+                        seen.add(judged)
                     return dict(pairs)
 
                 try:
                     parsed = json.loads(
                         block.strip(),
-                        object_pairs_hook=_no_duplicates)
+                        object_pairs_hook=_no_duplicates,
+                        parse_int=_FmWrittenNumber,
+                        parse_float=_FmWrittenNumber)
                 except AcquisitionError:
                     raise
                 except (ValueError, RecursionError):
@@ -1818,11 +1915,13 @@ def _front_matter(text, fmt, notes, block_limit_bytes=None,
                               + block_line.strip()[:60])
                     # The duplicate judgement stands on
                     # the judged key, head material removed
-                    # at both edges on the completed head
+                    # at both edges and at any position
+                    # inside the name on the completed head
                     # predicate, as the import side reading
-                    # states (Step 17 round 7 entry
-                    # S17-R7-010).
-                    duplicate_key = _fm_strip_head_edges(pair[0])
+                    # states at its _judged_key (Step 17
+                    # round 7 entry S17-R7-010, completed
+                    # at round 8 entry S17-R8-004).
+                    duplicate_key = _fm_judged_key(pair[0])
                     if duplicate_key in seen_keys:
                         _fail("PAGE_EXTRACTION_FAILED",
                               "the front matter block holds "

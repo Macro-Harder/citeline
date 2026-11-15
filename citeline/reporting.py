@@ -1117,6 +1117,12 @@ def _key_components(key):
     return parts
 
 
+_HEAD_QUALIFIERS = (
+    "gross", "net", "value", "pct", "percent", "low", "high",
+    "count", "interval", "share", "ratio", "mean", "total",
+    "band", "delta", "range", "confidence", "basis")
+
+
 def _names_rate(key):
     """True where a field name names a rate, on the field
     names the product itself uses, in the positions and
@@ -1153,11 +1159,11 @@ def _names_rate(key):
     index = parts.index("rate")
     if index > 0 or len(parts) == 1:
         return True
-    return parts[1] in ("gross", "net", "value", "pct",
-                        "percent", "low", "high", "count",
-                        "interval", "share", "ratio", "mean",
-                        "total", "band", "delta", "range",
-                        "confidence")
+    # The head qualifier set stands as one set for the
+    # rate and score limbs alike, completed with basis,
+    # the score qualifier the rate set omitted (Step 17
+    # round 8 entry S17-R8-020).
+    return parts[1] in _HEAD_QUALIFIERS
 
 
 def _names_score(key):
@@ -1177,8 +1183,12 @@ def _names_score(key):
     index = parts.index("score")
     if index > 0 or len(parts) == 1:
         return True
-    return parts[1] in ("value", "band", "delta", "basis",
-                        "range", "pct")
+    # The head qualifier set stands as one set for the
+    # score and rate limbs alike, so a score at the head
+    # stands judged on every qualifier the rate limb
+    # states, as a rate at the head stands judged on
+    # basis (Step 17 round 8 entry S17-R8-020).
+    return parts[1] in _HEAD_QUALIFIERS
 
 
 def _names_tier(key):
@@ -1699,7 +1709,12 @@ def _emit(lines, key, value, depth, suppress_anchor_bare=False,
     # compound, and a wilson name standing as a suffix
     # stand in the set as the cured forms do, in float
     # form and in string form alike (Step 17 round 7
-    # entry S17-R7-040).
+    # entry S17-R7-040). The head compound limb of that
+    # reading stands completed past score: a percent,
+    # pct, share, gross, or net component standing at
+    # the head of a compound whose next component is
+    # value stands in the set as score_value stands
+    # (Step 17 round 8 entry S17-R8-021).
     components = _key_components(key) \
         if isinstance(key, str) else []
     if figure_form and (
@@ -1720,7 +1735,9 @@ def _emit(lines, key, value, depth, suppress_anchor_bare=False,
                 "rate", "share", "percent", "pct", "gross",
                 "net", "score"))
             or (len(components) > 1
-                and components[0] == "score"
+                and components[0] in (
+                    "score", "percent", "pct", "share",
+                    "gross", "net")
                 and components[1] == "value")
             or key.endswith("_rate")
             or key.endswith("_share")
@@ -2268,6 +2285,10 @@ def _render_staleness_simple(body):
     return lines
 
 
+_LINE_BREAK_CHARS = (
+    "\n", "\r", "\x0b", "\x0c", "\x85", "\u2028", "\u2029")
+
+
 def _failure_value_text(value):
     """One stored field value in the Simple failure line.
 
@@ -2290,17 +2311,27 @@ def _failure_value_text(value):
     before."""
     text = _scalar_text(value)
     if ", " in text or ". " in text or " failed with " in text \
-            or "\n" in text or "\r" in text:
+            or any(br in text for br in _LINE_BREAK_CHARS):
         # A line break inside a value stands judged as a
         # separator of the line form itself: the Simple
         # form is built of lines, so the value stands
         # quoted and its line breaks stand escaped inside
         # the quoting, and the one line the builder builds
         # stands as one physical line (Step 17 round 7
-        # entry S17-R7-049).
+        # entry S17-R7-049). The judged set stands
+        # completed on the whole standard line boundary
+        # set the artefact itself is read by, the vertical
+        # tab, the form feed, the next line character, the
+        # line separator, and the paragraph separator
+        # standing beside the newline and the carriage
+        # return (Step 17 round 8 entry S17-R8-023).
         escaped = text.replace("\\", "\\\\").replace(
             '"', '\\"').replace("\r", "\\r").replace(
-            "\n", "\\n")
+            "\n", "\\n").replace("\x0b", "\\v").replace(
+            "\x0c", "\\f").replace(
+            "\x85", "\\u0085").replace(
+            "\u2028", "\\u2028").replace(
+            "\u2029", "\\u2029")
         return '"%s"' % escaped
     return text
 
@@ -2498,11 +2529,17 @@ def _fold(text):
 # apostrophe grouping stands as a thousands grouping, an
 # underscore grouping stands inside the exponent part, and
 # an underscore digit stands inside the letter suffix
-# (Step 17 round 7 entry S17-R7-041).
+# (Step 17 round 7 entry S17-R7-041). The suffix limb
+# stands completed again on the composed dressings: a
+# trailing digit standing before an underscore digit
+# group, and underscore digit groups standing repeated
+# inside the suffix, as the exponent limb already admits
+# its grouping repeated (Step 17 round 8 entry
+# S17-R8-022).
 _WORD_TOKEN_PATTERN = (
     r"\d+(?:[,_']\d{3})*(?:\.\d+)*"
     r"(?:[eE][+-]?\d+(?:_\d+)*)?"
-    r"(?:[^\W\d_]+(?:_\d+)?[0-9]*)*"
+    r"(?:[^\W\d_]+[0-9]*(?:_\d+)*)*"
     r"|[^\W_]+(?:\.\d+)*")
 
 

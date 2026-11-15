@@ -598,25 +598,36 @@ def _restore_preserved_target(target, preserved_bytes):
     replace, through an exclusively created temporary in
     the target directory, best effort: where the restore
     itself fails the target stands absent, as it stood
-    under the remedy this restore extends."""
+    under the remedy this restore extends. The restore
+    replace stands judged on the same terms as every
+    judged replace in this module, and a restore whose
+    temporary stands swapped stands tried once more with
+    a fresh temporary, so the remedy does not itself move
+    a planted link onto the target (Step 17 round 8 entry
+    S17-R8-001)."""
     directory = os.path.dirname(target) or "."
-    try:
-        descriptor, temporary = tempfile.mkstemp(
-            prefix=os.path.basename(target) + ".tmp-",
-            dir=directory)
-    except OSError:
-        return
-    try:
-        with os.fdopen(descriptor, "wb") as handle:
-            handle.write(preserved_bytes)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(temporary, target)
-    except OSError:
+    for _attempt in range(2):
         try:
-            os.unlink(temporary)
+            descriptor, temporary = tempfile.mkstemp(
+                prefix=os.path.basename(target) + ".tmp-",
+                dir=directory)
         except OSError:
-            pass
+            return
+        try:
+            with os.fdopen(descriptor, "wb") as handle:
+                handle.write(preserved_bytes)
+                handle.flush()
+                os.fsync(handle.fileno())
+                temporary_inode = os.fstat(
+                    handle.fileno()).st_ino
+            _replace_judged_temporary(
+                temporary, temporary_inode, target)
+            return
+        except OSError:
+            try:
+                os.unlink(temporary)
+            except OSError:
+                pass
 
 
 def _replace_judged_temporary(temporary, inode, target,
@@ -656,8 +667,24 @@ def _replace_judged_temporary(temporary, inode, target,
     if preserve_target:
         try:
             standing = os.lstat(target)
-            if stat.S_ISREG(standing.st_mode) \
-                    and standing.st_nlink == 1:
+            # The content stands preserved at every standing
+            # form the anchor reader itself admits: a
+            # regular file at any link count, and a symbolic
+            # link naming a regular file, whose content the
+            # read through the link names. A remedy that
+            # preserved only the plain form, a regular file
+            # with a link count of one, still left the
+            # recording deleted whole at an anchor standing
+            # in a link form (Step 17 round 8 entry
+            # S17-R8-001, extending entry S17-R7-003).
+            preserve = stat.S_ISREG(standing.st_mode)
+            if stat.S_ISLNK(standing.st_mode):
+                try:
+                    followed = os.stat(target)
+                    preserve = stat.S_ISREG(followed.st_mode)
+                except OSError:
+                    preserve = False
+            if preserve:
                 with open(target, "rb") as handle:
                     preserved_bytes = handle.read()
         except OSError:
@@ -1656,6 +1683,31 @@ def write_config(home, text):
         handle.write(text)
         handle.flush()
         os.fsync(handle.fileno())
+        try:
+            _rejudge_open_descriptor(handle.fileno(), path)
+        except _UnsafeHomeFile:
+            # The link count stands judged at the write
+            # itself as well as before it, at this site as
+            # at the two sites entry S17-R7-004 charges: a
+            # hard link planted at the return of the
+            # rejudgement reading names the handle the
+            # write just used, so the written text stands
+            # truncated off that handle and the config name
+            # stands removed, and no config text stands
+            # readable under the outside name (Step 17
+            # round 8 entry S17-R8-025).
+            handle.truncate(0)
+            handle.flush()
+            os.fsync(handle.fileno())
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+            raise ConfigError(
+                "the config path stands as a link, a non "
+                "regular file, or a hard linked file; the "
+                "write stands refused", row="X-4",
+                token="SUPPLIED_PATH_UNSAFE")
 
 
 def effective_limits(home, run_id=None):
@@ -2382,16 +2434,19 @@ def _clear_batch_intent(home):
 def _size_cap_also_met(home):
     """Whether the total home size cap also stands met
     over this home, judged on the state as it stands at
-    the moment this reading is taken, which the recovery
-    takes at its record append, before the append runs:
-    where a recovery record append meets
+    the moment this reading is taken. The recovery
+    judgement takes this reading from the append itself,
+    at the instant the append meets its journal length
+    cap, stated on the error the append raises: where a
+    recovery record append meets
     the journal length cap in flight while the size cap
     also stands met, the append actually met both caps in
     the mixed state, and its failure stands judged on the
     size cap terms of entry S17-R5-004, as a landed
     recovery, not as a length cap deferral reported over
     a truncation that has already landed (Step 17 round
-    6 entry S17-R6-007)."""
+    6 entry S17-R6-007, completed at round 8 entry
+    S17-R8-002)."""
     try:
         limits = effective_limits(home)
     except Exception:
@@ -2573,18 +2628,26 @@ def recover_interrupted_batch(home):
             }
             record_judged_failed = False
             # The mixed state judgement reads the size state
-            # as it stood at the append, taken here, before
-            # the append runs: a change of the size state
-            # landing inside the window between the append
-            # and the judgement must not hand the judgement a
-            # state the append never met (Step 17 round 7
-            # entry S17-R7-005).
-            size_cap_met_at_append = _size_cap_also_met(home)
+            # as it stood at the append, stated on the error
+            # the append itself raises, read inside the
+            # append at the instant its length cap judgement
+            # stood: a change of the size state landing
+            # inside the append call, or as the call
+            # returns, must not hand the judgement a state
+            # the append never met (Step 17 round 7 entry
+            # S17-R7-005, completed at round 8 entry
+            # S17-R8-002).
             with _join_authorization(
                     _lock_path(home), "failure_record", payload):
                 try:
                     append_entry(home, "failure_record", payload)
                 except JournalError as error:
+                    size_cap_met_at_append = getattr(
+                        error, "size_cap_also_met_at_append",
+                        None)
+                    if size_cap_met_at_append is None:
+                        size_cap_met_at_append = \
+                            _size_cap_also_met(home)
                     # The cap judgement stands on the cap
                     # the append actually met, read from
                     # the limit number the error carries:
@@ -2916,10 +2979,23 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
                     row="U-8", token="MALFORMED_CALL")
         limits = effective_limits(home, run_id=run_id)
         if scan.entry_count + 1 > limits["journal_length"]["value"]:
-            raise JournalError(
+            error = JournalError(
                 "the journal length cap stands reached",
                 row="I-1", token="JOURNAL_CAP_EXCEEDED",
                 refusal_context="append_cap", limit_number=39)
+            # The size state the mixed state recovery
+            # judgement stands on is read here, inside the
+            # append, at the instant this cap is met, and
+            # stated on the error itself: a reading the
+            # recovery took before the append runs, or one
+            # it took after the append failed, hands the
+            # judgement a state the append never met where
+            # the size state changes inside the append call
+            # or as the call returns (Step 17 round 8 entry
+            # S17-R8-002, extending entry S17-R7-005).
+            error.size_cap_also_met_at_append = \
+                _size_cap_also_met(home)
+            raise error
         entry = {
             "sequence": scan.entry_count + 1,
             "entry_kind": entry_kind,

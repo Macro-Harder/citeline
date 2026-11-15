@@ -498,13 +498,29 @@ def _is_cpio_odc_header(variant):
     plain text that opens with the signature characters
     as prose, its following characters standing as prose
     letters, reads as the text it is (entry S17-R7-027,
-    on the ground of entry S17-R6-025).
+    on the ground of entry S17-R6-025), and it reads the
+    field structure behind the signature, each field
+    standing closed by a NUL byte at its stated field
+    end (entry S17-R8-013).
     """
     if len(variant) < 76:
         return False
-    return all(
-        byte in b"01234567\x00 "
-        for byte in variant[6:76])
+    if not all(
+            byte in b"01234567\x00 "
+            for byte in variant[6:76]):
+        return False
+    # The judgement stands on the field structure of the
+    # header, not on the character class alone: each field
+    # of the odc header, the device field through the file
+    # size field at their stated widths of six, six, six,
+    # six, six, six, six, eleven, six, and eleven
+    # characters, stands closed by a NUL byte at its field
+    # end, so prose holding digits and spaces alone for
+    # seventy characters, with no field boundary and no
+    # NUL terminator at any field position, reads as the
+    # text it is (entry S17-R8-013).
+    field_ends = (11, 17, 23, 29, 35, 41, 47, 58, 64, 75)
+    return all(variant[end] == 0 for end in field_ends)
 
 
 def _is_cpio_newc_header(variant):
@@ -539,6 +555,29 @@ def _is_cpio_newc_header(variant):
     # S17-R7-028).
     name_size = int(variant[94:102], 16)
     file_size = int(variant[54:62], 16)
+    # The judgement stands on the check field and on the
+    # member name behind the fields it reads as lengths:
+    # where the check field at characters 102 to 110
+    # stands as hexadecimal text, the header stands
+    # complete in its stated form, and a complete header
+    # stating a name size of zero holds no member name
+    # and no member at all, so it reads as the text it
+    # is; and where the name size field states a name,
+    # the bytes behind the header hold that name closed
+    # by the NUL byte the format writes at its end, so a
+    # name standing open in prose letters reads as text
+    # (entry S17-R8-014). The signature pin form, whose
+    # check field does not stand as hexadecimal text,
+    # stands under the reading above as it stood.
+    if all(
+            byte in b"0123456789abcdefABCDEF"
+            for byte in variant[102:110]) and name_size == 0:
+        return False
+    if name_size >= 1:
+        if len(variant) < 110 + name_size:
+            return False
+        if variant[110 + name_size - 1] != 0:
+            return False
     return len(variant) >= 110 + name_size + file_size
 
 
@@ -567,6 +606,20 @@ def _is_cab_header(variant):
     # here, so prose letters standing in those fields,
     # stating lengths no standing bytes hold, read as the
     # text they are (entry S17-R7-028).
+    # The judgement stands on the remaining header fields
+    # beside the lengths: the third reserved field at
+    # offset 20 stands as zero in the form the format
+    # writes, and the version bytes at offsets 24 and 25
+    # stand as the zero bytes of the signature pin form
+    # or as the version the format writes, a minor of 3
+    # and a major of 1, so prose standing in the remaining
+    # header fields reads as the text it is (entry
+    # S17-R8-014).
+    if variant[20:24] != b"\x00\x00\x00\x00":
+        return False
+    if not ((variant[24] == 0 and variant[25] == 0)
+            or (variant[24] == 3 and variant[25] == 1)):
+        return False
     cabinet_size = int.from_bytes(variant[8:12], "little")
     first_file_offset = int.from_bytes(variant[16:20], "little")
     return (
@@ -852,15 +905,17 @@ def _holds_tag_construct(text):
     if text.startswith(("!", "&", "*", "%")):
         return True
     if re.search(
-            r"<[A-Za-z0-9\-._;/?:@&=+$,!~*'()%\[\]\^][^>]*>", text):
+            r"<[A-Za-z0-9\-._;/?:@&=+$,!~*'()%\[\]\^#][^>]*>", text):
         # An angle bracket spelling opens on any URI
         # character, a digit, a hyphen, or an underscore
         # among them, as a verbatim tag spelling admits
         # (entry S17-R6-029), the caret among them as a
         # verbatim tag spelling admits it (entry
-        # S17-R7-030).
+        # S17-R7-030), and the hash among them, standing
+        # as the fragment delimiter of the same character
+        # set (entry S17-R8-015).
         return True
-    if re.search(r"(?:^|[\s\[\{,;:\"'\(])[&*%!][A-Za-z]", text):
+    if re.search(r"(?:^|[\s\[\{,;:\"'\(\)\]\}])[&*%!][A-Za-z]", text):
         # A construct stands judged at the start of the
         # text, after whitespace, and directly after a
         # flow opening bracket, the flow positions
@@ -869,7 +924,12 @@ def _holds_tag_construct(text):
         # the separator standing between two flow items,
         # after the colon of a flow mapping, after a
         # semicolon, after a quote, and after an opening
-        # parenthesis (entry S17-R7-030).
+        # parenthesis (entry S17-R7-030), and directly
+        # after a closing bracket, the closing square
+        # bracket, the closing curly brace, and the
+        # closing parenthesis standing as judged positions
+        # beside their opening counterparts (entry
+        # S17-R8-015).
         return True
     if re.match(r"^[|>](?:[+-]?[0-9]?|[0-9][+-])?(?:\s|$)", text):
         # A block scalar header admits both indicator
@@ -955,9 +1015,15 @@ def _container_value_measure(value):
     if isinstance(value, str):
         return len(value)
     if isinstance(value, dict):
+        # A string standing as a key inside a container
+        # stands measured by its length in characters, as
+        # a string standing as a value inside a container
+        # stands measured, at any depth (entry S17-R8-016,
+        # completing entry S17-R7-032 at the key position).
         return sum(
-            _container_value_measure(item)
-            for item in value.values())
+            _container_value_measure(key)
+            + _container_value_measure(item)
+            for key, item in value.items())
     if isinstance(value, list):
         return sum(
             _container_value_measure(item) for item in value)
@@ -1870,7 +1936,8 @@ def _parse_slot_line(line):
     return {"index": int(digits), "fields": values}
 
 
-_SLOT_SEPARATOR_PUNCTUATION = frozenset(';,("_-/|:.' + "=")
+_SLOT_SEPARATOR_PUNCTUATION = frozenset(
+    "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~")
 
 
 def _slot_assignments(rest):
@@ -1901,7 +1968,16 @@ def _slot_assignments(rest):
             # slash, a vertical bar, a colon, an equals
             # sign, or a full stop standing in front of a
             # field name counts the marker it stands in
-            # front of (entry S17-R7-026).
+            # front of (entry S17-R7-026), and the remaining
+            # punctuation forms stand in the same set, the
+            # closing brackets, the single quote, the
+            # question and exclamation marks, the at sign,
+            # the hash, the dollar and percent signs, the
+            # caret, the ampersand, the asterisk, the plus
+            # sign, the tilde, the grave accent, the
+            # backslash, the angle brackets, and the opening
+            # square bracket and curly brace (entry
+            # S17-R8-012).
             index += 1
             continue
         matched = None
@@ -2127,8 +2203,24 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
             record, name)) for name in (
                 "kind", "engine_label_normalised", "query"))
 
+    def _unkeyable_field(value):
+        # A field standing in a form that cannot be hashed
+        # and is no string subclass stands keyed under a
+        # placeholder no candidate key carries, so a key
+        # reading alone never compares it, whatever its
+        # equality test answers (entry S17-R8-017).
+        if isinstance(value, str):
+            return False
+        try:
+            hash(value)
+        except TypeError:
+            return True
+        return False
+
     def _index_standing(record, bucket_key, index):
-        entry = (index, record)
+        raw_bucket = tuple(_record_field(record, name) for name in (
+            "kind", "engine_label_normalised", "query"))
+        entry = (index, record, raw_bucket)
         content_hash = _index_key_component(
             _record_field(record, "content_hash"))
         captured = _record_field(record, "captured_on")
@@ -2154,6 +2246,22 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
         except TypeError:
             pass
         if not indexed:
+            overflow.append(entry)
+        elif any(_unkeyable_field(value) for value in raw_bucket) \
+                or _unkeyable_field(
+                    _record_field(record, "content_hash")):
+            # A record carrying a bucket field, or its
+            # content hash, in a form that cannot be hashed
+            # and is no string subclass stands in the
+            # overflow list beside its sub index entries, so
+            # the bucket field equality reading at the
+            # selection below runs on it: its placeholder
+            # key stands in the indexes, and no candidate
+            # key carries that placeholder, so the indexes
+            # alone would never compare it, while its
+            # equality test can answer as the candidate
+            # (entry S17-R8-017, completing entry
+            # S17-R7-034 past the string subclass form).
             overflow.append(entry)
 
     for standing in running_standing:
@@ -2240,14 +2348,15 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
             # a field standing equal to the candidate under
             # a form that cannot be hashed stands compared
             # as a plain field stands compared (entry
-            # S17-R7-034).
+            # S17-R7-034). The raw bucket fields stand
+            # carried on the entry itself, taken once at
+            # indexing, so the reading costs one equality
+            # test per field per slot (entry S17-R8-017).
             record = entry[1]
-            if (_record_field(record, "kind") == candidate_raw[0]
-                    and _record_field(
-                        record, "engine_label_normalised")
-                    == candidate_raw[1]
-                    and _record_field(record, "query")
-                    == candidate_raw[2]):
+            raw_bucket = entry[2]
+            if (raw_bucket[0] == candidate_raw[0]
+                    and raw_bucket[1] == candidate_raw[1]
+                    and raw_bucket[2] == candidate_raw[2]):
                 selected[entry[0]] = record
         # The overflow list stands outside the sub index
         # selection, and a slot reads it only on the

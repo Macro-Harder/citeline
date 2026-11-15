@@ -746,24 +746,69 @@ def _curly_single_is_internal(text, pos):
     further closing mark on the line then stands as
     this span closing, the nested opening standing as
     content before it, so the possessive reads as
-    internal there too.
+    internal there too. That unmatched nested judgement
+    stands only where the mark itself stands as a
+    possessive, on one of the punctuation followers the
+    possessive forms carry, a comma, a semicolon, an
+    exclamation mark, a full stop, a question mark, or a
+    colon: a mark followed by a space, with a separate
+    quotation pair standing later on the line, stands as
+    the closing of its own span, the pair standing as a
+    span of its own, and a closing mark standing after
+    that pair counts towards this span in the same way
+    only where the mark stands as such a possessive.
     """
     following = text[pos + 1] if pos + 1 < len(text) else ""
     if following.isalpha() or following.isdigit():
         return True
     if not following or following == "\n":
         return False
+    possessive_punct = following in ",;:!?."
+
+    def stray_is_closing(stray):
+        # A closing mark standing later on the line with
+        # no opening before it stands as the closing of
+        # this span where what follows it reads as what
+        # follows a closing: the end of the line, a
+        # punctuation mark, or a function word, an
+        # attribution word among them. Where a content
+        # word follows it, the mark stands as a
+        # possessive in the prose after this span, the
+        # content word standing as the noun it possesses,
+        # and it counts nothing towards this span.
+        cursor_after = stray + 1
+        while cursor_after < line_end and (
+            text[cursor_after] == " "
+        ):
+            cursor_after += 1
+        if cursor_after >= line_end:
+            return True
+        if not text[cursor_after].isalpha():
+            return True
+        word_end = cursor_after
+        while word_end < line_end and text[word_end].isalpha():
+            word_end += 1
+        return text[cursor_after:word_end].lower() in (
+            "in", "on", "at", "to", "and", "or", "but", "as",
+            "by", "for", "with", "from", "said", "says",
+            "wrote", "asked", "added", "noted", "called",
+            "after", "before", "during", "over", "under",
+            "into", "upon", "per", "via", "the", "a", "an",
+        )
     line_end = text.find("\n", pos + 1)
     if line_end < 0:
         line_end = len(text)
     cursor = pos + 1
+    pairs_consumed = 0
     while True:
         later = text.find("\u2019", cursor, line_end)
         if later < 0:
             return False
         opening = text.find("\u2018", cursor, line_end)
         if opening < 0 or later < opening:
-            return True
+            if pairs_consumed == 0:
+                return stray_is_closing(later)
+            return possessive_punct
         nested_close = text.find("\u2019", opening + 1, line_end)
         if nested_close < 0:
             return False
@@ -772,8 +817,12 @@ def _curly_single_is_internal(text, pos):
             # nested opening steps to, so that mark is
             # the closing of this span itself and the
             # nested opening stands unmatched inside it:
-            # the possessive stands internal.
-            return True
+            # the possessive stands internal where the
+            # mark stands as a possessive on a punctuation
+            # follower, and a true closing followed by a
+            # space closes its span there instead.
+            return possessive_punct
+        pairs_consumed += 1
         cursor = nested_close + 1
 
 
@@ -823,7 +872,13 @@ def _quoted_spans(text):
     further closing of that span stands later on the
     line, the nested opening standing as content, and
     it closes the stack top as written where a further
-    closing of the span below does stand later.
+    closing of the span below does stand later. At any
+    depth the span completed is the outermost span
+    below that the character can close and whose
+    closing does not stand later on the line, so an
+    intermediate span sharing the closing character
+    with the outer span does not take the closing from
+    it at depth three.
     """
     spans = []
     pending = []
@@ -877,6 +932,35 @@ def _quoted_spans(text):
                 )
             ]
         return completed
+
+    def completion_depth(char, index):
+        # The outermost span standing below the stack top
+        # that the character at index can close and whose
+        # closing does not stand later on the line, the
+        # span the line actually closes at this character
+        # where unmatched openings stand above it at any
+        # depth. Where that span is a curly single span
+        # and the character stands internal to it, the
+        # span does not complete here.
+        line_end = text.find("\n", index + 1)
+        if line_end < 0:
+            line_end = length
+        for depth in range(len(stack) - 1):
+            if char not in stack[depth][2]:
+                continue
+            if (
+                stack[depth][0] == "\u2018"
+                and char == "\u2019"
+                and _curly_single_is_internal(text, index)
+            ):
+                continue
+            later_close = any(
+                text.find(closing, index + 1, line_end) >= 0
+                for closing in stack[depth][2]
+            )
+            if not later_close:
+                return depth
+        return None
 
     def flush_line():
         nonlocal pending
@@ -968,44 +1052,24 @@ def _quoted_spans(text):
                     # The character closes the stack top
                     # and a span standing below it alike,
                     # the nested family sharing its closing
-                    # character with the outer family. Where
-                    # no further closing of the span below
-                    # stands later on the line, this
-                    # character is that span closing and
-                    # the nested opening above it stands
-                    # unmatched as its content, so the
-                    # outer span reads whole. Where a
-                    # further closing of the span below does
-                    # stand later, the character closes the
-                    # stack top as written and the outer
-                    # span closes at its own later closing.
-                    ancestor_depth = None
-                    for depth in range(
-                        len(stack) - 2, -1, -1
-                    ):
-                        if char in stack[depth][2]:
-                            ancestor_depth = depth
-                            break
-                    if ancestor_depth is not None and not (
-                        stack[ancestor_depth][0] == "\u2018"
-                        and char == "\u2019"
-                        and _curly_single_is_internal(
-                            text, index)
-                    ):
-                        line_end = text.find("\n", index + 1)
-                        if line_end < 0:
-                            line_end = length
-                        later_close = any(
-                            text.find(
-                                closing, index + 1, line_end
-                            ) >= 0
-                            for closing in
-                            stack[ancestor_depth][2]
-                        )
-                        if not later_close:
-                            complete_below(ancestor_depth, index)
-                            index += 1
-                            continue
+                    # character with the outer family. The
+                    # character completes the outermost span
+                    # below that it can close and whose
+                    # closing does not stand later on the
+                    # line, the openings above that span
+                    # standing unmatched as its content, so
+                    # that span reads whole at any depth.
+                    # Where every span below closes later
+                    # on the line, the character closes the
+                    # stack top as written and the spans
+                    # below close at their own later
+                    # closings.
+                    ancestor_depth = completion_depth(
+                        char, index)
+                    if ancestor_depth is not None:
+                        complete_below(ancestor_depth, index)
+                        index += 1
+                        continue
                 pop_entry()
                 completed = (top_start, index + 1)
                 if stack:
@@ -1023,41 +1087,32 @@ def _quoted_spans(text):
                 continue
             ancestor = None
             if char in below_close_counts:
-                for depth in range(len(stack) - 2, -1, -1):
-                    if char in stack[depth][2]:
-                        ancestor = depth
-                        break
-            if ancestor is not None and not (
-                stack[ancestor][0] == "\u2018"
-                and char == "\u2019"
-                and _curly_single_is_internal(text, index)
-            ):
+                ancestor = completion_depth(char, index)
+                if ancestor is None:
+                    for depth in range(len(stack) - 2, -1, -1):
+                        if char in stack[depth][2]:
+                            ancestor = depth
+                            break
+                    if ancestor is not None and (
+                        stack[ancestor][0] == "\u2018"
+                        and char == "\u2019"
+                        and _curly_single_is_internal(text, index)
+                    ):
+                        ancestor = None
+            if ancestor is not None:
                 # The closing of a span standing open below
-                # an unmatched nested opening: the nested
+                # unmatched nested openings: the nested
                 # openings above it carry no closing of
                 # their own and stand as its content, so
                 # the span below reads whole to this
-                # closing.
-                _open_char, ancestor_start, _closes = (
-                    stack[ancestor])
-                del stack[ancestor:]
-                below_close_counts.clear()
-                for below_entry in stack[:-1]:
-                    for closing in below_entry[2]:
-                        below_close_counts[closing] = (
-                            below_close_counts.get(closing, 0) + 1)
-                completed = (ancestor_start, index + 1)
-                if stack:
-                    pending.append(completed)
-                else:
-                    spans.append(completed)
-                    pending = [
-                        item for item in pending
-                        if not (
-                            completed[0] <= item[0]
-                            and item[1] <= completed[1]
-                        )
-                    ]
+                # closing. The span completed is the
+                # outermost span below that this character
+                # can close and whose closing does not
+                # stand later on the line, so at depth
+                # three the outer span reads whole where
+                # an intermediate span shares the closing
+                # character with it.
+                complete_below(ancestor, index)
                 index += 1
                 continue
             if char in _QUOTE_OPENINGS:
@@ -1264,6 +1319,58 @@ def _statistic_analysis(page):
         # hyphen date in any order; and a year and month
         # fragment standing with its time, in either
         # fragment order.
+        # The dressings the sets below still omit,
+        # round 8, standing first on the same ground:
+        # a year and month fragment standing with its
+        # time in dotted form, standing after its time
+        # in either form, or standing with a comma
+        # before its time in either form, each fragment
+        # limb guarded so it does not bite inside a
+        # full date standing around it; and the full
+        # date compositions of the named limbs in
+        # further orders and separators, a dotted date
+        # or a year first slash date standing with a
+        # comma before its time, a year first dotted
+        # date standing with its time, a day first
+        # hyphen date standing with its time in the T
+        # form, a time standing first carrying an AM
+        # or PM marker, and a marker standing glued or
+        # spaced after the time of a hyphen date.
+        r"\b(?<![\d.])\d{4}\.\d{1,2}(?!\.\d)(?!\d)\s+"
+        r"\d{1,2}:\d{2}(?::\d{2})?\b",
+        r"\b(?<![\d.])\d{1,2}\.\d{4}(?!\.\d)(?!\d)\s+"
+        r"\d{1,2}:\d{2}(?::\d{2})?\b",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s+"
+        r"\d{4}-\d{1,2}(?![-\d])",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s+"
+        r"\d{1,2}-\d{4}(?![-\d])",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s+"
+        r"\d{4}\.\d{1,2}(?!\.\d)(?!\d)",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s+"
+        r"\d{1,2}\.\d{4}(?!\.\d)(?!\d)",
+        r"\b(?<![\d-])\d{4}-\d{1,2}(?![-\d])\s*,\s*"
+        r"\d{1,2}:\d{2}(?::\d{2})?\b",
+        r"\b(?<![\d-])\d{1,2}-\d{4}(?![-\d])\s*,\s*"
+        r"\d{1,2}:\d{2}(?::\d{2})?\b",
+        r"\b(?<![\d.])\d{4}\.\d{1,2}(?!\.\d)(?!\d)\s*,\s*"
+        r"\d{1,2}:\d{2}(?::\d{2})?\b",
+        r"\b(?<![\d.])\d{1,2}\.\d{4}(?!\.\d)(?!\d)\s*,\s*"
+        r"\d{1,2}:\d{2}(?::\d{2})?\b",
+        r"\b\d{1,2}\.\d{1,2}\.\d{2,4}\s*,\s*"
+        r"\d{1,2}:\d{2}(?::\d{2})?\b",
+        r"\b\d{4}\.\d{1,2}\.\d{1,2}\s*,\s*"
+        r"\d{1,2}:\d{2}(?::\d{2})?\b",
+        r"\b\d{4}/\d{1,2}/\d{1,2}\s*,\s*"
+        r"\d{1,2}:\d{2}(?::\d{2})?\b",
+        r"\b\d{4}\.\d{1,2}\.\d{1,2}\s+"
+        r"\d{1,2}:\d{2}(?::\d{2})?\b",
+        r"\b\d{1,2}-\d{1,2}-\d{2,4}T"
+        r"\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?"
+        r"(?:\s*(?:Z|[+-]\d{2}:?\d{2}))?\b",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)"
+        r"(?:\s*,\s*|\s+)\d{1,4}-\d{1,2}-\d{1,4}\b",
+        r"\b\d{1,4}-\d{1,2}-\d{1,4}\s+"
+        r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)\b",
         r"\b\d{1,4}-\d{1,2}-\d{1,4},\s*"
         r"\d{1,2}:\d{2}(?::\d{2})?\b",
         r"\b\d{4}-\d{1,2}-\d{1,2}T"
