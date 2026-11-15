@@ -883,6 +883,18 @@ def _read_supplied_file(path):
             "the supplied path does not encode in UTF-8, "
             "so it does not decode in UTF-8 strictly",
         ) from exc
+    except ValueError as exc:
+        # A path holding a NUL character raises ValueError
+        # from the stat call itself, an embedded null byte:
+        # that is the same decoding failure in the path
+        # argument, and it stands answered in the recorded
+        # vocabulary, as the dispatch route answers the
+        # same string, never as the raw error.
+        raise RobotsError(
+            "ROBOTS_DECODING_FAILED",
+            "the supplied path holds a NUL character, so "
+            "it does not decode in UTF-8 strictly",
+        ) from exc
     except OSError as exc:
         raise RobotsError(
             "SUPPLIED_PATH_UNSAFE",

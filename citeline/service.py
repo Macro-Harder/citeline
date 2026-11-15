@@ -252,14 +252,31 @@ def _recover_interrupted_batch(home):
     recover = getattr(journal, "recover_interrupted_batch", None)
     if recover is None:
         return
+    # Whether a batch intent record stood at the attempt
+    # stands recorded before the attempt runs (Step 17
+    # round 6 entry S17-R6-052): the deferred signal below
+    # judges a deferral of the recovery this call
+    # attempted, and a record that lands only after the
+    # attempt returned was never attempted on, so no
+    # deferral of it stands to signal.
+    intent_path_fn = getattr(journal, "_batch_intent_path", None)
+    stood_at_attempt = None
+    if intent_path_fn is not None:
+        try:
+            stood_at_attempt = os.path.lexists(
+                intent_path_fn(str(home)))
+        except Exception:
+            stood_at_attempt = None
     try:
         recover(str(home))
     except Exception:
         pass
-    _signal_deferred_recovery(home, journal)
+    _signal_deferred_recovery(
+        home, journal, record_stood_at_attempt=stood_at_attempt)
 
 
-def _signal_deferred_recovery(home, journal):
+def _signal_deferred_recovery(home, journal,
+                              record_stood_at_attempt=None):
     """Refuse a route head where a recovery stands deferred.
 
     Where the recovery above did not land and a genuine
@@ -285,7 +302,29 @@ def _signal_deferred_recovery(home, journal):
     and the lock probe the journal states answers that
     question. Third, a non regular file at the intent
     path stands never opened by this judgement.
+
+    The signal judges that a recovery was attempted on
+    the record and deferred at the journal length cap
+    (Step 17 round 6 entry S17-R6-052): where the caller
+    states that no intent record stood at its recovery
+    attempt, a record standing now was never attempted
+    on and no signal stands over it; and the record
+    standing judged again after the validation, so a
+    recovery that landed inside the validation itself
+    leaves no record standing and no signal stands over
+    the healed home. The signal names only the genuine
+    record the cap defers, as the round 5 cure states.
+    Its own reading of the intent record stands under
+    the non blocking descriptor discipline the journal
+    intent reader stands under (Step 17 round 6 entry
+    S17-R6-053): the record stands read through the
+    journal read descriptor helper, so a FIFO swapped
+    into the path in the check to open window stands
+    met as a non regular file on the opened handle and
+    no route head wedges in a plain open.
     """
+    if record_stood_at_attempt is False:
+        return
     intent_path = getattr(journal, "_batch_intent_path", None)
     validate = getattr(journal, "_validate_batch_intent", None)
     held_probe = getattr(journal, "_lock_held_by_other", None)
@@ -299,15 +338,43 @@ def _signal_deferred_recovery(home, journal):
             return
         if held_probe is not None and held_probe(str(home)):
             return
-        with open(path, "r", encoding="utf-8") as handle:
-            import json
-            pairs_hook = getattr(journal, "_pairs_hook", None)
-            if pairs_hook is not None:
-                record = json.loads(
-                    handle.read(), object_pairs_hook=pairs_hook)
-            else:
-                record = json.loads(handle.read())
+        import json
+        pairs_hook = getattr(journal, "_pairs_hook", None)
+        read_descriptor = getattr(
+            journal, "_open_home_file_read_descriptor", None)
+        if read_descriptor is not None:
+            descriptor = read_descriptor(path)
+            with os.fdopen(
+                    descriptor, "r", encoding="utf-8") as handle:
+                text = handle.read()
+        else:
+            flags = os.O_RDONLY
+            if hasattr(os, "O_NOFOLLOW"):
+                flags |= os.O_NOFOLLOW
+            if hasattr(os, "O_NONBLOCK"):
+                flags |= os.O_NONBLOCK
+            descriptor = os.open(path, flags)
+            try:
+                import stat as stat_module
+                if not stat_module.S_ISREG(
+                        os.fstat(descriptor).st_mode):
+                    raise OSError(
+                        "the intent path names no regular file")
+            except BaseException:
+                os.close(descriptor)
+                raise
+            with os.fdopen(
+                    descriptor, "r", encoding="utf-8") as handle:
+                text = handle.read()
+        if pairs_hook is not None:
+            record = json.loads(
+                text, object_pairs_hook=pairs_hook)
+        else:
+            record = json.loads(text)
         validated = validate(str(home), record)
+        if not os.path.lexists(path) or os.path.islink(path) \
+                or not os.path.isfile(path):
+            return
     except errors.CitelineError:
         raise
     except Exception:
@@ -442,10 +509,25 @@ def _round_record(home, product_record, round_label):
     standing_by_id = {}
     for payload in _rounds(home, product_id):
         round_id = payload.get("round_id")
+        if round_id is not None and not isinstance(round_id, str):
+            # The stored round identity stands judged
+            # before this fold keys its dict by it (Step 17
+            # round 6 entry S17-R6-050): an identity in a
+            # form that is not a string, an unhashable form
+            # among them, refuses in the recorded vocabulary
+            # instead of crashing the fold raw, as the
+            # sibling folds cured in round 5 refuse the
+            # same class of swap.
+            _fail(
+                "VALIDATION_FAILED",
+                "the stored round record carries round_id "
+                "in a form its readers cannot use: %r"
+                % (round_id,))
         if round_id is not None:
             standing_by_id[round_id] = payload
     for payload in standing_by_id.values():
         if payload.get("round_label") == round_label:
+            _validate_round_stamp_fields(payload)
             return payload
     return None
 
@@ -761,6 +843,68 @@ def _validate_audit_payload(payload):
             "readers cannot use: %r" % (count,))
 
 
+# The stored forms of the round record importer
+# declaration: the one canonical form the round naming
+# operation stores for each of its three G1 values, and
+# the three G1 value texts themselves (plan Section 5.4
+# entity list, and brief Section 5.2 in the same words).
+_ROUND_IMPORTER_DECLARATIONS = (
+    "all_captured", "stated_subset", "selection_rule_unknown",
+    "all captured answers imported",
+    "a stated subset imported",
+    "selection rule unknown",
+)
+
+
+def _validate_round_stamp_fields(payload):
+    """The stored round record stamp discipline.
+
+    The round stamp fields stand judged at the readers
+    that surface them (Step 17 round 6 entry S17-R6-042):
+    the importer declaration the sampling frame carries
+    stands in one of its three G1 values, in the stored
+    canonical form or in the value text itself, and the
+    two version stamps the probe report artefact copies
+    stand as version values or null, a version value
+    standing as the whole number counter the first
+    import stamps. A swapped or out of set form refuses
+    VALIDATION_FAILED naming the field, instead of
+    surfacing verbatim in the artefact.
+    """
+    if not isinstance(payload, dict):
+        return
+    declaration = payload.get("importer_declaration")
+    if declaration is not None and declaration not in \
+            _ROUND_IMPORTER_DECLARATIONS:
+        _fail(
+            "VALIDATION_FAILED",
+            "the stored round record carries "
+            "importer_declaration in a form its readers "
+            "cannot use: %r" % (declaration,))
+    for field in ("registry_version_at_first_import",
+                  "detector_version_at_first_import"):
+        value = payload.get(field)
+        if value is not None and (
+                isinstance(value, bool)
+                or not isinstance(value, int)):
+            _fail(
+                "VALIDATION_FAILED",
+                "the stored round record carries %s in a "
+                "form its readers cannot use: %r"
+                % (field, value))
+
+
+def _validate_round_record(payload):
+    """The stored round record field discipline at the
+    readers: its identity strings, and its stamp fields
+    under _validate_round_stamp_fields."""
+    if not isinstance(payload, dict):
+        return
+    for field in ("round_id", "product_id", "round_label"):
+        _require_typed_field(payload, field, str, "round")
+    _validate_round_stamp_fields(payload)
+
+
 def _validate_stored_entries(entries):
     """Judge every stored entry a reader is about to fold.
 
@@ -776,9 +920,7 @@ def _validate_stored_entries(entries):
         if kind in ("product_registered", "registry_change"):
             _validate_product_record(payload)
         elif kind == "round_named":
-            for field in ("round_id", "product_id",
-                          "round_label"):
-                _require_typed_field(payload, field, str, "round")
+            _validate_round_record(payload)
         elif kind == "answer_imported":
             _validate_answer_payload(payload)
         elif kind == "audit_record":
@@ -1623,7 +1765,17 @@ def estate_grounds(*, home, product):
         if kind == "snapshot_registered" \
                 and payload.get("product_id") == product_id \
                 and payload.get("is_product_page") is True:
-            page_path = payload.get("supplied_path")
+            # An empty string path stands read as no path
+            # here, on the watch module's own no path
+            # reading (Step 17 round 6 entry S17-R6-043):
+            # the watch coverage count counts a snapshot
+            # only where its supplied_path stands truthy
+            # and its target identity reads a falsy path
+            # as no selector, so the grounds state the
+            # supplied path or None, as this route's
+            # docstring states, and the estate dispatch
+            # meets the same snapshot as no page on file.
+            page_path = payload.get("supplied_path") or None
         if kind == "round_named" \
                 and payload.get("product_id") == product_id:
             label = payload.get("round_label")
@@ -1939,6 +2091,44 @@ robots_preview.__signature__ = inspect.Signature(parameters=[
 # Audit: assembly over acquisition, checks, and robots.
 # ----------------------------------------------------------------
 
+class _OccurrenceRecord(dict):
+    """A parsed flow block record holding its key
+    occurrence count beside its distinct keys."""
+
+
+def _flow_pairs_hook(pairs):
+    """The flow block pairs hook of the service counters.
+
+    Both service key counters stand on the one block
+    reading the parser reads (Step 17 round 6 entry
+    S17-R6-046): a duplicated key in a flow block stands
+    counted as it stands, every occurrence standing in
+    the count, never collapsed in silence by the parse
+    before the count stands taken, where the import
+    reading refuses the same block outright on the same
+    ground, front matter keys standing once each. The
+    parsed record keeps the last value of a repeated
+    key, as a plain parse holds it, and carries the
+    occurrence count of its own level on the record.
+    """
+    record = _OccurrenceRecord()
+    occurrences = 0
+    for key, value in pairs:
+        occurrences += 1
+        record[key] = value
+    record.key_occurrences = occurrences
+    return record
+
+
+def _flow_key_count(parsed):
+    """The key count of one parsed flow block, counting
+    every occurrence as it stands."""
+    occurrences = getattr(parsed, "key_occurrences", None)
+    if isinstance(occurrences, int):
+        return occurrences
+    return len(parsed)
+
+
 def _front_matter_key_count(page_file):
     """The top level key count of one page's front matter block.
 
@@ -1998,11 +2188,12 @@ def _front_matter_key_count(page_file):
     if block.startswith("{"):
         import json
         try:
-            parsed = json.loads(block)
+            parsed = json.loads(
+                block, object_pairs_hook=_flow_pairs_hook)
         except ValueError:
             parsed = None
         if isinstance(parsed, dict):
-            return len(parsed)
+            return _flow_key_count(parsed)
     from citeline import acquisition as acquisition_module
     pair_reading = getattr(
         acquisition_module, "_front_matter_key_value", None)
@@ -2398,6 +2589,16 @@ def _audit_body(*, home, page_file=None, robots_file=None,
             if _get(entry, "entry_kind") != "audit_record":
                 continue
             payload = _payload(entry)
+            # The stored record stands validated as it is
+            # scanned, before its identity is compared, as
+            # the guide assembly on the same store states
+            # (Step 17 round 6 entry S17-R6-055): a swapped
+            # identity field stands judged at this reader
+            # in the recorded vocabulary naming the field,
+            # instead of the standing run reading as
+            # unknown, or a standing sibling run standing
+            # handed out over a swapped record beside it.
+            _validate_audit_payload(payload)
             if payload.get("run_id") == run_id:
                 standing = payload
                 standing_sequence = _get(entry, "sequence")
@@ -2915,14 +3116,17 @@ def _import_front_matter_limits(home, answer_file):
             if written_number is not None:
                 parsed = json.loads(
                     block, parse_int=written_number,
-                    parse_float=written_number)
+                    parse_float=written_number,
+                    object_pairs_hook=_flow_pairs_hook)
             else:
-                parsed = json.loads(block)
+                parsed = json.loads(
+                    block, object_pairs_hook=_flow_pairs_hook)
         except Exception:
             return
         if not isinstance(parsed, dict):
             return
-        if key_limit is not None and len(parsed) > key_limit:
+        if key_limit is not None \
+                and _flow_key_count(parsed) > key_limit:
             _fail(
                 "LIMIT_EXCEEDED",
                 "front matter key count limit is %s in "
@@ -3692,6 +3896,7 @@ def _probe_report_record(home, product_record, round_record,
     stamps the round record carries, and the methods note
     stamp the ruling names for the RoundMetrics shape.
     """
+    _validate_round_stamp_fields(round_record)
     if metrics_record is None:
         metrics_record = _round_metrics(
             home, product_record, round_record)
@@ -4033,6 +4238,78 @@ def _store_guide_draft(home, draft, run_id, basis_record,
                 audit_date=audit_date or draft.get("audit_date"))
 
 
+def _store_guide_draft_for_round(home, draft, product_record,
+                                 round_record, bound_record,
+                                 round_entries, audit_date):
+    """Store one product and round guide draft, judged at
+    the store.
+
+    The second selector the guide route states stands
+    under the same store discipline as the run identity
+    selector (Step 17 round 6 entry S17-R6-044, on the
+    cure at entry S17-R5-059): the final judgement and
+    the append stand inside one sealed journal hold, the
+    basis the draft stands built on stands re-read
+    inside the hold, the round record, the bound product
+    record, and the round entries together, and where
+    any of them differs from the basis the draft stands
+    built on, the store stands refused and nothing
+    stands stored, so no guide taken by product and
+    round stores on a superseded basis. A correction
+    append attempted by other code inside the hold
+    stands contended at the sealed container and lands
+    nothing. The guide append itself joins the hold
+    under the journal join authorization for its exact
+    payload, as the run identity store stands.
+    """
+    journal = _journal()
+    write_lock = getattr(journal, "_WriteLock", None)
+    join = getattr(journal, "_join_authorization", None)
+    payload = copy.deepcopy(draft)
+    if write_lock is None or join is None:
+        return journal.append_entry(
+            str(home), "guide_record", payload,
+            audit_date=audit_date or draft.get("audit_date"))
+    with write_lock(str(home), kind="batch"):
+        fresh_product = _find_product(
+            home, product_record.get("name")) or product_record
+        fresh_round = _round_record(
+            home, fresh_product, round_record.get("round_label"))
+        if fresh_round is None or fresh_round != round_record:
+            _fail(
+                "VALIDATION_FAILED",
+                "the standing round record at the guide "
+                "store differs from the record the draft "
+                "stands built on; the guide stands refused "
+                "at the store and nothing stands stored")
+        fresh_bound = _bound_product_record(
+            home, fresh_product, fresh_round)
+        if fresh_bound != bound_record:
+            _fail(
+                "VALIDATION_FAILED",
+                "the standing bound product record at the "
+                "guide store differs from the record the "
+                "draft stands built on; the guide stands "
+                "refused at the store and nothing stands "
+                "stored")
+        fresh_entries = _round_entries(
+            home, fresh_product, fresh_round)
+        if fresh_entries != round_entries:
+            _fail(
+                "VALIDATION_FAILED",
+                "the standing round entries at the guide "
+                "store differ from the entries the draft "
+                "stands built on; the guide stands refused "
+                "at the store and nothing stands stored")
+        lock_path = getattr(journal, "_lock_path", None)
+        join_path = lock_path(str(home)) if lock_path \
+            is not None else str(home)
+        with join(join_path, "guide_record", payload):
+            return journal.append_entry(
+                str(home), "guide_record", payload,
+                audit_date=audit_date or draft.get("audit_date"))
+
+
 def _guide_impl(*, home, run_id=None, product=None,
                 round_label=None, audit_date=None):
     """One guide draft, from one audit record or one round.
@@ -4186,9 +4463,9 @@ def _guide_impl(*, home, run_id=None, product=None,
         entry = _store_guide_draft(
             home, draft, run_id, audit_record, audit_date)
     else:
-        entry = journal.append_entry(
-            str(home), "guide_record", copy.deepcopy(draft),
-            audit_date=audit_date or draft.get("audit_date"))
+        entry = _store_guide_draft_for_round(
+            home, draft, product_record, round_record,
+            bound_record, entries, audit_date)
     result = dict(draft)
     sequence = _get(entry, "sequence", None)
     if sequence is None:

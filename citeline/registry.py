@@ -155,6 +155,24 @@ def _fold(home):
     return list(entries)
 
 
+def _judge_product_identity(product_id):
+    """Judge one folded product identity against the stored
+    field discipline before it keys the fold dict.
+
+    An identity in a form its readers cannot use, a form
+    that is not a string among them, stands refused in the
+    recorded vocabulary here instead of the fold keying its
+    dict by the raw value and a reader meeting it raw
+    outside the vocabulary (Step 17 round 5 entry
+    S17-R5-064, extended to this fold at round 6 entry
+    S17-R6-011)."""
+    if not isinstance(product_id, str):
+        _fail("VALIDATION_FAILED",
+              "the stored registry record carries product_id "
+              "in a form its readers cannot use: %r"
+              % (product_id,))
+
+
 def _fold_registry(home):
     """Return a dict of product_id to Product record.
 
@@ -162,7 +180,10 @@ def _fold_registry(home):
     Where it yields a mapping, that mapping stands. Where it
     yields a list of records, the records are keyed here by
     their product_id, which is a reading of the fold only,
-    not a second fold rule.
+    not a second fold rule. On every road the identity
+    stands judged against the stored field discipline
+    before it keys the dict (Step 17 round 6 entry
+    S17-R6-011).
     """
     journal = _journal()
     fold_registry = getattr(journal, "fold_registry", None)
@@ -173,12 +194,15 @@ def _fold_registry(home):
         except TypeError:
             state = fold_registry(str(home))
     if isinstance(state, dict):
+        for key in state:
+            _judge_product_identity(key)
         return {key: _as_record(value) for key, value in state.items()}
     records = {}
     if isinstance(state, (list, tuple)):
         for value in state:
             record = _as_record(value)
             if record.get("product_id"):
+                _judge_product_identity(record["product_id"])
                 records[record["product_id"]] = record
         return records
     # Fallback reading over the plain fold, applying the plan
@@ -191,6 +215,7 @@ def _fold_registry(home):
         payload = _as_record(_get(entry, "payload", {}))
         product_id = payload.get("product_id")
         if product_id:
+            _judge_product_identity(product_id)
             records[product_id] = payload
     return records
 
@@ -975,6 +1000,29 @@ def add_product(home, name=None, canonical_line=None, domain=None,
             home, name, candidate, stated, audit_date)
 
 
+def _same_as_candidate(existing, candidate, stated):
+    """Whether the standing record stands judged the same as
+    the candidate an add_product cycle carries, on the
+    fields the call states."""
+    return (
+        existing.get("name") == candidate["name"]
+        and existing.get("canonical_line") == candidate["canonical_line"]
+        and existing.get("domain") == candidate["domain"]
+        and (not stated["competitors"]
+             or existing.get("competitors", [])
+             == candidate["competitors"])
+        and (not stated["aliases"]
+             or existing.get("aliases", []) == candidate["aliases"])
+        and (not stated["query_set"]
+             or existing.get("query_set", [])
+             == candidate["query_set"])
+        and (not stated["category"]
+             or existing.get("category", []) == candidate["category"])
+        and (not stated["path_prefix"]
+             or existing.get("path_prefix") == candidate["path_prefix"])
+    )
+
+
 def _add_product_cycle(home, name, candidate, stated, audit_date):
     for _attempt in range(5):
         version = _journal_version(home)
@@ -987,31 +1035,43 @@ def _add_product_cycle(home, name, candidate, stated, audit_date):
         if _journal_version(home) != version and _attempt < 4:
             continue
         if existing is not None:
-            same = (
-                existing.get("name") == candidate["name"]
-                and existing.get("canonical_line") == candidate["canonical_line"]
-                and existing.get("domain") == candidate["domain"]
-                and (not stated["competitors"]
-                     or existing.get("competitors", [])
-                     == candidate["competitors"])
-                and (not stated["aliases"]
-                     or existing.get("aliases", []) == candidate["aliases"])
-                and (not stated["query_set"]
-                     or existing.get("query_set", [])
-                     == candidate["query_set"])
-                and (not stated["category"]
-                     or existing.get("category", []) == candidate["category"])
-                and (not stated["path_prefix"]
-                     or existing.get("path_prefix") == candidate["path_prefix"])
-            )
-            if same:
-                return _public_product(existing)
-            _fail(
-                "PRODUCT_READD_CHANGED",
-                "re-adding a product with any change is refused; "
-                "allowed values: name %s, canonical_line %s, domain %s"
-                % (existing.get("name"), existing.get("canonical_line"),
-                   existing.get("domain")))
+            # The idempotent return stands judged inside the
+            # sealed hold on every attempt, the fifth
+            # included, on the record the hold itself reads,
+            # so no success answer names a record a
+            # correction has already superseded (Step 17
+            # round 5 entry S17-R5-006, completed at round 6
+            # entry S17-R6-010). The judgement stands judged
+            # against the landed round 6 authorization form
+            # at entry S17-R6-001: inside the sealed hold an
+            # append attempted by any other writer, a
+            # correction among them, stands contended and
+            # stores nothing, so the record read inside the
+            # hold cannot move under the judgement, on the
+            # fifth attempt as on every other.
+            with _append_guard(home):
+                fresh = find_product(home, name)
+                if fresh is None:
+                    fresh = find_product(
+                        home, candidate["product_id"])
+                if fresh is not None:
+                    if _same_as_candidate(fresh, candidate, stated):
+                        return _public_product(fresh)
+                    _fail(
+                        "PRODUCT_READD_CHANGED",
+                        "re-adding a product with any change is "
+                        "refused; allowed values: name %s, "
+                        "canonical_line %s, domain %s"
+                        % (fresh.get("name"),
+                           fresh.get("canonical_line"),
+                           fresh.get("domain")))
+            if _attempt < 4:
+                continue
+            _fail("VALIDATION_FAILED",
+                  "the registry record moved under every "
+                  "attempt of this cycle, so the cycle "
+                  "writes nothing on a superseded view "
+                  "(Step 17 round 5 entry S17-R5-006)")
         payload = _payload_product(candidate)
         with _append_guard(home):
             if _journal_version(home) != version:

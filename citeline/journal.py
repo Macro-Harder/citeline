@@ -520,6 +520,96 @@ def _open_home_file_descriptor(path, mode, create=None):
     return descriptor
 
 
+def _rejudge_open_descriptor(descriptor, path):
+    """Judge an opened home file handle again, between
+    the judgement at its open and the write that follows
+    it: a hard link planted against the path in that
+    window names the same inode the descriptor holds, so
+    the link count stands read again on the handle before
+    anything is written or truncated through it (Step 17
+    round 6 entry S17-R6-006)."""
+    info = os.fstat(descriptor)
+    if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+        raise _UnsafeHomeFile(path)
+
+
+def _open_home_file_read_descriptor(path):
+    """Open one home own file for reading, judged at the
+    open for a symbolic link and a non regular form, with
+    a hard link count above one admitted: at a reader the
+    link count alone cannot tell a victim file linked to
+    the path from the genuine file linked outward, so the
+    reader judges the content it reads, as the batch
+    intent reader does (Step 17 round 6 entry
+    S17-R6-005). The open carries the no follow guard and
+    the non blocking flag, so a FIFO standing at the path
+    is met as a non regular file without opening it."""
+    flags = os.O_RDONLY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    if hasattr(os, "O_NONBLOCK"):
+        flags |= os.O_NONBLOCK
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as error:
+        if error.errno == errno.ELOOP:
+            raise _UnsafeHomeFile(path)
+        raise
+    try:
+        info = os.fstat(descriptor)
+        if not stat.S_ISREG(info.st_mode):
+            raise _UnsafeHomeFile(path)
+    except BaseException:
+        os.close(descriptor)
+        raise
+    if hasattr(os, "O_NONBLOCK"):
+        try:
+            standing = fcntl.fcntl(descriptor, fcntl.F_GETFL)
+            fcntl.fcntl(descriptor, fcntl.F_SETFL,
+                        standing & ~os.O_NONBLOCK)
+        except OSError:
+            pass
+    return descriptor
+
+
+def _replace_judged_temporary(temporary, inode, target):
+    """Replace a target with a writer own temporary,
+    judged at the replace itself: the file standing at
+    the temporary name stands judged for a regular file,
+    the very inode the writer created, and a link count
+    of one before the replace, and the file standing at
+    the target stands judged on the same terms after it,
+    so a temporary swapped for a planted link in the
+    write window is never moved onto the target behind a
+    success report, and a link that lands at the replace
+    point itself stands removed and reported instead
+    (Step 17 round 6 entry S17-R6-004)."""
+    info = os.lstat(temporary)
+    if stat.S_ISLNK(info.st_mode) \
+            or not stat.S_ISREG(info.st_mode) \
+            or info.st_ino != inode or info.st_nlink != 1:
+        try:
+            os.unlink(temporary)
+        except OSError:
+            pass
+        raise OSError(
+            "the temporary stands replaced before its replace")
+    os.replace(temporary, target)
+    try:
+        placed = os.lstat(target)
+    except OSError:
+        raise OSError("the replaced target cannot be judged")
+    if stat.S_ISLNK(placed.st_mode) \
+            or not stat.S_ISREG(placed.st_mode) \
+            or placed.st_ino != inode or placed.st_nlink != 1:
+        try:
+            os.unlink(target)
+        except OSError:
+            pass
+        raise OSError(
+            "the temporary stands replaced at its replace")
+
+
 def _unsafe_home_file_error(path, label):
     return JournalError(
         "the %s path stands as a link, a non regular "
@@ -590,13 +680,14 @@ def _lock_held_by_other(home):
 
 def _has_partial_tail(path):
     try:
-        with open(path, "rb") as handle:
+        descriptor = _open_home_file_descriptor(path, "r")
+        with os.fdopen(descriptor, "rb") as handle:
             handle.seek(0, os.SEEK_END)
             if handle.tell() == 0:
                 return False
             handle.seek(-1, os.SEEK_END)
             return handle.read(1) != b"\n"
-    except OSError:
+    except (OSError, _UnsafeHomeFile):
         return False
 
 
@@ -604,9 +695,10 @@ def _partial_tail_bytes(path):
     """The bytes after the last newline, or None where the
     file ends with a newline or cannot be read."""
     try:
-        with open(path, "rb") as handle:
+        descriptor = _open_home_file_descriptor(path, "r")
+        with os.fdopen(descriptor, "rb") as handle:
             data = handle.read()
-    except OSError:
+    except (OSError, _UnsafeHomeFile):
         return None
     if not data or data.endswith(b"\n"):
         return None
@@ -934,11 +1026,12 @@ def _scan(home, partial_mode="probe"):
         return cached[1]
     scan = _Scan()
     try:
-        with open(path, "rb") as handle:
+        descriptor = _open_home_file_descriptor(path, "r")
+        with os.fdopen(descriptor, "rb") as handle:
             data = handle.read()
     except FileNotFoundError:
         data = b""
-    except OSError:
+    except (OSError, _UnsafeHomeFile):
         # A journal path that stands but cannot be read as
         # a file (a directory at the path, a read error) is
         # an integrity state, not an empty journal (Step 17
@@ -1415,7 +1508,20 @@ def _read_config_values(home):
             "the config path stands but is not a file",
             row="X-1", token="CONFIG_INVALID")
     try:
-        with open(path, "r", encoding="utf-8") as handle:
+        descriptor = _open_home_file_descriptor(path, "r")
+    except _UnsafeHomeFile:
+        # The config reader stands under the link
+        # discipline the config writer stands under: a
+        # link standing at the config path governs no
+        # limits (Step 17 round 6 entry S17-R6-048).
+        raise ConfigError(
+            "the config path stands as a link, a non "
+            "regular file, or a hard linked file; the "
+            "read stands refused", row="X-4",
+            token="SUPPLIED_PATH_UNSAFE")
+    try:
+        with os.fdopen(descriptor, "r",
+                       encoding="utf-8") as handle:
             text = handle.read()
     except UnicodeDecodeError:
         raise ConfigError(
@@ -1454,6 +1560,14 @@ def write_config(home, text):
             "write stands refused", row="X-4",
             token="SUPPLIED_PATH_UNSAFE")
     with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+        try:
+            _rejudge_open_descriptor(handle.fileno(), path)
+        except _UnsafeHomeFile:
+            raise ConfigError(
+                "the config path stands as a link, a non "
+                "regular file, or a hard linked file; the "
+                "write stands refused", row="X-4",
+                token="SUPPLIED_PATH_UNSAFE")
         handle.write(text)
         handle.flush()
         os.fsync(handle.fileno())
@@ -1551,6 +1665,20 @@ class _WriteLock:
         self._granted = False
         self._suspended = False
         self._authorization = authorization
+        self._dir_fd = None
+        self._owner_pid = None
+
+    def _release_dir_lock(self):
+        if self._dir_fd is not None:
+            try:
+                fcntl.flock(self._dir_fd, fcntl.LOCK_UN)
+            except OSError:
+                pass
+            try:
+                os.close(self._dir_fd)
+            except OSError:
+                pass
+            self._dir_fd = None
 
     def __enter__(self):
         os.makedirs(self.home, exist_ok=True)
@@ -1611,7 +1739,7 @@ class _WriteLock:
                 token_join = \
                     threading.get_ident() == owner_thread \
                     and self._authorization is not None \
-                    and _authorization_standing(
+                    and _authorization_claimed(
                         path, self._authorization)
                 if permit_join or token_join:
                     _HELD_LOCKS[path] = (
@@ -1619,8 +1747,6 @@ class _WriteLock:
                         invocation, owner_pid)
                     self._nested = True
                     if token_join:
-                        _consume_authorization(
-                            path, self._authorization)
                         self._authorization = None
                     if self._kind in ("append", "batch") \
                             and _join_permit_count(path) > 0:
@@ -1644,20 +1770,61 @@ class _WriteLock:
                     "the write lock cannot be given on this "
                     "filesystem", row="X-12",
                     token="LOCK_UNAVAILABLE")
+            # The exclusion stands anchored on the home
+            # directory itself beside the lock file: the
+            # directory descriptor flock is taken first, so
+            # unlinking the lock file during a hold mints no
+            # second exclusion on a recreated lock file,
+            # the new caller meeting the directory flock the
+            # standing holder holds (Step 17 round 6 entry
+            # S17-R6-003).
+            try:
+                dir_fd = os.open(self.home, os.O_RDONLY)
+            except OSError:
+                os.close(descriptor)
+                raise JournalError(
+                    "the write lock cannot be given on this "
+                    "filesystem", row="X-12",
+                    token="LOCK_UNAVAILABLE")
+            try:
+                fcntl.flock(dir_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                os.close(dir_fd)
+                os.close(descriptor)
+                raise JournalError(
+                    "a writing invocation already holds this home",
+                    row="X-10", token="WRITE_CONTENDED")
+            except OSError:
+                os.close(dir_fd)
+                os.close(descriptor)
+                raise JournalError(
+                    "the write lock cannot be given on this "
+                    "filesystem", row="X-12",
+                    token="LOCK_UNAVAILABLE")
+            self._dir_fd = dir_fd
             handle = os.fdopen(descriptor, "a+")
             try:
                 fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError:
                 handle.close()
+                self._release_dir_lock()
                 raise JournalError(
                     "a writing invocation already holds this home",
                     row="X-10", token="WRITE_CONTENDED")
             except OSError:
                 handle.close()
+                self._release_dir_lock()
                 raise JournalError(
                     "the write lock cannot be given on this "
                     "filesystem", row="X-12",
                     token="LOCK_UNAVAILABLE")
+            self._owner_pid = os.getpid()
+            try:
+                _rejudge_open_descriptor(handle.fileno(), path)
+            except _UnsafeHomeFile:
+                handle.close()
+                self._release_dir_lock()
+                raise _unsafe_home_file_error(path, "write lock")
             handle.seek(0)
             handle.truncate()
             handle.write("holder pid %d\n" % os.getpid())
@@ -1674,6 +1841,29 @@ class _WriteLock:
 
     def __exit__(self, exc_type, exc, tb):
         path = _lock_path(self.home)
+        if self.handle is not None \
+                and self._owner_pid is not None \
+                and os.getpid() != self._owner_pid:
+            # A child forked inside the hold unwinds an
+            # inherited copy of this lock object: its exit
+            # act must not run an explicit unlock on the
+            # open file description the fork shares, which
+            # would release the parent flock whole. The
+            # child closes its own handle copies only, the
+            # act that leaves the parent lock standing
+            # (Step 17 round 6 entry S17-R6-002).
+            try:
+                self.handle.close()
+            except Exception:
+                pass
+            self.handle = None
+            if self._dir_fd is not None:
+                try:
+                    os.close(self._dir_fd)
+                except OSError:
+                    pass
+                self._dir_fd = None
+            return False
         if self._nested:
             with _HELD_LOCKS_GUARD:
                 held = _HELD_LOCKS.get(path)
@@ -1696,6 +1886,7 @@ class _WriteLock:
             finally:
                 self.handle.close()
                 self.handle = None
+        self._release_dir_lock()
         with _HELD_LOCKS_GUARD:
             _HELD_LOCKS.pop(path, None)
             active = _active_invocations(path)
@@ -1744,8 +1935,7 @@ def _change_join_permit(path, delta):
 
 def _authorizations(path):
     """The join authorizations standing for one path on
-    this thread, as (token, entry kind, payload identity)
-    records."""
+    this thread, as authorization context records."""
     authorizations = getattr(_LOCK_LOCAL, "authorizations", None)
     if authorizations is None:
         authorizations = {}
@@ -1753,57 +1943,107 @@ def _authorizations(path):
     return authorizations.setdefault(path, [])
 
 
+class _AuthorizationContext:
+    __slots__ = ("token", "entry_kind", "payload_id",
+                 "claimed", "spent")
+
+    def __init__(self, entry_kind, payload):
+        self.token = object()
+        self.entry_kind = entry_kind
+        self.payload_id = id(payload)
+        self.claimed = False
+        self.spent = None
+
+
 class _join_authorization:
     """An authorization for one exact append call to join
     the hold its caller stands inside.
 
     The authorization names the entry kind and the payload
-    object of the one call it stands for, and it takes
-    effect only where that call itself takes the lock: the
-    lock consumes the token at that point. Code running on
-    the holder thread before that point, a signal handler
-    fired at the entry of the append among its forms,
-    calls the append without the token and stands
-    contended (Step 17 round 5 entry S17-R5-068).
+    object of the one call it stands for, and it stands
+    bound to the call that registered it: the first append
+    call entered under it claims it at its own entry,
+    before any judgement that runs payload code, and no
+    second call presenting the same kind and the same
+    payload object can spend it. A second call that finds
+    the authorization already spent by a landed append of
+    the very entry it presents stands answered by that
+    landed entry itself, at the journal head, and stores
+    nothing further; a second call that finds it claimed
+    but unspent calls the append without the token and
+    stands contended (Step 17 round 5 entry S17-R5-068,
+    reopened at round 6 entry S17-R6-001).
     """
 
     def __init__(self, path, entry_kind, payload):
         self.path = path
-        self.record = (object(), entry_kind, id(payload))
+        self.context = _AuthorizationContext(entry_kind, payload)
 
     def __enter__(self):
-        _authorizations(self.path).append(self.record)
-        return self.record[0]
+        _authorizations(self.path).append(self.context)
+        return self.context.token
 
     def __exit__(self, exc_type, exc, tb):
         records = _authorizations(self.path)
         for index, record in enumerate(records):
-            if record[0] is self.record[0]:
+            if record is self.context:
                 del records[index]
                 break
         return False
 
 
 def _standing_authorization(path, entry_kind, payload):
-    """The authorization token standing for this exact
-    append call on this thread, or None."""
+    """The authorization token standing unclaimed for this
+    exact append call on this thread, or None."""
     for record in reversed(_authorizations(path)):
-        if record[1] == entry_kind and record[2] == id(payload):
-            return record[0]
+        if record.entry_kind == entry_kind \
+                and record.payload_id == id(payload) \
+                and not record.claimed:
+            return record.token
     return None
 
 
-def _authorization_standing(path, token):
-    return any(record[0] is token
+def _claim_authorization(path, entry_kind, payload):
+    """Claim the standing authorization for one append
+    call, at that call own entry.
+
+    Returns a pair of the context and its state: "claimed"
+    where this call is the call the authorization stands
+    bound to, "spent" where a landed append of the same
+    entry already spent it, "busy" where the bound call
+    stands in flight, and None where no authorization for
+    this kind and payload object stands.
+    """
+    for record in reversed(_authorizations(path)):
+        if record.entry_kind == entry_kind \
+                and record.payload_id == id(payload):
+            if not record.claimed:
+                record.claimed = True
+                return record, "claimed"
+            if record.spent is not None:
+                return record, "spent"
+            return record, "busy"
+    return None, None
+
+
+def _authorization_claimed(path, token):
+    return any(record.token is token and record.claimed
                for record in _authorizations(path))
 
 
-def _consume_authorization(path, token):
-    records = _authorizations(path)
-    for index, record in enumerate(records):
-        if record[0] is token:
-            del records[index]
-            return
+def _adopt_spent_authorization(home, context):
+    """The landed entry a spent authorization names, where
+    it still stands at the journal head, or None."""
+    sequence, head_hash = context.spent
+    scan = _scan(home, "probe")
+    if scan.failure is not None \
+            or scan.entry_count != sequence \
+            or scan.head_hash != head_hash:
+        return None
+    entries = _entries_with_hash(scan)
+    if not entries:
+        return None
+    return entries[-1]
 
 
 def _write_anchor(anchor_path, head_hash, sequence):
@@ -1822,8 +2062,10 @@ def _write_anchor(anchor_path, head_hash, sequence):
         handle.write("%s %d\n" % (head_hash, sequence))
         handle.flush()
         os.fsync(handle.fileno())
+        temporary_inode = os.fstat(handle.fileno()).st_ino
     try:
-        os.replace(temporary, anchor_path)
+        _replace_judged_temporary(
+            temporary, temporary_inode, anchor_path)
     except FileNotFoundError:
         # The temporary stands lost under its writer before
         # its link step: the condition row X-13 names, in
@@ -1860,7 +2102,9 @@ def _restore_anchor_bytes(anchor_path, anchor_bytes):
             handle.write(anchor_bytes)
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(temporary, anchor_path)
+            temporary_inode = os.fstat(handle.fileno()).st_ino
+        _replace_judged_temporary(
+            temporary, temporary_inode, anchor_path)
     except OSError:
         try:
             os.unlink(temporary)
@@ -1884,10 +2128,11 @@ def _restore_journal_size(path, size):
     if descriptor is not None:
         try:
             with os.fdopen(descriptor, "r+b") as handle:
+                _rejudge_open_descriptor(handle.fileno(), path)
                 handle.truncate(size)
                 handle.flush()
                 os.fsync(handle.fileno())
-        except OSError:
+        except (OSError, _UnsafeHomeFile):
             pass
     for cache_key in [key for key in _scan_cache if key[0] == path]:
         _scan_cache.pop(cache_key, None)
@@ -1994,10 +2239,11 @@ def _write_batch_intent(home, journal_size, anchor_path, anchor_bytes,
     try:
         with os.fdopen(descriptor, "w",
                        encoding="utf-8") as handle:
+            _rejudge_open_descriptor(handle.fileno(), intent_path)
             handle.write(json.dumps(record))
             handle.flush()
             os.fsync(handle.fileno())
-    except OSError:
+    except (OSError, _UnsafeHomeFile):
         return False
     return True
 
@@ -2007,6 +2253,26 @@ def _clear_batch_intent(home):
         os.unlink(_batch_intent_path(home))
     except OSError:
         pass
+
+
+def _size_cap_also_met(home):
+    """Whether the total home size cap also stands met
+    over this home, judged on the state as it stands at
+    the judgement: where a recovery record append meets
+    the journal length cap in flight while the size cap
+    also stands met, the append actually met both caps in
+    the mixed state, and its failure stands judged on the
+    size cap terms of entry S17-R5-004, as a landed
+    recovery, not as a length cap deferral reported over
+    a truncation that has already landed (Step 17 round
+    6 entry S17-R6-007)."""
+    try:
+        limits = effective_limits(home)
+    except Exception:
+        return False
+    size_limit = limits["total_home_size"]
+    cap = size_limit["value"] * _SIZE_MULTIPLIERS[size_limit["unit"]]
+    return _home_size(home) >= cap
 
 
 # A validation outcome beside success and refusal: the
@@ -2078,9 +2344,17 @@ def recover_interrupted_batch(home):
                 # duplicated key refusing through the same
                 # pairs hook the journal own line reader
                 # judges its lines by (Step 17 round 5
-                # entries S17-R5-002 and S17-R5-003).
-                descriptor = _open_home_file_descriptor(
-                    intent_path, "r")
+                # entries S17-R5-002 and S17-R5-003). A hard
+                # link count above one stands admitted at
+                # this reader and judged by the validation
+                # of the record itself: a genuine record
+                # linked outward validates and recovers,
+                # and a victim file linked to the path
+                # validates as no record and stands cleared
+                # as debris (Step 17 round 6 entry
+                # S17-R6-005).
+                descriptor = _open_home_file_read_descriptor(
+                    intent_path)
                 with os.fdopen(descriptor, "r",
                                encoding="utf-8") as handle:
                     record = json.loads(
@@ -2190,9 +2464,15 @@ def recover_interrupted_batch(home):
                     # deferral stands reported over it and
                     # the recovery stands as landed below
                     # (Step 17 round 5 entry S17-R5-004).
+                    # A failure carrying limit 39 stands
+                    # judged the same way where the size cap
+                    # also stands met in the mixed state, on
+                    # the cap the append actually met
+                    # (Step 17 round 6 entry S17-R6-007).
                     if error.token == "JOURNAL_CAP_EXCEEDED" \
                             and getattr(error, "limit_number",
-                                        None) == 39:
+                                        None) == 39 \
+                            and not _size_cap_also_met(home):
                         record_judged_failed = True
                 except Exception:
                     pass
@@ -2293,10 +2573,14 @@ def _validate_batch_intent(home, record):
             and not isinstance(record_anchor, str):
         return None
     try:
-        with open(journal_path(home), "rb") as handle:
+        descriptor = _open_home_file_descriptor(
+            journal_path(home), "r")
+        with os.fdopen(descriptor, "rb") as handle:
             standing = handle.read()
     except FileNotFoundError:
         standing = b""
+    except _UnsafeHomeFile:
+        return _DEFER_BATCH_RECOVERY
     except OSError:
         return None
     if journal_size > len(standing):
@@ -2372,6 +2656,22 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
         raise JournalError(
             "an entry payload must be an object",
             row="U-8", token="MALFORMED_CALL")
+    # The join authorization stands claimed at this call
+    # own entry, before the depth judgement or any other
+    # step that runs payload code, so code the payload
+    # itself runs inside this call, and any second call
+    # presenting the same kind and payload object, finds
+    # the authorization already bound to this call and
+    # cannot spend it (Step 17 round 6 entry S17-R6-001).
+    claimed_context, claim_state = _claim_authorization(
+        _lock_path(home), entry_kind, payload)
+    authorization = None
+    if claim_state == "claimed":
+        authorization = claimed_context.token
+    elif claim_state == "spent":
+        adopted = _adopt_spent_authorization(home, claimed_context)
+        if adopted is not None:
+            return adopted
     if _container_depth(payload) + 2 > MAX_DEPTH:
         raise JournalError(
             "the entry nesting depth breaches its limit",
@@ -2385,8 +2685,6 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
         _batch_held = _lock_path(home) in _HELD_LOCKS
     if not _batch_held:
         recover_interrupted_batch(home)
-    authorization = _standing_authorization(
-        _lock_path(home), entry_kind, payload)
     with _WriteLock(home, kind="append",
                     authorization=authorization):
         if _path_is_unsafe_home_file(journal_path(home)):
@@ -2537,6 +2835,11 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
             # entry S17-R5-061).
             raise _unsafe_home_file_error(path, "journal")
         try:
+            _rejudge_open_descriptor(descriptor, path)
+        except _UnsafeHomeFile:
+            os.close(descriptor)
+            raise _unsafe_home_file_error(path, "journal")
+        try:
             with os.fdopen(descriptor, "ab") as handle:
                 handle.write(canonical + b"\n")
                 handle.flush()
@@ -2592,6 +2895,9 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
                     "the anchor write failed; the append "
                     "stands rolled back", row="I-2",
                     token="JOURNAL_VERIFY_FAILED")
+        if claim_state == "claimed" and claimed_context is not None:
+            claimed_context.spent = (
+                entry["sequence"], entry["entry_hash"])
         return entry
 
 
@@ -3040,6 +3346,11 @@ def replay(home, entries, resume=False):
             except _UnsafeHomeFile:
                 raise _unsafe_home_file_error(path, "journal")
             try:
+                _rejudge_open_descriptor(descriptor, path)
+            except _UnsafeHomeFile:
+                os.close(descriptor)
+                raise _unsafe_home_file_error(path, "journal")
+            try:
                 with os.fdopen(descriptor, "ab") as handle:
                     handle.write(b"".join(
                         raw + b"\n" for raw in lines))
@@ -3072,7 +3383,10 @@ def replay(home, entries, resume=False):
                     handle.write(content)
                     handle.flush()
                     os.fsync(handle.fileno())
-                os.replace(temporary, path)
+                    temporary_inode = os.fstat(
+                        handle.fileno()).st_ino
+                _replace_judged_temporary(
+                    temporary, temporary_inode, path)
             except FileNotFoundError:
                 # The temporary stands lost under its writer
                 # before its link step: the condition row

@@ -24,6 +24,7 @@ clock reads.
 
 import bisect
 import hashlib
+import json
 import os
 import re
 import stat
@@ -96,6 +97,7 @@ _LINK_COUNT_LIMIT = 10000
 _HEADING_COUNT_LIMIT = 10000
 _REFERENCE_DEFINITION_LIMIT = 10000
 _FRONT_MATTER_BLOCK_LIMIT = 16 * 1024
+_FRONT_MATTER_KEY_LIMIT = 100
 _FRONT_MATTER_VALUE_LIMIT = 4096
 
 _FORMATS = ("markdown", "html", "text")
@@ -777,7 +779,39 @@ def _content_format(text):
                 r"input|source|track|col|area|colgroup|tfoot|"
                 r"search|data|meter|progress|output|slot|ruby|"
                 r"samp|var|dfn|bdi|bdo|del|ins|datalist|"
-                r"optgroup|option|map|param|rp|rt|math)\b",
+                r"optgroup|option|map|param|rp|rt|math|"
+                # The child elements of the two vocabularies
+                # whose roots stand above, SVG and MathML, stand
+                # in the probe list whole, as the roots do: a
+                # document led by a child element of either
+                # vocabulary is a form the probe exists to
+                # decide (Step 17 round 5 entry S17-R5-007,
+                # completed at round 6 entry S17-R6-015).
+                r"altGlyph|altGlyphDef|altGlyphItem|animate|"
+                r"animateColor|animateMotion|animateTransform|"
+                r"circle|clipPath|color-profile|cursor|"
+                r"definition-src|defs|desc|discard|ellipse|"
+                r"feBlend|feColorMatrix|feComponentTransfer|"
+                r"feComposite|feConvolveMatrix|feDiffuseLighting|"
+                r"feDisplacementMap|feDistantLight|feDropShadow|"
+                r"feFlood|feFuncA|feFuncB|feFuncG|feFuncR|"
+                r"feGaussianBlur|feImage|feMerge|feMergeNode|"
+                r"feMorphology|feOffset|fePointLight|"
+                r"feSpecularLighting|feSpotLight|feTile|"
+                r"feTurbulence|filter|foreignObject|g|glyph|"
+                r"glyphRef|handler|hkern|image|line|"
+                r"linearGradient|listener|marker|mask|metadata|"
+                r"missing-glyph|mpath|path|pattern|polygon|"
+                r"polyline|radialGradient|rect|set|solidcolor|"
+                r"stop|switch|symbol|text|textPath|tref|tspan|"
+                r"use|view|vkern|"
+                r"maction|annotation|annotation-xml|menclose|"
+                r"merror|mfenced|mfrac|mi|mlongdiv|"
+                r"mmultiscripts|mn|mo|mover|mpadded|mphantom|"
+                r"mprescripts|mroot|mrow|ms|mscarries|mscarry|"
+                r"msgroup|msline|msrow|mspace|msqrt|mstack|"
+                r"mstyle|msub|msubsup|msup|mtable|mtd|mtext|"
+                r"mtr|munder|munderover|semantics|none|mglyph)\b",
                 probe):
         return "html"
     for line in visible.splitlines():
@@ -981,33 +1015,42 @@ def _tag_self_closed(chunk, name_end):
     separated from the bracket by space is ignored, so in
     each of those forms the element still opens. The scan
     walks the tag once, attribute by attribute, on the
-    same terms _scan_tag_end reads a tag whole."""
+    same terms _scan_tag_end reads a tag whole, the
+    missing value and stray equals forms included: an
+    equals sign standing where a name is expected is name
+    text and opens no value, a run of equals signs after
+    a name opens the value, and a quoted form with no
+    closing quote stands as no value at all, its quote
+    standing as the first character of the next attribute
+    name (Step 17 round 5 entry S17-R5-005, completed at
+    this sibling scan at round 6 entry S17-R6-008)."""
     index = name_end
     length = len(chunk)
     while index < length:
-        while index < length and chunk[index] in " \t\r\n\f":
+        while index < length and (
+                chunk[index] in " \t\r\n\f"
+                or (chunk[index] == "/"
+                    and chunk[index + 1:index + 2] != ">")):
             index += 1
         if index >= length or chunk[index] == ">":
             return False
         if chunk[index] == "/":
-            if index + 1 < length and chunk[index + 1] == ">":
-                return True
-            index += 1
-            continue
-        while index < length and chunk[index] not in " \t\r\n\f=/>":
+            return True
+        index += 1
+        while index < length \
+                and chunk[index] not in " \t\r\n\f/=>":
             index += 1
         while index < length and chunk[index] in " \t\r\n\f":
             index += 1
         if index < length and chunk[index] == "=":
-            index += 1
+            while index < length and chunk[index] == "=":
+                index += 1
             while index < length and chunk[index] in " \t\r\n\f":
                 index += 1
             if index < length and chunk[index] in ("\"", "'"):
-                quote = chunk[index]
-                index += 1
-                while index < length and chunk[index] != quote:
-                    index += 1
-                index += 1
+                close = chunk.find(chunk[index], index + 1)
+                if close >= 0:
+                    index = close + 1
             else:
                 while index < length \
                         and chunk[index] not in " \t\r\n\f>":
@@ -1141,8 +1184,16 @@ def _root_tag_xmlns(chunk):
             index += 1
         value = None
         if index < length and chunk[index] == "=":
-            while index < length and chunk[index] == "=":
-                index += 1
+            # The value opens at the one equals sign, as the
+            # parser reads it: a second equals sign stands
+            # as the first character of the value itself,
+            # and no equals run stands consumed on the
+            # attribute (Step 17 round 6 entry S17-R6-009).
+            # The equals run term belongs to the tag end
+            # reading in _scan_tag_end, which finds where a
+            # tag ends, and states no term for the value a
+            # reader takes from the tag.
+            index += 1
             while index < length and chunk[index] in " \t\r\n\f":
                 index += 1
             if index < length and chunk[index] in ("\"", "'"):
@@ -1347,11 +1398,90 @@ def _front_matter_key_value(line):
     return key.strip(), value.strip()
 
 
+def _fm_strip_head(text):
+    """The text past any leading head material, on the
+    terms the import side reading states for its judged
+    key and value positions: byte order marks, control
+    characters, whitespace, and invisible format or space
+    separator characters standing at the head of the text
+    are not part of the judged text."""
+    index = 0
+    while index < len(text):
+        char = text[index]
+        if char == "\ufeff" or ord(char) < 0x20 \
+                or ord(char) == 0x7f \
+                or 0x80 <= ord(char) <= 0x9f \
+                or char in " \t\n\r\f" \
+                or unicodedata.category(char) in (
+                    "Cf", "Zs", "Zl", "Zp"):
+            index += 1
+            continue
+        break
+    return text[index:]
+
+
+def _fm_holds_tag_construct(text):
+    """True where a key or value text holds a tag
+    construct, on the terms the import side reading
+    states in probe_import.py at its _holds_tag_construct:
+    a construct standing at the start of the text, a
+    construct spelling standing as its own word later in
+    the text, an angle bracket tag spelling anywhere in
+    the text, and a block scalar opening standing as the
+    value (Step 17 round 6 entry S17-R6-012)."""
+    if text.startswith(("!", "&", "*", "%")):
+        return True
+    if re.search(r"<[A-Za-z][^>]*>", text):
+        return True
+    if re.search(r"(?:^|\s)[&*%!][A-Za-z]", text):
+        return True
+    if re.match(r"^[|>](?:[+-]?[0-9]?)?(?:\s|$)", text):
+        return True
+    return False
+
+
+def _fm_json_holds_tag_construct(value):
+    """True where any string in a JSON form front matter
+    value, at any depth, in a key or in a value, holds a
+    tag construct, as the import side reading judges the
+    JSON form whole (Step 17 round 6 entry S17-R6-012)."""
+    if isinstance(value, str):
+        return _fm_holds_tag_construct(_fm_strip_head(value.strip()))
+    if isinstance(value, dict):
+        return any(
+            _fm_holds_tag_construct(_fm_strip_head(str(key).strip()))
+            or _fm_json_holds_tag_construct(item)
+            for key, item in value.items())
+    if isinstance(value, list):
+        return any(_fm_json_holds_tag_construct(item) for item in value)
+    return False
+
+
+def _fm_brackets_closed(text):
+    """True where the bracket forms in one front matter
+    text stand balanced, the not closed bracket judgement
+    the import side reading runs on keys, on values, and
+    on continuation lines whole (Step 17 round 6 entry
+    S17-R6-013)."""
+    return text.count("[") == text.count("]") \
+        and text.count("{") == text.count("}")
+
+
 def _front_matter(text, fmt, notes, block_limit_bytes=None,
                   value_limit=None):
     """Front matter handling. Front matter that fails the
     D17 control set fails closed: a tag construct standing
     in front matter is that failure in this module.
+
+    This reading stands as the one reading with the import
+    side reading in probe_import.py, whole: the tag
+    construct judgement at every position, in the line
+    form and in the JSON form alike, the bracket judgement
+    on keys, on values, and on continuation lines, and
+    the key discipline, each key standing once and the
+    key count limit standing enforced in both forms
+    (Step 17 round 6 entries S17-R6-012, S17-R6-013, and
+    S17-R6-014).
 
     The block size and value length limits stand as the
     limits in force for the run where the caller states
@@ -1398,7 +1528,57 @@ def _front_matter(text, fmt, notes, block_limit_bytes=None,
             # the import side reading refuses it, in this
             # module own vocabulary (Step 17 round 5
             # entries S17-R5-010 and S17-R5-011).
+            if block.strip().startswith("{"):
+                # The JSON form of the block stands under
+                # the same control set whole, as the import
+                # side reading states it: duplicate keys
+                # stand refused, the key count limit stands
+                # enforced, and a tag construct standing in
+                # a key or a value at any depth stands
+                # refused (Step 17 round 6 entries
+                # S17-R6-012 and S17-R6-014).
+                def _no_duplicates(pairs):
+                    seen = set()
+                    for key, _value in pairs:
+                        if key in seen:
+                            _fail("PAGE_EXTRACTION_FAILED",
+                                  "the front matter block in "
+                                  "JSON form holds the key "
+                                  + str(key) + " twice; front "
+                                  "matter keys stand once each")
+                        seen.add(key)
+                    return dict(pairs)
+
+                try:
+                    parsed = json.loads(
+                        block.strip(),
+                        object_pairs_hook=_no_duplicates)
+                except AcquisitionError:
+                    raise
+                except (ValueError, RecursionError):
+                    _fail("PAGE_EXTRACTION_FAILED",
+                          "the front matter block in JSON "
+                          "form does not read as one JSON "
+                          "object")
+                if not isinstance(parsed, dict):
+                    _fail("PAGE_EXTRACTION_FAILED",
+                          "the front matter block in JSON "
+                          "form does not read as one JSON "
+                          "object")
+                if len(parsed) > _FRONT_MATTER_KEY_LIMIT:
+                    _fail("LIMIT_EXCEEDED",
+                          "front matter key count limit is "
+                          "100, with rejection and no partial "
+                          "record")
+                if _fm_json_holds_tag_construct(parsed):
+                    _fail("PAGE_EXTRACTION_FAILED",
+                          "front matter fails the D17 "
+                          "control set")
+                notes.append("front_matter")
+                return "\n".join(lines[index + 1:])
             current_value_length = None
+            seen_keys = set()
+            key_count = 0
             for block_line in lines[1:index]:
                 if not block_line.strip() or block_line.lstrip() \
                         .startswith("#"):
@@ -1407,8 +1587,25 @@ def _front_matter(text, fmt, notes, block_limit_bytes=None,
                 if pair is None:
                     if block_line[0] in " \t" \
                             and current_value_length is not None:
-                        current_value_length += len(
-                            block_line.strip())
+                        continuation = block_line.strip()
+                        current_value_length += len(continuation)
+                        # A continuation line stands judged
+                        # as a top level line stands judged:
+                        # a tag construct standing on it, at
+                        # any position, and an unbalanced
+                        # bracket standing on it whole, each
+                        # fail the block (Step 17 round 6
+                        # entries S17-R6-012 and S17-R6-013).
+                        if _fm_holds_tag_construct(
+                                _fm_strip_head(continuation)):
+                            _fail("PAGE_EXTRACTION_FAILED",
+                                  "front matter fails the "
+                                  "D17 control set")
+                        if not _fm_brackets_closed(continuation):
+                            _fail("PAGE_EXTRACTION_FAILED",
+                                  "a front matter value is "
+                                  "not closed: "
+                                  + continuation[:60])
                     else:
                         _fail("PAGE_EXTRACTION_FAILED",
                               "a front matter line holds no "
@@ -1416,16 +1613,55 @@ def _front_matter(text, fmt, notes, block_limit_bytes=None,
                               + block_line.strip()[:60])
                 else:
                     current_value_length = len(pair[1])
+                    # The key discipline of the one
+                    # reading: a key stands once each, and
+                    # the key count limit of 100 stands
+                    # enforced, as the import side reading
+                    # enforces both on the same block (Step
+                    # 17 round 6 entry S17-R6-014).
+                    key_count += 1
+                    if key_count > _FRONT_MATTER_KEY_LIMIT:
+                        _fail("LIMIT_EXCEEDED",
+                              "front matter key count limit "
+                              "is 100, with rejection and no "
+                              "partial record")
+                    if pair[0] in seen_keys:
+                        _fail("PAGE_EXTRACTION_FAILED",
+                              "the front matter block holds "
+                              "the key " + pair[0] + " twice; "
+                              "front matter keys stand once "
+                              "each")
+                    seen_keys.add(pair[0])
+                    # The construct judgement stands on
+                    # the key and on the value at every
+                    # position, as the import side reading
+                    # states the construct rule (Step 17
+                    # round 6 entry S17-R6-012), and the
+                    # bracket judgement stands on the key
+                    # and on the value alike (Step 17
+                    # round 6 entry S17-R6-013).
+                    judged_key = _fm_strip_head(pair[0])
+                    judged_value = _fm_strip_head(pair[1])
+                    if _fm_holds_tag_construct(judged_key) \
+                            or _fm_holds_tag_construct(
+                                judged_value):
+                        _fail("PAGE_EXTRACTION_FAILED",
+                              "front matter fails the D17 "
+                              "control set")
+                    if not _fm_brackets_closed(judged_key):
+                        _fail("PAGE_EXTRACTION_FAILED",
+                              "a front matter key is not "
+                              "closed: " + judged_key[:60])
+                    if not _fm_brackets_closed(pair[1]):
+                        _fail("PAGE_EXTRACTION_FAILED",
+                              "a front matter value is not "
+                              "closed: " + pair[1][:60])
                 if current_value_length > value_limit:
                     _fail("LIMIT_EXCEEDED",
                           "front matter value length per key "
                           "limit is %s characters, with "
                           "rejection and no partial record"
                           % ("%g" % (value_limit,),))
-            if re.search(r"(?m)^[^#\n]*:\s*(!|&|\*|%)", block) or \
-                    re.search(r"<[A-Za-z][^>]*>", block):
-                _fail("PAGE_EXTRACTION_FAILED",
-                      "front matter fails the D17 control set")
             notes.append("front_matter")
             return "\n".join(lines[index + 1:])
     return text

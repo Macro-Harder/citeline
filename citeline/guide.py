@@ -85,9 +85,15 @@ def _get(record, name, default=None):
 # token whole, carrying its thousands separators in
 # their groups, its decimal parts at every point it
 # carries, and a letter suffix standing on its last
-# part (Step 17 round 5 entry S17-R5-047).
+# part (Step 17 round 5 entry S17-R5-047). The form
+# stands completed on the dressings the round 6 entry
+# names, in the same shape as the reporting module: a
+# suffix carrying a trailing digit, an exponent part,
+# and an underscore grouping (Step 17 round 6 entry
+# S17-R6-039).
 _WORD_TOKEN_PATTERN = (
-    r"\d+(?:,\d{3})*(?:\.\d+)*(?:[^\W\d_]+)?"
+    r"\d+(?:[,_]\d{3})*(?:\.\d+)*(?:[eE][+-]?\d+)?"
+    r"(?:[^\W\d_]+[0-9]*)*"
     r"|[^\W_]+(?:\.\d+)*")
 
 

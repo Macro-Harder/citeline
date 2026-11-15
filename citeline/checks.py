@@ -502,9 +502,17 @@ def _canonical_target(target):
         return supplied
     authority = host
     if port_part:
-        try:
+        # Only a plain ASCII number stands judged by the
+        # integer conversion. The conversion also accepts
+        # forms a plain number is not, Unicode decimal
+        # digits, an underscore between digits, a leading
+        # sign, and surrounding space, and a port written
+        # in any of those forms is not a plain number, so
+        # it takes the as written limb below in the same
+        # way as a port the conversion refuses.
+        if re.fullmatch(r"[0-9]+", port_part):
             port = int(port_part)
-        except ValueError:
+        else:
             port = None
         if port is not None and port not in (80, 443):
             authority = host + ":" + str(port)
@@ -725,7 +733,14 @@ def _curly_single_is_internal(text, pos):
     any new opening mark: the possessive before a comma,
     a semicolon, an exclamation mark, or the full stop of
     a sentence the span crosses stands in this form, so
-    the span reads whole past it to its own closing.
+    the span reads whole past it to its own closing. A
+    nested quotation standing later on the line stands
+    inside the span in the same way: its opening and its
+    own closing stand as the span content, and the
+    closing mark the reading seeks stands beyond the
+    nested pair, so the possessive reads as internal
+    where a closing stands beyond a nested pair as it
+    does where one stands before any new opening.
     """
     following = text[pos + 1] if pos + 1 < len(text) else ""
     if following.isalpha() or following.isdigit():
@@ -735,11 +750,18 @@ def _curly_single_is_internal(text, pos):
     line_end = text.find("\n", pos + 1)
     if line_end < 0:
         line_end = len(text)
-    later = text.find("\u2019", pos + 1, line_end)
-    if later < 0:
-        return False
-    opening = text.find("\u2018", pos + 1, line_end)
-    return opening < 0 or later < opening
+    cursor = pos + 1
+    while True:
+        later = text.find("\u2019", cursor, line_end)
+        if later < 0:
+            return False
+        opening = text.find("\u2018", cursor, line_end)
+        if opening < 0 or later < opening:
+            return True
+        nested_close = text.find("\u2019", opening + 1, line_end)
+        if nested_close < 0:
+            return False
+        cursor = nested_close + 1
 
 
 def _outermost_spans(spans):
@@ -771,19 +793,82 @@ def _quoted_spans(text):
     does not cross a line break, as no alternative of
     the pattern admits one. A nested span that closes
     where its outer span never does still stands as a
-    span in its own right.
+    span in its own right. A nested opening that carries
+    no closing of its own stands as content in the same
+    way: where the outer closing stands while the nested
+    opening stands open on the stack, the closing reads
+    as the outer span closing and the nested opening is
+    discarded, and where a span of the outer family
+    itself stands open inside the outer span with one
+    closing only between them, that closing reads as
+    the outer span closing at the line end, so the outer
+    span reads whole in both forms.
     """
     spans = []
     pending = []
     stack = []
+    # The closing marks of the spans standing below the
+    # stack top, counted as the stack changes, so the
+    # ancestor closing judgement below runs only where
+    # the character standing here can close a span below
+    # the top at all, and the one pass cost stands.
+    below_close_counts = {}
+
+    def push_entry(entry):
+        if stack:
+            for closing in stack[-1][2]:
+                below_close_counts[closing] = (
+                    below_close_counts.get(closing, 0) + 1)
+        stack.append(entry)
+
+    def pop_entry():
+        entry = stack.pop()
+        if stack:
+            for closing in stack[-1][2]:
+                remaining = below_close_counts.get(closing, 0) - 1
+                if remaining > 0:
+                    below_close_counts[closing] = remaining
+                else:
+                    below_close_counts.pop(closing, None)
+        return entry
+
+    def flush_line():
+        nonlocal pending
+        promoted = []
+        while stack and pending:
+            found = None
+            for item in pending:
+                closing_char = text[item[1] - 1]
+                for open_char, open_start, open_closes in stack:
+                    if (
+                        open_start < item[0]
+                        and open_char == text[item[0]]
+                        and closing_char in open_closes
+                    ):
+                        found = (open_start, item[1])
+                        break
+                if found is not None:
+                    break
+            if found is None:
+                break
+            promoted.append(found)
+            pending = [
+                item for item in pending
+                if not (
+                    found[0] <= item[0] and item[1] <= found[1]
+                )
+            ]
+        spans.extend(_outermost_spans(promoted + pending))
+        pending = []
+        stack.clear()
+        below_close_counts.clear()
+
     index = 0
     length = len(text)
     while index < length:
         char = text[index]
         if char == "\n":
-            spans.extend(_outermost_spans(pending))
-            pending = []
-            stack = []
+            flush_line()
             index += 1
             continue
         if stack:
@@ -809,7 +894,7 @@ def _quoted_spans(text):
                     if nested >= 0 and (
                         curly < 0 or nested < curly
                     ):
-                        stack.append(
+                        push_entry(
                             (char, index, _QUOTE_OPENINGS[char]))
                         index += 1
                         continue
@@ -829,11 +914,11 @@ def _quoted_spans(text):
                     if nested >= 0 and (
                         repeat < 0 or nested < repeat
                     ):
-                        stack.append(
+                        push_entry(
                             (char, index, _QUOTE_OPENINGS[char]))
                         index += 1
                         continue
-                stack.pop()
+                pop_entry()
                 completed = (top_start, index + 1)
                 if stack:
                     pending.append(completed)
@@ -848,15 +933,54 @@ def _quoted_spans(text):
                     ]
                 index += 1
                 continue
+            ancestor = None
+            if char in below_close_counts:
+                for depth in range(len(stack) - 2, -1, -1):
+                    if char in stack[depth][2]:
+                        ancestor = depth
+                        break
+            if ancestor is not None and not (
+                stack[ancestor][0] == "\u2018"
+                and char == "\u2019"
+                and _curly_single_is_internal(text, index)
+            ):
+                # The closing of a span standing open below
+                # an unmatched nested opening: the nested
+                # openings above it carry no closing of
+                # their own and stand as its content, so
+                # the span below reads whole to this
+                # closing.
+                _open_char, ancestor_start, _closes = (
+                    stack[ancestor])
+                del stack[ancestor:]
+                below_close_counts.clear()
+                for below_entry in stack[:-1]:
+                    for closing in below_entry[2]:
+                        below_close_counts[closing] = (
+                            below_close_counts.get(closing, 0) + 1)
+                completed = (ancestor_start, index + 1)
+                if stack:
+                    pending.append(completed)
+                else:
+                    spans.append(completed)
+                    pending = [
+                        item for item in pending
+                        if not (
+                            completed[0] <= item[0]
+                            and item[1] <= completed[1]
+                        )
+                    ]
+                index += 1
+                continue
             if char in _QUOTE_OPENINGS:
-                stack.append(
+                push_entry(
                     (char, index, _QUOTE_OPENINGS[char]))
             index += 1
             continue
         if char in _QUOTE_OPENINGS:
-            stack.append((char, index, _QUOTE_OPENINGS[char]))
+            push_entry((char, index, _QUOTE_OPENINGS[char]))
         index += 1
-    spans.extend(_outermost_spans(pending))
+    flush_line()
     return spans
 
 
@@ -987,15 +1111,22 @@ def _statistic_analysis(page):
     # run of letters, digits, underscores, stops, and
     # hyphens holding a date in separator or glued form,
     # the date standing with an underscore in the token
-    # or with a letter standing against it.
+    # or with a letter standing against it. The date the
+    # token holds may stand as a year and month fragment
+    # or in the dotted form, and a colon inside the run
+    # stands as part of the token where an ISO datetime
+    # stands inside it, so the whole token stands masked
+    # in those positions as in the cured forms.
     identifier_spans = []
     for token_match in re.finditer(
-        r"[A-Za-z0-9_][A-Za-z0-9_.\-]*", masked
+        r"[A-Za-z0-9_][A-Za-z0-9_.\-:]*", masked
     ):
         token = token_match.group(0)
         date_match = re.search(
             r"\d{4}[-_]\d{1,2}[-_]\d{1,2}"
             r"|\d{1,2}[-_]\d{1,2}[-_]\d{2,4}"
+            r"|\d{4}[-_]\d{1,2}(?![-_]\d)(?!\d)"
+            r"|\d{1,2}\.\d{1,2}\.\d{2,4}"
             r"|(?<!\d)\d{8}(?!\d)",
             token,
         )
@@ -1068,6 +1199,34 @@ def _statistic_analysis(page):
         + month_alt_early + r")\.?\s+\d{2,4}\b",
         r"\b\d{1,2}:\d{2}(?::\d{2})?\s*,?\s+"
         r"\d{1,2}/\d{1,2}/\d{2,4}\b",
+        # The orders the set above still omits: a hyphen
+        # date with its time in any order, at two or four
+        # digit years and at single digit parts; a time
+        # standing first against an ISO or a dotted date,
+        # and a dotted date with its time; a month name
+        # date with a comma standing between the date and
+        # its time or inside the date, in either order and
+        # in the year first order; a single digit ISO date
+        # standing alone; and a time glued to its ISO date
+        # with the letter T and no colon.
+        r"\b\d{1,4}-\d{1,2}-\d{1,4}\s+"
+        r"\d{1,2}:\d{2}(?::\d{2})?\b",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s+"
+        r"\d{4}-\d{1,2}-\d{1,2}\b",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s+"
+        r"\d{1,2}\.\d{1,2}\.\d{2,4}\b",
+        r"\b\d{1,2}\.\d{1,2}\.\d{2,4}\s+"
+        r"\d{1,2}:\d{2}(?::\d{2})?\b",
+        r"\b\d{1,2}\s+(?:" + month_alt_early + r")\.?"
+        r"\s*,?\s*\d{2,4}\s*,?\s+"
+        r"\d{1,2}:\d{2}(?::\d{2})?\b",
+        r"\b(?:" + month_alt_early + r")\.?\s+"
+        r"\d{1,2}\s*,?\s*\d{2,4}\s*,?\s+"
+        r"\d{1,2}:\d{2}(?::\d{2})?\b",
+        r"\b\d{4}\s*,?\s+(?:" + month_alt_early + r")\.?"
+        r"\s+\d{1,2}\s+\d{1,2}:\d{2}(?::\d{2})?\b",
+        r"\b\d{4}-\d{1,2}-\d{1,2}\b",
+        r"\b\d{4}-\d{1,2}-\d{1,2}T\d{4}(?:\d{2})?\b",
     ):
         masked = _mask(
             masked,
@@ -1099,6 +1258,16 @@ def _statistic_analysis(page):
             (m.start(), m.end())
             for m in re.finditer(
                 r"\b\d{4}-\d{2}(?![-\d])", masked)
+        ],
+    )
+    # The same fragment in the reverse order, the month
+    # standing before the year, counts nothing either.
+    masked = _mask(
+        masked,
+        [
+            (m.start(), m.end())
+            for m in re.finditer(
+                r"\b\d{1,2}-\d{4}(?![-\d])", masked)
         ],
     )
     # Two digit year numeric dates in the hyphen and
@@ -1235,14 +1404,18 @@ def _statistic_analysis(page):
     # the word is and then a colon standing in sequence
     # between the naming word and the figure, or a colon
     # and then the word is, the reverse composition of
-    # the same two connectors.
+    # the same two connectors. A connector standing
+    # doubled or repeated in that sequence, a second
+    # colon or a second word is, stands in the same
+    # naming, each connector standing in it being one of
+    # the two stated connectors.
     masked = _mask(
         masked,
         [
             (m.start(), m.end())
             for m in re.finditer(
-                r"\bversion(?:\s+is\s*:\s*|\s*:\s*is\s+|"
-                r"\s+is\s+|\s*:\s*|\s+)"
+                r"\bversion(?:\s+is(?=[\s:])|\s*:\s*|\s+)"
+                r"(?:\s*:\s*|\s*is(?=[\s:])\s*)*"
                 r"\d+(?:\.\d+)*\b",
                 masked, re.IGNORECASE
             )

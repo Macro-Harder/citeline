@@ -1035,23 +1035,34 @@ def _similar_components(type_sets):
     where it shares a shingle with one, so the candidates of
     a layer are the unvisited sets standing in the postings
     of the distinct frontier shingles, each posting holding
-    unvisited sets only. A candidate whose shared count
-    with the seed plus the largest part of a frontier member
-    standing outside the seed falls under the smallest
-    threshold a frontier member can carry stands excluded
-    in bulk, and so does a candidate whose shared count
-    with the whole frontier, counted from the light
-    postings with the heavy shingles counted as a bound,
-    falls under that threshold, which holds a reject pool
-    sharing one small common part out of every layer. The candidates the bound leaves open are
-    judged exactly, against the frontier members that share
-    one of a small picked set of the candidate shingles:
-    a similar member misses at most the allowance of the
+    unvisited sets only. A candidate stands counted against
+    each frontier member on that member's own threshold:
+    its shared count with the seed plus the part of the
+    member standing outside the seed bounds it, and so does
+    its shared count with the frontier, counted from the
+    light postings with the heavy shingles counted as a
+    bound per member, and a member whose size cannot reach
+    the bound for the candidate's size stands impossible
+    for it. A candidate excluded on every member's own
+    threshold stands excluded in bulk for the layer, which
+    holds a reject pool sharing one small common part out
+    of every layer even where the frontier mixes sizes.
+    The candidates the bounds leave open are judged
+    exactly, against the frontier members that share one
+    of a small picked set of the candidate shingles: a
+    similar member misses at most the allowance of the
     candidate shingles that its threshold fixes, so it
     shares at least one of any allowance plus one of them.
     A chain shape, where each layer adds the next link or
     two, therefore costs a small candidate scan per layer
     in place of a scan of the whole component per pass.
+    The layer work stands in the first queue, processed
+    first and to exhaustion, and a candidate sharing only
+    heavy shingles with the frontier, excluded on every
+    member's own threshold, passes to a second queue and
+    stands judged once against the whole component when
+    the first queue stands exhausted, as the body of the
+    computation states in full.
     """
     count = len(type_sets)
     # Shingles stand interned to small integers for the
@@ -1130,102 +1141,250 @@ def _similar_components(type_sets):
                 mark(other)
                 component.append(other)
                 frontier.append(other)
-        while frontier and remaining:
-            frontier_shingles = set()
-            for node in frontier:
-                frontier_shingles.update(sets[node])
-            frontier_by_shingle = {}
-            for position, node in enumerate(frontier):
-                for shingle in sets[node]:
-                    frontier_by_shingle.setdefault(
-                        shingle, []).append(position)
-            min_frontier_size = min(len(sets[node]) for node in frontier)
-            max_added = max(
-                len(sets[node] - seed_set) for node in frontier)
-            # The candidates of a layer stand counted against
-            # the frontier as a whole before any one of them
-            # stands judged. A shingle whose posting holds
-            # more unvisited sets than the heavy bound is
-            # counted through the frontier as a whole, never
-            # through its posting: a candidate shares at most
-            # every heavy shingle with any one frontier
-            # member, so the heavy count bounds that part of
-            # its shared count, and the light count, read
-            # from the light postings, bounds the rest. A
-            # candidate whose two counts together fall under
-            # its smallest threshold stands excluded in
-            # bulk, however many layers the frontier takes,
-            # where the seed bound alone lets a reject pool
-            # through once a distant frontier member stands
-            # almost wholly outside the seed. A candidate
-            # standing in no light posting shares only heavy
-            # shingles with the frontier, so it stands
-            # enumerated only where the heavy count alone
-            # could reach a threshold.
-            heavy = {
-                shingle for shingle in frontier_shingles
-                if unvisited_count[shingle] > 96}
-            light_counts = {}
-            for shingle in frontier_shingles:
-                if shingle in heavy:
-                    continue
-                for other in postings[shingle]:
-                    if not visited[other]:
-                        light_counts[other] = light_counts.get(other, 0) + 1
-            candidates = set()
-            for other, light_shared in light_counts.items():
-                threshold = -(
-                    -4 * (len(sets[other]) + min_frontier_size) // 9)
-                if light_shared + len(heavy) >= threshold:
-                    candidates.add(other)
-            if heavy:
-                smallest_remaining = min(
-                    size for size, members in by_size.items() if members)
-                heavy_threshold = -(
-                    -4 * (smallest_remaining + min_frontier_size) // 9)
-                if len(heavy) >= heavy_threshold:
-                    for size, members in list(by_size.items()):
-                        for other in members:
-                            if other in light_counts:
-                                continue
-                            threshold = -(
-                                -4 * (size + min_frontier_size) // 9)
-                            if len(sets[other] & heavy) >= threshold:
-                                candidates.add(other)
-            if not candidates:
+        # The work of one component stands organised in two
+        # queues. The first queue is the frontier itself:
+        # layer by layer, candidates standing in the light
+        # postings of the frontier stand counted against
+        # each frontier member on that member's own
+        # threshold, and the ones the per member bounds
+        # leave open stand judged exactly at once. The
+        # first queue stands processed first and to
+        # exhaustion. A candidate standing in no light
+        # posting shares only heavy shingles with the
+        # frontier; where the per member bounds exclude it
+        # for every member of the layer it does not stand
+        # judged, sorted, and rescanned at the next layer
+        # in the old form. It passes to the second queue,
+        # deferred in a form that can still complete: the
+        # set itself, named once, judged once against the
+        # whole component when the first queue stands
+        # exhausted. A deferred set that later stands in a
+        # light posting has a frontier partner in hand, a
+        # solution path already standing, so it leaves the
+        # second queue and stands worked in the first
+        # queue ahead of the second queue's own turn. A
+        # deferred set that joins from the second queue
+        # becomes frontier, the first queue resumes ahead
+        # of the deferred sets still waiting, and the
+        # deferred sets already judged in that pass stand
+        # judged again against the grown component, so no
+        # join through a deferred set is ever lost.
+        deferred = set()
+        deferred_order = []
+        while True:
+            while frontier and remaining:
+                frontier_shingles = set()
+                for node in frontier:
+                    frontier_shingles.update(sets[node])
+                frontier_by_shingle = {}
+                for position, node in enumerate(frontier):
+                    for shingle in sets[node]:
+                        frontier_by_shingle.setdefault(
+                            shingle, []).append(position)
+                # The candidates of a layer stand counted
+                # against each frontier member on that
+                # member's own terms before any one of them
+                # stands judged. A shingle whose posting
+                # holds more unvisited sets than the heavy
+                # bound is a heavy shingle: a candidate
+                # shares at most every heavy shingle of a
+                # member with that member, so its light
+                # count plus the smaller of its heavy count
+                # and the member's heavy count bounds its
+                # shared count with that member, and its
+                # shared count with the seed plus the part
+                # of the member standing outside the seed
+                # bounds it again. A member whose size
+                # alone cannot reach the bound for the
+                # candidate's size stands impossible for
+                # that candidate whatever the counts say.
+                # A candidate excluded on every member's
+                # own threshold stands excluded in bulk for
+                # this layer, where the old form priced
+                # every candidate against the smallest
+                # frontier member alone and a mixed size
+                # frontier let a reject pool through at
+                # every layer.
+                heavy = {
+                    shingle for shingle in frontier_shingles
+                    if unvisited_count[shingle] > 96}
+                member_sizes = [len(sets[node]) for node in frontier]
+                member_heavy = [
+                    len(sets[node] & heavy) if heavy else 0
+                    for node in frontier]
+                member_added = [
+                    len(sets[node] - seed_set) for node in frontier]
+                light_counts = {}
+                for shingle in frontier_shingles:
+                    if shingle in heavy:
+                        continue
+                    for other in postings[shingle]:
+                        if not visited[other]:
+                            light_counts[other] = \
+                                light_counts.get(other, 0) + 1
+
+                def possible_positions(other, light_shared,
+                                       heavy_shared):
+                    other_size = len(sets[other])
+                    shared_seed = base + counts.get(other, 0)
+                    positions = []
+                    for position in range(len(frontier)):
+                        size = member_sizes[position]
+                        if min(other_size, size) * 9 < \
+                                4 * (other_size + size):
+                            continue
+                        threshold = -(-4 * (other_size + size) // 9)
+                        if light_shared + min(
+                                heavy_shared,
+                                member_heavy[position]) < threshold:
+                            continue
+                        if shared_seed + member_added[position] < \
+                                threshold:
+                            continue
+                        positions.append(position)
+                    return positions
+
+                candidates = {}
+                for other, light_shared in light_counts.items():
+                    if other in deferred:
+                        deferred.discard(other)
+                    heavy_shared = \
+                        len(sets[other] & heavy) if heavy else 0
+                    positions = possible_positions(
+                        other, light_shared, heavy_shared)
+                    if positions:
+                        candidates[other] = positions
+                if heavy:
+                    # A set standing in no light posting
+                    # shares at most the heavy part of a
+                    # member with it, so the heavy part alone
+                    # must reach the smallest threshold that
+                    # member can carry, at the smallest
+                    # candidate size that member can stand
+                    # similar to, before any such set can
+                    # join at this layer. Where no member
+                    # passes that test the enumeration does
+                    # not stand run at all.
+                    def heavy_can_reach(position):
+                        size = member_sizes[position]
+                        smallest = -(-4 * size // 5)
+                        threshold = -(-4 * (smallest + size) // 9)
+                        return member_heavy[position] >= threshold
+
+                    if any(heavy_can_reach(position)
+                           for position in range(len(frontier))):
+                        for size, members in list(by_size.items()):
+                            for other in members:
+                                if other in light_counts:
+                                    continue
+                                if other in deferred:
+                                    continue
+                                heavy_shared = len(sets[other] & heavy)
+                                if not heavy_shared:
+                                    continue
+                                positions = possible_positions(
+                                    other, 0, heavy_shared)
+                                if positions:
+                                    candidates[other] = positions
+                                else:
+                                    deferred.add(other)
+                                    deferred_order.append(other)
+                if not candidates:
+                    break
+                new_frontier = []
+                for other, positions in candidates.items():
+                    if visited[other]:
+                        continue
+                    other_size = len(sets[other])
+                    allowance = max(
+                        other_size - -(
+                            -4 * (other_size + member_sizes[position])
+                            // 9)
+                        for position in positions)
+                    if allowance < 0:
+                        continue
+                    picked = sorted(
+                        sets[other],
+                        key=lambda shingle: len(
+                            frontier_by_shingle.get(shingle, ()))
+                    )[:allowance + 1]
+                    position_set = set(positions)
+                    picked_positions = set()
+                    for shingle in picked:
+                        for position in frontier_by_shingle.get(
+                                shingle, ()):
+                            if position in position_set:
+                                picked_positions.add(position)
+                    joined = False
+                    for position in picked_positions:
+                        node = frontier[position]
+                        shared = len(sets[other] & sets[node])
+                        if shared * 9 >= 4 * (
+                                other_size + len(sets[node])):
+                            joined = True
+                            break
+                    if joined:
+                        mark(other)
+                        component.append(other)
+                        new_frontier.append(other)
+                frontier = new_frontier
+            if not deferred:
                 break
-            new_frontier = []
-            for other in candidates:
+            # The second queue, worked only where the first
+            # queue stands exhausted, apart from the
+            # promotion the first queue itself grants above.
+            # Each deferred set stands judged against the
+            # whole component, by size class first: a class
+            # whose members the set's shared count with the
+            # whole component union cannot reach, or whose
+            # size the set's size cannot stand similar to,
+            # stands excluded whole, and only a class the
+            # bounds leave open stands judged exactly,
+            # member by member.
+            snapshot = [other for other in deferred_order
+                        if other in deferred]
+            deferred = set()
+            deferred_order = []
+            component_union = set()
+            for node in component:
+                component_union.update(sets[node])
+            members_by_size = {}
+            for node in component:
+                members_by_size.setdefault(
+                    len(sets[node]), []).append(node)
+            failures = []
+            joined_list = []
+            for other in snapshot:
                 if visited[other]:
                     continue
                 other_size = len(sets[other])
-                threshold = -(-4 * (other_size + min_frontier_size) // 9)
-                shared_seed = base + counts.get(other, 0)
-                if shared_seed + max_added < threshold:
-                    continue
-                allowance = other_size - threshold
-                if allowance < 0:
-                    continue
-                picked = sorted(
-                    sets[other],
-                    key=lambda shingle: len(
-                        frontier_by_shingle.get(shingle, ()))
-                )[:allowance + 1]
-                positions = set()
-                for shingle in picked:
-                    positions.update(frontier_by_shingle.get(shingle, ()))
+                union_shared = len(sets[other] & component_union)
                 joined = False
-                for position in positions:
-                    node = frontier[position]
-                    shared = len(sets[other] & sets[node])
-                    if shared * 9 >= 4 * (other_size + len(sets[node])):
-                        joined = True
+                for size, members in members_by_size.items():
+                    if min(other_size, size) * 9 < \
+                            4 * (other_size + size):
+                        continue
+                    threshold = -(-4 * (other_size + size) // 9)
+                    if union_shared < threshold:
+                        continue
+                    for node in members:
+                        shared = len(sets[other] & sets[node])
+                        if shared * 9 >= 4 * (other_size + size):
+                            joined = True
+                            break
+                    if joined:
                         break
                 if joined:
                     mark(other)
                     component.append(other)
-                    new_frontier.append(other)
-            frontier = new_frontier
+                    joined_list.append(other)
+                else:
+                    failures.append(other)
+            if not joined_list:
+                break
+            deferred_order = failures
+            deferred = set(failures)
+            frontier = joined_list
         components.append(component)
     return components
 

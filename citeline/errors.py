@@ -148,12 +148,18 @@ def error_for_row(row):
     None, and that form passes the type guard and
     reaches the dict reading, so the reading itself
     stands guarded (Step 17 round 5 entry S17-R5-056).
+    A string subclass can also stand hashable and still
+    defeat the dict reading where its equality raises a
+    non TypeError exception, and that form stands as no
+    entry in the same way (Step 17 round 6 entry
+    S17-R6-047): the guard at the reading catches every
+    exception the reading can raise on such a value.
     """
     if not isinstance(row, str):
         return None
     try:
         return _BY_ROW.get(row)
-    except TypeError:
+    except Exception:
         return None
 
 
@@ -167,13 +173,15 @@ def error_for_token(token):
     returns None instead of raising a raw TypeError.
     The unhashable string subclass form stands guarded
     at the reading itself, as at error_for_row (Step 17
-    round 5 entry S17-R5-056).
+    round 5 entry S17-R5-056), and the equality raising
+    string subclass form stands guarded there in the
+    same way (Step 17 round 6 entry S17-R6-047).
     """
     if not isinstance(token, str):
         return None
     try:
         return _BY_TOKEN.get(token)
-    except TypeError:
+    except Exception:
         return None
 
 
@@ -210,12 +218,17 @@ class CitelineError(Exception):
         if token is not None:
             try:
                 entry = _BY_TOKEN.get(token)
-            except TypeError:
+            except Exception:
                 # A string subclass with no hash stands as
                 # a value the vocabulary cannot hold, in
                 # the same ValueError form as every other
                 # such value, never as a raw TypeError
-                # (Step 17 round 5 entry S17-R5-056).
+                # (Step 17 round 5 entry S17-R5-056). A
+                # string subclass whose equality raises
+                # stands in the same form: the reading can
+                # raise on it in any exception form, and
+                # every such form stands as no entry here
+                # (Step 17 round 6 entry S17-R6-047).
                 entry = None
             if entry is None:
                 raise ValueError(
@@ -224,18 +237,22 @@ class CitelineError(Exception):
         elif row is not None:
             try:
                 entry = _BY_ROW.get(row)
-            except TypeError:
+            except Exception:
                 entry = None
             if entry is None:
                 raise ValueError(
                     "a recorded error row stands outside "
                     "the closed vocabulary: %r" % (row,))
         if entry is not None and row is not None \
-                and token is not None \
-                and entry["row"] != row:
-            raise ValueError(
-                "a recorded error row and token name "
-                "different rows: row %r, token %r" % (row, token))
+                and token is not None:
+            try:
+                mismatch = entry["row"] != row
+            except Exception:
+                mismatch = True
+            if mismatch:
+                raise ValueError(
+                    "a recorded error row and token name "
+                    "different rows: row %r, token %r" % (row, token))
         if token is None and entry is not None:
             token = entry["token"]
         if row is None and entry is not None:

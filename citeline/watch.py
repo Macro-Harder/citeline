@@ -300,6 +300,26 @@ def _plan_warnings(plan, targets):
                     "key names nothing the target shape "
                     "states and the target runs without it"
                     % (key,))
+    # A second_rounds record key naming no product the
+    # plan targets stands warned in the open (Step 17
+    # round 6 entry S17-R6-045): the dispatch reads the
+    # record by product name, so such a key can never be
+    # read, and it stands named here instead of standing
+    # disregarded in silence at the dispatch.
+    second_rounds = plan.get("second_rounds")
+    if isinstance(second_rounds, dict):
+        target_products = {
+            target.get("product") for target in targets or []
+            if isinstance(target, dict)}
+        if target_products:
+            for key in second_rounds:
+                if isinstance(key, str) \
+                        and key not in target_products:
+                    warnings.append(
+                        "unknown WatchPlan second_rounds "
+                        "key: %s; the key names no product "
+                        "the plan targets and the round runs "
+                        "without it" % (key,))
     return warnings
 
 
@@ -379,9 +399,18 @@ def _validate_plan(plan):
                 isinstance(item, str) for item in value)
 
         if isinstance(second_rounds, dict):
+            # The record keys stand judged with its values
+            # (Step 17 round 6 entry S17-R6-045): the
+            # dispatch reads the record by product name, so
+            # a key that stands in no product name form at
+            # all, a non string key among its forms, can
+            # never be read there and refuses at open in
+            # the same shape discipline, never standing
+            # disregarded in silence at the dispatch.
             bad = any(
-                not _label_or_labels(value)
-                for value in second_rounds.values())
+                not isinstance(key, str)
+                or not _label_or_labels(value)
+                for key, value in second_rounds.items())
         elif isinstance(second_rounds, (list, tuple)):
             bad = any(
                 not isinstance(item, str)
@@ -819,6 +848,21 @@ def _standing_product_page_snapshot_count(home, products):
                   "the stored snapshot record carries "
                   "supplied_path in a form its readers cannot "
                   "use: %r" % (supplied_path,))
+        product_id = payload.get("product_id")
+        if product_id is not None and not isinstance(
+                product_id, str):
+            # The product identity this count tests for
+            # membership stands judged before the test, as
+            # the identities above it stand (Step 17 round
+            # 6 entry S17-R6-049): an identity in a form
+            # that is not a string, an unhashable form
+            # among them, refuses in the recorded
+            # vocabulary instead of raising raw at the
+            # membership test below.
+            _fail("VALIDATION_FAILED",
+                  "the stored snapshot record carries "
+                  "product_id in a form its readers cannot "
+                  "use: %r" % (product_id,))
         if snapshot_id not in latest:
             order.append(snapshot_id)
         latest[snapshot_id] = payload
