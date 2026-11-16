@@ -1585,7 +1585,21 @@ def _fm_holds_tag_construct(text):
     at round 10 entry S17-R10-007 landed, so a name
     opening on a digit, on an underscore, on a hyphen,
     or on a letter outside the plain alphabet stands
-    judged at every judged position)."""
+    judged at every judged position, completed at
+    round 12 entry S17-R12-001 on the widened set the
+    cure at round 11 entry S17-R11-010 landed at the
+    import side reading: the character standing after
+    the construct character stands judged beside any
+    word character or a hyphen on a full stop, a plus
+    sign, a dollar sign, a tilde, a semicolon, a slash,
+    an equals sign, an at sign, a caret, a backtick, a
+    combining mark, and an undertie, as the import side
+    set stands cured, and completed at the same entry
+    on the page side limb of round 12 entry
+    S17-R12-008 on the six further openings that entry
+    names: a question mark, a backslash, an opening
+    parenthesis, a closing parenthesis, a less than
+    sign, and a colon)."""
     text = _fm_remove_interior_head(text)
     if text.startswith(("!", "&", "*", "%")):
         return True
@@ -1594,7 +1608,7 @@ def _fm_holds_tag_construct(text):
         return True
     if re.search(
             r"(?:^|[\s!\"#\$%&'\(\)\*\+,\-\./:;<=>\?@\[\\\]\^_`{|}~])"
-            r"[&*%!][\w-]", text):
+            r"[&*%!][\w\-\.\+\$~;/=@\^`\u0300-\u036f\u203f\?\\\(\)<:]", text):
         return True
     if re.match(r"^[|>](?:[+-]?[0-9]?|[0-9][+-])?(?:\s|$)", text):
         return True

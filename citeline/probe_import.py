@@ -735,8 +735,19 @@ def _is_cpio_newc_header(variant):
                 110 + name_size + file_size])
             padding = (-(110 + name_size)) % 4
             padded_start = 110 + name_size + padding
-            padded_sum = sum(variant[
-                padded_start:padded_start + file_size])
+            # The padded sum stands computed only where
+            # the stream holds its stated member data
+            # whole at the padded position: a stream too
+            # short to hold that data there holds a
+            # truncated slice at that position, and a sum
+            # over data that does not stand in the stream
+            # states no sum of the member data, so no
+            # padded sum stands beside the direct sum on
+            # such a stream (entry S17-R12-007).
+            padded_sum = None
+            if len(variant) >= padded_start + file_size:
+                padded_sum = sum(variant[
+                    padded_start:padded_start + file_size])
             if check_value != direct_sum \
                     and check_value != padded_sum:
                 return False
@@ -1193,7 +1204,8 @@ def _holds_tag_construct(text):
         return True
     if re.search(
             r"(?:^|[\s!\"#\$%&'\(\)\*\+,\-\./:;<=>\?@\[\\\]\^_`{|}~])"
-            r"[&*%!][\w\-\.\+\$~;/=@\^`\u0300-\u036f\u203f]", text):
+            r"[&*%!][\w\-\.\+\$~;/=@\^`\u0300-\u036f\u203f"
+            r"\?\\\(\)<:]", text):
         # A construct stands judged at the start of the
         # text, after whitespace, and directly after a
         # flow opening bracket, the flow positions
@@ -1229,7 +1241,31 @@ def _holds_tag_construct(text):
         # semicolon, a slash, an equals sign, an at sign,
         # a caret, a backtick, a combining mark, and an
         # undertie (entry S17-R11-010).
+        # The names those spellings state open on six
+        # further characters standing on the same ground,
+        # none of them standing as a flow indicator and
+        # none standing reserved, so the follower set
+        # stands widened to those openings as well: a
+        # question mark, a backslash, an opening
+        # parenthesis, a closing parenthesis, a less than
+        # sign, and a colon (entry S17-R12-008).
         return True
+    for match in re.finditer(
+            r"(?:^|[\s!\"#\$%&'\(\)\*\+,\-\./:;<=>\?@\[\\\]\^_`{|}~])"
+            r"[&*%!](.)", text):
+        # The combining mark opening the governing
+        # statement names stands as a combining mark as
+        # such, with no range standing in that statement,
+        # so the follower stands judged on its general
+        # category: a character of general category Mn
+        # standing after the construct character at a
+        # judged position stands as that opening, at any
+        # code point, beside the range the earlier cure
+        # landed and beside the word character set, each
+        # of which the reading above already refuses
+        # (entry S17-R12-006).
+        if unicodedata.category(match.group(1)) == "Mn":
+            return True
     if re.match(r"^[|>](?:[+-]?[0-9]?|[0-9][+-])?(?:\s|$)", text):
         # A block scalar header admits both indicator
         # orders, the chomping sign before the indentation

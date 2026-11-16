@@ -798,7 +798,20 @@ def _curly_single_is_internal(text, pos):
     the clause for the mark to possess, and a true
     closing in the s ending form closes its own span
     there instead, in the evidence and in the
-    statistics mask alike.
+    statistics mask alike. The predicate pattern alone
+    does not settle the two readings apart, a complete
+    quoted sentence ending in a complement noun after
+    a copula and a determiner carrying the same
+    pattern, so the unmatched reading stands only
+    where the line carries a further mark of the
+    outer span as a span of its own: an attribution
+    clause for the outer span standing after the
+    later pair closing, or a subordinated attribution
+    in the prose introducing the later pair. A true
+    closing standing in the predicate pattern with
+    neither mark on its line closes its own span
+    there, in the evidence and in the statistics mask
+    alike.
     """
     following = text[pos + 1] if pos + 1 < len(text) else ""
     if following.isalpha() or following.isdigit():
@@ -835,17 +848,37 @@ def _curly_single_is_internal(text, pos):
         # head noun standing in the clause for the mark
         # to possess, and the mark stands as no
         # possessive in the unmatched reading below.
+        # The reading reads the last three words standing
+        # before the mark alone, scanning back from the
+        # mark until three words stand read or the line
+        # start stands reached, so its cost stands on
+        # those words and not on the length of the line
+        # standing before the mark.
         line_start = text.rfind("\n", 0, mark) + 1
-        words = re.findall(
-            r"[A-Za-z]+", text[line_start:mark])
+        words = []
+        cursor = mark
+        while cursor > line_start and len(words) < 3:
+            while cursor > line_start and not (
+                "a" <= text[cursor - 1] <= "z"
+                or "A" <= text[cursor - 1] <= "Z"
+            ):
+                cursor -= 1
+            word_end = cursor
+            while cursor > line_start and (
+                "a" <= text[cursor - 1] <= "z"
+                or "A" <= text[cursor - 1] <= "Z"
+            ):
+                cursor -= 1
+            if word_end > cursor:
+                words.append(text[cursor:word_end])
         if len(words) < 3:
             return False
         return (
-            words[-2].lower() in (
+            words[1].lower() in (
                 "the", "their", "our", "your", "his",
                 "her", "its",
             )
-            and words[-3].lower() in (
+            and words[2].lower() in (
                 "is", "are", "was", "were", "be", "been",
                 "being", "seems", "seem", "seemed",
             )
@@ -965,11 +998,43 @@ def _curly_single_is_internal(text, pos):
             # or a closed sentence standing among it, the
             # pair stands as a span of its own and the
             # mark closes its own span there, whatever
-            # form its word stands in.
+            # form its word stands in. The predicate
+            # position alone does not settle the two
+            # readings apart in that composition: a
+            # complete quoted sentence whose final word
+            # stands as the complement of a copula after
+            # a determiner carries the same three word
+            # pattern at its end, so the unmatched
+            # reading stands further only where the line
+            # carries a mark of the outer span as a span
+            # of its own, in one of the two forms the
+            # pinned possessive compositions carry: an
+            # attribution clause for the outer span
+            # standing after the later pair closing, a
+            # saying verb standing before a name there,
+            # or a subordinated attribution in the prose
+            # introducing the later pair, the word as
+            # standing before the saying verb and the
+            # pronoun that carries it, subordinating the
+            # pair to a clause of the outer span standing
+            # before it. Where neither mark stands on
+            # the line, the first quoted sentence stands
+            # complete as written and its closing closes
+            # its own span there.
+            tail = text[nested_close + 1:line_end]
+            outer_attributed = re.search(
+                r"\b(?:said|says|wrote|asked|added|noted"
+                r"|called)\s+[A-Z]", tail) is not None
+            subordinated = re.search(
+                r"\bas\s+(?:she|he|they|we|it)\s+"
+                r"(?:called|said|noted|quoted|added"
+                r"|asked|wrote)\b",
+                between_first.lower()) is not None
             return (
                 possessive_punct and own_possessive
                 and introduced_first
                 and predicate_possessive
+                and (outer_attributed or subordinated)
             )
         pairs_consumed += 1
         cursor = nested_close + 1
@@ -1543,16 +1608,20 @@ def _statistic_analysis(page):
         r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|A\.M\.|P\.M\.)"
         r"(?:\s*,\s*|\s+)\d{1,2}\.\d{4}(?!\.\d)(?!\d)",
         r"\b(?<![\d-])\d{4}-\d{1,2}(?![-\d])\s+"
-        r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)\b",
+        r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|A\.M\.|P\.M\.)"
+        r"(?!\w)",
         r"\b(?<![\d-])\d{1,2}-\d{4}(?![-\d])\s+"
-        r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)\b",
+        r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|A\.M\.|P\.M\.)"
+        r"(?!\w)",
         r"\b(?<![\d.])\d{4}\.\d{1,2}(?!\.\d)(?!\d)\s+"
-        r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)\b",
+        r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|A\.M\.|P\.M\.)"
+        r"(?!\w)",
         r"\b(?<![\d.])\d{1,2}\.\d{4}(?!\.\d)(?!\d)\s+"
-        r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)\b",
-        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)"
+        r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|A\.M\.|P\.M\.)"
+        r"(?!\w)",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|A\.M\.|P\.M\.)"
         r"(?:\s*,\s*|\s+)\d{1,2}\.\d{1,2}\.\d{2,4}\b",
-        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)"
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|A\.M\.|P\.M\.)"
         r"(?:\s*,\s*|\s+)\d{4}\.\d{1,2}\.\d{1,2}\b",
         r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|A\.M\.|P\.M\.)"
         r"(?:\s*,\s*|\s+)\d{4}/\d{1,2}/\d{1,2}\b",
@@ -1670,6 +1739,48 @@ def _statistic_analysis(page):
         r"\b(?<![\d/])\d{1,2}/\d{4}(?![/\d])\s+"
         r"\d{1,2}:\d{2}(?::\d{2})?"
         r"(?:\s*(?:AM|PM|A\.M\.|P\.M\.))?(?!\w)",
+        # A full date standing first with a glued
+        # marker time standing after it, round 12, in
+        # the month name form in month first and in day
+        # first order and in the numeric full date
+        # forms, with a comma or a space standing
+        # between the date and the time: the plain date
+        # first limbs below end at the time on a word
+        # boundary, and a glued marker stands against
+        # the time with no boundary standing between
+        # them, so the glued limbs stand stated here,
+        # before the month name fragment limbs below
+        # can take the month, the year, and the time
+        # standing after a day and leave the day
+        # standing alone. The marker stands in its
+        # undotted form and in its dotted written form,
+        # in either case, glued against the time in
+        # each limb.
+        r"\b(?:" + month_alt_early + r")\.?\s+"
+        r"\d{1,2}(?:st|nd|rd|th)?\s*,\s*\d{2,4}"
+        r"(?:\s*,\s*|\s+)"
+        r"\d{1,2}:\d{2}(?::\d{2})?(?:AM|PM|A\.M\.|P\.M\.)"
+        r"(?!\w)",
+        r"\b\d{1,2}(?:st|nd|rd|th)?\s+(?:"
+        + month_alt_early + r")\.?\s*,?\s*\d{2,4}"
+        r"(?:\s*,\s*|\s+)"
+        r"\d{1,2}:\d{2}(?::\d{2})?(?:AM|PM|A\.M\.|P\.M\.)"
+        r"(?!\w)",
+        r"\b\d{1,4}-\d{1,2}-\d{1,4}(?:\s*,\s*|\s+)"
+        r"\d{1,2}:\d{2}(?::\d{2})?(?:AM|PM|A\.M\.|P\.M\.)"
+        r"(?!\w)",
+        r"\b\d{1,2}/\d{1,2}/\d{2,4}(?:\s*,\s*|\s+)"
+        r"\d{1,2}:\d{2}(?::\d{2})?(?:AM|PM|A\.M\.|P\.M\.)"
+        r"(?!\w)",
+        r"\b\d{4}/\d{1,2}/\d{1,2}(?:\s*,\s*|\s+)"
+        r"\d{1,2}:\d{2}(?::\d{2})?(?:AM|PM|A\.M\.|P\.M\.)"
+        r"(?!\w)",
+        r"\b\d{1,2}\.\d{1,2}\.\d{2,4}(?:\s*,\s*|\s+)"
+        r"\d{1,2}:\d{2}(?::\d{2})?(?:AM|PM|A\.M\.|P\.M\.)"
+        r"(?!\w)",
+        r"\b\d{4}\.\d{1,2}\.\d{1,2}(?:\s*,\s*|\s+)"
+        r"\d{1,2}:\d{2}(?::\d{2})?(?:AM|PM|A\.M\.|P\.M\.)"
+        r"(?!\w)",
         # A year and month fragment in month name form,
         # round 11, the month name or its abbreviation
         # standing before the year, in the compositions
@@ -1685,22 +1796,31 @@ def _statistic_analysis(page):
         # its year part does not take the day part of a
         # full month name date standing around it, the
         # year standing followed by a comma and a day
-        # in that date.
+        # in that date. The marker of these limbs stands
+        # also in its dotted written form, round 12,
+        # spaced and glued and in either case, in the
+        # fragment first comma composition, in the time
+        # first marker composition, and in the fragment
+        # first space composition, as the marker of the
+        # compositions at the dotted marker entry stands
+        # in those compositions.
         r"\b(?:" + month_alt_early + r")\.?\s+"
         r"\d{2,4}(?!\d)\s*,\s*"
-        r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)\b",
+        r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|A\.M\.|P\.M\.)"
+        r"(?!\w)",
         r"\b\d{1,2}:\d{2}(?::\d{2})?\s*,\s*(?:"
         + month_alt_early + r")\.?\s+\d{2,4}(?!\d)"
         r"(?!\s*,\s*\d)",
         r"\b\d{1,2}:\d{2}(?::\d{2})?\s+(?:"
         + month_alt_early + r")\.?\s+\d{2,4}(?!\d)"
         r"(?!\s*,\s*\d)",
-        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)"
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|A\.M\.|P\.M\.)"
         r"(?:\s*,\s*|\s+)(?:" + month_alt_early
         + r")\.?\s+\d{2,4}(?!\d)(?!\s*,\s*\d)",
         r"\b(?:" + month_alt_early + r")\.?\s+"
         r"\d{2,4}(?!\d)\s+"
-        r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)\b",
+        r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|A\.M\.|P\.M\.)"
+        r"(?!\w)",
         r"\b\d{1,2}\.\d{1,2}\.\d{2,4}\s*,\s*"
         r"\d{1,2}:\d{2}(?::\d{2})?\b",
         r"\b\d{4}\.\d{1,2}\.\d{1,2}\s*,\s*"
