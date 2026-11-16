@@ -578,6 +578,21 @@ def _is_cpio_odc_header(variant):
             return False
         if variant[76 + name_size - 1] != 0:
             return False
+        # The stated name stands as a string closed by
+        # its first NUL byte, as the newc limb of this
+        # family states: a name opening on its own
+        # terminator holds no name, and a name holding a
+        # character past its first terminator inside the
+        # stated size holds bytes no header of this
+        # format writes there, the NUL padding standing
+        # behind a name in this format holding NUL bytes
+        # alone past that terminator (entry S17-R11-006).
+        stated_name = variant[76:76 + name_size]
+        first_nul = stated_name.find(b"\x00")
+        if first_nul < 1:
+            return False
+        if any(byte != 0 for byte in stated_name[first_nul:]):
+            return False
     return len(variant) >= 76 + name_size + file_size
 
 
@@ -613,6 +628,22 @@ def _is_cpio_newc_header(variant):
     # S17-R7-028).
     name_size = int(variant[94:102], 16)
     file_size = int(variant[54:62], 16)
+    # The signature pin allowance stands on the pin
+    # form itself, in its own terms: the pin form states
+    # no field, its twelve fields standing as zero
+    # values, and holds its name size at zero, so a check
+    # field standing as no hexadecimal text stands under
+    # the allowance on that form alone, and a complete
+    # header standing in stated form, stating a field
+    # value of its own, stands judged on the field
+    # values it states and reads as text where its check
+    # field stands as no hexadecimal text (entry
+    # S17-R11-008).
+    check_field_is_hex = all(
+        byte in b"0123456789abcdefABCDEF"
+        for byte in variant[102:110])
+    if not check_field_is_hex and variant[6:102] != b"0" * 96:
+        return False
     # The judgement stands on the check field and on the
     # member name behind the fields it reads as lengths:
     # where the check field at characters 102 to 110
@@ -645,6 +676,22 @@ def _is_cpio_newc_header(variant):
             # states, in the form the name size of one
             # stands refused on below (entry S17-R10-006).
             return False
+        if name_size >= 2:
+            # The stated name stands judged whole, not at
+            # its opening and closing bytes alone: a name
+            # holding a character past its first
+            # terminator inside the stated size holds
+            # bytes no header of this format writes
+            # there, the padding standing behind a name
+            # inside the stated size holding NUL bytes
+            # alone past that terminator (entry
+            # S17-R11-007).
+            stated_name = variant[110:110 + name_size]
+            first_nul = stated_name.find(b"\x00")
+            if first_nul >= 0 and any(
+                    byte != 0
+                    for byte in stated_name[first_nul:]):
+                return False
     if all(
             byte in b"0123456789abcdefABCDEF"
             for byte in variant[102:110]) and name_size == 1:
@@ -674,9 +721,24 @@ def _is_cpio_newc_header(variant):
         if variant[:6] == b"070702":
             if len(variant) < 110 + name_size + file_size:
                 return False
-            if check_value != sum(variant[
-                    110 + name_size:
-                    110 + name_size + file_size]):
+            # The member data stands behind the padding
+            # that brings the header and the name field
+            # to a multiple of four bytes counted from
+            # the head of the header, in the format as
+            # written, so the sum stands computed over
+            # the data standing at that padded position,
+            # beside the direct position the earlier
+            # reading computed and the standing controls
+            # pin (entry S17-R11-014).
+            direct_sum = sum(variant[
+                110 + name_size:
+                110 + name_size + file_size])
+            padding = (-(110 + name_size)) % 4
+            padded_start = 110 + name_size + padding
+            padded_sum = sum(variant[
+                padded_start:padded_start + file_size])
+            if check_value != direct_sum \
+                    and check_value != padded_sum:
                 return False
         elif check_value != 0:
             return False
@@ -763,10 +825,28 @@ def _is_cab_header(variant):
     flags = int.from_bytes(variant[30:32], "little")
     if flags & ~0x0007:
         return False
+    # The signature pin allowance stands on the pin
+    # form itself, in its own terms: the pin form holds
+    # its cabinet size and its counts at zero together,
+    # so a cabinet stating a size of zero while its
+    # counts stand states a cabinet holding entries
+    # inside a size that holds nothing, and stands
+    # judged on the counts it states (entry
+    # S17-R11-008).
+    if cabinet_size == 0 and (folder_count or file_count):
+        return False
     if cabinet_size:
         if folder_count and (
                 first_file_offset == 0
-                or 36 + 8 * folder_count > first_file_offset):
+                or 36 + 8 * folder_count > first_file_offset
+                or 36 + 8 * folder_count > cabinet_size):
+            # The folder entries stand judged against
+            # the cabinet size the header states beside
+            # the first file offset: a folder entry
+            # standing partly past the stated cabinet
+            # size stands inside a cabinet that cannot
+            # hold the entry its own count names (entry
+            # S17-R11-009).
             return False
         if file_count and (
                 first_file_offset == 0
@@ -1113,7 +1193,7 @@ def _holds_tag_construct(text):
         return True
     if re.search(
             r"(?:^|[\s!\"#\$%&'\(\)\*\+,\-\./:;<=>\?@\[\\\]\^_`{|}~])"
-            r"[&*%!][\w-]", text):
+            r"[&*%!][\w\-\.\+\$~;/=@\^`\u0300-\u036f\u203f]", text):
         # A construct stands judged at the start of the
         # text, after whitespace, and directly after a
         # flow opening bracket, the flow positions
@@ -1140,6 +1220,15 @@ def _holds_tag_construct(text):
         # hyphen, and on letters outside the plain
         # alphabet, so the follower set stands as any word
         # character or a hyphen (entry S17-R10-007).
+        # The names those spellings state open on
+        # characters standing outside that set as well,
+        # none of them standing as a flow indicator and
+        # none standing reserved, so the follower set
+        # stands widened to those openings: a full stop,
+        # a plus sign, a dollar sign, a tilde, a
+        # semicolon, a slash, an equals sign, an at sign,
+        # a caret, a backtick, a combining mark, and an
+        # undertie (entry S17-R11-010).
         return True
     if re.match(r"^[|>](?:[+-]?[0-9]?|[0-9][+-])?(?:\s|$)", text):
         # A block scalar header admits both indicator
@@ -2418,7 +2507,21 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
         # candidate field keys under a form no candidate
         # key carries (entry S17-R7-034).
         if isinstance(value, str):
-            return str(value)
+            try:
+                return str(value)
+            except Exception:
+                # A string form whose string reading
+                # raises stands keyed under a placeholder
+                # no candidate key carries, as a field
+                # whose hash raises stands keyed below, so
+                # the raising stands answered inside the
+                # recorded error vocabulary at the
+                # selection below and never as a raw error
+                # to the caller at the keying (entry
+                # S17-R11-011).
+                return ("citeline-unhashable",
+                        type(value).__name__,
+                        "citeline-unreadable-string")
         try:
             hash(value)
         except Exception:
@@ -2427,9 +2530,18 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
             # same placeholder, so the raising stands
             # answered inside the recorded error vocabulary
             # at the selection below and never as a raw
-            # error to the caller (entry S17-R9-013).
+            # error to the caller (entry S17-R9-013). The
+            # placeholder stands built without a reading
+            # that can itself raise: a field whose repr
+            # raises beside its hash keys under a fixed
+            # marker in place of its repr (entry
+            # S17-R11-011).
+            try:
+                shown = repr(value)
+            except Exception:
+                shown = "citeline-unrepresentable"
             return ("citeline-unhashable", type(value).__name__,
-                    repr(value))
+                    shown)
         return value
 
     def _bucket_key(record):
@@ -2490,7 +2602,21 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
         content_hash = _index_key_component(
             _record_field(record, "content_hash"))
         captured = _record_field(record, "captured_on")
-        date_key = str(captured) if captured is not None else None
+        if captured is None:
+            date_key = None
+        else:
+            try:
+                date_key = str(captured)
+            except Exception:
+                # A capture date whose string reading
+                # raises, through a repr that raises,
+                # stands entered under a fixed marker no
+                # candidate date carries, so the raising
+                # stands answered inside the recorded
+                # error vocabulary at the selection and
+                # never as a raw error to the caller at
+                # the indexing (entry S17-R11-011).
+                date_key = "citeline-unreadable-date"
         # Each sub index stands entered on its own: a
         # record whose content hash cannot be hashed
         # stands outside the hash index and still stands
@@ -2538,8 +2664,24 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
             overflow.append(entry)
 
     for standing in running_standing:
-        _index_standing(standing, _bucket_key(standing),
-                        standing_index)
+        try:
+            _index_standing(standing, _bucket_key(standing),
+                            standing_index)
+        except ProbeImportError:
+            raise
+        except Exception:
+            # A keying reading at the indexing of the
+            # standing records that raises in any form
+            # stands answered inside the recorded error
+            # vocabulary at the indexing itself, and
+            # never as a raw error to the caller (entry
+            # S17-R11-011).
+            _fail("DUPLICATE_IMPORT",
+                  "a standing record keying reading raised "
+                  "at the indexing of the standing records, "
+                  "so the standing record stands answered "
+                  "as a duplicate inside the recorded error "
+                  "vocabulary and this import stores nothing")
         standing_index += 1
     for slot in filled:
         fields = slot["fields"]

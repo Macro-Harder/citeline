@@ -1783,6 +1783,34 @@ def write_config(home, text):
                 "regular file, or a hard linked file; the "
                 "write stands refused", row="X-4",
                 token="SUPPLIED_PATH_UNSAFE")
+        try:
+            _rejudge_open_descriptor(handle.fileno(), path)
+        except _UnsafeHomeFile:
+            # A next final judgement stands after the
+            # further final judgement above: a hard link
+            # planted at the return of that further final
+            # judgement reading stands unseen by it, so
+            # the handle stands judged once more before
+            # the write answers, and a plant that next
+            # judgement catches stands answered in the
+            # same form, the written text truncated off
+            # the handle and the config name removed, so
+            # no written config text stands readable
+            # under the outside name and no success
+            # stands reported (Step 17 round 11 entry
+            # S17-R11-013, extending entry S17-R10-011).
+            handle.truncate(0)
+            handle.flush()
+            os.fsync(handle.fileno())
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+            raise ConfigError(
+                "the config path stands as a link, a non "
+                "regular file, or a hard linked file; the "
+                "write stands refused", row="X-4",
+                token="SUPPLIED_PATH_UNSAFE")
 
 
 def effective_limits(home, run_id=None):

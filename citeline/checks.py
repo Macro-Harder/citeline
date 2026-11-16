@@ -786,7 +786,19 @@ def _curly_single_is_internal(text, pos):
     punctuation, the pair stands as a span of its own
     and a true closing in the s ending form closes its
     own span there, at two spans and at three spans
-    alike.
+    alike. That unmatched reading stands further only
+    where the mark stands in predicate possessive
+    position: the word it stands on standing as the
+    complement of a copula after a determiner, the
+    form the pinned possessive compositions carry, it
+    is the dogs, the first prize was the dogs. Where
+    the word closes its clause in any other position,
+    as the object of a lexical verb or as its subject,
+    a possessive reading has no head noun standing in
+    the clause for the mark to possess, and a true
+    closing in the s ending form closes its own span
+    there instead, in the evidence and in the
+    statistics mask alike.
     """
     following = text[pos + 1] if pos + 1 < len(text) else ""
     if following.isalpha() or following.isdigit():
@@ -809,7 +821,38 @@ def _curly_single_is_internal(text, pos):
         word = text[word_start:mark]
         return len(word) >= 2 and word[-1] in "sS"
 
+    def mark_is_predicate_possessive(mark):
+        # The mark stands as a plural possessive with
+        # its head noun elided only where the word it
+        # stands on stands in predicate position in its
+        # clause: the complement of a copula, standing
+        # after a determiner, in the form the pinned
+        # possessive compositions carry, it is the dogs,
+        # the first prize was the dogs, it is the teams.
+        # Where the word closes its clause in any other
+        # position, as the object of a lexical verb or
+        # as its subject, a possessive reading has no
+        # head noun standing in the clause for the mark
+        # to possess, and the mark stands as no
+        # possessive in the unmatched reading below.
+        line_start = text.rfind("\n", 0, mark) + 1
+        words = re.findall(
+            r"[A-Za-z]+", text[line_start:mark])
+        if len(words) < 3:
+            return False
+        return (
+            words[-2].lower() in (
+                "the", "their", "our", "your", "his",
+                "her", "its",
+            )
+            and words[-3].lower() in (
+                "is", "are", "was", "were", "be", "been",
+                "being", "seems", "seem", "seemed",
+            )
+        )
+
     own_possessive = mark_is_possessive(pos)
+    predicate_possessive = mark_is_predicate_possessive(pos)
 
     def stray_is_closing(stray):
         # A closing mark standing later on the line with
@@ -912,7 +955,10 @@ def _curly_single_is_internal(text, pos):
             # their own after the follower at the mark,
             # as the pinned possessive compositions carry
             # it, a possessive standing before the words
-            # that introduce a nested quotation. Where
+            # that introduce a nested quotation, and only
+            # where that possessive stands in predicate
+            # position in its clause, as the complement
+            # of a copula after a determiner. Where
             # the pair standing later stands directly
             # after the follower, or after prose holding
             # its own punctuation, an attribution clause
@@ -923,6 +969,7 @@ def _curly_single_is_internal(text, pos):
             return (
                 possessive_punct and own_possessive
                 and introduced_first
+                and predicate_possessive
             )
         pairs_consumed += 1
         cursor = nested_close + 1
@@ -1487,13 +1534,13 @@ def _statistic_analysis(page):
         r"\d{4}\.\d{1,2}(?!\.\d)(?!\d)",
         r"\b\d{1,2}:\d{2}(?::\d{2})?\s*,\s*"
         r"\d{1,2}\.\d{4}(?!\.\d)(?!\d)",
-        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)"
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|A\.M\.|P\.M\.)"
         r"(?:\s*,\s*|\s+)\d{4}-\d{1,2}(?![-\d])",
-        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)"
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|A\.M\.|P\.M\.)"
         r"(?:\s*,\s*|\s+)\d{1,2}-\d{4}(?![-\d])",
-        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)"
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|A\.M\.|P\.M\.)"
         r"(?:\s*,\s*|\s+)\d{4}\.\d{1,2}(?!\.\d)(?!\d)",
-        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)"
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|A\.M\.|P\.M\.)"
         r"(?:\s*,\s*|\s+)\d{1,2}\.\d{4}(?!\.\d)(?!\d)",
         r"\b(?<![\d-])\d{4}-\d{1,2}(?![-\d])\s+"
         r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)\b",
@@ -1507,9 +1554,9 @@ def _statistic_analysis(page):
         r"(?:\s*,\s*|\s+)\d{1,2}\.\d{1,2}\.\d{2,4}\b",
         r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)"
         r"(?:\s*,\s*|\s+)\d{4}\.\d{1,2}\.\d{1,2}\b",
-        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)"
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|A\.M\.|P\.M\.)"
         r"(?:\s*,\s*|\s+)\d{4}/\d{1,2}/\d{1,2}\b",
-        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)"
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|A\.M\.|P\.M\.)"
         r"(?:\s*,\s*|\s+)\d{1,2}/\d{1,2}/\d{2,4}\b",
         # The time first marker composition standing
         # before a full date in month name form, round
@@ -1520,14 +1567,21 @@ def _statistic_analysis(page):
         # abbreviated month and the ordinal day standing
         # in the same forms the plain month name masks
         # admit, the marker standing spaced or glued and
-        # in either case.
-        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)"
+        # in either case. The marker of the compositions
+        # the entries of rounds 9 and 10 mask stands also
+        # in its dotted written form, round 11, a full
+        # stop standing after each letter of the marker,
+        # spaced or glued and in either case, the limbs
+        # whose marker stands at the limb end closing on
+        # a guard that admits the dotted form in place of
+        # the word boundary the undotted form closes on.
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|A\.M\.|P\.M\.)"
         r"(?:\s*,\s*|\s+)(?:" + month_alt_early + r")\.?\s+"
         r"\d{1,2}(?:st|nd|rd|th)?\s*,\s*\d{2,4}\b",
-        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)"
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|A\.M\.|P\.M\.)"
         r"(?:\s*,\s*|\s+)(?:" + month_alt_early + r")\.?\s+"
         r"\d{1,2}(?:st|nd|rd|th)?\s+\d{2,4}\b",
-        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)"
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|A\.M\.|P\.M\.)"
         r"(?:\s*,\s*|\s+)\d{1,2}(?:st|nd|rd|th)?\s+(?:"
         + month_alt_early + r")\.?\s*,?\s*\d{2,4}\b",
         # A year and month fragment in slash form
@@ -1550,9 +1604,9 @@ def _statistic_analysis(page):
         r"(?<![\d/])\d{4}/\d{1,2}(?![/\d])",
         r"\b\d{1,2}:\d{2}(?::\d{2})?\s+"
         r"(?<![\d/])\d{1,2}/\d{4}(?![/\d])",
-        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)"
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|A\.M\.|P\.M\.)"
         r"(?:\s*,\s*|\s+)(?<![\d/])\d{4}/\d{1,2}(?![/\d])",
-        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)"
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|A\.M\.|P\.M\.)"
         r"(?:\s*,\s*|\s+)(?<![\d/])\d{1,2}/\d{4}(?![/\d])",
         r"\b(?<![\d.])\d{4}\.\d{1,2}(?!\.\d)(?!\d)\s+"
         r"\d{1,2}:\d{2}(?::\d{2})?\b",
@@ -1584,13 +1638,17 @@ def _statistic_analysis(page):
         # stated here for the hyphen fragments and the
         # dotted fragments in either order.
         r"\b(?<![\d-])\d{4}-\d{1,2}(?![-\d])\s*,\s*"
-        r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)\b",
+        r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|A\.M\.|P\.M\.)"
+        r"(?!\w)",
         r"\b(?<![\d-])\d{1,2}-\d{4}(?![-\d])\s*,\s*"
-        r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)\b",
+        r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|A\.M\.|P\.M\.)"
+        r"(?!\w)",
         r"\b(?<![\d.])\d{4}\.\d{1,2}(?!\.\d)(?!\d)\s*,\s*"
-        r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)\b",
+        r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|A\.M\.|P\.M\.)"
+        r"(?!\w)",
         r"\b(?<![\d.])\d{1,2}\.\d{4}(?!\.\d)(?!\d)\s*,\s*"
-        r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)\b",
+        r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|A\.M\.|P\.M\.)"
+        r"(?!\w)",
         # A year and month fragment in slash form
         # standing first, with its time standing after
         # it, round 10, with a comma or a space between
@@ -1601,13 +1659,48 @@ def _statistic_analysis(page):
         # guarded, so no limb bites inside a full slash
         # date standing around it.
         r"\b(?<![\d/])\d{4}/\d{1,2}(?![/\d])\s*,\s*"
-        r"\d{1,2}:\d{2}(?::\d{2})?(?:\s*(?:AM|PM))?\b",
+        r"\d{1,2}:\d{2}(?::\d{2})?"
+        r"(?:\s*(?:AM|PM|A\.M\.|P\.M\.))?(?!\w)",
         r"\b(?<![\d/])\d{1,2}/\d{4}(?![/\d])\s*,\s*"
-        r"\d{1,2}:\d{2}(?::\d{2})?(?:\s*(?:AM|PM))?\b",
+        r"\d{1,2}:\d{2}(?::\d{2})?"
+        r"(?:\s*(?:AM|PM|A\.M\.|P\.M\.))?(?!\w)",
         r"\b(?<![\d/])\d{4}/\d{1,2}(?![/\d])\s+"
-        r"\d{1,2}:\d{2}(?::\d{2})?(?:\s*(?:AM|PM))?\b",
+        r"\d{1,2}:\d{2}(?::\d{2})?"
+        r"(?:\s*(?:AM|PM|A\.M\.|P\.M\.))?(?!\w)",
         r"\b(?<![\d/])\d{1,2}/\d{4}(?![/\d])\s+"
-        r"\d{1,2}:\d{2}(?::\d{2})?(?:\s*(?:AM|PM))?\b",
+        r"\d{1,2}:\d{2}(?::\d{2})?"
+        r"(?:\s*(?:AM|PM|A\.M\.|P\.M\.))?(?!\w)",
+        # A year and month fragment in month name form,
+        # round 11, the month name or its abbreviation
+        # standing before the year, in the compositions
+        # the numeric fragments stand masked in above:
+        # standing first with a comma between the
+        # fragment and a marker carrying time; standing
+        # after its time standing first, with a comma or
+        # a space between the time and the fragment and
+        # the time carrying no marker or a spaced or
+        # glued marker; and standing first with a space
+        # between the fragment and a marker carrying
+        # time. Each month name limb stands guarded so
+        # its year part does not take the day part of a
+        # full month name date standing around it, the
+        # year standing followed by a comma and a day
+        # in that date.
+        r"\b(?:" + month_alt_early + r")\.?\s+"
+        r"\d{2,4}(?!\d)\s*,\s*"
+        r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)\b",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*,\s*(?:"
+        + month_alt_early + r")\.?\s+\d{2,4}(?!\d)"
+        r"(?!\s*,\s*\d)",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s+(?:"
+        + month_alt_early + r")\.?\s+\d{2,4}(?!\d)"
+        r"(?!\s*,\s*\d)",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)"
+        r"(?:\s*,\s*|\s+)(?:" + month_alt_early
+        + r")\.?\s+\d{2,4}(?!\d)(?!\s*,\s*\d)",
+        r"\b(?:" + month_alt_early + r")\.?\s+"
+        r"\d{2,4}(?!\d)\s+"
+        r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)\b",
         r"\b\d{1,2}\.\d{1,2}\.\d{2,4}\s*,\s*"
         r"\d{1,2}:\d{2}(?::\d{2})?\b",
         r"\b\d{4}\.\d{1,2}\.\d{1,2}\s*,\s*"
@@ -1619,7 +1712,7 @@ def _statistic_analysis(page):
         r"\b\d{1,2}-\d{1,2}-\d{2,4}T"
         r"\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?"
         r"(?:\s*(?:Z|[+-]\d{2}:?\d{2}))?\b",
-        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)"
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|A\.M\.|P\.M\.)"
         r"(?:\s*,\s*|\s+)\d{1,4}-\d{1,2}-\d{1,4}\b",
         r"\b\d{1,4}-\d{1,2}-\d{1,4}\s+"
         r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)\b",

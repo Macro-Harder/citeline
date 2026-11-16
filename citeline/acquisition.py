@@ -1578,7 +1578,14 @@ def _fm_holds_tag_construct(text):
     position, between the construct character and its
     letter, or between an angle bracket and its opening
     character stands judged as the construct it
-    spells)."""
+    spells, completed at round 11 entry S17-R11-001 on
+    the follower set: the character standing after the
+    construct character stands judged as any word
+    character or a hyphen, the import side set the cure
+    at round 10 entry S17-R10-007 landed, so a name
+    opening on a digit, on an underscore, on a hyphen,
+    or on a letter outside the plain alphabet stands
+    judged at every judged position)."""
     text = _fm_remove_interior_head(text)
     if text.startswith(("!", "&", "*", "%")):
         return True
@@ -1587,7 +1594,7 @@ def _fm_holds_tag_construct(text):
         return True
     if re.search(
             r"(?:^|[\s!\"#\$%&'\(\)\*\+,\-\./:;<=>\?@\[\\\]\^_`{|}~])"
-            r"[&*%!][A-Za-z]", text):
+            r"[&*%!][\w-]", text):
         return True
     if re.match(r"^[|>](?:[+-]?[0-9]?|[0-9][+-])?(?:\s|$)", text):
         return True
