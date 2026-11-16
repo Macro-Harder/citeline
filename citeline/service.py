@@ -3294,7 +3294,27 @@ def _import_front_matter_limits(home, answer_file):
                 "force for this home, with rejection and "
                 "no partial record" % ("%g" % (key_limit,),))
         if value_limit is not None:
-            for value in parsed.values():
+            for key, value in parsed.items():
+                # A key of the top level object stands
+                # measured by its length in characters at
+                # this seam, in the form the cures at
+                # entries S17-R9-020 and S17-R9-012 state
+                # for that position (Step 17 round 10 entry
+                # S17-R10-001): the loop below measures the
+                # values alone, and the container measure it
+                # borrows stands applied to container values
+                # only, so the key measure stands stated
+                # here, ahead of the value measure, in the
+                # primary form and in the fallback form
+                # alike, neither of which reaches the key.
+                if isinstance(key, str) \
+                        and len(key) > value_limit:
+                    _fail(
+                        "LIMIT_EXCEEDED",
+                        "front matter value length limit is "
+                        "%s characters in force for this "
+                        "home, with rejection and no partial "
+                        "record" % ("%g" % (value_limit,),))
                 # The measurement stands whole on a JSON
                 # numeric value, as the module measurement
                 # the F4 cure at entry S17-R5-033 landed

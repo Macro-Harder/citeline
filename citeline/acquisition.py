@@ -1568,7 +1568,18 @@ def _fm_holds_tag_construct(text):
     and completed at round 9 entry S17-R9-019 at the
     remaining punctuation positions, so a construct
     stands judged directly after any punctuation
-    character, the position set standing whole)."""
+    character, the position set standing whole, and
+    completed at round 10 entry S17-R10-012 on the
+    interior head reading the duplicate judgement and
+    the fence judgement apply: the judgement stands on
+    the text with head material removed at any position,
+    whitespace standing as written, so a construct
+    standing behind interior head material at a judged
+    position, between the construct character and its
+    letter, or between an angle bracket and its opening
+    character stands judged as the construct it
+    spells)."""
+    text = _fm_remove_interior_head(text)
     if text.startswith(("!", "&", "*", "%")):
         return True
     if re.search(

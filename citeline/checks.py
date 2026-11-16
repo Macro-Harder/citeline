@@ -774,7 +774,19 @@ def _curly_single_is_internal(text, pos):
     space, with a matched nested pair standing between
     it and the outer closing, reads as internal on the
     same mark judgement, the one span reading whole past
-    it to its own closing.
+    it to its own closing. Where no closing stands
+    beyond a pair standing later on the line, the pair
+    closing standing as this span closing under the
+    unmatched nested reading, that reading stands only
+    where the later opening stands introduced by plain
+    prose between the mark and the opening, words with
+    no punctuation of their own after the follower at
+    the mark: where the pair stands directly after the
+    follower, or after prose holding its own
+    punctuation, the pair stands as a span of its own
+    and a true closing in the s ending form closes its
+    own span there, at two spans and at three spans
+    alike.
     """
     following = text[pos + 1] if pos + 1 < len(text) else ""
     if following.isalpha() or following.isdigit():
@@ -840,6 +852,23 @@ def _curly_single_is_internal(text, pos):
     line_end = text.find("\n", pos + 1)
     if line_end < 0:
         line_end = len(text)
+    # Whether the first opening standing later on the
+    # line stands introduced by plain prose standing
+    # between the mark and that opening, in the form
+    # the unmatched nested judgement below states.
+    first_opening = text.find("\u2018", pos + 1, line_end)
+    introduced_first = False
+    if first_opening >= 0:
+        between_first = text[pos + 1:first_opening]
+        if possessive_punct:
+            between_first = between_first[1:]
+        introduced_first = (
+            any(char.isalpha() for char in between_first)
+            and not any(
+                char in ",;:!?.\u2018\u2019"
+                for char in between_first
+            )
+        )
     cursor = pos + 1
     pairs_consumed = 0
     while True:
@@ -875,8 +904,26 @@ def _curly_single_is_internal(text, pos):
             # punctuation follower, its word standing in
             # the possessive form, and a true closing, on
             # a punctuation follower or followed by a
-            # space, closes its span there instead.
-            return possessive_punct and own_possessive
+            # space, closes its span there instead. The
+            # unmatched reading stands only where the
+            # later opening stands introduced by plain
+            # prose standing between the mark and the
+            # opening, words holding no punctuation of
+            # their own after the follower at the mark,
+            # as the pinned possessive compositions carry
+            # it, a possessive standing before the words
+            # that introduce a nested quotation. Where
+            # the pair standing later stands directly
+            # after the follower, or after prose holding
+            # its own punctuation, an attribution clause
+            # or a closed sentence standing among it, the
+            # pair stands as a span of its own and the
+            # mark closes its own span there, whatever
+            # form its word stands in.
+            return (
+                possessive_punct and own_possessive
+                and introduced_first
+            )
         pairs_consumed += 1
         cursor = nested_close + 1
 
@@ -1464,6 +1511,49 @@ def _statistic_analysis(page):
         r"(?:\s*,\s*|\s+)\d{4}/\d{1,2}/\d{1,2}\b",
         r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)"
         r"(?:\s*,\s*|\s+)\d{1,2}/\d{1,2}/\d{2,4}\b",
+        # The time first marker composition standing
+        # before a full date in month name form, round
+        # 10, on the same ground as the dotted and slash
+        # limbs above: in month first order, with the
+        # comma the month first form carries and without
+        # it, and in day first order, each with the
+        # abbreviated month and the ordinal day standing
+        # in the same forms the plain month name masks
+        # admit, the marker standing spaced or glued and
+        # in either case.
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)"
+        r"(?:\s*,\s*|\s+)(?:" + month_alt_early + r")\.?\s+"
+        r"\d{1,2}(?:st|nd|rd|th)?\s*,\s*\d{2,4}\b",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)"
+        r"(?:\s*,\s*|\s+)(?:" + month_alt_early + r")\.?\s+"
+        r"\d{1,2}(?:st|nd|rd|th)?\s+\d{2,4}\b",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)"
+        r"(?:\s*,\s*|\s+)\d{1,2}(?:st|nd|rd|th)?\s+(?:"
+        + month_alt_early + r")\.?\s*,?\s*\d{2,4}\b",
+        # A year and month fragment in slash form
+        # standing with its time standing first, round
+        # 10, in the compositions the hyphen and dotted
+        # fragment limbs above state: after a plain time
+        # with a comma or a space between them, and
+        # after a time carrying a spaced or glued
+        # marker, in either fragment order, each
+        # fragment limb guarded against a digit or a
+        # slash standing before it and against a slash
+        # or a digit standing after its month part, so
+        # no limb bites inside a full slash date
+        # standing around it.
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*,\s*"
+        r"(?<![\d/])\d{4}/\d{1,2}(?![/\d])",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*,\s*"
+        r"(?<![\d/])\d{1,2}/\d{4}(?![/\d])",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s+"
+        r"(?<![\d/])\d{4}/\d{1,2}(?![/\d])",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s+"
+        r"(?<![\d/])\d{1,2}/\d{4}(?![/\d])",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)"
+        r"(?:\s*,\s*|\s+)(?<![\d/])\d{4}/\d{1,2}(?![/\d])",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)"
+        r"(?:\s*,\s*|\s+)(?<![\d/])\d{1,2}/\d{4}(?![/\d])",
         r"\b(?<![\d.])\d{4}\.\d{1,2}(?!\.\d)(?!\d)\s+"
         r"\d{1,2}:\d{2}(?::\d{2})?\b",
         r"\b(?<![\d.])\d{1,2}\.\d{4}(?!\.\d)(?!\d)\s+"
@@ -1484,6 +1574,40 @@ def _statistic_analysis(page):
         r"\d{1,2}:\d{2}(?::\d{2})?\b",
         r"\b(?<![\d.])\d{1,2}\.\d{4}(?!\.\d)(?!\d)\s*,\s*"
         r"\d{1,2}:\d{2}(?::\d{2})?\b",
+        # The fragment first comma composition where
+        # the time after the comma carries its marker,
+        # round 10, in spaced and in glued form alike:
+        # the plain limbs above end at the time, and a
+        # glued marker stands against the time with no
+        # word boundary standing between them for those
+        # limbs to end on, so the marker limbs stand
+        # stated here for the hyphen fragments and the
+        # dotted fragments in either order.
+        r"\b(?<![\d-])\d{4}-\d{1,2}(?![-\d])\s*,\s*"
+        r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)\b",
+        r"\b(?<![\d-])\d{1,2}-\d{4}(?![-\d])\s*,\s*"
+        r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)\b",
+        r"\b(?<![\d.])\d{4}\.\d{1,2}(?!\.\d)(?!\d)\s*,\s*"
+        r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)\b",
+        r"\b(?<![\d.])\d{1,2}\.\d{4}(?!\.\d)(?!\d)\s*,\s*"
+        r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)\b",
+        # A year and month fragment in slash form
+        # standing first, with its time standing after
+        # it, round 10, with a comma or a space between
+        # the fragment and the time and with the time
+        # carrying no marker or a spaced or glued
+        # marker, in either fragment order, guarded as
+        # the time first slash limbs above stand
+        # guarded, so no limb bites inside a full slash
+        # date standing around it.
+        r"\b(?<![\d/])\d{4}/\d{1,2}(?![/\d])\s*,\s*"
+        r"\d{1,2}:\d{2}(?::\d{2})?(?:\s*(?:AM|PM))?\b",
+        r"\b(?<![\d/])\d{1,2}/\d{4}(?![/\d])\s*,\s*"
+        r"\d{1,2}:\d{2}(?::\d{2})?(?:\s*(?:AM|PM))?\b",
+        r"\b(?<![\d/])\d{4}/\d{1,2}(?![/\d])\s+"
+        r"\d{1,2}:\d{2}(?::\d{2})?(?:\s*(?:AM|PM))?\b",
+        r"\b(?<![\d/])\d{1,2}/\d{4}(?![/\d])\s+"
+        r"\d{1,2}:\d{2}(?::\d{2})?(?:\s*(?:AM|PM))?\b",
         r"\b\d{1,2}\.\d{1,2}\.\d{2,4}\s*,\s*"
         r"\d{1,2}:\d{2}(?::\d{2})?\b",
         r"\b\d{4}\.\d{1,2}\.\d{1,2}\s*,\s*"
@@ -1636,6 +1760,29 @@ def _statistic_analysis(page):
             (m.start(), m.end())
             for m in re.finditer(
                 r"\b\d{1,2}\.\d{4}(?!\d)(?!\.\d)", masked)
+        ],
+    )
+    # The same fragment in slash form, in either
+    # order, counts nothing either, as its hyphen and
+    # dotted twins do. Each limb stands guarded
+    # against a digit or a slash standing before it
+    # and against a slash or a digit standing after
+    # its closing part, so neither limb bites inside
+    # a full slash date standing around it.
+    masked = _mask(
+        masked,
+        [
+            (m.start(), m.end())
+            for m in re.finditer(
+                r"(?<![\d/])\d{4}/\d{1,2}(?![/\d])", masked)
+        ],
+    )
+    masked = _mask(
+        masked,
+        [
+            (m.start(), m.end())
+            for m in re.finditer(
+                r"(?<![\d/])\d{1,2}/\d{4}(?![/\d])", masked)
         ],
     )
     # Two digit year numeric dates in the hyphen and

@@ -284,8 +284,20 @@ class TestR8_028ContainerStringCharacterMeasure(Base):
         block = '{"title": [["' + "x" * 4096 + '"]]}'
         self.assertEqual(self.page_front_matter(block), "body text")
 
-    def test_string_of_4096_inside_a_dict_value_passes(self):
+    def test_string_of_4096_inside_a_dict_value_refuses(self):
+        # Corrected at fix round 10 under ruling (g) of the
+        # round 10 disposition: the pin as first written
+        # stated the standing before the cure at entry
+        # S17-R9-003. On the cured standing a key standing
+        # inside a container stands measured by its length
+        # in characters beside the measure of its value, so
+        # the key k at 1 character beside the string of
+        # 4096 sums to 4097 and stands refused where their
+        # sum passes the limit, and the string of 4095
+        # beside the same key sums to the limit and passes.
         block = '{"title": {"k": "' + "x" * 4096 + '"}}'
+        self.assert_page_limit(block)
+        block = '{"title": {"k": "' + "x" * 4095 + '"}}'
         self.assertEqual(self.page_front_matter(block), "body text")
 
     def test_string_of_5000_inside_a_list_refuses_at_both(self):

@@ -13,6 +13,7 @@ call inputs, read as asserted values only. No date is read
 from a clock here.
 """
 
+from bisect import bisect_left, bisect_right
 import copy
 import math
 import re
@@ -191,13 +192,19 @@ def _similar_components(type_sets):
     and at any prefix posting total: the shared count of
     every unvisited set with the seed stands counted in
     parallel bit planes in batches of the seed shingles
-    in their rare first order, a set whose counted misses
-    stand past the allowance its size carries standing
-    excluded in full and counted no further, and the sets
-    standing live at the end of the counting stand at
-    exactly the sets whose full count reaches the
-    threshold for their size, the same exact judgement at
-    a price set by the batches the live sets survive.
+    in their rare first order, the planes standing loaded
+    with the allowance its size carries for each set, so
+    a set whose counted misses stand past its allowance
+    holds a plane value standing below the count of
+    shingles counted and stands excluded in full and
+    counted no further, the survivor judgement standing
+    as one comparison of the planes against the counted
+    total for every size together, and the sets standing
+    live at the end of the counting stand at exactly the
+    sets whose full count reaches the threshold for their
+    size, the same exact judgement at a price set by the
+    batches the live sets survive and by one allowance
+    plane build per distinct seed size.
     The component then grows
     layer by layer from the sets that joined last, the
     frontier. A set can join through a frontier member only
@@ -291,6 +298,10 @@ def _similar_components(type_sets):
         size_masks[len(mask_set)] = size_masks.get(
             len(mask_set), 0) | (1 << mask_index)
     visited_mask = 0
+    sorted_sizes = sorted(size_masks)
+    size_prefix = [0]
+    for sorted_size in sorted_sizes:
+        size_prefix.append(size_prefix[-1] | size_masks[sorted_size])
 
     def bit_posting(ident):
         posting = bit_postings.get(ident)
@@ -302,38 +313,144 @@ def _similar_components(type_sets):
             bit_postings[ident] = posting
         return posting
 
-    def counted_seed_layer(thresholds):
+    allowance_planes_cache = {}
+
+    band_sizes_cache = {}
+    band_pointer_cache = {}
+
+    def band_lowest_threshold(seed_size):
+        # The lowest threshold standing at a seed size:
+        # the threshold of the smallest size in the
+        # threshold band of the seed size that still
+        # holds an unvisited set, the threshold standing
+        # nondecreasing in the size, or None where no
+        # band size stands. The band sizes stand built
+        # once per distinct seed size as a slice of the
+        # sorted distinct sizes, and the pointer over
+        # them stands kept per seed size and only
+        # advances, a size whose sets all stand visited
+        # never standing unvisited again, so the seed
+        # pass reads this judgement in a step or two in
+        # place of rebuilding the thresholds of every
+        # distinct size standing at every seed.
+        sizes = band_sizes_cache.get(seed_size)
+        if sizes is None:
+            band_lo = -(-4 * seed_size // 5)
+            band_hi = 5 * seed_size // 4
+            sizes = sorted_sizes[
+                bisect_left(sorted_sizes, band_lo):
+                bisect_right(sorted_sizes, band_hi)]
+            band_sizes_cache[seed_size] = sizes
+            band_pointer_cache[seed_size] = 0
+        pointer = band_pointer_cache[seed_size]
+        while pointer < len(sizes) and not by_size[sizes[pointer]]:
+            pointer += 1
+        band_pointer_cache[seed_size] = pointer
+        if pointer == len(sizes):
+            return None
+        size = sizes[pointer]
+        return -(-4 * (seed_size + size) // 9)
+
+    def allowance_planes(seed_size):
+        # The bit planes of the allowance of every set at
+        # this seed size: plane bit b holds the sets whose
+        # size stands in the threshold band of the seed
+        # size and whose allowance at that size carries
+        # bit b. The allowance of a size stands as the
+        # seed size less the threshold for its size, a
+        # nonincreasing step function of the size, so the
+        # sizes carrying one bit of it stand as a union of
+        # size intervals, each interval read from the
+        # prefix masks over the sorted distinct sizes in
+        # two lookups. The planes stand built once per
+        # distinct seed size and kept for the computation,
+        # so their price stands at the allowance range of
+        # the seed size, never at the product of the batch
+        # count and the distinct size count.
+        cached = allowance_planes_cache.get(seed_size)
+        if cached is not None:
+            return cached
+        band_lo = -(-4 * seed_size // 5)
+        band_hi = 5 * seed_size // 4
+        band_mask = size_prefix[bisect_right(sorted_sizes, band_hi)] ^ \
+            size_prefix[bisect_left(sorted_sizes, band_lo)]
+        top_allowance = seed_size - -(-4 * (seed_size + band_lo) // 9)
+        planes = [0] * max(1, top_allowance.bit_length())
+        if top_allowance:
+            lo_index = bisect_left(sorted_sizes, band_lo)
+            hi_index = bisect_right(sorted_sizes, band_hi)
+            bit = 0
+            while (1 << bit) <= top_allowance:
+                width = 1 << bit
+                step = width << 1
+                plane = 0
+                low_a = width
+                while low_a <= top_allowance:
+                    high_a = low_a + width - 1
+                    if high_a > top_allowance:
+                        high_a = top_allowance
+                    # The sizes whose allowance stands in
+                    # [low_a, high_a]: the allowance of a
+                    # size stands at least a exactly where
+                    # the size stands at most
+                    # (5 * seed_size - 9 * a) // 4, and at
+                    # most a exactly where the size stands
+                    # past (5 * seed_size - 9 * a - 9) // 4.
+                    s_high = (5 * seed_size - 9 * low_a) // 4
+                    s_low = (5 * seed_size - 9 * high_a - 9) // 4 + 1
+                    if s_low < band_lo:
+                        s_low = band_lo
+                    if s_high > band_hi:
+                        s_high = band_hi
+                    if s_low <= s_high:
+                        first = bisect_left(
+                            sorted_sizes, s_low, lo_index, hi_index)
+                        last = bisect_right(
+                            sorted_sizes, s_high, lo_index, hi_index)
+                        if first < last:
+                            plane |= size_prefix[last] ^ \
+                                size_prefix[first]
+                    low_a += step
+                planes[bit] = plane
+                bit += 1
+        cached = (planes, band_mask)
+        allowance_planes_cache[seed_size] = cached
+        return cached
+
+    def counted_seed_layer():
         # The shared count of every unvisited set with the
         # seed, counted in parallel in batches of the seed
         # shingles in their rare first order: one bit plane
         # per bit of the count, each seed shingle posting
         # added into the planes in turn, the postings
         # standing masked to the sets that stand live after
-        # the batch before. A set similar to the seed
-        # misses at most the seed size less the threshold
-        # for its size of the seed shingles, its allowance,
-        # so after any batch a set whose counted misses
-        # stand past its allowance stands excluded in full
-        # and stands counted no further, the comparison
-        # standing read from the planes per size in bitwise
-        # form. Where no live set stands the counting
-        # stops, and where the counting stands complete the
-        # live sets stand at exactly the sets whose full
-        # count reaches the threshold for their size, the
-        # same exact judgement the prefix form makes, so no
-        # candidate stands judged set against set on this
-        # reading and no set the rule names stands lost.
-        allowances = {
-            size: seed_size - threshold
-            for size, threshold in thresholds.items()}
-        active = 0
-        for size in thresholds:
-            active |= size_masks[size]
-        active &= all_mask & ~visited_mask
+        # the batch before. The planes stand loaded at the
+        # start with the allowance of each set at the seed
+        # size, so the value they hold for a set stands at
+        # its counted shared count plus its allowance, and
+        # a set similar to the seed, whose misses stand at
+        # most its allowance, holds a value standing at
+        # least the count of shingles counted so far at
+        # every point of the counting, while a set standing
+        # below that mark at any point can never reach the
+        # seed size the value must reach at the end. The
+        # survivor judgement therefore stands as one
+        # comparison of the planes against the counted
+        # total, read in bitwise form once per batch for
+        # every size together, in place of one comparison
+        # per distinct size per batch, and the sets
+        # standing live at the end of the counting stand
+        # at exactly the sets whose full count reaches the
+        # threshold for their size, the same exact
+        # judgement the prefix form makes, so no candidate
+        # stands judged set against set on this reading
+        # and no set the rule names stands lost.
+        planes, band_mask = allowance_planes(seed_size)
+        active = band_mask & all_mask & ~visited_mask
         if not active:
             return []
         ordered = ordered_set(seed)
-        planes = []
+        planes = list(planes)
         counted = 0
         index = 0
         while index < len(ordered):
@@ -350,25 +467,17 @@ def _similar_components(type_sets):
                     carry = next_carry
                     level += 1
             counted += len(batch)
-            survivors = 0
-            for size, allowance in allowances.items():
-                need = counted - allowance
-                size_active = size_masks[size] & active
-                if need <= 0:
-                    survivors |= size_active
-                    continue
-                equal = all_mask
-                greater = 0
-                top = max(len(planes), need.bit_length())
-                for bit in range(top - 1, -1, -1):
-                    plane = planes[bit] if bit < len(planes) else 0
-                    if (need >> bit) & 1:
-                        equal &= plane
-                    else:
-                        greater |= equal & plane
-                        equal &= all_mask ^ plane
-                survivors |= (greater | equal) & size_active
-            active = survivors
+            equal = all_mask
+            greater = 0
+            top = max(len(planes), counted.bit_length())
+            for bit in range(top - 1, -1, -1):
+                plane = planes[bit] if bit < len(planes) else 0
+                if (counted >> bit) & 1:
+                    equal &= plane
+                else:
+                    greater |= equal & plane
+                    equal &= all_mask ^ plane
+            active = (greater | equal) & active
             if not active:
                 return []
             if counted < len(ordered):
@@ -426,15 +535,8 @@ def _similar_components(type_sets):
         # in possible_positions below.
         first_layer = []
         if remaining:
-            thresholds = {}
-            for size, size_members in by_size.items():
-                if not size_members:
-                    continue
-                if min(seed_size, size) * 9 < 4 * (seed_size + size):
-                    continue
-                thresholds[size] = -(-4 * (seed_size + size) // 9)
-            if thresholds:
-                lowest_threshold = min(thresholds.values())
+            lowest_threshold = band_lowest_threshold(seed_size)
+            if lowest_threshold is not None:
                 prefix_length = seed_size - lowest_threshold + 1
                 if prefix_length < 1:
                     prefix_length = 1
@@ -465,7 +567,7 @@ def _similar_components(type_sets):
                     or min(remaining, prefix_total) * seed_size \
                     > 50000
                 if take_counted:
-                    first_layer = counted_seed_layer(thresholds)
+                    first_layer = counted_seed_layer()
                 else:
                     candidates = set()
                     for shingle in prefix:

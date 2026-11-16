@@ -535,9 +535,13 @@ def _is_cpio_odc_header(variant):
     # the S17-R6-025 cure).
     field_starts = (6, 12, 18, 24, 30, 36, 42, 48, 59, 65)
     values = []
-    for start, end in zip(field_starts, field_ends):
+    name_size_field_all_nul = False
+    for position, (start, end) in enumerate(
+            zip(field_starts, field_ends)):
         field = variant[start:end]
         if all(byte == 0 for byte in variant[start:end + 1]):
+            if position == 8:
+                name_size_field_all_nul = True
             values.append(0)
             continue
         digits = field.strip(b" ")
@@ -552,6 +556,28 @@ def _is_cpio_odc_header(variant):
     # stand past the bytes standing reads as text.
     name_size = values[8]
     file_size = values[9]
+    # The judgement stands on the member name the stated
+    # sizes name, as the newc limb of this family states:
+    # a header stating a name size of zero in its stated
+    # octal form states no member at all, a header stating
+    # a name size of one holds a name of no character but
+    # a single byte standing unclosed or its terminator
+    # alone, and a stated name stands closed by the NUL
+    # byte the format writes at its end, so a name
+    # standing open in prose letters reads as the text it
+    # is (entry S17-R10-005). The signature pin form,
+    # whose name size field stands wholly as NUL bytes and
+    # holds the empty value of that form, stands under the
+    # reading above as it stood.
+    if name_size == 0 and not name_size_field_all_nul:
+        return False
+    if name_size == 1:
+        return False
+    if name_size >= 2:
+        if len(variant) < 76 + name_size:
+            return False
+        if variant[76 + name_size - 1] != 0:
+            return False
     return len(variant) >= 76 + name_size + file_size
 
 
@@ -610,6 +636,15 @@ def _is_cpio_newc_header(variant):
             return False
         if variant[110 + name_size - 1] != 0:
             return False
+        if name_size >= 2 and variant[110] == 0:
+            # A member name in this format stands as a
+            # string closed by its first NUL byte, so a
+            # stated name whose first byte stands as that
+            # terminator holds no name: the member name
+            # stands empty in the reading the format
+            # states, in the form the name size of one
+            # stands refused on below (entry S17-R10-006).
+            return False
     if all(
             byte in b"0123456789abcdefABCDEF"
             for byte in variant[102:110]) and name_size == 1:
@@ -621,6 +656,30 @@ def _is_cpio_newc_header(variant):
         # content or a trailer would stand reads as the
         # text it is (entry S17-R9-010).
         return False
+    if all(
+            byte in b"0123456789abcdefABCDEF"
+            for byte in variant[102:110]):
+        # The judgement stands on the value the check
+        # field states where the header stands complete:
+        # the check field of the format states a value,
+        # zero for the 070701 signature and the sum of
+        # the member data for the 070702 signature, so a
+        # complete header whose check field states a
+        # value its signature and its member data do not
+        # hold reads as the text it is (entry
+        # S17-R10-006). The signature pin form, whose
+        # check field does not stand as hexadecimal text,
+        # stands under the reading above as it stood.
+        check_value = int(variant[102:110], 16)
+        if variant[:6] == b"070702":
+            if len(variant) < 110 + name_size + file_size:
+                return False
+            if check_value != sum(variant[
+                    110 + name_size:
+                    110 + name_size + file_size]):
+                return False
+        elif check_value != 0:
+            return False
     return len(variant) >= 110 + name_size + file_size
 
 
@@ -670,6 +729,16 @@ def _is_cab_header(variant):
             and (first_file_offset == 0
                  or 36 <= first_file_offset <= len(variant))):
         return False
+    # The judgement stands the stated cabinet size
+    # against the header itself beside the counts and the
+    # bytes standing: a cabinet stating a size below 36
+    # states a cabinet that cannot hold its own 36 byte
+    # header, so such a stated size reads as the text it
+    # is (entry S17-R10-006). The signature pin form,
+    # whose cabinet size stands at zero, stands under the
+    # reading above as it stood.
+    if 0 < cabinet_size < 36:
+        return False
     # The judgement stands on the tail fields of the
     # header, at offsets 26 to 36: the folder count and
     # the file count stand read as the counts they state,
@@ -704,6 +773,43 @@ def _is_cab_header(variant):
                 or first_file_offset + 16 * file_count
                 > cabinet_size):
             return False
+        # The judgement stands on the entries the counts
+        # name, standing behind the header at their stated
+        # sizes and offsets inside the cabinet size the
+        # header states, each entry standing read for what
+        # it states: a folder entry states the offset of
+        # its data inside the cabinet, the count of its
+        # data blocks, and a compression type standing in
+        # the set the format defines, the none, MSZIP,
+        # Quantum, and LZX values, and a file entry states
+        # the folder it stands in by its index, an index
+        # naming one of the folders the header counts or
+        # one of the continuation values the format
+        # defines, so entries standing wholly as prose
+        # letters, stating an offset no cabinet of the
+        # stated size holds, a compression type no folder
+        # carries, and a folder index naming no folder,
+        # read as the text they are (entry S17-R10-014).
+        # The set identifier and cabinet index fields
+        # stand in no part of this reading, carrying no
+        # value set a judgement can stand on, as the
+        # reading above states.
+        for folder in range(folder_count):
+            entry = variant[36 + 8 * folder:44 + 8 * folder]
+            data_offset = int.from_bytes(entry[0:4], "little")
+            block_count = int.from_bytes(entry[4:6], "little")
+            compression = int.from_bytes(entry[6:8], "little")
+            if compression not in (0, 1, 2, 3):
+                return False
+            if block_count and data_offset >= cabinet_size:
+                return False
+        for item in range(file_count):
+            start = first_file_offset + 16 * item
+            entry = variant[start:start + 16]
+            folder_index = int.from_bytes(entry[8:10], "little")
+            if folder_index >= folder_count and folder_index \
+                    not in (0xFFFD, 0xFFFE, 0xFFFF):
+                return False
     return True
 
 
@@ -981,6 +1087,17 @@ def _holds_tag_construct(text):
     value all stand refused (entries S17-R4-032,
     S17-R5-031, and S17-R5-067).
     """
+    # The judgement stands on the text with head material
+    # standing at any interior position removed, on the
+    # interior head reading the duplicate judgement and
+    # the fence judgement of this module apply: a head
+    # character standing between a judged position and the
+    # construct, between the construct character and its
+    # letter, or between an angle bracket and its opening
+    # character, stands removed before the positions stand
+    # judged, so such a character moves no construct off
+    # its judged position (entry S17-R10-013).
+    text = _remove_interior_head(text)
     if text.startswith(("!", "&", "*", "%")):
         return True
     if re.search(
@@ -996,7 +1113,7 @@ def _holds_tag_construct(text):
         return True
     if re.search(
             r"(?:^|[\s!\"#\$%&'\(\)\*\+,\-\./:;<=>\?@\[\\\]\^_`{|}~])"
-            r"[&*%!][A-Za-z]", text):
+            r"[&*%!][\w-]", text):
         # A construct stands judged at the start of the
         # text, after whitespace, and directly after a
         # flow opening bracket, the flow positions
@@ -1013,7 +1130,16 @@ def _holds_tag_construct(text):
         # S17-R8-015), and directly after any remaining
         # punctuation character, the position set standing
         # whole as the whole punctuation set beside
-        # whitespace (entry S17-R9-011).
+        # whitespace (entry S17-R9-011). The character
+        # standing after the construct character stands
+        # judged as the opening of the name the construct
+        # spells: an anchor spelling, an alias spelling,
+        # and a tag spelling name their target in
+        # characters wider than the plain alphabet, a name
+        # opening on a digit, on an underscore, on a
+        # hyphen, and on letters outside the plain
+        # alphabet, so the follower set stands as any word
+        # character or a hyphen (entry S17-R10-007).
         return True
     if re.match(r"^[|>](?:[+-]?[0-9]?|[0-9][+-])?(?:\s|$)", text):
         # A block scalar header admits both indicator
@@ -2339,9 +2465,20 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
         # bucket field equality reading at the selection
         # below runs on it in every such form (entry
         # S17-R9-013, completing entry S17-R8-017 past the
-        # form that cannot be hashed).
+        # form that cannot be hashed). A string form
+        # standing as a subclass of the plain string form
+        # stands in the overflow list on the same ground:
+        # it stands keyed by the characters it carries,
+        # and a subclass whose equality answers apart from
+        # the string it stands keyed under, answering as a
+        # target string its characters do not stand as or
+        # answering true against any candidate, stands
+        # reached by no candidate key, so the equality
+        # reading stands to run on it in the overflow list
+        # as it runs on every other such form (entry
+        # S17-R10-008).
         if isinstance(value, str):
-            return False
+            return type(value) is not str
         if value is None:
             return False
         return True
@@ -2490,9 +2627,25 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
             # test per field per slot (entry S17-R8-017).
             record = entry[1]
             raw_bucket = entry[2]
-            if (raw_bucket[0] == candidate_raw[0]
+            try:
+                bucket_matches = (
+                    raw_bucket[0] == candidate_raw[0]
                     and raw_bucket[1] == candidate_raw[1]
-                    and raw_bucket[2] == candidate_raw[2]):
+                    and raw_bucket[2] == candidate_raw[2])
+            except Exception:
+                # A field whose equality test raises stands
+                # answered inside the recorded error
+                # vocabulary at the selection, as a field
+                # whose hash raises stands answered on the
+                # reading above, and never as a raw error
+                # to the caller (entry S17-R10-009).
+                _fail("DUPLICATE_IMPORT",
+                      "a standing record bucket field equality "
+                      "test raised, so the standing record "
+                      "stands answered as a duplicate inside "
+                      "the recorded error vocabulary and this "
+                      "import stores nothing")
+            if bucket_matches:
                 selected[entry[0]] = record
         # The overflow list stands outside the sub index
         # selection, and a slot reads it only on the
@@ -2510,17 +2663,39 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
         # validation stands as strings in every case, and
         # the equality reading passes over them at that
         # unequal field in every case.
-        record = _record_from_body(
-            slot_validated, body_text=body, raw_bytes=body_bytes,
-            content_hash=body_hash,
-            standing_records=[selected[index]
-                              for index in sorted(selected)],
-            product=product,
-            round=round, product_id=product_id, round_id=round_id,
-            answer_id=answer_id,
-            registry_version_at_import=registry_version_at_import,
-            detector_version_at_import=detector_version_at_import,
-            standing_id_resolver=resolve_standing_id)
+        try:
+            record = _record_from_body(
+                slot_validated, body_text=body,
+                raw_bytes=body_bytes,
+                content_hash=body_hash,
+                standing_records=[selected[index]
+                                  for index in sorted(selected)],
+                product=product,
+                round=round, product_id=product_id,
+                round_id=round_id,
+                answer_id=answer_id,
+                registry_version_at_import=
+                registry_version_at_import,
+                detector_version_at_import=
+                detector_version_at_import,
+                standing_id_resolver=resolve_standing_id)
+        except ProbeImportError:
+            raise
+        except Exception:
+            # The comparison the selection hands its
+            # records runs the equality readings of the
+            # standing records against the candidate, and a
+            # field whose equality test raises there stands
+            # answered inside the recorded error vocabulary
+            # at the comparison, as it stands answered at
+            # the selection above, and never as a raw error
+            # to the caller (entry S17-R10-009).
+            _fail("DUPLICATE_IMPORT",
+                  "a standing record field equality test "
+                  "raised at the duplicate comparison, so "
+                  "the standing record stands answered as a "
+                  "duplicate inside the recorded error "
+                  "vocabulary and this import stores nothing")
         records.append(record)
         running_standing.append(record)
         prepared_records.append(record)
