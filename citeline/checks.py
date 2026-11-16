@@ -757,6 +757,24 @@ def _curly_single_is_internal(text, pos):
     span of its own, and a closing mark standing after
     that pair counts towards this span in the same way
     only where the mark stands as such a possessive.
+    The follower alone never settles that judgement: the
+    mark stands as a possessive on those followers only
+    where the word the mark stands on reads as a plural
+    possessive, a word of two or more letters ending in
+    the letter s, the form a plural possessive carries
+    where it stands before punctuation or a space. A
+    true closing followed by one of the six punctuation
+    marks, its word standing in no such form, closes its
+    own span there, at two spans and at three spans
+    alike, and a mark standing later on the line in that
+    same possessive form, standing in the prose after a
+    span, counts as no closing of that span, before a
+    function word of the closing follower set and at the
+    end of a sentence alike. A possessive followed by a
+    space, with a matched nested pair standing between
+    it and the outer closing, reads as internal on the
+    same mark judgement, the one span reading whole past
+    it to its own closing.
     """
     following = text[pos + 1] if pos + 1 < len(text) else ""
     if following.isalpha() or following.isdigit():
@@ -764,6 +782,22 @@ def _curly_single_is_internal(text, pos):
     if not following or following == "\n":
         return False
     possessive_punct = following in ",;:!?."
+
+    def mark_is_possessive(mark):
+        # The mark stands as a plural possessive where
+        # the word it stands on, the run of letters
+        # standing against it, reads in the possessive
+        # form: two or more letters ending in the letter
+        # s. A closing whose last word stands in any
+        # other form stands as no possessive, whatever
+        # follower stands after the mark.
+        word_start = mark
+        while word_start > 0 and text[word_start - 1].isalpha():
+            word_start -= 1
+        word = text[word_start:mark]
+        return len(word) >= 2 and word[-1] in "sS"
+
+    own_possessive = mark_is_possessive(pos)
 
     def stray_is_closing(stray):
         # A closing mark standing later on the line with
@@ -775,7 +809,15 @@ def _curly_single_is_internal(text, pos):
         # word follows it, the mark stands as a
         # possessive in the prose after this span, the
         # content word standing as the noun it possesses,
-        # and it counts nothing towards this span.
+        # and it counts nothing towards this span. A mark
+        # standing in the plural possessive form itself
+        # counts as no closing in the same way, before a
+        # function word of the set below and at the end
+        # of a sentence alike: the mark stands judged on
+        # the word it stands on, not on its follower
+        # alone.
+        if mark_is_possessive(stray):
+            return False
         cursor_after = stray + 1
         while cursor_after < line_end and (
             text[cursor_after] == " "
@@ -808,7 +850,18 @@ def _curly_single_is_internal(text, pos):
         if opening < 0 or later < opening:
             if pairs_consumed == 0:
                 return stray_is_closing(later)
-            return possessive_punct
+            # A closing mark stands beyond the consumed
+            # pair: the mark at pos stands internal where
+            # the mark itself stands as a possessive, on
+            # a punctuation follower as the charged forms
+            # carry it, or on a space where a matched
+            # nested pair stands between the possessive
+            # and that closing. A true closing standing
+            # in no possessive form closes its own span
+            # here, the consumed pair standing as a span
+            # of its own.
+            return own_possessive and (
+                possessive_punct or following == " ")
         nested_close = text.find("\u2019", opening + 1, line_end)
         if nested_close < 0:
             return False
@@ -818,10 +871,12 @@ def _curly_single_is_internal(text, pos):
             # the closing of this span itself and the
             # nested opening stands unmatched inside it:
             # the possessive stands internal where the
-            # mark stands as a possessive on a punctuation
-            # follower, and a true closing followed by a
-            # space closes its span there instead.
-            return possessive_punct
+            # mark itself stands as a possessive on a
+            # punctuation follower, its word standing in
+            # the possessive form, and a true closing, on
+            # a punctuation follower or followed by a
+            # space, closes its span there instead.
+            return possessive_punct and own_possessive
         pairs_consumed += 1
         cursor = nested_close + 1
 
@@ -933,6 +988,38 @@ def _quoted_spans(text):
             ]
         return completed
 
+    def later_close_stands(depth, index, line_end):
+        # Whether a closing of the span at depth stands
+        # later on the line as a closing of that span.
+        # For a curly single span the closings standing
+        # later count in the form the span reading states:
+        # a complete quotation pair standing later on the
+        # line stands as a span of its own, its closing
+        # counting as no closing of this span, so the
+        # pairs standing later stand consumed before a
+        # closing counts, and only a closing standing
+        # before any new opening, or standing after the
+        # consumed pairs, counts as a later closing of
+        # this span.
+        if stack[depth][0] == "\u2018":
+            cursor = index + 1
+            while True:
+                close = text.find("\u2019", cursor, line_end)
+                if close < 0:
+                    return False
+                opening = text.find("\u2018", cursor, line_end)
+                if opening < 0 or close < opening:
+                    return True
+                nested_close = text.find(
+                    "\u2019", opening + 1, line_end)
+                if nested_close < 0:
+                    return False
+                cursor = nested_close + 1
+        return any(
+            text.find(closing, index + 1, line_end) >= 0
+            for closing in stack[depth][2]
+        )
+
     def completion_depth(char, index):
         # The outermost span standing below the stack top
         # that the character at index can close and whose
@@ -954,11 +1041,7 @@ def _quoted_spans(text):
                 and _curly_single_is_internal(text, index)
             ):
                 continue
-            later_close = any(
-                text.find(closing, index + 1, line_end) >= 0
-                for closing in stack[depth][2]
-            )
-            if not later_close:
+            if not later_close_stands(depth, index, line_end):
                 return depth
         return None
 
@@ -1336,6 +1419,51 @@ def _statistic_analysis(page):
         # form, a time standing first carrying an AM
         # or PM marker, and a marker standing glued or
         # spaced after the time of a hyphen date.
+        # The composed dressings the sets below still
+        # omit, round 9, standing first on the same
+        # ground: a fragment standing after its time
+        # with a comma between the time and the
+        # fragment, in hyphen and in dotted form; a
+        # fragment standing after a time carrying a
+        # spaced or glued marker, with a comma or a
+        # space standing between the marker and the
+        # fragment; a fragment standing with a time
+        # carrying a glued or spaced marker; and a
+        # time standing first carrying a marker,
+        # standing before a full date in dotted or
+        # slash form, in either date order.
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*,\s*"
+        r"\d{4}-\d{1,2}(?![-\d])",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*,\s*"
+        r"\d{1,2}-\d{4}(?![-\d])",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*,\s*"
+        r"\d{4}\.\d{1,2}(?!\.\d)(?!\d)",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*,\s*"
+        r"\d{1,2}\.\d{4}(?!\.\d)(?!\d)",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)"
+        r"(?:\s*,\s*|\s+)\d{4}-\d{1,2}(?![-\d])",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)"
+        r"(?:\s*,\s*|\s+)\d{1,2}-\d{4}(?![-\d])",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)"
+        r"(?:\s*,\s*|\s+)\d{4}\.\d{1,2}(?!\.\d)(?!\d)",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)"
+        r"(?:\s*,\s*|\s+)\d{1,2}\.\d{4}(?!\.\d)(?!\d)",
+        r"\b(?<![\d-])\d{4}-\d{1,2}(?![-\d])\s+"
+        r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)\b",
+        r"\b(?<![\d-])\d{1,2}-\d{4}(?![-\d])\s+"
+        r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)\b",
+        r"\b(?<![\d.])\d{4}\.\d{1,2}(?!\.\d)(?!\d)\s+"
+        r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)\b",
+        r"\b(?<![\d.])\d{1,2}\.\d{4}(?!\.\d)(?!\d)\s+"
+        r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)\b",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)"
+        r"(?:\s*,\s*|\s+)\d{1,2}\.\d{1,2}\.\d{2,4}\b",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)"
+        r"(?:\s*,\s*|\s+)\d{4}\.\d{1,2}\.\d{1,2}\b",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)"
+        r"(?:\s*,\s*|\s+)\d{4}/\d{1,2}/\d{1,2}\b",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)"
+        r"(?:\s*,\s*|\s+)\d{1,2}/\d{1,2}/\d{2,4}\b",
         r"\b(?<![\d.])\d{4}\.\d{1,2}(?!\.\d)(?!\d)\s+"
         r"\d{1,2}:\d{2}(?::\d{2})?\b",
         r"\b(?<![\d.])\d{1,2}\.\d{4}(?!\.\d)(?!\d)\s+"

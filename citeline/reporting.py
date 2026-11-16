@@ -1661,8 +1661,75 @@ def _rate_line(name, node):
     return with_warning(line)
 
 
+_FIGURE_HEAD_WORDS = (
+    "score", "percent", "pct", "share", "gross", "net")
+
+_FIGURE_TAIL_WORDS = (
+    "rate", "share", "percent", "pct", "gross", "net", "score")
+
+_FIGURE_MIDDLE_WORDS = tuple(dict.fromkeys(
+    _FIGURE_TAIL_WORDS + _HEAD_QUALIFIERS))
+
+
+def _value_is_figure_form(value):
+    """True where a value stands in a figure form the four
+    place reading judges: a float, or a string that reads
+    as a finite number through _figure_or_none."""
+    return isinstance(value, float) or (
+        isinstance(value, str)
+        and isinstance(_figure_or_none(value), float))
+
+
+def _key_names_figure(key):
+    """True where a key stands in the four place set of the
+    generic Simple emitter, on the branch key reading as
+    the precision cures state it. The reading stands
+    completed on two further limbs. A compound of three
+    components whose head is a figure word the branch
+    names, whose tail is value, and whose middle component
+    is a word the branch itself names, in its tail set or
+    in its head qualifier set, stands in the set as the
+    two component head compounds stand (Step 17 round 9
+    entry S17-R9-016). And the reading stands judged at
+    the list branch of _emit in this same form, so a
+    figure standing inside a list under a key of the set
+    prints at four places as the scalar under that key
+    does (Step 17 round 9 entry S17-R9-018)."""
+    if not isinstance(key, str):
+        return False
+    components = _key_components(key)
+    return (
+        key in _TREND_RATE_KEYS
+        or key in ("rate", "share", "percent", "value",
+                   "total_weight", "proportion", "ratio",
+                   "earned", "weight", "applicable_weight",
+                   "design_effect", "score")
+        or key in ("rate_value", "rate_pct",
+                   "overall_score")
+        or key in ("wilson", "wilson_low", "wilson_high")
+        or key.startswith("wilson_")
+        or "_rate" in key
+        or "rate" in components
+        or "wilson" in components
+        or (components and components[-1] in
+            _FIGURE_TAIL_WORDS)
+        or (len(components) > 1
+            and components[0] in _FIGURE_HEAD_WORDS
+            and components[1] == "value")
+        or (len(components) == 3
+            and components[0] in
+            _FIGURE_HEAD_WORDS + ("value",)
+            and components[1] in _FIGURE_MIDDLE_WORDS
+            and components[2] == "value")
+        or key.endswith("_rate")
+        or key.endswith("_share")
+        or key.endswith("_percent")
+        or key.endswith("_gross")
+        or key.endswith("_net"))
+
+
 def _emit(lines, key, value, depth, suppress_anchor_bare=False,
-          suppress_none=False):
+          suppress_none=False, figure_key=False):
     pad = "  " * depth
     if _is_absence(value):
         lines.append("%s%s: not recorded" % (pad, key))
@@ -1681,10 +1748,27 @@ def _emit(lines, key, value, depth, suppress_anchor_bare=False,
         return
     if isinstance(value, list):
         lines.append("%s%s:" % (pad, key))
+        # The key standing over a list stands judged in
+        # the same form as the key standing over a scalar:
+        # a figure item inside a list under a key of the
+        # four place set prints at four places, in float
+        # form and in string form alike, and the judgement
+        # stands carried through a nested list, whose
+        # items stand under the same key (Step 17 round 9
+        # entry S17-R9-018). An item standing as a record
+        # stands judged by its own keys, as before.
+        item_figure = figure_key or _key_names_figure(key)
         for item in value:
-            if isinstance(item, (dict, list)):
+            if isinstance(item, list):
+                _emit(lines, "item", item, depth + 1,
+                      suppress_none=suppress_none,
+                      figure_key=item_figure)
+            elif isinstance(item, dict):
                 _emit(lines, "item", item, depth + 1,
                       suppress_none=suppress_none)
+            elif item_figure and _value_is_figure_form(item):
+                lines.append(
+                    "%s  %s" % (pad, _figure_text(item)))
             else:
                 lines.append("%s  %s" % (pad, _scalar_text(item)))
         return
@@ -1701,9 +1785,6 @@ def _emit(lines, key, value, depth, suppress_anchor_bare=False,
     # figure names: rate_value, rate_pct, overall_score,
     # and the bare wilson key (Step 17 round 6 entry
     # S17-R6-038).
-    figure_form = isinstance(value, float) or (
-        isinstance(value, str)
-        and isinstance(_figure_or_none(value), float))
     # The branch key reading stands completed under the
     # module component reading: a score compound, a pct
     # compound, and a wilson name standing as a suffix
@@ -1714,36 +1795,13 @@ def _emit(lines, key, value, depth, suppress_anchor_bare=False,
     # pct, share, gross, or net component standing at
     # the head of a compound whose next component is
     # value stands in the set as score_value stands
-    # (Step 17 round 8 entry S17-R8-021).
-    components = _key_components(key) \
-        if isinstance(key, str) else []
-    if figure_form and (
-            key in _TREND_RATE_KEYS
-            or key in ("rate", "share", "percent", "value",
-                       "total_weight", "proportion", "ratio",
-                       "earned", "weight", "applicable_weight",
-                       "design_effect", "score")
-            or key in ("rate_value", "rate_pct",
-                       "overall_score")
-            or key in ("wilson", "wilson_low", "wilson_high")
-            or (isinstance(key, str)
-                and key.startswith("wilson_"))
-            or "_rate" in key
-            or "rate" in components
-            or "wilson" in components
-            or (components and components[-1] in (
-                "rate", "share", "percent", "pct", "gross",
-                "net", "score"))
-            or (len(components) > 1
-                and components[0] in (
-                    "score", "percent", "pct", "share",
-                    "gross", "net")
-                and components[1] == "value")
-            or key.endswith("_rate")
-            or key.endswith("_share")
-            or key.endswith("_percent")
-            or key.endswith("_gross")
-            or key.endswith("_net")):
+    # (Step 17 round 8 entry S17-R8-021). That limb
+    # stands completed on the three component compounds
+    # whose middle component the branch itself names,
+    # and the whole reading stands in _key_names_figure,
+    # judged at the list branch in the same form (Step
+    # 17 round 9 entries S17-R9-016 and S17-R9-018).
+    if _value_is_figure_form(value) and _key_names_figure(key):
         lines.append("%s%s: %s" % (pad, key, _figure_text(value)))
         return
     lines.append("%s%s: %s" % (pad, key, _scalar_text(value)))
@@ -2286,7 +2344,8 @@ def _render_staleness_simple(body):
 
 
 _LINE_BREAK_CHARS = (
-    "\n", "\r", "\x0b", "\x0c", "\x85", "\u2028", "\u2029")
+    "\n", "\r", "\x0b", "\x0c", "\x85", "\u2028", "\u2029",
+    "\x1c", "\x1d", "\x1e")
 
 
 def _failure_value_text(value):
@@ -2324,14 +2383,23 @@ def _failure_value_text(value):
         # tab, the form feed, the next line character, the
         # line separator, and the paragraph separator
         # standing beside the newline and the carriage
-        # return (Step 17 round 8 entry S17-R8-023).
+        # return (Step 17 round 8 entry S17-R8-023). The
+        # set stands completed on the three remaining
+        # characters of that same reading, the file
+        # separator, the group separator, and the record
+        # separator, each standing in its backslash u form
+        # inside the quoting (Step 17 round 9 entry
+        # S17-R9-015).
         escaped = text.replace("\\", "\\\\").replace(
             '"', '\\"').replace("\r", "\\r").replace(
             "\n", "\\n").replace("\x0b", "\\v").replace(
             "\x0c", "\\f").replace(
             "\x85", "\\u0085").replace(
             "\u2028", "\\u2028").replace(
-            "\u2029", "\\u2029")
+            "\u2029", "\\u2029").replace(
+            "\x1c", "\\u001c").replace(
+            "\x1d", "\\u001d").replace(
+            "\x1e", "\\u001e")
         return '"%s"' % escaped
     return text
 

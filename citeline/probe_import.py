@@ -520,7 +520,39 @@ def _is_cpio_odc_header(variant):
     # NUL terminator at any field position, reads as the
     # text it is (entry S17-R8-013).
     field_ends = (11, 17, 23, 29, 35, 41, 47, 58, 64, 75)
-    return all(variant[end] == 0 for end in field_ends)
+    if not all(variant[end] == 0 for end in field_ends):
+        return False
+    # The judgement stands on the stated values of the
+    # fields, not on their terminators and character class
+    # alone: each field holds an octal value, its characters
+    # before the closing NUL standing as octal digits beside
+    # any space padding, so a field holding spaces alone,
+    # with no octal digit in it, holds no value a header
+    # field can hold and reads as the text it is. A field
+    # standing wholly as NUL bytes holds the empty value of
+    # the signature pin form and stands under the reading
+    # above as it stood (entry S17-R9-009, in the form of
+    # the S17-R6-025 cure).
+    field_starts = (6, 12, 18, 24, 30, 36, 42, 48, 59, 65)
+    values = []
+    for start, end in zip(field_starts, field_ends):
+        field = variant[start:end]
+        if all(byte == 0 for byte in variant[start:end + 1]):
+            values.append(0)
+            continue
+        digits = field.strip(b" ")
+        if not digits or not all(
+                byte in b"01234567" for byte in digits):
+            return False
+        values.append(int(digits, 8))
+    # The name size and file size fields stand read as the
+    # lengths they state: the bytes standing hold the
+    # member name and the member data of those lengths
+    # behind the header, so a header whose stated sizes
+    # stand past the bytes standing reads as text.
+    name_size = values[8]
+    file_size = values[9]
+    return len(variant) >= 76 + name_size + file_size
 
 
 def _is_cpio_newc_header(variant):
@@ -578,6 +610,17 @@ def _is_cpio_newc_header(variant):
             return False
         if variant[110 + name_size - 1] != 0:
             return False
+    if all(
+            byte in b"0123456789abcdefABCDEF"
+            for byte in variant[102:110]) and name_size == 1:
+        # A complete header stating a name size of one
+        # holds a member name of no character but its
+        # terminator: the member name stands empty, no
+        # member stands named, and the prose standing
+        # behind the header where a member name with
+        # content or a trailer would stand reads as the
+        # text it is (entry S17-R9-010).
+        return False
     return len(variant) >= 110 + name_size + file_size
 
 
@@ -622,10 +665,46 @@ def _is_cab_header(variant):
         return False
     cabinet_size = int.from_bytes(variant[8:12], "little")
     first_file_offset = int.from_bytes(variant[16:20], "little")
-    return (
-        (cabinet_size == 0 or cabinet_size <= len(variant))
-        and (first_file_offset == 0
-             or 36 <= first_file_offset <= len(variant)))
+    if not (
+            (cabinet_size == 0 or cabinet_size <= len(variant))
+            and (first_file_offset == 0
+                 or 36 <= first_file_offset <= len(variant))):
+        return False
+    # The judgement stands on the tail fields of the
+    # header, at offsets 26 to 36: the folder count and
+    # the file count stand read as the counts they state,
+    # each folder holding an eight byte entry standing
+    # before the first file entry and each file a sixteen
+    # byte entry standing from that offset, both inside
+    # the cabinet size the header states, and the flags
+    # field stands in the bits the format defines, the
+    # previous cabinet, next cabinet, and reserve present
+    # bits alone, so prose letters standing in those
+    # fields, stating counts no cabinet of the stated
+    # size holds and flag bits no header carries, read
+    # as the text they are (entry S17-R9-010). The set
+    # identifier and cabinet index fields carry no value
+    # set a judgement can stand on and stand read for
+    # their place in the header alone. The signature pin
+    # form, whose counts and flags stand at zero and
+    # whose cabinet size stands at zero, stands under
+    # the reading above as it stood.
+    folder_count = int.from_bytes(variant[26:28], "little")
+    file_count = int.from_bytes(variant[28:30], "little")
+    flags = int.from_bytes(variant[30:32], "little")
+    if flags & ~0x0007:
+        return False
+    if cabinet_size:
+        if folder_count and (
+                first_file_offset == 0
+                or 36 + 8 * folder_count > first_file_offset):
+            return False
+        if file_count and (
+                first_file_offset == 0
+                or first_file_offset + 16 * file_count
+                > cabinet_size):
+            return False
+    return True
 
 
 _LINE_TERMINATORS = frozenset(
@@ -915,7 +994,9 @@ def _holds_tag_construct(text):
         # as the fragment delimiter of the same character
         # set (entry S17-R8-015).
         return True
-    if re.search(r"(?:^|[\s\[\{,;:\"'\(\)\]\}])[&*%!][A-Za-z]", text):
+    if re.search(
+            r"(?:^|[\s!\"#\$%&'\(\)\*\+,\-\./:;<=>\?@\[\\\]\^_`{|}~])"
+            r"[&*%!][A-Za-z]", text):
         # A construct stands judged at the start of the
         # text, after whitespace, and directly after a
         # flow opening bracket, the flow positions
@@ -929,7 +1010,10 @@ def _holds_tag_construct(text):
         # bracket, the closing curly brace, and the
         # closing parenthesis standing as judged positions
         # beside their opening counterparts (entry
-        # S17-R8-015).
+        # S17-R8-015), and directly after any remaining
+        # punctuation character, the position set standing
+        # whole as the whole punctuation set beside
+        # whitespace (entry S17-R9-011).
         return True
     if re.match(r"^[|>](?:[+-]?[0-9]?|[0-9][+-])?(?:\s|$)", text):
         # A block scalar header admits both indicator
@@ -1167,7 +1251,25 @@ def extract_front_matter(text):
                   "the front matter block holds a tag "
                   "construct, which the front matter "
                   "control set refuses")
-        for value in parsed.values():
+        for top_key, value in parsed.items():
+            # A string standing as a key of the top level
+            # object stands measured by its length in
+            # characters, as a string standing as a value
+            # stands measured: the loop over the members of
+            # the object measures each key beside the
+            # measure of its value, so a key past the limit
+            # stands refused at that position (entry
+            # S17-R9-012). The key positions inside a
+            # container stand measured as cured at entry
+            # S17-R8-016, and the seam refusal of entry
+            # S17-R7-032 stands in its exact stated form
+            # beside this cure, untouched.
+            if isinstance(top_key, str) \
+                    and len(top_key) > FRONT_MATTER_VALUE_LIMIT:
+                _fail("LIMIT_EXCEEDED",
+                      "front matter value length limit is "
+                      "4,096 characters, with rejection and "
+                      "no partial record")
             if isinstance(value, _WrittenNumber):
                 measured = len(value)
             elif isinstance(value, str):
@@ -2193,7 +2295,13 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
             return str(value)
         try:
             hash(value)
-        except TypeError:
+        except Exception:
+            # A field whose hash raises in any form, a
+            # TypeError or any other error, keys under the
+            # same placeholder, so the raising stands
+            # answered inside the recorded error vocabulary
+            # at the selection below and never as a raw
+            # error to the caller (entry S17-R9-013).
             return ("citeline-unhashable", type(value).__name__,
                     repr(value))
         return value
@@ -2213,9 +2321,30 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
             return False
         try:
             hash(value)
-        except TypeError:
+        except Exception:
             return True
         return False
+
+    def _overflow_field(value):
+        # A field standing in any form but a plain string
+        # form stands in the overflow list beside its sub
+        # index entries, string forms standing keyed by
+        # the plain string they stand equal to on the
+        # reading above: a form that is no string can hold
+        # a hash standing apart from its equality, keyed
+        # under its own hash where no candidate key
+        # reaches it, or a hash raising outside TypeError,
+        # so the key reading alone never compares it,
+        # whatever its equality test answers, and the
+        # bucket field equality reading at the selection
+        # below runs on it in every such form (entry
+        # S17-R9-013, completing entry S17-R8-017 past the
+        # form that cannot be hashed).
+        if isinstance(value, str):
+            return False
+        if value is None:
+            return False
+        return True
 
     def _index_standing(record, bucket_key, index):
         raw_bucket = tuple(_record_field(record, name) for name in (
@@ -2237,18 +2366,18 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
             sub_by_hash.setdefault(
                 (bucket_key, content_hash), []).append(entry)
             indexed = True
-        except TypeError:
+        except Exception:
             pass
         try:
             sub_by_date.setdefault(
                 (bucket_key, date_key), []).append(entry)
             indexed = True
-        except TypeError:
+        except Exception:
             pass
         if not indexed:
             overflow.append(entry)
-        elif any(_unkeyable_field(value) for value in raw_bucket) \
-                or _unkeyable_field(
+        elif any(_overflow_field(value) for value in raw_bucket) \
+                or _overflow_field(
                     _record_field(record, "content_hash")):
             # A record carrying a bucket field, or its
             # content hash, in a form that cannot be hashed
@@ -2261,7 +2390,14 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
             # alone would never compare it, while its
             # equality test can answer as the candidate
             # (entry S17-R8-017, completing entry
-            # S17-R7-034 past the string subclass form).
+            # S17-R7-034 past the string subclass form),
+            # and a record carrying such a field in a form
+            # whose hash stands apart from its equality, or
+            # whose hash raises outside TypeError, stands
+            # in the overflow list on the same ground, its
+            # key standing under its own hash or under the
+            # placeholder where no candidate key reaches
+            # it (entry S17-R9-013).
             overflow.append(entry)
 
     for standing in running_standing:

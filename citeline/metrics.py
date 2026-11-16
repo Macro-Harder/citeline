@@ -185,16 +185,20 @@ def _similar_components(type_sets):
     similar to the seed joins at once, which settles a
     clique shape in that one pass, at a price set by the
     prefix postings in place of the postings of the whole
-    seed. Where the prefix postings stand wide, so the
-    candidates they name stand at a large part of the
-    unvisited sets, the seed pass stands in a counting form
-    over posting bitsets instead: the shared count of every
-    unvisited set with the seed stands counted in parallel
-    bit planes, and the sets reaching the threshold for
-    their size stand named from the count, the same exact
-    judgement at a price set by the width of the
-    computation in place of the candidate count. The
-    component then grows
+    seed. Where the exact judgement of the candidates
+    stands priced past a counted reading, the seed pass
+    stands in that counted form instead, at any seed size
+    and at any prefix posting total: the shared count of
+    every unvisited set with the seed stands counted in
+    parallel bit planes in batches of the seed shingles
+    in their rare first order, a set whose counted misses
+    stand past the allowance its size carries standing
+    excluded in full and counted no further, and the sets
+    standing live at the end of the counting stand at
+    exactly the sets whose full count reaches the
+    threshold for their size, the same exact judgement at
+    a price set by the batches the live sets survive.
+    The component then grows
     layer by layer from the sets that joined last, the
     frontier. A set can join through a frontier member only
     where it shares a shingle with one, so the candidates of
@@ -239,22 +243,19 @@ def _similar_components(type_sets):
     # judges the visited flag of each member it meets.
     shingle_ids = {}
     sets = []
-    for shingle_set in type_sets:
+    postings = []
+    for index, shingle_set in enumerate(type_sets):
         id_set = set()
         for shingle in shingle_set:
             ident = shingle_ids.get(shingle)
             if ident is None:
                 ident = len(shingle_ids)
                 shingle_ids[shingle] = ident
+                postings.append([])
             id_set.add(ident)
+            postings[ident].append(index)
         sets.append(id_set)
-    postings = {}
-    for index, id_set in enumerate(sets):
-        for ident in id_set:
-            postings.setdefault(ident, set()).add(index)
-    unvisited_count = [0] * len(shingle_ids)
-    for ident, members in postings.items():
-        unvisited_count[ident] = len(members)
+    unvisited_count = [len(members) for members in postings]
     visited = [False] * count
     by_size = {}
     for index, id_set in enumerate(sets):
@@ -270,16 +271,17 @@ def _similar_components(type_sets):
     # pass that reads it, and the sorted form stands kept.
     shingle_rank = {}
     for rank, ident in enumerate(sorted(
-            postings, key=lambda item: (len(postings[item]), item))):
+            range(len(postings)),
+            key=unvisited_count.__getitem__)):
         shingle_rank[ident] = rank
     ordered_cache = {}
     # Posting bitsets over the set indices, built lazily
-    # per shingle the first time the wide seed reading
+    # per shingle the first time the counted seed reading
     # needs one and kept for the computation: bit position
     # index stands for the set of that index, in a byte
     # array read as a little endian integer. The size masks
     # stand built once, and the visited mask stands kept
-    # by mark below, so the wide reading names its sets
+    # by mark below, so the counted reading names its sets
     # from the masks alone.
     bit_width = (count + 7) // 8
     all_mask = (1 << count) - 1 if count else 0
@@ -300,45 +302,83 @@ def _similar_components(type_sets):
             bit_postings[ident] = posting
         return posting
 
-    def wide_seed_layer(thresholds):
-        # The shared count of every set with the seed,
-        # counted in parallel: one bit plane per bit of the
-        # count, each seed shingle posting added into the
-        # planes in turn. A set stands in the layer where
-        # its count reaches the threshold for its size, the
-        # comparison standing read from the planes per size
-        # in bitwise form, so no candidate stands judged
-        # set against set on this reading.
+    def counted_seed_layer(thresholds):
+        # The shared count of every unvisited set with the
+        # seed, counted in parallel in batches of the seed
+        # shingles in their rare first order: one bit plane
+        # per bit of the count, each seed shingle posting
+        # added into the planes in turn, the postings
+        # standing masked to the sets that stand live after
+        # the batch before. A set similar to the seed
+        # misses at most the seed size less the threshold
+        # for its size of the seed shingles, its allowance,
+        # so after any batch a set whose counted misses
+        # stand past its allowance stands excluded in full
+        # and stands counted no further, the comparison
+        # standing read from the planes per size in bitwise
+        # form. Where no live set stands the counting
+        # stops, and where the counting stands complete the
+        # live sets stand at exactly the sets whose full
+        # count reaches the threshold for their size, the
+        # same exact judgement the prefix form makes, so no
+        # candidate stands judged set against set on this
+        # reading and no set the rule names stands lost.
+        allowances = {
+            size: seed_size - threshold
+            for size, threshold in thresholds.items()}
+        active = 0
+        for size in thresholds:
+            active |= size_masks[size]
+        active &= all_mask & ~visited_mask
+        if not active:
+            return []
+        ordered = ordered_set(seed)
         planes = []
-        for ident in seed_set:
-            carry = bit_posting(ident)
-            level = 0
-            while carry:
-                if level == len(planes):
-                    planes.append(0)
-                next_carry = planes[level] & carry
-                planes[level] ^= carry
-                carry = next_carry
-                level += 1
-        unvisited_mask = all_mask & ~visited_mask
+        counted = 0
+        index = 0
+        while index < len(ordered):
+            batch = ordered[index:index + 128]
+            index += len(batch)
+            for ident in batch:
+                carry = bit_posting(ident) & active
+                level = 0
+                while carry:
+                    if level == len(planes):
+                        planes.append(0)
+                    next_carry = planes[level] & carry
+                    planes[level] ^= carry
+                    carry = next_carry
+                    level += 1
+            counted += len(batch)
+            survivors = 0
+            for size, allowance in allowances.items():
+                need = counted - allowance
+                size_active = size_masks[size] & active
+                if need <= 0:
+                    survivors |= size_active
+                    continue
+                equal = all_mask
+                greater = 0
+                top = max(len(planes), need.bit_length())
+                for bit in range(top - 1, -1, -1):
+                    plane = planes[bit] if bit < len(planes) else 0
+                    if (need >> bit) & 1:
+                        equal &= plane
+                    else:
+                        greater |= equal & plane
+                        equal &= all_mask ^ plane
+                survivors |= (greater | equal) & size_active
+            active = survivors
+            if not active:
+                return []
+            if counted < len(ordered):
+                planes = [plane & active for plane in planes]
         layer = []
-        for size, threshold in thresholds.items():
-            equal = all_mask
-            greater = 0
-            top = max(len(planes), threshold.bit_length())
-            for bit in range(top - 1, -1, -1):
-                plane = planes[bit] if bit < len(planes) else 0
-                if (threshold >> bit) & 1:
-                    equal &= plane
-                else:
-                    greater |= equal & plane
-                    equal &= all_mask ^ plane
-            mask = (greater | equal) & size_masks[size] \
-                & unvisited_mask
-            while mask:
-                lowest = mask & -mask
-                layer.append(lowest.bit_length() - 1)
-                mask ^= lowest
+        mask = active
+        while mask:
+            lowest = mask & -mask
+            layer.append(lowest.bit_length() - 1)
+            mask ^= lowest
         return sorted(layer)
 
     def ordered_set(index):
@@ -401,19 +441,31 @@ def _similar_components(type_sets):
                 if prefix_length > seed_size:
                     prefix_length = seed_size
                 prefix = ordered_set(seed)[:prefix_length]
-                # The wide reading stands taken where the
-                # prefix postings name a large part of the
-                # unvisited sets in total: there the exact
-                # judgement per candidate prices the pass at
-                # the candidate count times the set size, and
-                # the counting form over the posting bitsets
-                # prices it at the width of the computation
-                # instead, naming the same layer.
-                wide = remaining >= 256 and seed_size <= 2000 \
-                    and sum(unvisited_count[shingle]
-                            for shingle in prefix) > 1024
-                if wide:
-                    first_layer = wide_seed_layer(thresholds)
+                # The counted reading stands taken where
+                # the wide reading of the round 8 cure stood
+                # taken, and beside it wherever the exact
+                # judgement of the prefix form stands priced
+                # past it: that price stands at the candidate
+                # count the prefix postings can name, bounded
+                # by the posting total and by the unvisited
+                # count, times the seed size, and a price
+                # past 50,000 stands counted instead, at any
+                # seed size and at any prefix posting total.
+                # The counted reading stands exact on every
+                # family it stands taken on, as its own
+                # statement states, naming the same layer, so
+                # no guard on the seed size and no guard on
+                # the posting total stands between a family
+                # and the backstop on this pass.
+                prefix_total = sum(unvisited_count[shingle]
+                                   for shingle in prefix)
+                take_counted = (remaining >= 256
+                                and seed_size <= 2000
+                                and prefix_total > 1024) \
+                    or min(remaining, prefix_total) * seed_size \
+                    > 50000
+                if take_counted:
+                    first_layer = counted_seed_layer(thresholds)
                 else:
                     candidates = set()
                     for shingle in prefix:

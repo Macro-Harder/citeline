@@ -1559,13 +1559,24 @@ def _fm_holds_tag_construct(text):
     judged directly after the separator standing between
     two flow items, after the colon of a flow mapping,
     after a semicolon, after a quote, and after an
-    opening parenthesis)."""
+    opening parenthesis, completed at round 9 entry
+    S17-R9-002 to the import side forms cured at round 8
+    entry S17-R8-015: an angle bracket spelling opens on
+    the hash, and a construct stands judged directly
+    after a closing bracket, the closing square bracket,
+    the closing curly brace, and the closing parenthesis,
+    and completed at round 9 entry S17-R9-019 at the
+    remaining punctuation positions, so a construct
+    stands judged directly after any punctuation
+    character, the position set standing whole)."""
     if text.startswith(("!", "&", "*", "%")):
         return True
     if re.search(
-            r"<[A-Za-z0-9\-._;/?:@&=+$,!~*'()%\[\]\^][^>]*>", text):
+            r"<[A-Za-z0-9\-._;/?:@&=+$,!~*'()%\[\]\^#][^>]*>", text):
         return True
-    if re.search(r"(?:^|[\s\[\{,;:\"'\(])[&*%!][A-Za-z]", text):
+    if re.search(
+            r"(?:^|[\s!\"#\$%&'\(\)\*\+,\-\./:;<=>\?@\[\\\]\^_`{|}~])"
+            r"[&*%!][A-Za-z]", text):
         return True
     if re.match(r"^[|>](?:[+-]?[0-9]?|[0-9][+-])?(?:\s|$)", text):
         return True
@@ -1633,15 +1644,21 @@ def _fm_container_value_measure(value):
     container marks, the quote marks, and the separators
     of the rendering count for nothing in the measure
     (Step 17 round 8 entry S17-R8-028, on the cure at
-    round 7 entry S17-R7-032)."""
+    round 7 entry S17-R7-032, completed at round 9 entry
+    S17-R9-003 at the key position, on the form the
+    import side cure at round 8 entry S17-R8-016 states:
+    a string standing as a key inside a container stands
+    measured by its length in characters beside the
+    measure of its value, at any depth)."""
     if isinstance(value, _FmWrittenNumber):
         return len(value)
     if isinstance(value, str):
         return len(value)
     if isinstance(value, dict):
         return sum(
-            _fm_container_value_measure(item)
-            for item in value.values())
+            _fm_container_value_measure(key)
+            + _fm_container_value_measure(item)
+            for key, item in value.items())
     if isinstance(value, list):
         return sum(
             _fm_container_value_measure(item) for item in value)
@@ -1840,8 +1857,14 @@ def _front_matter(text, fmt, notes, block_limit_bytes=None,
                           "JSON nesting depth limit is 100, "
                           "with rejection and no partial "
                           "record")
-                for json_value in parsed.values():
-                    if _fm_json_value_length(json_value) \
+                for json_key, json_value in parsed.items():
+                    # A string standing as a key of the top
+                    # level object stands measured by its
+                    # length in characters, as a string
+                    # standing as a value stands measured
+                    # (Step 17 round 9 entry S17-R9-020).
+                    if len(str(json_key)) > value_limit \
+                            or _fm_json_value_length(json_value) \
                             > value_limit:
                         _fail("LIMIT_EXCEEDED",
                               "front matter value length per "

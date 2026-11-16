@@ -455,7 +455,8 @@ def _path_is_unsafe_home_file(path):
         or info.st_nlink > 1
 
 
-def _open_home_file_descriptor(path, mode, create=None):
+def _open_home_file_descriptor(path, mode, create=None,
+                               defer_truncate=False):
     """Open one home own file for a writing route, judged
     at the open itself.
 
@@ -470,9 +471,17 @@ def _open_home_file_descriptor(path, mode, create=None):
     S17-R5-062). Mode "a" appends, mode "w" writes and
     truncates only after the judgement stands, mode
     "r+" reads and writes without truncating, and mode
-    "r" reads only. A path that stands in an unsafe
-    form, and a path that cannot be opened, raises
-    _UnsafeHomeFile or the OSError the open raised.
+    "r" reads only. Where defer_truncate stands at a
+    mode "w" open, the truncate stands deferred to the
+    caller, which truncates through the handle only
+    after a further rejudgement of the handle stands:
+    no truncate then stands placed after the judgement
+    at the open and before the rejudgement that catches
+    a plant at the return of that judgement (Step 17
+    round 9 entry S17-R9-001). A path that stands in an
+    unsafe form, and a path that cannot be opened,
+    raises _UnsafeHomeFile or the OSError the open
+    raised.
     """
     if create is None:
         create = mode in ("a", "w")
@@ -526,7 +535,7 @@ def _open_home_file_descriptor(path, mode, create=None):
         info = os.fstat(descriptor)
         if not stat.S_ISREG(info.st_mode) or info.st_nlink > 1:
             raise _UnsafeHomeFile(path)
-        if mode == "w":
+        if mode == "w" and not defer_truncate:
             os.ftruncate(descriptor, 0)
     except BaseException:
         os.close(descriptor)
@@ -1660,7 +1669,8 @@ def write_config(home, text):
         token="SUPPLIED_PATH_UNSAFE"))
     path = config_path(home)
     try:
-        descriptor = _open_home_file_descriptor(path, "w")
+        descriptor = _open_home_file_descriptor(
+            path, "w", defer_truncate=True)
     except _UnsafeHomeFile:
         # The config file is a home own file: a link
         # standing at its path is not written through, in
@@ -1680,6 +1690,16 @@ def write_config(home, text):
                 "regular file, or a hard linked file; the "
                 "write stands refused", row="X-4",
                 token="SUPPLIED_PATH_UNSAFE")
+        # The truncate the write performs stands here,
+        # after the rejudgement above and not at the
+        # open: a hard link planted at the return of the
+        # judgement at the open stands caught by that
+        # rejudgement before any truncate can land, so
+        # the standing config text stands whole where
+        # the write refuses on that plant (Step 17
+        # round 9 entry S17-R9-001).
+        os.ftruncate(handle.fileno(), 0)
+        handle.seek(0)
         handle.write(text)
         handle.flush()
         os.fsync(handle.fileno())
@@ -1696,6 +1716,33 @@ def write_config(home, text):
             # stands removed, and no config text stands
             # readable under the outside name (Step 17
             # round 8 entry S17-R8-025).
+            handle.truncate(0)
+            handle.flush()
+            os.fsync(handle.fileno())
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+            raise ConfigError(
+                "the config path stands as a link, a non "
+                "regular file, or a hard linked file; the "
+                "write stands refused", row="X-4",
+                token="SUPPLIED_PATH_UNSAFE")
+        try:
+            _rejudge_open_descriptor(handle.fileno(), path)
+        except _UnsafeHomeFile:
+            # A final judgement stands after the post
+            # write rejudgement above: a hard link
+            # planted at the return of that rejudgement
+            # reading stands unseen by it, so the handle
+            # stands judged once more before the write
+            # answers, and a plant that final judgement
+            # catches stands answered in the same form,
+            # the written text truncated off the handle
+            # and the config name removed, so no written
+            # config text stands readable under the
+            # outside name and no success stands reported
+            # (Step 17 round 9 entry S17-R9-017).
             handle.truncate(0)
             handle.flush()
             os.fsync(handle.fileno())
