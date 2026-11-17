@@ -644,9 +644,13 @@ class Test083KillInsideBatch(KillBase):
                              audit_date=AUDIT_DATE)
         self.assertEqual(entry_count(self.home), before + 2)
         records = payloads_of_kind(self.home, "failure_record")
+        # The recovery record's error_value stands in the
+        # closed vocabulary: Step 19 item R19-095 supersedes
+        # the raw interrupted_batch string this assertion
+        # pinned before that cure.
         self.assertEqual(
             [r.get("error_value") for r in records],
-            ["interrupted_batch", "SEED_AFTER_KILL"])
+            ["TEMPORARY_LOST", "SEED_AFTER_KILL"])
         self.assertTrue(journal.verify_chain(str(self.home))["passed"])
 
 

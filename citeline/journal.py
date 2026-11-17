@@ -2905,9 +2905,30 @@ def recover_interrupted_batch(home):
             # as landed, and the intent record stands as
             # its evidence (Step 17 round 4 entry
             # S17-R4-069).
+            # The record stands built through the
+            # CitelineError constructor guard, as every
+            # recorded error stands: its error_value is a
+            # token of the closed vocabulary, the row X-13
+            # token for a writer lost before its write
+            # completed, and the record carries that
+            # token's row, class, and exit code beside it,
+            # so no value outside the closed set stands in
+            # the stored journal (Step 19 item R19-095).
+            # The rule that fired keeps its own name in the
+            # rule_fired field, as the standing failure
+            # record vectors carry a rule name beside their
+            # token.
+            recovery_error = JournalError(
+                "a recovery ran: an interrupted batch "
+                "stands rolled back",
+                row="X-13", token="TEMPORARY_LOST")
             payload = {
                 "operation": "recovery",
-                "error_value": "interrupted_batch",
+                "error_value": recovery_error.error_value,
+                "row": recovery_error.row,
+                "precedence_class":
+                    recovery_error.precedence_class,
+                "exit_code": recovery_error.exit_code,
                 "subject_identity": "batch of %d entries" % count,
                 "date": None,
                 "rule_fired": "interrupted_batch",

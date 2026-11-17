@@ -68,3 +68,32 @@ class VerifyErrorValueTests(HomeCase):
         self.assertEqual(result["exit_code"], 5)
 
 
+class RecoveryRecordVocabularyTests(HomeCase):
+    """R19-095: the recovery failure record stands built
+    through the CitelineError constructor guard, so its
+    error_value is one of the closed vocabulary tokens,
+    with its row, class, and exit code carried."""
+
+    def test_recovery_record_error_value_in_vocabulary(self):
+        self.append_product("P0", "p-0")
+        with open(journal.journal_path(self.home), "rb") as handle:
+            size_before = len(handle.read())
+        journal.append_entry(
+            self.home, "audit_record", {"tag": "partial"})
+        journal._write_batch_intent(
+            self.home, size_before, None, None, 1)
+        self.assertTrue(journal.recover_interrupted_batch(self.home))
+        entries = journal.fold(self.home)
+        records = [entry for entry in entries
+                   if entry["entry_kind"] == "failure_record"]
+        self.assertEqual(len(records), 1)
+        payload = records[0]["payload"]
+        self.assertEqual(payload["operation"], "recovery")
+        tokens = {row["token"] for row in errors.ERROR_VOCABULARY}
+        self.assertIn(payload["error_value"], tokens)
+        self.assertEqual(payload["error_value"], "TEMPORARY_LOST")
+        self.assertEqual(payload["row"], "X-13")
+        self.assertEqual(payload["precedence_class"], "integrity")
+        self.assertEqual(payload["exit_code"], 5)
+
+

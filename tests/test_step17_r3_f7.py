@@ -147,7 +147,11 @@ class Test029ReadSideRecovery(SeededBase):
             len(entries_of_kind(self.home, "answer_imported")), 0)
         values = [payload.get("error_value")
                   for payload in result.get("failure_records") or []]
-        self.assertIn("interrupted_batch", values)
+        # The recovery record's error_value stands in the
+        # closed vocabulary: Step 19 item R19-095 supersedes
+        # the raw interrupted_batch string this assertion
+        # pinned before that cure.
+        self.assertIn("TEMPORARY_LOST", values)
 
     def test_probe_report_recovers_partial_batch(self):
         self.import_one()
