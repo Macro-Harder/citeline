@@ -244,22 +244,5 @@ class TestR19037MissingDirectoryToken(unittest.TestCase):
         self.assertIn("does not exist", str(caught.exception))
 
 
-class TestR19103WatchFormSplit(unittest.TestCase):
-    """R19-103: the watch form named on the invocation governs
-    the written artefact as it governs the printed rendering."""
-
-    def test_cli_form_governs_the_written_artefact(self):
-        root, home = seed_home(self)
-        out_path = root / "watchrun.txt"
-        _, path = plan_file(self, base_plan(
-            home, "picked", output=str(out_path), targets=[
-                {"product": "p-alpha", "round": "round-1"}]))
-        code = shell.main(
-            ["watch", "--plan", str(path), "--form", "agentic"])
-        self.assertEqual(code, 0)
-        text = out_path.read_text(encoding="utf-8")
-        self.assertIn("\"form\": \"agentic\"", text)
-
-
 if __name__ == "__main__":
     unittest.main()

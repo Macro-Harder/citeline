@@ -1413,6 +1413,14 @@ def _write_output(result, output_path, form):
             "DESTINATION_EXISTS",
             "the WatchRun output path stands occupied and "
             "stands never replaced: %s" % output_path)
+    except FileNotFoundError:
+        # A write into a directory that does not exist is
+        # not a destination that exists: it stands reported
+        # in its own terms, never under DESTINATION_EXISTS.
+        _fail(
+            "VALIDATION_FAILED",
+            "the WatchRun output directory does not exist: "
+            "%s" % (os.path.dirname(str(output_path)) or ".",))
     except (OSError, ValueError, UnicodeError) as exc:
         _fail(
             "DESTINATION_EXISTS",
