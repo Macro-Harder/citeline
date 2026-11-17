@@ -2925,12 +2925,32 @@ def _render_simple(body):
                 1 for finding in findings
                 if isinstance(finding, dict)
                 and finding.get("outcome") == "disallowed")
-            lines.append(
+            controls = sum(
+                1 for finding in findings
+                if isinstance(finding, dict)
+                and (finding.get("purpose_class") == "control"
+                     or finding.get("outcome") is None))
+            summary = (
                 "For the evaluated page path %s, the robots "
                 "file lets %d of the %d listed crawlers "
                 "reach it and bars %d."
                 % (_scalar_text(body.get("evaluated_page_path")),
                    allowed, len(findings), barred))
+            if controls:
+                # The control rows carry no reach outcome:
+                # they govern a described use, not a fetch
+                # of the path. The summary names them as
+                # controls, so every listed crawler stands
+                # accounted for in the headline figures
+                # (Phase 8 finding P8O-03).
+                summary += (
+                    " The other %d of the listed crawlers "
+                    "are control rows: a control row governs "
+                    "a described use rather than a fetch of "
+                    "the path, so it stands neither as "
+                    "reaching the path nor as barred from it."
+                    % controls)
+            lines.append(summary)
             lines.append(
                 "evidence_label: the label stating how the "
                 "crawler purpose in a finding stands "

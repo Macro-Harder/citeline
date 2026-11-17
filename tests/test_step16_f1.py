@@ -340,7 +340,11 @@ class TestD27RobotsPathAtHead(F1Base):
             lines[1],
             "For the evaluated page path /, the robots file "
             "lets 23 of the 25 listed crawlers reach it and "
-            "bars 0.")
+            "bars 0. The other 2 of the listed crawlers are "
+            "control rows: a control row governs a described "
+            "use rather than a fetch of the path, so it stands "
+            "neither as reaching the path nor as barred from "
+            "it.")
         self.assertIn("evidence_label: the label stating",
                       lines[2])
         self.assertIn(
