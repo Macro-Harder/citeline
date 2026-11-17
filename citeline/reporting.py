@@ -1071,7 +1071,13 @@ def _advanced_body(record):
 # standing outside it, as the Yellow boundary states. The
 # set stands completed on the product nouns the round 7
 # entry names: citation, citations, evidence, quotation,
-# quotations, statistics, freshness, and sampling.
+# quotations, statistics, freshness, and sampling. The
+# word metrics stands in the set on the same rule, so the
+# fused form answermetrics segments as answer and
+# metrics, the components of its separated form, and the
+# answer_metrics container in the control failure notice
+# pass stands judged on it as on the separated form
+# (Step 19 Phase 7 item P7A3-F2-1).
 _FUSED_COMPONENT_WORDS = frozenset((
     "action", "actions", "answer", "answers", "applicable",
     "audit", "band", "basis", "capture", "captured", "card",
@@ -1088,7 +1094,7 @@ _FUSED_COMPONENT_WORDS = frozenset((
     "identity", "interval", "intervals", "item", "items",
     "key", "keys", "kind", "label", "labels", "last",
     "limit", "limits", "list", "low", "marker", "markers",
-    "mean", "method", "methods", "my", "name", "named",
+    "mean", "method", "methods", "metrics", "my", "name", "named",
     "names", "naming", "net", "note", "notes", "notice",
     "number", "numbers", "object", "objects", "opening",
     "operation", "overall", "page", "path", "paths", "pct",
