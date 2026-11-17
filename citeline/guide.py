@@ -831,6 +831,27 @@ def _record_states_failed_control(record):
     # judged on its member names as written, in the
     # standing form: the conversion drops private names
     # on object records only.
+    # The walk stands on the conversion terms whole, in
+    # the order that module states them. A value the
+    # conversion passes through as a scalar, standing as
+    # a bool, an int, a float, or a str, states nothing
+    # past itself: a str, int, or float subclass carrier
+    # stands judged on that pass, its public attributes
+    # and its _asdict form standing in no part judged
+    # (Step 17 round 17 entry S17-R17-006). A mapping
+    # returned by an _asdict form stands judged on its
+    # items, in whatever mapping form it stands, dict or
+    # not, as the conversion reads it (Step 17 round 17
+    # entry S17-R17-007). And the value standing under a
+    # flag name stands judged on its converted form, as
+    # the conversion states it, not on its raw form: a
+    # non finite float or Decimal standing as no figure,
+    # and an attribute carrying value standing as the
+    # plain form of its public fields, empty where it
+    # carries none (Step 17 round 17 entry S17-R17-008).
+    # The conversion itself stands read from the
+    # reporting module, so the two readings stand as one
+    # reading on the value as on the field set.
     from citeline import reporting
 
     def walk(node):
@@ -841,8 +862,14 @@ def _record_states_failed_control(record):
         elif isinstance(node, (list, tuple)):
             for item in node:
                 yield from walk(item)
+        elif isinstance(node, (bool, int, float, str)):
+            return
         elif hasattr(node, "_asdict"):
-            yield from walk(node._asdict())
+            returned = node._asdict()
+            if hasattr(returned, "items"):
+                yield from walk(dict(returned.items()))
+            else:
+                yield from walk(returned)
         elif hasattr(node, "__dict__"):
             yield from walk({
                 key: item for key, item in vars(node).items()
@@ -851,7 +878,8 @@ def _record_states_failed_control(record):
     for obj in walk(record):
         for key, value in obj.items():
             if tuple(reporting._key_components(key)) in \
-                    _FAILED_CONTROL_COMPONENTS and value:
+                    _FAILED_CONTROL_COMPONENTS \
+                    and reporting._plain(value):
                 return True
     return False
 

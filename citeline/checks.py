@@ -791,6 +791,28 @@ def _saying_verb_pattern():
 
 _SAYING_VERB_PATTERN = _saying_verb_pattern()
 
+# The saying verb forms standing past the built stem
+# list, round 17, read on the form of the verb itself:
+# a word carrying a verb form ending, its past form in
+# ed, its participle form in ing, or its present form
+# in s, beside the invariant form forecast and the
+# irregular past form swore the batteries state. A verb
+# read on its form alone stands as a companion
+# attribution only where a subject in one of its
+# ordinary forms stands after it, a capitalised name,
+# a pronoun, or a determiner led noun phrase, so a tail
+# standing opened by an auxiliary, whose next word
+# stands in no subject form, reads as no attribution on
+# this limb in the same way as it did on the stem list.
+_SAYING_VERB_MORPH_PATTERN = (
+    r"[A-Za-z]+(?:ed|ing|ies|es|s)"
+    r"|swore|forecast"
+)
+_SAYING_SUBJECT_PATTERN = (
+    r"(?:[A-Z][A-Za-z]*|she|he|they|we|it"
+    r"|the|a|an|this|that)\b"
+)
+
 
 def _curly_single_is_internal(text, pos):
     """Whether the typographic apostrophe at pos stands
@@ -946,19 +968,24 @@ def _curly_single_is_internal(text, pos):
         # has become the cats, the copula form itself
         # standing directly after the determiner there.
         # The places stand judged on the composition
-        # itself past the first word lists: the
-        # determiner place reads the quantifier
-        # determiners in the same place as the
-        # demonstrative and possessive forms, as in it
-        # is some cats and it is no cats; the adverb
-        # place reads any adverb in its ly form in the
-        # same place as the listed adverbs, as in it is
-        # certainly the cats and it is probably the
-        # dogs; and the copula place reads any form of
+        # itself past the closed sets of the earlier
+        # cures, round 17: the determiner place reads
+        # the determiner class in its full form, the
+        # articles, the demonstrative and possessive
+        # forms, and the quantifier determiners, as in
+        # it is some cats, it is many cats, and it is
+        # several cats, with a predeterminer standing
+        # directly before the noun read in the same
+        # place, as in it is all cats; the adverb and
+        # predeterminer places standing between the
+        # determiner and the copula read whatever words
+        # stand there, as in it is perhaps the cats, it
+        # is in fact the cats, and it is triple the
+        # cats; and the copula place reads any form of
         # a copular verb, its present, past, and
         # participle forms alike, as in it is becoming
-        # the cats, it stays the cats, and it appears
-        # the cats.
+        # the cats, it stays the cats, it appears the
+        # cats, and it sounds the cats.
         line_start = text.rfind("\n", 0, mark) + 1
         words = []
         cursor = mark
@@ -997,16 +1024,16 @@ def _curly_single_is_internal(text, pos):
             "her", "its", "those", "these", "this",
             "that", "my", "a", "an", "some", "any",
             "no", "every", "each", "either", "neither",
-            "another",
-        )
-        predeterminers = (
-            "all", "both", "half", "double", "twice",
-            "such",
+            "another", "many", "few", "several", "most",
+            "other", "certain", "various", "numerous",
+            "countless", "enough", "much", "more",
+            "all", "both", "such", "half",
         )
         copula_stems = (
             "be", "seem", "appear", "remain", "become",
             "stay", "look", "feel", "grow", "turn",
-            "prove", "get", "go", "come",
+            "prove", "get", "go", "come", "sound",
+            "smell", "taste",
         )
         copula_irregular = (
             "am", "is", "are", "was", "were", "been",
@@ -1032,19 +1059,6 @@ def _curly_single_is_internal(text, pos):
                     return True
             return False
 
-        adverbs = (
-            "really", "still", "also", "just", "not",
-            "never", "always", "now", "then", "very",
-            "even", "only", "indeed", "quite", "rather",
-            "fairly", "somewhat", "almost", "nearly",
-            "too", "so",
-        )
-
-        def is_adverb(word):
-            if word in adverbs:
-                return True
-            return len(word) > 3 and word.endswith("ly")
-
         if len(words) < 3:
             return False
         det_index = None
@@ -1054,15 +1068,22 @@ def _curly_single_is_internal(text, pos):
                 break
         if det_index is None:
             return False
-        index = det_index + 1
-        while index < len(words) and (
-            is_adverb(words[index])
-            or words[index] in predeterminers
-        ):
-            index += 1
-        if index >= len(words):
-            return False
-        return is_copula(words[index])
+        # The places standing between the determiner and
+        # the copula stand read on the composition
+        # itself, round 17: the adverb place and the
+        # predeterminer place carry whatever words the
+        # wording carries there, a single adverb in any
+        # form, an adverbial phrase, a negation, or a
+        # multiplier phrase alike, so no closed set at
+        # either place settles the judgement. The
+        # judgement seeks the copula of the composition
+        # standing before that material, in any copula
+        # form, however many words stand in the places
+        # between it and the determiner.
+        for index in range(det_index + 1, len(words)):
+            if is_copula(words[index]):
+                return True
+        return False
 
     own_possessive = mark_is_possessive(pos)
     predicate_possessive = mark_is_predicate_possessive(pos)
@@ -1259,12 +1280,22 @@ def _curly_single_is_internal(text, pos):
             # common noun phrase alike, as in replied
             # Priya Nair, said she, and said the chair,
             # the charge stating no verb limit and no
-            # name form limit.
+            # name form limit. Round 17: a saying verb
+            # standing past the built stem list stands
+            # read on the form of the verb itself at
+            # _SAYING_VERB_MORPH_PATTERN, in its past,
+            # present, and participle forms alike, at
+            # every separator standing at the companion
+            # closing and at no separator alike, where a
+            # subject in one of its ordinary forms stands
+            # after it, as in acknowledged Priya Nair.
             saying_verbs = _SAYING_VERB_PATTERN
             companion_attributed = re.match(
                 r"\s*[,;:!?.]?\s*"
-                r"(?i:" + saying_verbs + r")"
-                r"\s+[A-Za-z]+",
+                r"(?:(?i:" + saying_verbs + r")"
+                r"\s+[A-Za-z]+"
+                r"|(?i:" + _SAYING_VERB_MORPH_PATTERN + r")"
+                r"\s+" + _SAYING_SUBJECT_PATTERN + r")",
                 tail) is not None
             companion_subordinated = re.match(
                 r"\s*as\s+(?:she|he|they|we|it)\s+"
@@ -1272,10 +1303,17 @@ def _curly_single_is_internal(text, pos):
                 r"|asked|wrote)\b",
                 between_first.lower()) is not None
             outer_attributed = (
-                re.search(
-                    r"\b(?:" + saying_verbs + r")"
-                    r"\s+[A-Za-z]+",
-                    tail, re.IGNORECASE) is not None
+                (
+                    re.search(
+                        r"\b(?:" + saying_verbs + r")"
+                        r"\s+[A-Za-z]+",
+                        tail, re.IGNORECASE) is not None
+                    or re.search(
+                        r"\b(?i:"
+                        + _SAYING_VERB_MORPH_PATTERN + r")"
+                        r"\s+" + _SAYING_SUBJECT_PATTERN,
+                        tail) is not None
+                )
                 and not companion_attributed
             )
             span_opening = text.rfind(
@@ -1838,23 +1876,36 @@ def _statistic_analysis(page):
     month_alt_early = (
         month_names_early + "|" + _MONTH_ABBREVIATIONS)
     # The joiner standing between a date and its time,
-    # in either order, round 16, in any written form of
-    # the composition: a joiner word at, on, and, by, or
-    # before, the word by standing inside the cure in
-    # the form the round 16 disposition states, a comma
-    # standing before such a word, a semicolon, a
-    # colon, a pipe, a slash, an ampersand, an opening
-    # parenthesis, or a hyphen in any spacing, one
-    # hyphen or more standing between spaces, standing
-    # against the date with no space, or standing
-    # against the time with no space. The time first
-    # limb states the same joiner set as the date first
-    # limbs of the same composition, the colon and the
-    # pipe standing in both sets alike.
+    # in either order, round 17, in any written form of
+    # the composition: a joiner word of the composition,
+    # at, on, and, by, before, during, circa, until,
+    # till, to, around, about, or after, a comma standing
+    # before such a word, any run of symbol characters
+    # standing between the date and the time, an at sign,
+    # a tilde, a dash of any form, brackets, or any other
+    # symbol run alike, in any spacing, or the letter T
+    # standing glued between them. The marker of the
+    # composition stands in its undotted form and in its
+    # dotted written form, with the closing dot of the
+    # dotted form standing optional, in either case,
+    # spaced after the time or glued against it. The
+    # time first limbs state the same joiner set as the
+    # date first limbs of the same composition, on a
+    # full date in day first or month first order,
+    # spelled with a comma before its year or with no
+    # comma, and state the time standing first in its
+    # plain form and in its spaced marker form alike.
+    joiner_word_early = (
+        r"(?:at|on|and|by|before|during|circa|until"
+        r"|till|to|around|about|after)")
     joiner_early = (
-        r"(?:\s*,\s*(?:at|on|and|by|before)\s+"
-        r"|\s+(?:at|on|and|by|before)\s+"
-        r"|\s*(?:;|:|\||/|&|\(|-+)\s*)")
+        r"(?:\s*,\s*" + joiner_word_early
+        + r"(?:\s+(?:around|about))?\s+"
+        r"|\s+" + joiner_word_early
+        + r"(?:\s+(?:around|about))?\s+"
+        r"|\s*(?:[^\w\s]|_)+\s*"
+        r"|\s*T\s*(?=\d))")
+    marker_early = r"(?:AM|PM|A\.M\.?|P\.M\.?)"
     for date_pattern in (
         # The joiner forms past the comma and space
         # compositions, round 15, standing first on the
@@ -1874,16 +1925,30 @@ def _statistic_analysis(page):
         + month_alt_early + r")\.?\s*,?\s*\d{2,4}"
         + joiner_early
         + r"\d{1,2}:\d{2}(?::\d{2})?\s*"
-        r"(?:AM|PM|A\.M\.|P\.M\.)(?!\w)",
+        + marker_early + r"(?!\w)",
         r"\b(?:" + month_alt_early + r")\.?\s+"
         r"\d{1,2}(?:st|nd|rd|th)?\s*,?\s*\d{2,4}"
         + joiner_early
         + r"\d{1,2}:\d{2}(?::\d{2})?\s*"
-        r"(?:AM|PM|A\.M\.|P\.M\.)(?!\w)",
+        + marker_early + r"(?!\w)",
         r"\b\d{1,2}:\d{2}(?::\d{2})?"
         + joiner_early
         + r"\d{1,2}(?:st|nd|rd|th)?\s+(?:"
-        + month_alt_early + r")\.?\s*,\s*\d{2,4}\b",
+        + month_alt_early + r")\.?\s*,?\s*\d{2,4}\b",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?"
+        + joiner_early
+        + r"(?:" + month_alt_early + r")\.?\s+"
+        r"\d{1,2}(?:st|nd|rd|th)?\s*,?\s*\d{2,4}\b",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*"
+        + marker_early
+        + joiner_early
+        + r"\d{1,2}(?:st|nd|rd|th)?\s+(?:"
+        + month_alt_early + r")\.?\s*,?\s*\d{2,4}\b",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*"
+        + marker_early
+        + joiner_early
+        + r"(?:" + month_alt_early + r")\.?\s+"
+        r"\d{1,2}(?:st|nd|rd|th)?\s*,?\s*\d{2,4}\b",
         # The orders the sets below still omit, round 7,
         # standing first because the plainer composites
         # below would otherwise take the date part and

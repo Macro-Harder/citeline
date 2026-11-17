@@ -2189,6 +2189,32 @@ class _WriteLock:
                 handle.close()
                 self._release_dir_lock()
                 raise _unsafe_home_file_error(path, "write lock")
+            try:
+                _rejudge_open_descriptor(handle.fileno(), path)
+            except _UnsafeHomeFile:
+                # A further rejudgement stands after the
+                # post write judgement, in the bounded
+                # limb form of this site, judging its path
+                # reading as the judgement judges its
+                # handle reading: a rename plant timed at
+                # the return of the lstat reading of the
+                # post write judgement stands judged here,
+                # the holder line stands truncated off the
+                # handle, and the acquire stands refused in
+                # the vocabulary of the site, the exclusion
+                # standing on the directory flock in every
+                # form (Step 17 round 17 entry
+                # S17-R17-010).
+                try:
+                    handle.seek(0)
+                    handle.truncate(0)
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                except OSError:
+                    pass
+                handle.close()
+                self._release_dir_lock()
+                raise _unsafe_home_file_error(path, "write lock")
             self.handle = handle
             _HELD_LOCKS[path] = (
                 handle, 1, threading.get_ident(), self._invocation,
@@ -3306,11 +3332,13 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
         except _UnsafeHomeFile:
             os.close(descriptor)
             raise _unsafe_home_file_error(path, "journal")
+        appended_info = None
         try:
             with os.fdopen(descriptor, "ab") as handle:
                 handle.write(canonical + b"\n")
                 handle.flush()
                 os.fsync(handle.fileno())
+                appended_info = os.fstat(handle.fileno())
                 try:
                     _rejudge_open_descriptor(
                         handle.fileno(), path)
@@ -3353,8 +3381,35 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
         extended.head_hash = entry["entry_hash"]
         extended.entry_count = scan.entry_count + 1
         stat = _stat_key(path)
-        for mode in ("probe", "torn"):
-            _scan_cache[(path, mode, None, None)] = (stat, extended)
+        # The extended scan cache store stands judged
+        # before it stands stored: the file standing at
+        # the journal path at the store must be the very
+        # file the append wrote, at the size the append
+        # left it, the inode the handle held and the
+        # original size plus the appended line. A rename
+        # plant timed at the return of the lstat reading
+        # of the post write rejudgement moves that file
+        # away after the judgement, and a replacement
+        # standing at the path is another file at another
+        # size, so on either dressing the store stands
+        # refused and every cache entry for the path
+        # stands popped instead: no plant inside the call
+        # then stands reported as a passed chain, and a
+        # later read in this process scans the path as it
+        # stands, at entry_count 0 over an absent path and
+        # at the seed alone over a seed replacement, as a
+        # rename after the call returns reads (Step 17
+        # round 17 entry S17-R17-001).
+        if stat is not None and appended_info is not None \
+                and stat[0] == appended_info.st_ino \
+                and stat[1] == original_size + len(canonical) + 1:
+            for mode in ("probe", "torn"):
+                _scan_cache[(path, mode, None, None)] = (
+                    stat, extended)
+        else:
+            for cache_key in [key for key in _scan_cache
+                              if key[0] == path]:
+                _scan_cache.pop(cache_key, None)
         if resolved_anchor is not None:
             try:
                 _write_anchor(resolved_anchor, entry["entry_hash"],
@@ -3861,6 +3916,27 @@ def replay(home, entries, resume=False):
                         # content stands readable under the
                         # outside name (Step 17 round 16
                         # entry S17-R16-001).
+                        handle.truncate(original_size)
+                        handle.flush()
+                        os.fsync(handle.fileno())
+                        raise
+                    try:
+                        _rejudge_open_descriptor(
+                            handle.fileno(), path)
+                    except _UnsafeHomeFile:
+                        # A further rejudgement stands
+                        # after the post write judgement,
+                        # judging its path reading as the
+                        # judgement judges its handle
+                        # reading: a rename plant timed at
+                        # the return of the lstat reading
+                        # of the post write judgement stands
+                        # judged here, the replayed lines
+                        # stand truncated off the handle in
+                        # the remedy form above, and no
+                        # replayed content stands readable
+                        # under the outside name (Step 17
+                        # round 17 entry S17-R17-009).
                         handle.truncate(original_size)
                         handle.flush()
                         os.fsync(handle.fileno())
