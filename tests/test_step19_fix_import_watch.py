@@ -229,5 +229,37 @@ class TestR19053OccupiedOutputFirst(unittest.TestCase):
                          "earlier round\n")
 
 
+class TestR19037MissingDirectoryToken(unittest.TestCase):
+    """R19-037: a write into a missing directory is not reported
+    under DESTINATION_EXISTS."""
+
+    def test_missing_directory_write_names_the_missing_directory(self):
+        root = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        out_path = root / "no-such-dir" / "watchrun.txt"
+        with self.assertRaises(Exception) as caught:
+            watch._write_output({"form": "simple"}, str(out_path),
+                                "simple")
+        value = getattr(caught.exception, "error_value", None)
+        self.assertNotEqual(value, "DESTINATION_EXISTS")
+        self.assertIn("does not exist", str(caught.exception))
+
+
+class TestR19103WatchFormSplit(unittest.TestCase):
+    """R19-103: the watch form named on the invocation governs
+    the written artefact as it governs the printed rendering."""
+
+    def test_cli_form_governs_the_written_artefact(self):
+        root, home = seed_home(self)
+        out_path = root / "watchrun.txt"
+        _, path = plan_file(self, base_plan(
+            home, "picked", output=str(out_path), targets=[
+                {"product": "p-alpha", "round": "round-1"}]))
+        code = shell.main(
+            ["watch", "--plan", str(path), "--form", "agentic"])
+        self.assertEqual(code, 0)
+        text = out_path.read_text(encoding="utf-8")
+        self.assertIn("\"form\": \"agentic\"", text)
+
+
 if __name__ == "__main__":
     unittest.main()
