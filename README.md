@@ -113,6 +113,7 @@ subcommand per call, every input a named flag:
     guide --home --product --round_label --audit_date --form
     verify --home --form
     status --home --form
+    staleness-view --home --form
     watch --plan --form
     help
 
@@ -149,7 +150,10 @@ subcommands above and watch each take --form. The
 help line takes no flag. List valued inputs
 (--competitors, --aliases, --query_set,
 --category_terms) take a comma separated list, a
-JSON list, or the flag repeated once per item.
+JSON list, or the flag repeated once per item. A
+competitor may also stand as a JSON object
+naming its name, domain, and aliases, as one
+item of the JSON list form of --competitors.
 
 --round and --round_label name the same input, the
 round label. --captured_on is the date an answer
@@ -173,8 +177,14 @@ A watch plan file is a JSON object with keys home,
 scope, targets, form, audit_date, output, and
 cadence. Targets stands required where scope is
 picked, each target naming a product and one of a
-page file or a named round. A plan may also name a
-second round per product for trend, under the key
+page file or a named round. A target may also
+carry three optional fields: robots_file, naming
+the robots file the target audit runs under;
+evaluated_page_path, naming the page path the
+target audit evaluates; and guide, a guide flag
+stating whether a guide draft stands produced for
+the target. A plan may also name a second round
+per product for trend, under the key
 second_round.
 
 Score bands: strong at a score of 80 or more,

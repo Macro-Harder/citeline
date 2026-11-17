@@ -602,3 +602,20 @@ class TestR19050GuideSurfaceLine(unittest.TestCase):
             text)
         self.assertIn(
             "guide takes exactly one selector", text)
+
+
+class TestR19084SurfaceListComplete(unittest.TestCase):
+    """R19-084, remaining limbs: the README surface list
+    names staleness-view, the JSON object competitor form,
+    and the three optional watch target fields; the
+    installer flag forms stand stated as shipped surface."""
+
+    def test_surface_list(self):
+        text = readme_text()
+        self.assertIn("staleness-view --home --form", text)
+        self.assertIn("JSON object", text)
+        self.assertIn("robots_file", text)
+        self.assertIn("evaluated_page_path", text)
+        self.assertIn("guide flag", text)
+        self.assertIn("--location", text)
+        self.assertIn("--home names a product home", text)
