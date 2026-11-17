@@ -109,6 +109,29 @@ subcommand per call, every input a named flag:
     watch --plan --form
     help
 
+## Your first round, in work order
+
+1. Register the product with add-product, stating
+   its name, canonical line, and domain.
+2. Run audit over the page file. An audit creates
+   the snapshot of the page it runs on, and the
+   audit record names that snapshot by its
+   snapshot identifier.
+3. Run register-page for the product.
+   register-page takes that snapshot identifier
+   and not a file: pass the snapshot identifier
+   from the audit record as the --snapshot value.
+4. Name the round with name-round. A round must
+   be named before answers import into it.
+5. Import each sampled answer with probe import,
+   naming the product and the round label from
+   step 4.
+6. Read the round with probe report.
+7. Draft the guide with guide. The guide identity
+   a guide call needs is exactly one of two
+   forms: the audit run_id alone, or the product
+   together with its round label.
+
 Forms are simple, advanced, and agentic. The
 subcommands above and watch each take --form. The
 help line takes no flag. List valued inputs
