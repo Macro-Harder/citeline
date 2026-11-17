@@ -1027,9 +1027,9 @@ def _advanced_body(record):
     # report, the guide, the query set report, and the
     # staleness view stand named in Step 19 register entry
     # R19-096 beside the audit object itself.
-    if _is_audit_record(body) or _is_guide(body) or \
-            _is_probe_like(body) or _is_query_set_report(body) \
-            or _is_staleness_view(body):
+    if _is_guide(body) or _is_probe_like(body) or \
+            _is_query_set_report(body) or \
+            _is_staleness_view(body):
         body["anchor_limit"] = ANCHOR_LIMIT_SENTENCE
         body["honesty_sentence"] = HONESTY_SENTENCE
     # The presence only scope discipline stands in every

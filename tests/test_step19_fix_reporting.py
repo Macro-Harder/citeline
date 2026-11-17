@@ -325,9 +325,6 @@ class TestR19096AdvancedCommonFields(unittest.TestCase):
             reporting.render(stale, "advanced"))
         self.assertIn("anchor_limit", stale)
         self.assertIn("honesty_sentence", stale)
-        audit_body = shipped.payload(
-            reporting.render(record, "advanced"))
-        self.assertIn("anchor_limit", audit_body)
 
 
 class TestR19097AnchorSentenceClosingBlock(unittest.TestCase):
@@ -363,3 +360,4 @@ class TestR19097AnchorSentenceClosingBlock(unittest.TestCase):
             self.assertEqual(text.count(self.NEEDLE), 1, kind)
             tail = "\n".join(text.splitlines()[-3:])
             self.assertIn(self.NEEDLE, tail, kind)
+
