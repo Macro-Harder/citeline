@@ -2054,6 +2054,14 @@ def _render_guide_simple(body):
 
 def _render_query_set_simple(body):
     lines = ["Query set report."]
+    # The total the form counts relate to stands first,
+    # before the counts themselves, and every count and
+    # name at the foot of the form stands in defined plain
+    # words (Step 19 register entry R19-063).
+    if body.get("total_count") is not None:
+        lines.append(
+            "The set holds %s query strings in total."
+            % _scalar_text(body.get("total_count")))
     labels = (
         ("asks a question", "interrogative_count"),
         ("compares", "comparison_count"),
@@ -2065,9 +2073,32 @@ def _render_query_set_simple(body):
             lines.append("%s: %s" % (label, _scalar_text(body[key])))
     lines.append(_OVERLAP_STATEMENT)
     lines.append(_COVERAGE_STATEMENT)
+    if body.get("duplicate_count") is not None:
+        lines.append(
+            "duplicates: %s query strings stand more than "
+            "once in the set."
+            % _scalar_text(body.get("duplicate_count")))
+    if body.get("naming_none_count") is not None:
+        lines.append(
+            "naming none: %s query strings name neither "
+            "the product nor a competitor."
+            % _scalar_text(body.get("naming_none_count")))
+    if "marker_list_version" in body:
+        marker = body.get("marker_list_version")
+        if marker is None:
+            lines.append(
+                "marker list version: no marker list "
+                "version stands recorded for this set.")
+        else:
+            lines.append(
+                "marker list version: the counts were read "
+                "against marker list version %s."
+                % _scalar_text(marker))
     handled = {key for _label, key in labels}
     handled |= {"overlap_statement", "coverage_statement",
-                "anchor_limit"}
+                "anchor_limit", "honesty_sentence",
+                "total_count", "duplicate_count",
+                "naming_none_count", "marker_list_version"}
     remainder = {k: v for k, v in body.items() if k not in handled}
     _emit_dict(lines, remainder, 0)
     return lines

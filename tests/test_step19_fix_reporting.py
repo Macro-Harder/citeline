@@ -439,3 +439,33 @@ class TestR19062RobotsSummaryAndLabels(unittest.TestCase):
         self.assertIn("purpose_prose_evidence_label:", text)
         self.assertIn("next_refresh_due_date:", text)
         self.assertIn("refresh", text)
+
+
+class TestR19063QuerySetPlainTail(unittest.TestCase):
+    """R19-063: the query set report Simple form ends in
+    defined plain names, the total stands with the counts it
+    relates to, and naming_none_count is stated in words."""
+
+    def test_plain_tail(self):
+        body = {
+            "product_id": "p-x", "query_set_version": 2,
+            "total_count": 2, "interrogative_count": 1,
+            "comparison_count": 0, "named_product_count": 1,
+            "bare_topic_count": 0, "duplicate_count": 0,
+            "naming_none_count": 1,
+            "marker_list_version": None,
+        }
+        text = reporting.render(body, "simple")
+        self.assertIn("name neither the product nor a "
+                      "competitor", text)
+        self.assertNotIn("naming_none_count: 1", text)
+        self.assertNotIn("marker_list_version: not recorded",
+                         text)
+        self.assertNotIn("duplicate_count: 0", text)
+        self.assertNotIn("total_count: 2", text)
+        lines = text.splitlines()
+        total_at = next(i for i, line in enumerate(lines)
+                        if "in total" in line)
+        counts_at = next(i for i, line in enumerate(lines)
+                         if line.startswith("asks a question"))
+        self.assertLess(total_at, counts_at)
