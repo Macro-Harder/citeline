@@ -248,7 +248,17 @@ class TestBoundaryChecks(unittest.TestCase):
             home=str(home), page_file=str(PAGE), robots_file=str(ROBOTS),
             audit_date=AUDIT_DATE)
         via_shell_audit = shell.format_record(record, form="advanced")
-        self.assertEqual(set(record), set(via_shell_audit))
+        # The audit limb stands restated under the Step 19
+        # U-11 cure: the Advanced audit artefact carries the
+        # stored record projected onto its traced field set,
+        # so its key set is that projection, not the whole
+        # record. The check 2 point stands: the shell adds no
+        # field of its own, so every artefact key stands in
+        # the record or in the reporting carry.
+        self.assertLessEqual(
+            set(via_shell_audit),
+            set(record) | {"anchor_limit", "bounds",
+                           "honesty_sentence"})
         for field in ("run_id", "product_id", "snapshot_id",
                       "evaluated_page_path", "path_defaulted",
                       "snapshot_format", "checks", "score",

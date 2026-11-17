@@ -914,14 +914,18 @@ class TestDetachedArtefactConformance(ReportingBase):
     lists stated in this class are that carry as this writer
     states it, per artefact, from the Section 5.1 shapes."""
 
+    # Superseded in part by the Step 19 U-11 cure: the
+    # Advanced audit artefact carries only the traced field
+    # set, so audit_date_is_run_date and limits_in_force,
+    # which stand outside that set, no longer stand in the
+    # artefact and stand removed from this list.
     AUDIT_DETACHED = ("run_id", "product_id", "snapshot_id",
                       "snapshot_sha256", "snapshot_format",
                       "evaluated_page_path", "path_defaulted",
                       "checks", "score", "robots_summary",
                       "ruleset_version", "detector_version",
                       "registry_version", "query_set_version",
-                      "audit_date", "audit_date_is_run_date",
-                      "limits_in_force")
+                      "audit_date")
     GUIDE_DETACHED = ("provenance", "product_id", "opening_text",
                       "refused", "refusal_code", "actions",
                       "standing_action")

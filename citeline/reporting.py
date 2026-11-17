@@ -1399,6 +1399,8 @@ def render(record, form="advanced"):
         return _render_simple(_simple_safe(_advanced_body(record)))
     body = _advanced_body(record)
     _apply_agentic_scope(body)
+    if _is_audit_record(body):
+        body = _audit_traced_projection(body)
     if form == "advanced":
         return body
     envelope = {
@@ -1412,6 +1414,30 @@ def render(record, form="advanced"):
     envelope["honesty_sentence"] = HONESTY_SENTENCE
     envelope["anchor_limit"] = ANCHOR_LIMIT_SENTENCE
     return envelope
+
+
+# The traced field set of the Advanced audit artefact, per
+# the plan Section 1.5 reverse trace table: every field the
+# artefact carries stands traced to the stored AuditRun
+# record, and no field outside the set stands in the
+# artefact (Step 19 queue addition U-11, reporting limb).
+_AUDIT_TRACED_FIELDS = (
+    "run_id", "product_id", "snapshot_id", "snapshot_sha256",
+    "evaluated_page_path", "path_defaulted", "snapshot_format",
+    "checks", "score", "cap_status", "robots_summary",
+    "honesty_sentence", "anchor_limit", "audit_date",
+    "ruleset_version", "detector_version", "registry_version",
+    "query_set_version", "head_hash", "entry_count",
+    "methods_note_version", "bounds",
+)
+
+
+def _audit_traced_projection(body):
+    """The Advanced audit artefact body: the stored record
+    projected onto its traced field set, in set order, with
+    every value standing as the record holds it."""
+    return {key: body[key] for key in _AUDIT_TRACED_FIELDS
+            if key in body}
 
 
 def _stored_report_identity(body):
