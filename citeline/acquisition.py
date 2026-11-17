@@ -2127,7 +2127,15 @@ def _front_matter(text, fmt, notes, block_limit_bytes=None,
                 notes.append("front_matter")
                 return "\n".join(lines[index + 1:])
             return text
-    return text
+    # The opening fence stood at the head and no closing
+    # fence stands in the file: the block stands unclosed,
+    # and an unclosed block fails at this intake in every
+    # page form, as the identical bytes fail at the import
+    # intake, where the import reading states the same
+    # failure on the same block.
+    _fail("PAGE_EXTRACTION_FAILED",
+          "the front matter block at the head of the file "
+          "is not closed")
 
 
 # ----------------------------------------------------------------
