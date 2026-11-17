@@ -17,6 +17,7 @@ outcome and stands returned by no invocation here.
 import inspect
 import json
 import os
+import re
 import sys
 
 from citeline import service
@@ -514,8 +515,50 @@ def _print_rendered(rendered):
         print(str(rendered))
 
 
+# Next steps named by error value, stated in the shell
+# failure rendering so an operator can act on a failure
+# without already knowing the system (register item
+# R19-044, brief CL19-183 and CL19-176).
+_NEXT_STEPS = {
+    "HOME_MISSING": (
+        "run the installer for the home, or check the "
+        "home path named"),
+    "SUPPLIED_PATH_UNSAFE": (
+        "name a supplied local file that stands on disk "
+        "and run the call again"),
+    "MALFORMED_CALL": (
+        "correct the call as the message names and run "
+        "it again"),
+}
+
+
+def _plain_wording(text):
+    """One failure message in plain words.
+
+    Raw operating system wording and raw parser wording
+    stand replaced with the plain statement of the same
+    fact, so no errno text and no Python wording reaches
+    the operator (register item R19-044).
+    """
+    text = re.sub(
+        r"\[Errno \d+\]\s*No such file or directory",
+        "the file does not exist", text)
+    text = re.sub(r"\[Errno \d+\]\s*", "", text)
+    text = re.sub(
+        r"Expecting [^:]*: line \d+ column \d+ \(char \d+\)",
+        "the content does not parse as JSON", text)
+    return text
+
+
 def _print_error(exc):
-    """Print the error value and message of one failed call."""
+    """Print the error value and message of one failed call.
+
+    The printed failure states the fact in plain words,
+    then a next step, then what was stored: nothing was
+    stored for the failed subject by the call, no report,
+    no score, and no stored entry for that subject
+    (register item R19-044).
+    """
     try:
         record = service.recorded_error(exc)
         value = record.get("error_value")
@@ -524,19 +567,26 @@ def _print_error(exc):
         value = getattr(exc, "token", None) or getattr(
             exc, "error_value", None)
         message = str(exc)
+    step = _NEXT_STEPS.get(
+        value, "correct the input the message names and "
+        "run the call again")
+    guidance = (" Next step: %s. Nothing was stored for "
+                "the failed subject by this call." % step)
     if value:
-        text = str(message)
+        text = _plain_wording(str(message))
         prefix = "%s: " % (value,)
         if text == str(value):
             text = ""
         elif text.startswith(prefix):
             text = text[len(prefix):]
         if text:
-            print("%s: %s" % (value, text), file=sys.stderr)
+            print("%s: %s.%s" % (value, text.rstrip("."),
+                                 guidance), file=sys.stderr)
         else:
-            print(str(value), file=sys.stderr)
+            print("%s.%s" % (value, guidance), file=sys.stderr)
     else:
-        print(str(message), file=sys.stderr)
+        print("%s.%s" % (_plain_wording(str(message)).rstrip("."),
+                         guidance), file=sys.stderr)
 
 
 def _default_home():
@@ -795,7 +845,7 @@ def _run_watch(tokens):
             operation="watch")
     from citeline import watch
     try:
-        result = watch.run_watch(plan_file=inputs["plan"], form=form)
+        result = watch.run_watch(plan_file=inputs["plan"])
     except TypeError:
         return _usage_error(
             "the watch call stands malformed against the "
