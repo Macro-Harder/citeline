@@ -1039,10 +1039,10 @@ def status(*, home):
     Status completes its reporting duty over a journal that
     does not recompute: its record states the chain failure
     and the failing position in full, and no error value of
-    its own stands. Its capacity outlook attributes the
-    remaining capacity by entry kind, as a partition of the
-    whole remaining figure over the kinds that stand in the
-    journal, so the kind figures tally to the whole.
+    its own stands. Its capacity outlook states only the
+    figures stored records hold (Step 19 entry R19-098):
+    no per entry kind division stands in it, because no
+    stored record holds one and the design states none.
 
     A missing home stands as a usage error at row U-6,
     token HOME_MISSING, exit 2, as with verify: status is a
@@ -1069,24 +1069,6 @@ def status(*, home):
         result["position"] = position
     outlook = dict(result.get("capacity_outlook") or {})
     entries = _fold(home)
-    kinds = []
-    for entry in entries:
-        kind = _get(entry, "entry_kind")
-        if kind is not None and kind not in kinds:
-            kinds.append(kind)
-    total_remaining = outlook.get("entries_remaining", 0)
-    by_kind = {}
-    if kinds:
-        share, remainder = divmod(int(total_remaining), len(kinds))
-        for index, kind in enumerate(kinds):
-            figures = share + (remainder if index == 0 else 0)
-            by_kind[kind] = {"entries_remaining": figures}
-    outlook["by_entry_kind"] = by_kind
-    outlook["by_entry_kind_basis"] = (
-        "The by entry kind figures are shares of the one "
-        "total of entries remaining, divided over the entry "
-        "kinds standing in the journal; they are not a "
-        "separate allowance per kind.")
     answers = [
         entry for entry in entries
         if _get(entry, "entry_kind") == "answer_imported"]
