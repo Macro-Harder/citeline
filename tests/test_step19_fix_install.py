@@ -207,5 +207,35 @@ class TestR19015Permissions(InstallCase):
         self.assertEqual(self.mode(self.home), 0o700)
 
 
+class TestR19028UninstallNamesHome(InstallCase):
+    """R19-028: the documented uninstall form can name a
+    non default home and acts on the home named, never
+    silently against the default home. README CL19-030,
+    CL19-027."""
+
+    def run_top_installer(self, args, fake_home):
+        env = dict(os.environ)
+        env["HOME"] = str(fake_home)
+        env.pop("PYTHONPATH", None)
+        return subprocess.run(
+            [sys.executable, str(PRODUCT_ROOT / "install.py")] + args,
+            capture_output=True, text=True, env=env, timeout=60)
+
+    def test_documented_uninstall_form_names_the_home(self):
+        fake_home = self.tmp / "fakehome"
+        fake_home.mkdir()
+        default_home = fake_home / ".citeline"
+        default_home.mkdir()
+        self.install()
+        result = self.run_top_installer(
+            ["uninstall", str(self.location), str(self.home)],
+            fake_home)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("home: %s" % self.home, result.stdout)
+        self.assertFalse(self.home.exists())
+        self.assertFalse(self.location.exists())
+        self.assertTrue(default_home.exists())
+
+
 if __name__ == "__main__":
     unittest.main()

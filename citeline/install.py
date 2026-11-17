@@ -695,7 +695,9 @@ def main(argv=None):
     argument naming the install location; uninstall is the
     word uninstall as the first argument, with the install
     location as its optional second argument and the same
-    default. The flag spellings --location and --home, and
+    default, and the home as an optional third argument
+    where the install was made with a non default home.
+    The flag spellings --location and --home, and
     the --uninstall flag, stand accepted beside the stated
     form. The output stands in the simple form only and
     states the home path.
@@ -735,6 +737,15 @@ def main(argv=None):
             index += 2
         elif not token.startswith("-") and location is None:
             location = token
+            index += 1
+        elif not token.startswith("-") and mode == "uninstall" \
+                and home is None:
+            # The documented uninstall form names the home as
+            # its second positional argument, beside the flag
+            # form, so an uninstall made with a non default
+            # home acts on the home named and never silently
+            # against the default home.
+            home = token
             index += 1
         else:
             print("install: MALFORMED_CALL: unrecognised "
