@@ -756,26 +756,25 @@ class TestStatusCapacity(unittest.TestCase):
                          1024 * 1024 * 1024 - out["home_size"])
 
     def test_status_capacity_outlook_attributes_by_entry_kind(self):
-        """Pins capacity outlook by entry kind. Oracle: plan Section
-        1.3 S10 and trade T-9: status attributes remaining capacity
-        by entry kind, on IM2-BRK-18's outlook limb."""
+        """Pins the capacity outlook figures the stored records
+        hold. Restated for Step 19 register item R19-098: the
+        invented per entry kind division stands removed from
+        the outlook, because reporting adds no number to what
+        is stored; the outlook now carries no by_entry_kind
+        division and no basis sentence for one, and its stored
+        figures stand exact."""
         _, _, home = make_home(self)
         seed_product(self, home)
         service.audit(home=str(home), page_file=str(PAGE),
                       audit_date=AUDIT_DATE)
         out = service.status(home=str(home))
         outlook = out["capacity_outlook"]
-        self.assertIn("by_entry_kind", outlook)
-        kinds = outlook["by_entry_kind"]
-        self.assertTrue(any("audit" in k for k in kinds))
-        total = 0
-        for kind, figures in kinds.items():
-            if isinstance(figures, dict):
-                self.assertIn("entries_remaining", figures)
-                total += figures["entries_remaining"]
-            else:
-                total += figures
-        self.assertEqual(total, outlook["entries_remaining"])
+        self.assertNotIn("by_entry_kind", outlook)
+        self.assertNotIn("by_entry_kind_basis", outlook)
+        self.assertEqual(
+            outlook["entries_remaining"] + out["entry_count"], 100000)
+        self.assertEqual(outlook["bytes_remaining"],
+                         1024 * 1024 * 1024 - out["home_size"])
 
     def test_status_answers_estimate_labelled_and_absent_without_answers(self):
         """Pins capacity outlook estimate limb. Oracle: brief IM7-BRK-8
