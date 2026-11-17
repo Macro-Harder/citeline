@@ -1507,12 +1507,14 @@ def staleness_view(*, home):
             answers_by_round.setdefault(
                 payload["round_id"], []).append(payload)
     rows = []
-    # Every round record stands on its own row, in journal
-    # order: two round records sharing one round identity
-    # are two records as the journal counts them, and no
-    # mapping by identity merges the later over the earlier
-    # (Step 17 round 3 entry S17-R3-066).
+    # One row per standing round (Step 19 entry R19-007):
+    # a round stands named once and stamped again at its
+    # first import, and the standing record of the round is
+    # its last payload, as every other round reader takes
+    # it, so the later round_named entry supersedes the
+    # earlier one for the same round identity here.
     round_records = []
+    standing_rounds = {}
     for entry in entries:
         kind = _get(entry, "entry_kind")
         payload = _payload(entry)
@@ -1523,7 +1525,9 @@ def staleness_view(*, home):
                 ("query_set_version",),
                 products.get(payload.get("product_id")))))
         elif kind == "round_named":
-            round_records.append((entry, payload))
+            standing_rounds[payload.get("round_id")] = (
+                entry, payload)
+    round_records = list(standing_rounds.values())
     for entry, payload in round_records:
         record_id = payload.get("round_id")
         extras = list(answers_by_round.get(record_id, ()))
