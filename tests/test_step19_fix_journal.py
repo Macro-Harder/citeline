@@ -174,3 +174,23 @@ class RecoveryRecordVocabularyTests(HomeCase):
         self.assertEqual(payload["exit_code"], 5)
 
 
+class HomeSizeCapScopeTests(HomeCase):
+    """R19-022: the home size cap counts only files the
+    product created, so a foreign file in the home cannot
+    consume the cap, drive the remaining figure negative,
+    or block writes."""
+
+    def test_foreign_file_does_not_consume_the_cap(self):
+        self.append_product("P0", "p-0")
+        foreign = os.path.join(self.home, "foreign.bin")
+        with open(foreign, "wb") as handle:
+            handle.truncate(1024 * 1024 * 1024 + 1024)
+        journal._scan_cache.clear()
+        state = journal.status_snapshot(self.home)
+        remaining = state["capacity_outlook"][
+            "total_home_size_remaining"]
+        self.assertGreater(remaining, 0)
+        entry = self.append_product("P1", "p-1")
+        self.assertEqual(entry["sequence"], 2)
+
+

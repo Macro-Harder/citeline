@@ -173,7 +173,13 @@ class RecoveryHomeSizeCapTests(HomeCase):
             self.home, "audit_record", {"tag": "partial"})
         journal._write_batch_intent(
             self.home, size_before, None, None, 1)
-        filler = os.path.join(self.home, "filler.bin")
+        # The size state stands staged by a product journal
+        # temporary left standing in the home: Step 19 item
+        # R19-022 charges the home size cap with product
+        # created files only, so a foreign file no longer
+        # stages this state, and the temporary form this
+        # assertion's scenario needs stands in its place.
+        filler = os.path.join(self.home, "journal.jsonl.tmp-filler")
         with open(filler, "wb") as handle:
             handle.truncate(1024 ** 3)
         self.assertTrue(journal.recover_interrupted_batch(self.home))

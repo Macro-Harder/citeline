@@ -1323,14 +1323,49 @@ def verify_chain(home):
     }
 
 
+_HOME_PRODUCT_FILES = frozenset({
+    JOURNAL_FILENAME,
+    CONFIG_FILENAME,
+    LOCK_FILENAME,
+    ".citeline-batch-intent.json",
+    ".citeline-registry.lock",
+})
+
+_HOME_PRODUCT_TEMP_PREFIXES = (
+    JOURNAL_FILENAME + ".tmp-",
+    JOURNAL_FILENAME + ".replay-",
+)
+
+
 def _home_size(home):
+    """The size the home size cap charges: the files the
+    product created, and no other file (Step 19 item
+    R19-022).
+
+    The product creates a closed set of files directly
+    inside the home: the journal, the config, the two
+    lock files, and the batch intent record, beside its
+    own short lived journal temporaries. A foreign file
+    placed in the home, at the top level or in any
+    directory under it, stands outside that set: it
+    cannot consume the cap, drive the remaining figure
+    negative, or block writes, so only the named files
+    at the home top level stand counted.
+    """
     total = 0
-    for root, _dirs, files in os.walk(str(home)):
-        for name in files:
-            try:
-                total += os.path.getsize(os.path.join(root, name))
-            except OSError:
-                pass
+    try:
+        names = os.listdir(str(home))
+    except OSError:
+        return 0
+    for name in names:
+        if name not in _HOME_PRODUCT_FILES and not any(
+                name.startswith(prefix)
+                for prefix in _HOME_PRODUCT_TEMP_PREFIXES):
+            continue
+        try:
+            total += os.path.getsize(os.path.join(str(home), name))
+        except OSError:
+            pass
     return total
 
 
@@ -2766,6 +2801,26 @@ def _clear_batch_intent(home):
         pass
 
 
+def _home_total_size(home):
+    """The size of everything standing under the home,
+    every file the walk finds, product created or not.
+
+    This whole home reading stands only for the recovery
+    mixed state judgement below, whose governed question
+    is the state of the home as it stood at the append.
+    The home size cap itself charges only the files the
+    product created: see _home_size (Step 19 item
+    R19-022)."""
+    total = 0
+    for root, _dirs, files in os.walk(str(home)):
+        for name in files:
+            try:
+                total += os.path.getsize(os.path.join(root, name))
+            except OSError:
+                pass
+    return total
+
+
 def _size_cap_also_met(home):
     """Whether the total home size cap also stands met
     over this home, judged on the state as it stands at
@@ -2781,14 +2836,19 @@ def _size_cap_also_met(home):
     recovery, not as a length cap deferral reported over
     a truncation that has already landed (Step 17 round
     6 entry S17-R6-007, completed at round 8 entry
-    S17-R8-002)."""
+    S17-R8-002). The reading is the whole home reading,
+    _home_total_size: the judgement's governed question
+    is the home's state at the append, and the Step 19
+    cure at item R19-022, which charges the cap itself
+    with product created files only, does not name this
+    judgement."""
     try:
         limits = effective_limits(home)
     except Exception:
         return False
     size_limit = limits["total_home_size"]
     cap = size_limit["value"] * _SIZE_MULTIPLIERS[size_limit["unit"]]
-    return _home_size(home) >= cap
+    return _home_total_size(home) >= cap
 
 
 # A validation outcome beside success and refusal: the
