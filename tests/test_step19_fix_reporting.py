@@ -13,7 +13,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def readme_text():
     with open(os.path.join(ROOT, "README.md"), encoding="utf-8") as handle:
-        return handle.read()
+        return " ".join(handle.read().split())
 
 
 class TestR19056CountOnlyRateLine(unittest.TestCase):
