@@ -41,6 +41,14 @@ import stat
 import sys
 
 PRODUCT_FILE_NAME = "citeline.py"
+# The config file at the install location is the governing
+# config file of the installation, as brief Section 3.5
+# point 5 states: config values are read from that file at
+# run start, and the journal config reading reads it for
+# the home its home key names (Step 19 item R19-049). The
+# config.txt a home may also carry states values for its
+# own runs beside it, under the journal reading's stated
+# precedence.
 CONFIG_FILE_NAME = "config.txt"
 PACKAGE_DIR_NAME = "citeline"
 

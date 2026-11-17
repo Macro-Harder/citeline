@@ -1820,10 +1820,117 @@ def parse_config(text, home=None):
     return values, warnings
 
 
+# The keys the installer config form itself carries, beside
+# the config keys of this module: the home key naming the
+# product home the install created, and the created_by
+# marker key. On the install surface they stand known; in
+# the config parse they stand outside the key table, so the
+# install config reading below sets them aside before it
+# parses, as the installer surface itself does.
+_INSTALLER_CONFIG_KEYS = ("home", "created_by")
+
+
+def _install_config_candidates(home):
+    """The install location config files that may govern
+    this home, as (path, home value) pairs.
+
+    An install location stands beside the product home it
+    created: a directory holding the product file, the
+    package directory, and a config.txt. Its config names
+    the home it governs in its home key. Where that key
+    stands overwritten, a lone standing candidate governs
+    the home beside it, as the one installation that home
+    can belong to (Step 19 item R19-049).
+    """
+    home_abs = os.path.abspath(str(home))
+    parent = os.path.dirname(home_abs)
+    found = []
+    try:
+        names = sorted(os.listdir(parent))
+    except OSError:
+        return found
+    for name in names:
+        location = os.path.join(parent, name)
+        if location == home_abs or not os.path.isdir(location):
+            continue
+        config = os.path.join(location, CONFIG_FILENAME)
+        if not os.path.isfile(config) or os.path.islink(config):
+            continue
+        if not os.path.isfile(os.path.join(location, "citeline.py")):
+            continue
+        if not os.path.isdir(os.path.join(location, "citeline")):
+            continue
+        home_value = None
+        try:
+            with open(config, "r", encoding="utf-8") as handle:
+                for line in handle:
+                    stripped = line.strip()
+                    if stripped.startswith("home") and "=" in stripped:
+                        home_value = stripped.split("=", 1)[1].strip()
+                        break
+        except (OSError, UnicodeDecodeError):
+            home_value = None
+        found.append((config, home_value))
+    return found
+
+
+def _install_config_values(home):
+    """The config values the install location config file
+    states for this home, and its warnings.
+
+    The install config file is the governing config file
+    the brief states at Section 3.5 point 5: config values
+    are read from that file, so a value it states governs
+    the runs of the home it names (Step 19 item R19-049).
+    A home config value for the same key stands as the
+    later statement of the same operator and governs over
+    the install file value for that key, as every other
+    reader of the home config has it. A governing file
+    that cannot be parsed fails the read, as plan config
+    rule 5 states for any run that reads it.
+    """
+    home_abs = os.path.abspath(str(home))
+    candidates = _install_config_candidates(home)
+    chosen = None
+    unnamed = []
+    for path, home_value in candidates:
+        if home_value is not None:
+            if os.path.abspath(home_value) == home_abs:
+                chosen = path
+                break
+        else:
+            unnamed.append(path)
+    if chosen is None and len(unnamed) == 1:
+        chosen = unnamed[0]
+    if chosen is None:
+        return {}, [], False
+    try:
+        with open(chosen, "r", encoding="utf-8") as handle:
+            text = handle.read()
+    except UnicodeDecodeError:
+        raise ConfigError(
+            "the install config file does not decode as UTF-8",
+            row="X-1", token="CONFIG_INVALID")
+    except OSError:
+        raise ConfigError(
+            "the install config file cannot be read",
+            row="X-1", token="CONFIG_INVALID")
+    kept = []
+    for line in text.split("\n"):
+        key = line.split(" = ", 1)[0] if " = " in line else None
+        if key in _INSTALLER_CONFIG_KEYS:
+            continue
+        kept.append(line)
+    values, warnings = parse_config("\n".join(kept), home=str(home))
+    return values, warnings, True
+
+
 def _read_config_values(home):
+    install_values, install_warnings, install_present = \
+        _install_config_values(home)
     path = config_path(home)
     if not os.path.lexists(path):
-        return {}, [], False
+        return install_values, install_warnings, install_present
     if not os.path.isfile(path):
         # A config path that stands but is not a file (a
         # directory at the path) is a config failure, not
@@ -1856,7 +1963,9 @@ def _read_config_values(home):
             "the config file cannot be read",
             row="X-1", token="CONFIG_INVALID")
     values, warnings = parse_config(text, home=str(home))
-    return values, warnings, True
+    merged = dict(install_values)
+    merged.update(values)
+    return merged, install_warnings + warnings, True
 
 
 def write_config(home, text):
