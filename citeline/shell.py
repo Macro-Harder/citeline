@@ -357,6 +357,7 @@ def _parse_flags_detailed(tokens, allowed, operation):
     inputs = {}
     aliases = _FLAG_ALIASES.get(operation, {})
     seen = set()
+    seen_canonical = {}
     index = 0
     while index < len(tokens):
         token = tokens[index]
@@ -382,8 +383,19 @@ def _parse_flags_detailed(tokens, allowed, operation):
                     "a scalar input stands named once, and "
                     "repetition stands admitted for list valued "
                     "inputs only" % raw)
+            if name not in _LIST_INPUTS \
+                    and name in seen_canonical:
+                return None, (
+                    "the call names the %s input twice, as "
+                    "--%s and as --%s; the two spellings name "
+                    "one input, and a call stands refused "
+                    "rather than letting flag order choose "
+                    "the governing value"
+                    % (name, seen_canonical[name], raw))
             inputs[name] = value
         seen.add(raw)
+        if name not in _LIST_INPUTS:
+            seen_canonical.setdefault(name, raw)
         index += 2
     return inputs, None
 
