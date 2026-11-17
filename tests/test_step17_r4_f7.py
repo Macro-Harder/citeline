@@ -536,10 +536,16 @@ class Test075ProbeReportOneInstant(SeededBase):
 
     def test_correction_between_folds_does_not_split_the_artefact(self):
         self.import_one()
+        # Restated in its seed limb, for Step 19 register item
+        # R19-017: the standing failure record now stands
+        # created by a failed import, an appending operation
+        # whose failure record stands, instead of by a failed
+        # probe report, a non appending operation whose cure
+        # stopped it appending.
+        answer = temp_file(
+            self, "Acme Ledger is a ledger tool.\n", "answer2.txt")
         with self.assertRaises(errors.CitelineError):
-            service.probe_report(
-                home=str(self.home), product=PRODUCT, round="nope",
-                audit_date=AUDIT_DATE)
+            do_import(self.home, answer, round="nope")
         failure = entries_of_kind(self.home, "failure_record")[-1]
         real_round_entries = service._round_entries
         landed = {"done": False}
@@ -565,8 +571,16 @@ class Test075ProbeReportOneInstant(SeededBase):
                 audit_date=AUDIT_DATE)
         values = [payload.get("error_value")
                   for payload in result.get("failure_records") or []]
+        # Restated for Step 19 register item R19-018: the
+        # probe report record carries no standing failure
+        # record payloads at all, so neither the corrected
+        # marker nor the standing UNKNOWN_ROUND record stands
+        # in the artefact, whatever correction lands between
+        # folds.
+        self.assertNotIn("failure_records", result)
         self.assertNotIn("CORRECTED_MARKER", values)
-        self.assertIn("UNKNOWN_ROUND", values)
+        self.assertNotIn("UNKNOWN_ROUND", values)
+        self.assertEqual(values, [])
 
 
 # ----------------------------------------------------------------:

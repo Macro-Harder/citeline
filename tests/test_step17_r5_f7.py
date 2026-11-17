@@ -553,10 +553,16 @@ class Test058ProbeReportOneFoldInstant(SeededBase):
 
     def test_two_corrections_between_folds_do_not_split(self):
         self.import_one()
+        # Restated in its seed limb, for Step 19 register item
+        # R19-017: the standing failure record now stands
+        # created by a failed import, an appending operation
+        # whose failure record stands, instead of by a failed
+        # probe report, a non appending operation whose cure
+        # stopped it appending.
+        answer = temp_file(
+            self, "Acme Ledger is a ledger tool.\n", "answer2.txt")
         with self.assertRaises(errors.CitelineError):
-            service.probe_report(
-                home=str(self.home), product=PRODUCT, round="nope",
-                audit_date=AUDIT_DATE)
+            do_import(self.home, answer, round="nope")
         failure = entries_of_kind(self.home, "failure_record")[-1]
         answer = entries_of_kind(self.home, "answer_imported")[-1]
         real_round_entries = service._round_entries
@@ -587,10 +593,17 @@ class Test058ProbeReportOneFoldInstant(SeededBase):
             result = service.probe_report(
                 home=str(self.home), product=PRODUCT, round=ROUND,
                 audit_date=AUDIT_DATE)
+        # Restated for Step 19 register item R19-018: the
+        # probe report record carries no standing failure
+        # record payloads at all, in the one fold report and
+        # in the followup alike, so neither the standing
+        # UNKNOWN_ROUND record nor its correction stands in
+        # the artefact. The per query one fold assertions
+        # below stand unrestated at full strength.
         values = [payload.get("error_value")
                   for payload in result.get("failure_records") or []]
-        self.assertIn("UNKNOWN_ROUND", values)
-        self.assertNotIn("CORRECTED_MARKER", values)
+        self.assertNotIn("failure_records", result)
+        self.assertEqual(values, [])
         per_query = result.get("per_query") or {}
         self.assertEqual(
             (per_query.get(Q1) or {}).get("answer_count"), 1)
@@ -602,7 +615,8 @@ class Test058ProbeReportOneFoldInstant(SeededBase):
         values = [payload.get("error_value")
                   for payload in followup.get("failure_records")
                   or []]
-        self.assertIn("CORRECTED_MARKER", values)
+        self.assertNotIn("failure_records", followup)
+        self.assertEqual(values, [])
         per_query = followup.get("per_query") or {}
         self.assertEqual(
             (per_query.get(Q2) or {}).get("answer_count"), 1)

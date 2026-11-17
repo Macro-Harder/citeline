@@ -978,10 +978,17 @@ class Test101FailureRecordSurfacing(SeededBase):
         super().setUp()
         answer = temp_file(self, "Acme Ledger is a ledger tool.\n")
         do_import(self.home, answer)
+        # Restated in its seed limb only, for Step 19 register
+        # item R19-017: one seed failure record now stands
+        # created by a failed import, an appending operation
+        # whose failure record stands, instead of by a failed
+        # probe report, a non appending operation whose cure
+        # stopped it appending. The other seed, a failed guide
+        # call, stands as before: guide is an appending
+        # operation and its failure record stands. Both seed
+        # records carry UNKNOWN_ROUND, and the count stands 2.
         with self.assertRaises(Exception):
-            service.probe_report(
-                home=str(self.home), product=PRODUCT,
-                round="no-such-round", audit_date=AUDIT_DATE)
+            do_import(self.home, answer, round="no-such-round")
         with self.assertRaises(Exception):
             service.guide(
                 home=str(self.home), run_id="run-999",
@@ -1002,10 +1009,20 @@ class Test101FailureRecordSurfacing(SeededBase):
         self.assertIn("UNKNOWN_ROUND", self.failure_values(record))
 
     def test_probe_report_surfaces_failure_records(self):
+        # Restated for Step 19 register item R19-018: the
+        # probe report record now keeps standing failure
+        # record payloads out in full, so two identical probe
+        # report calls return identical JSON however many
+        # failing calls intervened. The standing seed records
+        # stand in the journal, the report call appends
+        # nothing, and the report carries no failure_records.
         report = service.probe_report(
             home=str(self.home), product=PRODUCT, round=ROUND,
             form="advanced", audit_date=AUDIT_DATE)
-        self.assertIn("UNKNOWN_ROUND", self.failure_values(report))
+        self.assertNotIn("failure_records", report)
+        self.assertEqual(self.failure_values(report), [])
+        self.assertEqual(
+            len(entries_of_kind(self.home, "failure_record")), 2)
 
     def test_staleness_view_surfaces_failure_records(self):
         view = service.staleness_view(home=str(self.home))

@@ -650,14 +650,20 @@ class Test085FailureRecords(SeededBase):
         return len(entries_of_kind(self.home, "failure_record"))
 
     def test_failed_probe_report_appends_one_failure_record(self):
+        # Restated for Step 19 register item R19-017: probe
+        # report is one of the operations the brief names as
+        # non appending, and its cure stops it appending a
+        # failure record on failure. The failure itself stands
+        # asserted; the record limb now pins that the count
+        # stands unchanged. The guide and audit tests in this
+        # class stand unrestated: those are appending
+        # operations and their failure records stand.
         before = self.failure_count()
         with self.assertRaises(Exception):
             service.probe_report(
                 home=str(self.home), product=PRODUCT,
                 round="no-such-round", audit_date=AUDIT_DATE)
-        self.assertEqual(self.failure_count(), before + 1)
-        record = payloads_of_kind(self.home, "failure_record")[-1]
-        self.assertEqual(record["operation"], "probe report")
+        self.assertEqual(self.failure_count(), before)
 
     def test_failed_guide_appends_one_failure_record(self):
         before = self.failure_count()
@@ -668,12 +674,16 @@ class Test085FailureRecords(SeededBase):
         self.assertEqual(self.failure_count(), before + 1)
 
     def test_failed_query_set_report_appends_one_failure_record(self):
+        # Restated for Step 19 register item R19-017:
+        # query-set-report is one of the operations the brief
+        # names as non appending, and its cure stops it
+        # appending a failure record on failure.
         before = self.failure_count()
         with self.assertRaises(Exception):
             service.query_set_report(
                 home=str(self.home), product="no-such-product",
                 audit_date=AUDIT_DATE)
-        self.assertEqual(self.failure_count(), before + 1)
+        self.assertEqual(self.failure_count(), before)
 
     def test_failed_audit_appends_one_failure_record(self):
         before = self.failure_count()
@@ -687,13 +697,17 @@ class Test085FailureRecords(SeededBase):
         self.assertEqual(record["operation"], "audit")
 
     def test_repeated_trend_appends_exactly_one_failure_record(self):
+        # Restated for Step 19 register item R19-017: probe
+        # trend is a non appending operation, and its cure
+        # stops it appending a failure record on failure. The
+        # refusal token stands at full strength.
         before = self.failure_count()
         with self.assertRaises(Exception) as caught:
             service.probe_trend(
                 home=str(self.home), product=PRODUCT,
                 round_a=ROUND, round_b=ROUND, audit_date=AUDIT_DATE)
         self.assertEqual(token_of(caught.exception), "ROUND_REPEATED")
-        self.assertEqual(self.failure_count(), before + 1)
+        self.assertEqual(self.failure_count(), before)
 
 
 # ----------------------------------------------------------------

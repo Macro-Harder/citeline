@@ -105,6 +105,12 @@ class F5Case(unittest.TestCase):
 
 class TestD09RepeatedTrendFailureRecord(F5Case):
     def test_repeated_trend_refuses_and_appends_one_failure_record(self):
+        # Restated for Step 19 register item R19-017: probe
+        # trend is one of the operations the brief names as
+        # non appending, and its cure stops it appending a
+        # failure record on failure. The refusal, token, and
+        # exit code stand at full strength; the record limb
+        # now pins that no failure record stands appended.
         self.seed_product()
         before = len(failure_records(self.home))
         with self.assertRaises(Exception) as caught:
@@ -116,12 +122,7 @@ class TestD09RepeatedTrendFailureRecord(F5Case):
         self.assertEqual(token_of(exc), "ROUND_REPEATED")
         self.assertEqual(exit_code_of(exc), 2)
         records = failure_records(self.home)
-        self.assertEqual(len(records), before + 1)
-        payload = records[-1].get("payload") or {}
-        self.assertEqual(payload.get("error_value"), "ROUND_REPEATED")
-        self.assertEqual(payload.get("rule_fired"), "ROUND_REPEATED")
-        self.assertEqual(payload.get("subject_identity"), ROUND)
-        self.assertEqual(payload.get("date"), AUDIT_DATE)
+        self.assertEqual(len(records), before)
         chain = service.verify(home=str(self.home))
         self.assertTrue(chain["passed"])
 
@@ -135,7 +136,10 @@ class TestD09RepeatedTrendFailureRecord(F5Case):
                 "--round_b", ROUND, "--audit_date", AUDIT_DATE])
         self.assertEqual(code, 2)
         self.assertIn("ROUND_REPEATED", stream.getvalue())
-        self.assertEqual(len(failure_records(self.home)), 1)
+        # Restated for Step 19 register item R19-017: probe
+        # trend is a non appending operation, so the refused
+        # call through the shell appends no failure record.
+        self.assertEqual(len(failure_records(self.home)), 0)
 
 
 class TestD16StatusOverMissingHome(F5Case):

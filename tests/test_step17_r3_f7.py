@@ -231,18 +231,37 @@ class Test047AuditDateFailureRecord(SeededBase):
             home=str(self.home), run_id="run-99",
             audit_date="not-a-date"))
 
+    def assert_no_record(self, call):
+        # Restated for Step 19 register item R19-017: probe
+        # report, probe trend, and query-set-report are the
+        # operations the brief names as non appending, and
+        # the cure stops them appending a failure record on
+        # any failure path, the audit date validation path
+        # included. The refusal token stands at full strength
+        # and the record count stands unchanged. The audit
+        # and guide routes in this class stand unrestated:
+        # those are appending operations and their failure
+        # records stand.
+        before = len(payloads_of_kind(self.home, "failure_record"))
+        with self.assertRaises(errors.CitelineError) as caught:
+            call()
+        self.assertEqual(
+            token_of(caught.exception), "VALIDATION_FAILED")
+        after = len(payloads_of_kind(self.home, "failure_record"))
+        self.assertEqual(after - before, 0)
+
     def test_probe_report_route(self):
-        self.assert_one_record(lambda: service.probe_report(
+        self.assert_no_record(lambda: service.probe_report(
             home=str(self.home), product=PRODUCT, round=ROUND,
             audit_date="2026-02-30"))
 
     def test_probe_trend_route(self):
-        self.assert_one_record(lambda: service.probe_trend(
+        self.assert_no_record(lambda: service.probe_trend(
             home=str(self.home), product=PRODUCT, round_a=ROUND,
             round_b="round-2", audit_date="2026-02-30"))
 
     def test_query_set_report_route(self):
-        self.assert_one_record(lambda: service.query_set_report(
+        self.assert_no_record(lambda: service.query_set_report(
             home=str(self.home), product=PRODUCT,
             audit_date="not-a-date"))
 
@@ -571,10 +590,19 @@ class Test064CorrectionsAwareReaders(SeededBase):
         self.assertEqual(count, 0)
 
     def test_failure_surfacing_reads_corrections(self):
+        # Restated in its seed limb only, for Step 19 register
+        # item R19-017: the seed failure record now stands
+        # created by a failed import, an appending operation
+        # whose failure record stands, instead of by a failed
+        # probe report, a non appending operation whose cure
+        # stopped it appending. The surfacing assertions below
+        # stand unrestated at full strength: status still
+        # surfaces standing failure records, corrections
+        # included.
+        answer = temp_file(
+            self, "Acme Ledger is a ledger tool.\n", "answer.txt")
         with self.assertRaises(errors.CitelineError):
-            service.probe_report(
-                home=str(self.home), product=PRODUCT, round="nope",
-                audit_date=AUDIT_DATE)
+            do_import(self.home, answer, round="nope")
         failure = entries_of_kind(self.home, "failure_record")[-1]
         corrected = dict(failure.get("payload") or {})
         corrected["error_value"] = "CORRECTED_MARKER"
