@@ -1,7 +1,6 @@
-"""Step 17 round 15 fix seat F1 tests: journal family.
+"""Journal family.
 
-Each defect pin states entry S17-R15-001 from
-design/audit/step-17-r15-findings-register.md: every
+Each defect pin states from the register: every
 judgement of every journal write site judged the opened
 handle alone, by a regular file form and a link count of
 exactly one, and never judged that the path still names
@@ -19,10 +18,9 @@ its bounded form only, as the entry states it. The
 rename away and back controls and the plain controls
 stand whole on both trees. Homes are scratch homes under
 a temporary directory. No test here touches a standing
-test item or a governed ground: CARRY S17-R4-070 and
-CARRY S17-R5-026 stand untouched in exact form, and the
-refused entry S17-R7-002 stands apart and untouched.
-"""
+test item or a governed ground: CARRY and CARRY stand
+untouched in exact form, and the refused stands apart
+and untouched."""
 
 import os
 import sys

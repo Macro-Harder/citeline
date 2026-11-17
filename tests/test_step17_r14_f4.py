@@ -1,12 +1,10 @@
-"""Step 17 round 14 fix seat F4 tests: import family.
+"""Import family.
 
-Test first pins for the import side limb of register
-entry S17-R14-001, from
-design/audit/step-17-r14-findings-register.md, as
-dispositioned in design/audit/step-17-r14-disposition.md
-ruling (c) and Section 3, this seat standing charged
-with the import side limb at the lead of seat F2.
-"""
+Test first pins for the import side limb of register,
+from the register, as dispositioned in the register
+paper ruling (c) and Section 3, this seat standing
+charged with the import side limb at the lead of seat
+F2."""
 
 import json
 import unicodedata

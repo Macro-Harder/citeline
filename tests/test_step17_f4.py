@@ -1,16 +1,10 @@
-"""Step 17 fix seat F4 tests: import family and worksheet surface.
+"""Import family and worksheet surface.
 
 Pins the register entries charged to F4 in the combined fix
-wave: S17-R1-032, S17-R1-033, S17-R1-034, S17-R1-035,
-S17-R1-036, S17-R1-037, S17-R1-089, S17-R1-101, S17-R1-105,
-S17-R1-106, and S17-R1X-017 to S17-R1X-025 with
-S17-R1X-031. Every test was written before its cure and run
+wave. Every test was written before its cure and run
 failing for the register stated reason. Oracle: the register
-entries at design/audit/step-17-r1-findings-register.md and
-design/audit/step-17-r1x-findings-register.md, the brief
-items they cite, and the combined charge at
-design/audit/step-17-r1x-disposition.md.
-"""
+entries in the register and the register paper, the brief items
+they cite, and the combined charge in the register."""
 
 import hashlib
 import json

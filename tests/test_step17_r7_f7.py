@@ -1,13 +1,11 @@
-"""Step 17 round 7 fix seat F7 tests: service, watch, seams.
+"""Service, watch, seams.
 
 Pins the register entries charged to F7 in fix round 7:
-S17-R7-045, S17-R7-046, S17-R7-047, and S17-R7-052, and
-the seam positions the F2, F4, and F6 papers of this
-round state for this seat. Every defect test was written
-before its cure and run failing for the register stated
-reason, except the controls named as controls.
-Oracle: the round 7 findings register and disposition.
-"""
+and, and the seam positions the F2, F4, and F6 papers of
+this round state for this seat. Every defect test was
+written before its cure and run failing for the register
+stated reason, except the controls named as controls.
+Oracle: the round 7 findings register and disposition."""
 
 import json
 import os
@@ -118,10 +116,10 @@ class SeededBase(unittest.TestCase):
         return do_import(self.home, answer)
 
 
-# ----------------------------------------------------------------
-# S17-R7-045: the round version stamps stand judged against
-# the counter form the first import stamps, a whole number
-# no counter stands below, at both stamp positions.
+# ----------------------------------------------------------------:
+# the round version stamps stand judged against the counter form
+# the first import stamps, a whole number no counter stands below,
+# at both stamp positions.
 # ----------------------------------------------------------------
 
 class Test045StampsCounterForm(SeededBase):
@@ -186,12 +184,12 @@ class Test045StampsCounterForm(SeededBase):
             report["registry_version_at_first_import"], 10 ** 30)
 
 
-# ----------------------------------------------------------------
-# S17-R7-046: the audit form request reader stands validated
-# on the audit date, the date defaulted flag, and the
-# methods note version beside the fields its validator
-# names today, the methods note version standing judged as
-# the integer 1 under the Manager ruling.
+# ----------------------------------------------------------------:
+# the audit form request reader stands validated on the audit
+# date, the date defaulted flag, and the methods note version
+# beside the fields its validator names today, the methods note
+# version standing judged as the integer 1 under the Manager
+# ruling.
 # ----------------------------------------------------------------
 
 class Test046AuditFieldsValidated(SeededBase):
@@ -260,9 +258,9 @@ class Test046AuditFieldsValidated(SeededBase):
         self.assertEqual(standing["methods_note_version"], 1)
 
 
-# ----------------------------------------------------------------
-# S17-R7-047: a second_rounds record on an estate plan
-# stands warned in the open, never disregarded in silence.
+# ----------------------------------------------------------------:
+# a second_rounds record on an estate plan stands warned in the
+# open, never disregarded in silence.
 # ----------------------------------------------------------------
 
 class Test047EstateSecondRoundsWarned(SeededBase):
@@ -350,10 +348,9 @@ class Test047EstateSecondRoundsWarned(SeededBase):
                 for warning in warnings))
 
 
-# ----------------------------------------------------------------
-# S17-R7-052: the service product listing stands judged
-# against the F2 registry fold judgement as the reference
-# reading.
+# ----------------------------------------------------------------:
+# the service product listing stands judged against the F2
+# registry fold judgement as the reference reading.
 # ----------------------------------------------------------------
 
 class Test052ServiceListingJudgesIdentity(SeededBase):
@@ -394,11 +391,10 @@ class Test052ServiceListingJudgesIdentity(SeededBase):
 
 
 # ----------------------------------------------------------------
-# F4 seams in service.py: the block size measured on the
-# block as it stands in the file (S17-R7-033), container
-# values measured through _container_value_measure
-# (S17-R7-032), and fences judged on the completed head
-# predicate (S17-R7-031).
+# F4 seams in service.py: the block size measured on the block as
+# it stands in the file, container values measured through
+# _container_value_measure, and fences judged on the completed
+# head predicate.
 # ----------------------------------------------------------------
 
 class TestF4SeamsServiceReading(SeededBase):
@@ -469,11 +465,10 @@ class TestF4SeamsServiceReading(SeededBase):
 
 
 # ----------------------------------------------------------------
-# F2 seams consumed at the service surfaces: the page side
-# forms as cured at entries S17-R7-009 to S17-R7-014 and
-# the round label forms as cured at entries S17-R7-016 and
-# S17-R7-017. Controls: these forms stand landed by seat
-# F2 and the service surfaces consume them as they stand.
+# F2 seams consumed at the service surfaces: the page side forms
+# as cured at to and the round label forms as cured at. Controls:
+# these forms stand landed by seat F2 and the service surfaces
+# consume them as they stand.
 # ----------------------------------------------------------------
 
 class TestF2SeamsConsumedForms(SeededBase):

@@ -1,10 +1,8 @@
-"""Step 17 round 11 fix seat F3 tests: checks entries.
+"""Checks entries.
 
 Each test pins one register entry on the behaviour the
 register states, written before its cure. Entries:
-S17-R11-002, S17-R11-003, S17-R11-004, and
-S17-R11-005.
-"""
+and."""
 
 import unittest
 

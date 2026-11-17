@@ -1,12 +1,10 @@
-"""Step 17 round 13 fix seat F1 tests: journal family.
+"""Journal family.
 
 Each test pins the register entry from design/audit/
-step-17-r13-findings-register.md (S17-R13-006,
-extending S17-R12-009) on the behaviour the register
-and the round 13 disposition state. Homes are scratch
+the register paper on the behaviour the register and
+the round 13 disposition state. Homes are scratch
 homes under a temporary directory. No test here
-touches a standing test item or a governed ground.
-"""
+touches a standing test item or a governed ground."""
 
 import os
 import sys

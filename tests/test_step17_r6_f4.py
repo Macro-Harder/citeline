@@ -1,12 +1,9 @@
-"""Step 17 round 6 fix seat F4 tests: import family.
+"""Import family.
 
-Test first pins for register entries S17-R6-023, 024, 025,
-026, 027, 028, 029, 030, 031, 032, and 051, from
-design/audit/step-17-r6-findings-register.md and the source
-papers step-17-r6-attack-import.md and
-step-17-r6-attack-red.md (entry 051 and the merged limbs
-of entries 024 and 032).
-"""
+Test first pins for register, 024, 025, 026, 027, 028, 029,
+030, 031, 032, and 051, from the register and the source
+papers the register paper and the register paper (entry 051
+and the merged limbs of entries 024 and 032)."""
 
 import gzip
 import io

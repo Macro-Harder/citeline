@@ -97,8 +97,8 @@ def _fail(token, message):
 
 class _StaleView(Exception):
     """The journal moved inside one registry cycle, so the
-    cycle judges again on the fresh state (entry
-    S17-R4-014). Internal to this module."""
+    cycle judges again on the fresh state. Internal to
+    this module."""
 
 
 # ----------------------------------------------------------------
@@ -137,8 +137,8 @@ def _fold(home):
     fold stands: a corrected record stands in place of the
     superseded entry record for every reader in this
     module, the snapshot and round reads included, so no
-    registry writing operation judges by a superseded view
-    (Step 17 round 3 entry S17-R3-012)."""
+    registry writing operation judges by a superseded
+    view."""
     journal = _journal()
     fold = getattr(journal, "fold", None)
     if fold is None:
@@ -163,9 +163,8 @@ def _judge_product_identity(product_id):
     that is not a string among them, stands refused in the
     recorded vocabulary here instead of the fold keying its
     dict by the raw value and a reader meeting it raw
-    outside the vocabulary (Step 17 round 5 entry
-    S17-R5-064, extended to this fold at round 6 entry
-    S17-R6-011)."""
+    outside the vocabulary (extended to this fold at round
+    6)."""
     if not isinstance(product_id, str):
         _fail("VALIDATION_FAILED",
               "the stored registry record carries product_id "
@@ -181,10 +180,8 @@ def _fold_registry(home):
     yields a list of records, the records are keyed here by
     their product_id, which is a reading of the fold only,
     not a second fold rule. On every road the identity
-    stands judged against the stored field discipline
-    before it keys the dict (Step 17 round 6 entry
-    S17-R6-011).
-    """
+    stands judged against the stored field discipline before
+    it keys the dict."""
     journal = _journal()
     fold_registry = getattr(journal, "fold_registry", None)
     state = None
@@ -224,14 +221,13 @@ def _journal_version(home):
     """The standing journal state as a version pair, or None.
 
     A registry cycle reads this pair before it judges and
-    again before it appends: where the pair moved between
-    the two readings, a writer outside the registry lock,
-    a correction appended through the journal among them,
+    again before it appends: where the pair moved between the
+    two readings, a writer outside the registry lock, a
+    correction appended through the journal among them,
     landed inside the cycle, and the cycle judges again on
-    the fresh state instead of writing on the superseded
-    view its first read returned (Step 17 round 4 entry
-    S17-R4-014, reading the journal discipline the round 4
-    F1 seat landed)."""
+    the fresh state instead of writing on the superseded view
+    its first read returned (reading the journal discipline
+    the round 4 F1 seat landed)."""
     journal = _journal()
     verify = getattr(journal, "verify_chain", None)
     if verify is None:
@@ -253,20 +249,18 @@ def _append_guard(home):
     A version check standing before an append is a check,
     not a guard: a correction appended through the journal
     between the check and the append lands on a view the
-    cycle judged before it (Step 17 round 5 entry
-    S17-R5-006). The final check therefore stands inside
-    this hold, and the cycle append stands inside it too.
-    The hold is the journal lock in its sealed batch form:
-    it grants no join permit and it suspends any permit it
-    joined under, so an append attempted inside the window
-    by any other writer, a correction among them, stands
-    contended and stores nothing, in the journal
+    cycle judged before it. The final check therefore stands
+    inside this hold, and the cycle append stands inside it
+    too. The hold is the journal lock in its sealed batch
+    form: it grants no join permit and it suspends any
+    permit it joined under, so an append attempted inside
+    the window by any other writer, a correction among them,
+    stands contended and stores nothing, in the journal
     vocabulary, exactly as a caller in another process
-    stands. The cycle own append joins only through the
-    one call authorization _append_guarded registers for
-    it. Where the journal module offers no lock, the cycle
-    proceeds unguarded, as it stood before this cure.
-    """
+    stands. The cycle own append joins only through the one
+    call authorization _append_guarded registers for it.
+    Where the journal module offers no lock, the cycle
+    proceeds unguarded, as it stood before this cure."""
     journal = _journal()
     lock_class = getattr(journal, "_WriteLock", None)
     if lock_class is None:
@@ -368,13 +362,12 @@ def validate_name(value, what="name"):
     """A name is 1 to 200 code points, no control characters.
 
     Name text is normalised to Unicode NFC before case
-    folding (brief item 151), and the normalised form is
-    the form stored and the form identity is formed from,
-    so one name in its two Unicode forms is one name at
-    this boundary. A lone surrogate is not encodable text
-    and fails validation here, in the closed vocabulary,
-    rather than at journal encoding.
-    """
+    folding (brief item 151), and the normalised form is the
+    form stored and the form identity is formed, so one name
+    in its two Unicode forms is one name at this boundary. A
+    lone surrogate is not encodable text and fails validation
+    here, in the closed vocabulary, rather than at journal
+    encoding."""
     if not isinstance(value, str):
         _fail("VALIDATION_FAILED", "%s must be a string" % what)
     value = unicodedata.normalize("NFC", value)
@@ -421,9 +414,7 @@ def validate_alias(value):
         _fail("VALIDATION_FAILED",
               "alias must hold a letter or a digit: an alias "
               "with no name in it stands refused at this "
-              "boundary (Step 17 round 4 entry S17-R4-016, "
-              "the test standing as stated at round 5 entry "
-              "S17-R5-009: a letter is a character of a letter "
+              "boundary (a letter is a character of a letter "
               "category and a digit is a character of the "
               "decimal number category, so a character of a "
               "number category that is neither, the letter "
@@ -436,8 +427,7 @@ def validate_alias(value):
         # An alias carries no invisible format character,
         # judged on every character of the format
         # category, as the domain reading in this module
-        # states its form of the same rule (Step 17 round
-        # 7 entry S17-R7-018).
+        # states its form of the same rule.
         _fail("VALIDATION_FAILED",
               "alias must carry no invisible format character")
     if _has_control(value):
@@ -719,7 +709,7 @@ def _snapshots(home):
             # form that is not a string, an unhashable form
             # among them, stands refused in the recorded
             # vocabulary here instead of crashing the fold
-            # raw (Step 17 round 5 entry S17-R5-064).
+            # raw.
             if not isinstance(snapshot_id, str):
                 _fail("VALIDATION_FAILED",
                       "the stored snapshot record carries "
@@ -822,12 +812,11 @@ def _assign_competitor_identities(records):
     stands judged against every base in the record as well
     as against every identity already assigned, so a
     suffixed identity never lands on the natural identity
-    of another competitor in the same record (Step 17
-    round 3 entry S17-R3-011). Where a competitor stated
-    its own identity and a suffix would store it under a
-    different identity, the call stands refused instead of
-    the stated identity standing silently rewritten.
-    """
+    of another competitor in the same record. Where a
+    competitor stated its own identity and a suffix would
+    store it under a different identity, the call stands
+    refused instead of the stated identity standing
+    silently rewritten."""
     all_bases = {competitor_id_for_name(record["name"])
                  for record in records}
     used = set()
@@ -950,7 +939,7 @@ def _store_change(home, record, audit_date, version=None):
         # The version judgement and the append stand inside
         # one sealed hold, so no correction can land between
         # the judgement this append rests on and the append
-        # itself (Step 17 round 5 entry S17-R5-006).
+        # itself.
         with _append_guard(home):
             if _journal_version(home) != version:
                 raise _StaleView()
@@ -1088,16 +1077,15 @@ def _add_product_cycle(home, name, candidate, stated, audit_date):
             # sealed hold on every attempt, the fifth
             # included, on the record the hold itself reads,
             # so no success answer names a record a
-            # correction has already superseded (Step 17
-            # round 5 entry S17-R5-006, completed at round 6
-            # entry S17-R6-010). The judgement stands judged
-            # against the landed round 6 authorization form
-            # at entry S17-R6-001: inside the sealed hold an
-            # append attempted by any other writer, a
-            # correction among them, stands contended and
-            # stores nothing, so the record read inside the
-            # hold cannot move under the judgement, on the
-            # fifth attempt as on every other.
+            # correction has already superseded. The
+            # judgement stands judged against the landed
+            # round 6 authorization form at: inside the
+            # sealed hold an append attempted by any other
+            # writer, a correction among them, stands
+            # contended and stores nothing, so the record
+            # read inside the hold cannot move under the
+            # judgement, on the fifth attempt as on every
+            # other.
             with _append_guard(home):
                 fresh = find_product(home, name)
                 if fresh is None:
@@ -1119,8 +1107,8 @@ def _add_product_cycle(home, name, candidate, stated, audit_date):
             _fail("VALIDATION_FAILED",
                   "the registry record moved under every "
                   "attempt of this cycle, so the cycle "
-                  "writes nothing on a superseded view "
-                  "(Step 17 round 5 entry S17-R5-006)")
+                  "writes nothing on a superseded view"
+                  )
         payload = _payload_product(candidate)
         with _append_guard(home):
             if _journal_version(home) != version:
@@ -1129,8 +1117,8 @@ def _add_product_cycle(home, name, candidate, stated, audit_date):
                 _fail("VALIDATION_FAILED",
                       "the registry record moved under every "
                       "attempt of this cycle, so the cycle "
-                      "writes nothing on a superseded view "
-                      "(Step 17 round 5 entry S17-R5-006)")
+                      "writes nothing on a superseded view"
+                      )
             _append_guarded(
                 home, "product_registered", payload, audit_date)
         return _public_product(candidate)
@@ -1160,8 +1148,8 @@ def set_canonical_line(home, product=None, line=None, audit_date=None,
         _fail("VALIDATION_FAILED",
               "the registry record moved under every "
               "attempt of this cycle, so the cycle "
-              "writes nothing on a superseded view "
-              "(Step 17 round 5 entry S17-R5-006)")
+              "writes nothing on a superseded view"
+              )
 
 
 def set_competitors(home, product=None, competitors=None,
@@ -1194,8 +1182,8 @@ def set_competitors(home, product=None, competitors=None,
         _fail("VALIDATION_FAILED",
               "the registry record moved under every "
               "attempt of this cycle, so the cycle "
-              "writes nothing on a superseded view "
-              "(Step 17 round 5 entry S17-R5-006)")
+              "writes nothing on a superseded view"
+              )
 
 
 def set_aliases(home, product=None, aliases=None, audit_date=None,
@@ -1221,8 +1209,8 @@ def set_aliases(home, product=None, aliases=None, audit_date=None,
         _fail("VALIDATION_FAILED",
               "the registry record moved under every "
               "attempt of this cycle, so the cycle "
-              "writes nothing on a superseded view "
-              "(Step 17 round 5 entry S17-R5-006)")
+              "writes nothing on a superseded view"
+              )
 
 
 def set_query_set(home, product=None, query_set=None, audit_date=None,
@@ -1250,8 +1238,8 @@ def set_query_set(home, product=None, query_set=None, audit_date=None,
         _fail("VALIDATION_FAILED",
               "the registry record moved under every "
               "attempt of this cycle, so the cycle "
-              "writes nothing on a superseded view "
-              "(Step 17 round 5 entry S17-R5-006)")
+              "writes nothing on a superseded view"
+              )
 
 
 def set_category(home, product=None, category=None, audit_date=None,
@@ -1275,8 +1263,8 @@ def set_category(home, product=None, category=None, audit_date=None,
         _fail("VALIDATION_FAILED",
               "the registry record moved under every "
               "attempt of this cycle, so the cycle "
-              "writes nothing on a superseded view "
-              "(Step 17 round 5 entry S17-R5-006)")
+              "writes nothing on a superseded view"
+              )
 
 
 def _append_register_failure(home, token, subject, audit_date):
@@ -1400,16 +1388,14 @@ def register_page(home, product=None, snapshot=None, audit_date=None,
                           "the registry record moved under "
                           "every attempt of this cycle, so "
                           "the cycle writes nothing on a "
-                          "superseded view (Step 17 round 5 "
-                          "entry S17-R5-006)")
+                          "superseded view")
                 _append_guarded(
                     home, "snapshot_registered", base, audit_date)
             return copy.deepcopy(base)
         _fail("VALIDATION_FAILED",
               "the registry record moved under every attempt "
               "of this cycle, so the cycle writes nothing on "
-              "a superseded view (Step 17 round 5 entry "
-              "S17-R5-006)")
+              "a superseded view")
 
 
 # Round declaration values. The plan Section 5.1 values stand
@@ -1516,12 +1502,11 @@ def name_round(home, product=None, round_label=None,
         # this boundary, as a name does: the label is
         # normalised to Unicode NFC, and the normalised
         # form is the form stored and the form its round
-        # identity is formed from, so one label in its two
+        # identity is formed, so one label in its two
         # Unicode spellings is one round; a label carrying
         # a control character, or a lone surrogate, stands
         # refused here in the registry vocabulary, rather
-        # than at journal encoding (Step 17 round 7
-        # entries S17-R7-016 and S17-R7-017).
+        # than at journal encoding.
         round_label = unicodedata.normalize("NFC", round_label)
         if len(round_label) > 200:
             _fail("LIMIT_EXCEEDED", "round label length limit is 200")
@@ -1583,13 +1568,11 @@ def name_round(home, product=None, round_label=None,
                           "the registry record moved under "
                           "every attempt of this cycle, so "
                           "the cycle writes nothing on a "
-                          "superseded view (Step 17 round 5 "
-                          "entry S17-R5-006)")
+                          "superseded view")
                 _append_guarded(
                     home, "round_named", payload, audit_date)
             return copy.deepcopy(round_record)
         _fail("VALIDATION_FAILED",
               "the registry record moved under every attempt "
               "of this cycle, so the cycle writes nothing on "
-              "a superseded view (Step 17 round 5 entry "
-              "S17-R5-006)")
+              "a superseded view")

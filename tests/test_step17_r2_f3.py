@@ -1,9 +1,7 @@
-"""Step 17 round 2 fix seat F3 tests: checks and robots entries.
+"""Checks and robots entries.
 
-Each test pins one register entry on the behaviour the
-register states, written before its cure. Entries:
-S17-R2-020 to S17-R2-032, S17-R2-099, and S17-R2-100.
-"""
+Each test pins one register entry on the behaviour the register
+states, written before its cure. Entries: and."""
 
 import datetime
 import time

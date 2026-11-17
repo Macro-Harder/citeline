@@ -1,9 +1,8 @@
-"""Step 17 round 6 fix seat F5 tests, detection and metrics.
+"""Detection and metrics.
 
-Each test pins one register entry from the Step 17 round 6
-findings register, in the form the register states. Written
-before the cures, watched failing, then watched passing.
-"""
+Each test pins one register entry from the findings
+register, in the form the register states. Written before
+the cures, watched failing, then watched passing."""
 
 import random
 import time
@@ -57,13 +56,13 @@ def brute_components(type_sets):
 
 
 def frontier_family(n_large, n_reject):
-    """The mixed size frontier shape entry S17-R6-033
-    measures, in the attack paper's own construction: a
-    small chain of sets of size 12 sliding by one, a ramp
-    of 13 nested sets bridging to a large chain of sets of
-    size 200 holding a core of 100 plus a window of 100
-    sliding by 20, and rejects holding 95 of the core plus
-    105 shingles of their own, similar to nothing."""
+    """The mixed size frontier shape measures, in the attack
+    paper's own construction: a small chain of sets of
+    size 12 sliding by one, a ramp of 13 nested sets
+    bridging to a large chain of sets of size 200 holding
+    a core of 100 plus a window of 100 sliding by 20, and
+    rejects holding 95 of the core plus 105 shingles of
+    their own, similar to nothing."""
     ramp_sizes = [15, 18, 22, 27, 33, 41, 51, 63, 78, 97,
                   121, 151, 188]
     core = list(range(20000, 20100))

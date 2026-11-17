@@ -166,14 +166,13 @@ def _get(record, name, default=None):
     return getattr(record, name, default)
 
 
-# One fold instant for one artefact assembly (Step 17
-# round 5 entry S17-R5-058): where an assembly stands
-# opened on a snapshot fold, every corrections aware fold
-# taken inside that assembly reads the snapshot, so no
-# side of the artefact stands on a later instant than
-# another. The snapshot stands held per context, so a
-# nested or concurrent assembly never reads another
-# assembly's instant.
+# One fold instant for one artefact assembly: where an
+# assembly stands opened on a snapshot fold, every
+# corrections aware fold taken inside that assembly reads
+# the snapshot, so no side of the artefact stands on a
+# later instant than another. The snapshot stands held
+# per context, so a nested or concurrent assembly never
+# reads another assembly's instant.
 _FOLD_SNAPSHOT = contextvars.ContextVar(
     "citeline_fold_snapshot", default=None)
 
@@ -228,21 +227,18 @@ def _require_home(home):
 def _recover_interrupted_batch(home):
     """Roll back a killed batch before a read judges state.
 
-    Recovery stood only on the append paths, so a read
-    only route presented a killed batch's partial entries
-    as ordinary state, indefinitely, until an unrelated
-    append rolled them away and silently falsified the
-    report already handed out (Step 17 round 3 entry
-    S17-R3-029, reopening S17-R2-083 on its read side).
-    Every reading route of this layer now runs the
-    journal recovery first, on the discipline the journal
-    seat landed: the recovery itself validates the intent
-    record, restores the journal and the anchor, and
-    appends its own record of having run. Where no home
+    Recovery stood only on the append paths, so a read only
+    route presented a killed batch's partial entries as
+    ordinary state, indefinitely, until an unrelated append
+    rolled them away and silently falsified the report
+    already handed out. Every reading route of this layer
+    now runs the journal recovery first, on the discipline
+    the journal seat landed: the recovery itself validates
+    the intent record, restores the journal and the anchor,
+    and appends its own record of having run. Where no home
     stands, or the home stands held by a live batch,
     nothing happens here: the live batch owns its own
-    rollback, and a missing home creates nothing.
-    """
+    rollback, and a missing home creates nothing."""
     try:
         if not os.path.isdir(str(home)):
             return
@@ -253,12 +249,11 @@ def _recover_interrupted_batch(home):
     if recover is None:
         return
     # Whether a batch intent record stood at the attempt
-    # stands recorded before the attempt runs (Step 17
-    # round 6 entry S17-R6-052): the deferred signal below
-    # judges a deferral of the recovery this call
-    # attempted, and a record that lands only after the
-    # attempt returned was never attempted on, so no
-    # deferral of it stands to signal.
+    # stands recorded before the attempt runs: the
+    # deferred signal below judges a deferral of the
+    # recovery this call attempted, and a record that
+    # lands only after the attempt returned was never
+    # attempted, so no deferral of it stands to signal.
     intent_path_fn = getattr(journal, "_batch_intent_path", None)
     stood_at_attempt = None
     if intent_path_fn is not None:
@@ -284,45 +279,41 @@ def _signal_deferred_recovery(home, journal,
     partial entries stand as the journal's ordinary state,
     and a route that proceeds hands out an artefact, a
     figure, or a standing record on that state in silence
-    (Step 17 round 5 entry S17-R5-071, merging White W-02
-    and Seams SEAMS-4). The route therefore stands refused
-    in the recorded vocabulary at the cap the deferral
-    stands on, token JOURNAL_CAP_EXCEEDED, and hands out
-    nothing. The judgement stands bounded to the deferral
-    form the entry names, in three ways. First, the intent
-    record must itself validate as a genuine record
-    through the journal validation the recovery runs: a
-    record the validation defers on another ground, the
+    (merging White W-02 and Seams SEAMS-4). The route
+    therefore stands refused in the recorded vocabulary at
+    the cap the deferral stands, token JOURNAL_CAP_EXCEEDED,
+    and hands out nothing. The judgement stands bounded to
+    the deferral form the entry names, in three ways. First,
+    the intent record must itself validate as a genuine
+    record through the journal validation the recovery runs:
+    a record the validation defers on another ground, the
     damaged prefix and damaged config forms among them,
     keeps the standing forms those grounds already state,
     and a record the validation refuses names no batch.
-    Second, no signal stands where a live holder holds
-    the home: a batch in flight is the live window of
-    CARRY S17-R4-070, which this cure does not reach past,
-    and the lock probe the journal states answers that
-    question. Third, a non regular file at the intent
-    path stands never opened by this judgement.
+    Second, no signal stands where a live holder holds the
+    home: a batch in flight is the live window of CARRY,
+    which this cure does not reach past, and the lock probe
+    the journal states answers that question. Third, a non
+    regular file at the intent path stands never opened by
+    this judgement.
 
-    The signal judges that a recovery was attempted on
-    the record and deferred at the journal length cap
-    (Step 17 round 6 entry S17-R6-052): where the caller
-    states that no intent record stood at its recovery
-    attempt, a record standing now was never attempted
-    on and no signal stands over it; and the record
-    standing judged again after the validation, so a
-    recovery that landed inside the validation itself
-    leaves no record standing and no signal stands over
-    the healed home. The signal names only the genuine
-    record the cap defers, as the round 5 cure states.
-    Its own reading of the intent record stands under
-    the non blocking descriptor discipline the journal
-    intent reader stands under (Step 17 round 6 entry
-    S17-R6-053): the record stands read through the
-    journal read descriptor helper, so a FIFO swapped
-    into the path in the check to open window stands
-    met as a non regular file on the opened handle and
-    no route head wedges in a plain open.
-    """
+    The signal judges that a recovery was attempted on the
+    record and deferred at the journal length cap: where the
+    caller states that no intent record stood at its
+    recovery attempt, a record standing now was never
+    attempted on and no signal stands over it; and the
+    record standing judged again after the validation, so a
+    recovery that landed inside the validation itself leaves
+    no record standing and no signal stands over the healed
+    home. The signal names only the genuine record the cap
+    defers, as the round 5 cure states. Its own reading of
+    the intent record stands under the non blocking
+    descriptor discipline the journal intent reader stands
+    under: the record stands read through the journal read
+    descriptor helper, so a FIFO swapped into the path in
+    the check to open window stands met as a non regular
+    file on the opened handle and no route head wedges in a
+    plain open."""
     if record_stood_at_attempt is False:
         return
     intent_path = getattr(journal, "_batch_intent_path", None)
@@ -399,12 +390,11 @@ def _guard_supplied_path(value):
     refused in the governed vocabulary at row X-4, token
     SUPPLIED_PATH_UNSAFE, at this seam, before any stat,
     open, or size read on the service routes can raise a
-    bare ValueError or UnicodeEncodeError on it (Step 17
-    round 2 entry S17-R2-018). The acquisition component
-    gives the same refusal where it is reached directly;
-    this guard stands on the service paths that touch a
-    supplied path before that component runs.
-    """
+    bare ValueError or UnicodeEncodeError on it. The
+    acquisition component gives the same refusal where it
+    is reached directly; this guard stands on the service
+    paths that touch a supplied path before that component
+    runs."""
     if not isinstance(value, str):
         return
     if "\x00" in value:
@@ -435,14 +425,12 @@ def _validate_audit_date(audit_date):
 
     The validator returns the date in the one form the
     product stores, the ISO text form: a date or datetime
-    object is recorded as its ISO date text, and an
-    integer in the basic ISO form is normalised to the
-    same text, so no stored record carries a date in a
-    form no other record carries (Step 17 entries
-    S17-R1X-026 and S17-R1X-033). Every route assigns the
-    returned value back over its input before any record
-    is built or stored from it.
-    """
+    object is recorded as its ISO date text, and an integer
+    in the basic ISO form is normalised to the same text,
+    so no stored record carries a date in a form no other
+    record carries . Every route assigns the returned value
+    back over its input before any record is built or
+    stored from it."""
     if audit_date is None:
         return None
     import datetime
@@ -450,13 +438,13 @@ def _validate_audit_date(audit_date):
         return audit_date.date().isoformat()
     if isinstance(audit_date, datetime.date):
         return audit_date.isoformat()
-    # The type discipline stands completed (Step 17 round 2
-    # entry S17-R2-076): the forms the discipline names are
-    # a date object, a datetime, an integer in basic ISO
-    # form, and an ISO string. Every other type refuses
-    # here, a float included: a float is none of the named
-    # forms, and passing it through a string conversion
-    # into the parser silently dropped its fraction.
+    # The type discipline stands completed: the forms the
+    # discipline names are a date object, a datetime, an
+    # integer in basic ISO form, and an ISO string. Every
+    # other type refuses here, a float included: a float is
+    # none of the named forms, and passing it through a
+    # string conversion into the parser silently dropped
+    # its fraction.
     if isinstance(audit_date, bool) or not isinstance(
             audit_date, (int, str)):
         _fail(
@@ -504,20 +492,18 @@ def _round_record(home, product_record, round_label):
     # round_named payload: the first import stamp append
     # supersedes the naming entry for the same round, and
     # a correction of the standing entry governs the
-    # label the round resolves under (Step 17 entry
-    # S17-R1X-027, extending S17-R1-086).
+    # label the round resolves under (extending).
     standing_by_id = {}
     for payload in _rounds(home, product_id):
         round_id = payload.get("round_id")
         if round_id is not None and not isinstance(round_id, str):
-            # The stored round identity stands judged
-            # before this fold keys its dict by it (Step 17
-            # round 6 entry S17-R6-050): an identity in a
-            # form that is not a string, an unhashable form
-            # among them, refuses in the recorded vocabulary
-            # instead of crashing the fold raw, as the
-            # sibling folds cured in round 5 refuse the
-            # same class of swap.
+            # The stored round identity stands judged before
+            # this fold keys its dict by it: an identity in
+            # a form that is not a string, an unhashable
+            # form among them, refuses in the recorded
+            # vocabulary instead of crashing the fold raw,
+            # as the sibling folds cured in round 5 refuse
+            # the same class of swap.
             _fail(
                 "VALIDATION_FAILED",
                 "the stored round record carries round_id "
@@ -625,16 +611,14 @@ def _bounds_computed():
 def _limits_in_force(home, run_id=None):
     """The limits in force statement of one home or one run.
 
-    The statement reads the journal limits in force for
-    the run identity named, so a limit_raise entry for
-    that run stands stated in it with source raise, and
-    the operations of that run append under the same
-    identity (Step 17 entry S17-R1X-011, extending
-    S17-R1-080). Where no run stands named, the statement
-    states plainly that it reports no run: a raise stands
-    in force only for the run it names, and no raise is
-    claimed for a reporting surface that names none.
-    """
+    The statement reads the journal limits in force for the
+    run identity named, so a limit_raise entry for that run
+    stands stated in it with source raise, and the
+    operations of that run append under the same identity
+    (extending). Where no run stands named, the statement
+    states plainly that it reports no run: a raise stands in
+    force only for the run it names, and no raise is claimed
+    for a reporting surface that names none."""
     journal = _journal()
     try:
         limits = journal.effective_limits(str(home), run_id=run_id)
@@ -661,10 +645,8 @@ def _limit_value(home, key, run_id=None):
 
     Read from the journal limits in force, so a config
     value and a raise for the run reach the path that
-    enforces the limit (Step 17 entries S17-R1-038 and
-    S17-R1-080). Where no value can be read, None stands
-    and the caller applies no bound of its own.
-    """
+    enforces the limit. Where no value can be read, None
+    stands and the caller applies no bound of its own."""
     try:
         journal = _journal()
         limits = journal.effective_limits(str(home), run_id=run_id)
@@ -678,13 +660,11 @@ def _limit_value(home, key, run_id=None):
 def _require_typed_field(record, field, kinds, owner):
     """Refuse a stored field of a type its readers cannot use.
 
-    A chain valid stored entry can carry a field in a
-    swapped type (the writer the anchor limit sentence
-    names). A reader that consumes the field validates
-    its type first and refuses in the recorded vocabulary
-    instead of crashing on the value (Step 17 entry
-    S17-R1-075).
-    """
+    A chain valid stored entry can carry a field in a swapped
+    type (the writer the anchor limit sentence names). A
+    reader that consumes the field validates its type first
+    and refuses in the recorded vocabulary instead of crashing
+    on the value."""
     value = record.get(field)
     if value is not None and not isinstance(value, kinds):
         _fail(
@@ -700,9 +680,7 @@ def _require_string_list(record, field, owner):
     The field itself and every element stand judged: a
     list of the wrong element type passes a whole list
     check and crashes the reader behind it, so the
-    elements stand under the same discipline (Step 17
-    round 2 entry S17-R2-081).
-    """
+    elements stand under the same discipline."""
     value = record.get(field)
     if value is None:
         return None
@@ -718,15 +696,13 @@ def _require_string_list(record, field, owner):
 def _validate_product_record(record):
     """The stored product field discipline at the readers.
 
-    A general reader validation, in the outcome the
-    S17-R1-075 cure established at its pinned spots: a
-    stored field of a type its readers cannot use refuses
-    VALIDATION_FAILED naming the field (Step 17 round 2
-    entry S17-R2-081). Identity and text fields stand as
+    A general reader validation, in the outcome the cure
+    established at its pinned spots: a stored field of a
+    type its readers cannot use refuses VALIDATION_FAILED
+    naming the field. Identity and text fields stand as
     strings, and the list fields stand as lists of
     strings, the competitor list as names or records
-    naming a string name.
-    """
+    naming a string name."""
     if not isinstance(record, dict):
         return
     for field in ("product_id", "name", "canonical_line",
@@ -759,15 +735,13 @@ def _validate_answer_payload(payload):
 
     The string fields stand judged as before, and the non
     string fields its readers consume stand judged with
-    them (Step 17 round 3 entry S17-R3-048, reopening
-    S17-R2-081): the answer size stands as a record whose
+    them: the answer size stands as a record whose
     character and word counts stand as whole numbers a
     reader can sum, the control flag stands as a boolean,
     and the control kind stands as a string or no value.
     A swapped form refuses VALIDATION_FAILED naming the
     field, instead of crashing one reader on a sum and
-    silently falsifying another on a truthiness test.
-    """
+    silently falsifying another on a truthiness test."""
     if not isinstance(payload, dict):
         return
     for field in ("answer_text", "query", "captured_on",
@@ -798,10 +772,9 @@ def _validate_answer_payload(payload):
                         or value < 0:
                     # A count below zero stands in no form
                     # a character or word count can stand
-                    # in (Step 17 round 4 entry
-                    # S17-R4-056): it passes a whole number
-                    # reading and falsifies the status
-                    # average in silence.
+                    # in: it passes a whole number reading
+                    # and falsifies the status average in
+                    # silence.
                     bad = True
                     break
                 try:
@@ -843,16 +816,15 @@ def _validate_audit_payload(payload):
             "readers cannot use: %r" % (count,))
     # The remaining fields of the record shape the audit
     # assembly states stand judged beside the fields above
-    # (Step 17 round 7 entry S17-R7-046, extending entry
-    # S17-R6-055 at its own reader): the audit date stands
+    # (extending at its own reader): the audit date stands
     # as ISO date text, the date defaulted flag stands as
     # a boolean, and the methods note version stands as
     # the integer 1 in its stamp field, the version the
     # Manager ruling states and the assembly stamps, no
     # other value standing in that field. A swapped form
-    # of any of the three refuses VALIDATION_FAILED
-    # naming the field, instead of standing handed out
-    # verbatim in the returned record.
+    # of any of the three refuses VALIDATION_FAILED naming
+    # the field, instead of standing handed out verbatim
+    # in the returned record.
     audit_date = payload.get("audit_date")
     if audit_date is not None:
         import datetime
@@ -905,17 +877,15 @@ def _validate_round_stamp_fields(payload):
     """The stored round record stamp discipline.
 
     The round stamp fields stand judged at the readers
-    that surface them (Step 17 round 6 entry S17-R6-042):
-    the importer declaration the sampling frame carries
-    stands in one of its three G1 values, in the stored
-    canonical form or in the value text itself, and the
-    two version stamps the probe report artefact copies
-    stand as version values or null, a version value
-    standing as the whole number counter the first
-    import stamps. A swapped or out of set form refuses
-    VALIDATION_FAILED naming the field, instead of
-    surfacing verbatim in the artefact.
-    """
+    that surface them: the importer declaration the
+    sampling frame carries stands in one of its three G1
+    values, in the stored canonical form or in the value
+    text itself, and the two version stamps the probe
+    report artefact copies stand as version values or
+    null, a version value standing as the whole number
+    counter the first import stamps. A swapped or out of
+    set form refuses VALIDATION_FAILED naming the field,
+    instead of surfacing verbatim in the artefact."""
     if not isinstance(payload, dict):
         return
     declaration = payload.get("importer_declaration")
@@ -934,10 +904,9 @@ def _validate_round_stamp_fields(payload):
                 or not isinstance(value, int)
                 or value < 0):
             # The counter form stands judged whole, not
-            # by type alone (Step 17 round 7 entry
-            # S17-R7-045): a counter the first import
+            # by type alone: a counter the first import
             # stamps stands at a whole number the import
-            # counted up to, and no such counter stands
+            # counted up, and no such counter stands
             # below zero, so a negative stamp stands in
             # no counter form and refuses here as a type
             # swap refuses.
@@ -966,8 +935,7 @@ def _validate_stored_entries(entries):
     consume their text and list fields; a type swapped
     field in any of those positions refuses in the
     recorded vocabulary here, before any reader can crash
-    on it (Step 17 round 2 entry S17-R2-081).
-    """
+    on it."""
     for entry in entries:
         kind = _get(entry, "entry_kind")
         payload = _payload(entry)
@@ -984,19 +952,19 @@ def _validate_stored_entries(entries):
                 _require_typed_field(
                     payload, field, str, "snapshot")
             # The path its readers consume stands judged
-            # with the identity strings (Step 17 round 5
-            # entry S17-R5-052): estate_grounds returns it
-            # as the product page path and the watch
-            # coverage count reads it, so a swapped form
-            # refuses at the readers instead of governing
-            # the grounds and the count in its string form.
+            # with the identity strings: estate_grounds
+            # returns it as the product page path and the
+            # watch coverage count reads it, so a swapped
+            # form refuses at the readers instead of
+            # governing the grounds and the count in its
+            # string form.
             _require_typed_field(
                 payload, "supplied_path", str, "snapshot")
             # The boolean its readers consume stands
-            # judged with the identity strings (Step 17
-            # round 4 entry S17-R4-055): a string false
-            # tested by truthiness counts as a product
-            # page at the grounds and coverage readers.
+            # judged with the identity strings: a
+            # string false tested by truthiness counts
+            # as a product page at the grounds and
+            # coverage readers.
             is_page = payload.get("is_product_page")
             if is_page is not None and not isinstance(
                     is_page, bool):
@@ -1014,14 +982,12 @@ def _validate_failure_payload(payload):
 
     The failure record kind stands judged at the readers
     that surface it, as the five standing kinds stand
-    judged (Step 17 round 4 entry S17-R4-066): the
-    fields its surfacing readers consume, the operation,
-    the error value, the rule fired, the subject, and
-    the date, stand as strings where they stand at all,
-    so a type swapped field refuses in the recorded
-    vocabulary instead of surfacing verbatim, a list
-    standing shipped as an error value among them.
-    """
+    judged: the fields its surfacing readers consume,
+    the operation, the error value, the rule fired, the
+    subject, and the date, stand as strings where they
+    stand at all, so a type swapped field refuses in the
+    recorded vocabulary instead of surfacing verbatim, a
+    list standing shipped as an error value among them."""
     if not isinstance(payload, dict):
         return
     for field in ("operation", "error_value", "rule_fired",
@@ -1080,8 +1046,7 @@ def status(*, home):
     for entry in answers:
         # The capacity outlook consumes the answer size
         # figures, so the stored answer discipline stands
-        # judged here as at the report readers (Step 17
-        # round 3 entry S17-R3-048).
+        # judged here as at the report readers.
         _validate_answer_payload(_payload(entry))
     if not answers:
         outlook["answer_average"] = (
@@ -1364,15 +1329,14 @@ def _staleness_row(record_kind, record_id, payload, axes,
                 not_recorded_axes.append(axis)
             continue
         if axis not in bound:
-            # A mapped axis this record binds no value
-            # for stands listed as not recorded, beside
-            # the axes its class does not store (Step 17
-            # entries S17-R1-111 and S17-R1X-041): the
-            # lexicon axis on every real record, the
-            # crawler table axis of an audit run with no
-            # robots file, and every axis of a round named
-            # and never imported into, none of them
-            # vanishing from the row in silence.
+            # A mapped axis this record binds no value for
+            # stands listed as not recorded, beside the
+            # axes its class does not store : the lexicon
+            # axis on every real record, the crawler table
+            # axis of an audit run with no robots file,
+            # and every axis of a round named and never
+            # imported into, none of them vanishing from
+            # the row in silence.
             if axis not in not_recorded_axes:
                 not_recorded_axes.append(axis)
             continue
@@ -1486,11 +1450,11 @@ def staleness_view(*, home):
     _recover_interrupted_batch(home)
     _barred_check(home)
     # The staleness assembly reads corrections as the
-    # other reporting readers do (Step 17 round 2 entry
-    # S17-R2-103, on the S17-R1-086 corrections ground):
-    # the fold stands corrections aware, so a corrected
-    # record binds the versions its corrected record
-    # carries, in this view as in every other reader.
+    # other reporting readers do (on the corrections
+    # ground): the fold stands corrections aware, so a
+    # corrected record binds the versions its corrected
+    # record carries, in this view as in every other
+    # reader.
     entries = _fold(home, apply_corrections=True)
     _validate_stored_entries(entries)
     products = {}
@@ -1532,12 +1496,11 @@ def staleness_view(*, home):
         extras = list(answers_by_round.get(record_id, ()))
         # The round's query set axis binds from the
         # product record as it stood at the round's first
-        # import (Step 17 entry S17-R1-111): no round
-        # record stores the axis itself, so the bound
-        # record of the first import basis joins the
-        # round's answers as a joined payload, and the
-        # axis stands reported and compared instead of
-        # omitted.
+        # import: no round record stores the axis itself,
+        # so the bound record of the first import basis
+        # joins the round's answers as a joined payload,
+        # and the axis stands reported and compared
+        # instead of omitted.
         standing = products.get(payload.get("product_id"))
         bound_record = _bound_product_record(
             home,
@@ -1582,8 +1545,7 @@ def add_product(*, home, name, canonical_line, domain,
     audit_date = _validate_audit_date(audit_date)
     _require_home(home)
     # Limit 23, products per home, enforced at this seam
-    # against the value in force (Step 17 entry
-    # S17-R1-038).
+    # against the value in force.
     limit = _limit_value(home, "products_per_home")
     if limit is not None and len(list_products(home=home)) >= limit:
         _fail(
@@ -1603,7 +1565,7 @@ def set_canonical_line(*, home, product, line, audit_date=None):
     # The judgement of this route reads the fold before
     # its own append runs any recovery, so the recovery
     # stands run here first, as register_page judges on
-    # recovered state (Step 17 round 4 entry S17-R4-051).
+    # recovered state.
     _recover_interrupted_batch(home)
     registry = _registry()
     return registry.set_canonical_line(
@@ -1617,7 +1579,7 @@ def set_competitors(*, home, product, competitors, audit_date=None):
     # The judgement of this route reads the fold before
     # its own append runs any recovery, so the recovery
     # stands run here first, as register_page judges on
-    # recovered state (Step 17 round 4 entry S17-R4-051).
+    # recovered state.
     _recover_interrupted_batch(home)
     registry = _registry()
     return registry.set_competitors(
@@ -1631,7 +1593,7 @@ def set_aliases(*, home, product, aliases, audit_date=None):
     # The judgement of this route reads the fold before
     # its own append runs any recovery, so the recovery
     # stands run here first, as register_page judges on
-    # recovered state (Step 17 round 4 entry S17-R4-051).
+    # recovered state.
     _recover_interrupted_batch(home)
     registry = _registry()
     return registry.set_aliases(
@@ -1645,7 +1607,7 @@ def set_query_set(*, home, product, query_set, audit_date=None):
     # The judgement of this route reads the fold before
     # its own append runs any recovery, so the recovery
     # stands run here first, as register_page judges on
-    # recovered state (Step 17 round 4 entry S17-R4-051).
+    # recovered state.
     _recover_interrupted_batch(home)
     registry = _registry()
     return registry.set_query_set(
@@ -1675,7 +1637,7 @@ def set_category(*, home, product, category_terms=None, category=None,
     # The judgement of this route reads the fold before
     # its own append runs any recovery, so the recovery
     # stands run here first, as register_page judges on
-    # recovered state (Step 17 round 4 entry S17-R4-051).
+    # recovered state.
     _recover_interrupted_batch(home)
     registry = _registry()
     return registry.set_category(
@@ -1698,8 +1660,7 @@ def register_page(*, home, product, snapshot, audit_date=None):
     # The registration judgement reads the fold before its
     # own append runs any recovery, so the recovery stands
     # run here first: an orphan snapshot of a killed batch
-    # stands as no standing snapshot to this route (Step
-    # 17 round 3 entry S17-R3-029).
+    # stands as no standing snapshot to this route.
     _recover_interrupted_batch(home)
     registry = _registry()
     try:
@@ -1707,10 +1668,9 @@ def register_page(*, home, product, snapshot, audit_date=None):
             home=str(home), product=product, snapshot=snapshot,
             audit_date=audit_date)
     except errors.CitelineError as exc:
-        # The operator explanation this route owes (Step
-        # 17 entry S17-R1-102): the snapshot input is an
-        # identifier, where that identifier comes from,
-        # and what to run first.
+        # The operator explanation this route owes: the
+        # snapshot input is an identifier, where that
+        # identifier comes, and what to run first.
         if "unknown snapshot" in str(exc):
             _fail(
                 getattr(exc, "token", None) or "VALIDATION_FAILED",
@@ -1735,7 +1695,7 @@ def name_round(*, home, product, round_label,
     # The judgement of this route reads the fold before
     # its own append runs any recovery, so the recovery
     # stands run here first, as register_page judges on
-    # recovered state (Step 17 round 4 entry S17-R4-051).
+    # recovered state.
     _recover_interrupted_batch(home)
     registry = _registry()
     return registry.name_round(
@@ -1748,15 +1708,13 @@ def name_round(*, home, product, round_label,
 def _judge_folded_product_identity(product_id):
     """Judge one product identity on the journal fold road.
 
-    The registry fold judgement at entry S17-R6-011, seat
-    F2, stands as the reference reading (Step 17 round 7
-    entry S17-R7-052): an identity that is not a string
+    The registry fold judgement, seat F2, stands as the
+    reference reading: an identity that is not a string
     refuses VALIDATION_FAILED naming product_id, in the
     registry fold's own words, so the service listing that
-    takes the journal fold road refuses the same forms
-    the registry listing, the registry fold, and the
-    watch coverage count refuse.
-    """
+    takes the journal fold road refuses the same forms the
+    registry listing, the registry fold, and the watch
+    coverage count refuse."""
     if not isinstance(product_id, str):
         _fail(
             "VALIDATION_FAILED",
@@ -1774,16 +1732,16 @@ def list_products(*, home):
     registration entries stand.
     """
     # The home check stands here as its sibling routes run
-    # it (Step 17 round 3 entry S17-R3-050): a home path no
-    # filesystem call can state answers HOME_MISSING at
-    # row U-6, never a bare ValueError from the fold below.
+    # it: a home path no filesystem call can state answers
+    # HOME_MISSING at row U-6, never a bare ValueError from
+    # the fold below.
     _require_home(home)
     _recover_interrupted_batch(home)
     journal = _journal()
     # A journal that does not parse stands signalled in
     # the governed value its sibling readers give, never
-    # as an empty home (Step 17 entry S17-R1X-030): the
-    # fold failure reaches the caller as it stands.
+    # as an empty home : the fold failure reaches the
+    # caller as it stands.
     state = journal.fold_registry(str(home))
     if isinstance(state, dict) and state:
         records = []
@@ -1792,15 +1750,14 @@ def list_products(*, home):
                 continue
             # The listing stands judged against the
             # registry fold judgement as the reference
-            # reading (Step 17 round 7 entry S17-R7-052,
-            # on the F2 cure at entry S17-R6-011): the
-            # journal fold road this listing takes keys
-            # its mapping by the raw identity, so an
-            # identity in a form that is not a string
-            # stands refused here in the same vocabulary
-            # the registry fold refuses it in, at the key
-            # and at the record alike, instead of standing
-            # handed out as a standing product.
+            # reading: the journal fold road this listing
+            # takes keys its mapping by the raw identity,
+            # so an identity in a form that is not a
+            # string stands refused here in the same
+            # vocabulary the registry fold refuses it in,
+            # at the key and at the record alike, instead
+            # of standing handed out as a standing
+            # product.
             _judge_folded_product_identity(key)
             _judge_folded_product_identity(
                 value.get("product_id"))
@@ -1846,11 +1803,10 @@ def estate_grounds(*, home, product):
     in this one call.
     """
     # The home check stands here as it stands on
-    # list_products (Step 17 round 4 entry S17-R4-054): a
-    # missing home, and a home path no filesystem call can
-    # state, answers HOME_MISSING at row U-6, never an
-    # empty grounds record in silence and never a raw
-    # error.
+    # list_products: a missing home, and a home path no
+    # filesystem call can state, answers HOME_MISSING at
+    # row U-6, never an empty grounds record in silence
+    # and never a raw error.
     _require_home(home)
     _recover_interrupted_batch(home)
     _validate_stored_entries(_fold(home, apply_corrections=True))
@@ -1869,14 +1825,14 @@ def estate_grounds(*, home, product):
                 and payload.get("is_product_page") is True:
             # An empty string path stands read as no path
             # here, on the watch module's own no path
-            # reading (Step 17 round 6 entry S17-R6-043):
-            # the watch coverage count counts a snapshot
-            # only where its supplied_path stands truthy
-            # and its target identity reads a falsy path
-            # as no selector, so the grounds state the
-            # supplied path or None, as this route's
-            # docstring states, and the estate dispatch
-            # meets the same snapshot as no page on file.
+            # reading: the watch coverage count counts a
+            # snapshot only where its supplied_path
+            # stands truthy and its target identity reads
+            # a falsy path as no selector, so the grounds
+            # state the supplied path or None, as this
+            # route's docstring states, and the estate
+            # dispatch meets the same snapshot as no page
+            # on file.
             page_path = payload.get("supplied_path") or None
         if kind == "round_named" \
                 and payload.get("product_id") == product_id:
@@ -2008,8 +1964,7 @@ def robots(*, home, robots_file, evaluated_page_path=None,
     _require_home(home)
     # A killed batch standing on the home stands recovered
     # before this route runs, so no successful robots call
-    # leaves a partial batch standing as ordinary state
-    # (Step 17 round 4 entry S17-R4-052).
+    # leaves a partial batch standing as ordinary state.
     _recover_interrupted_batch(home)
     _guard_supplied_path(robots_file)
     _barred_check(home)
@@ -2054,8 +2009,8 @@ def _validate_capture_date(value, audit_date, name):
                 "%s is not a real calendar date: %s" % (name, value))
     # The audit date comparison stands on every supplied
     # form alike, the date object and datetime object
-    # forms as on the string form, as the S17-R1X-034
-    # discipline states it in full.
+    # forms as on the string form, as the discipline
+    # states it in full.
     if audit_date is not None:
         try:
             audit_value = datetime.date.fromisoformat(str(audit_date)) \
@@ -2123,8 +2078,7 @@ def robots_preview(*, home, first_robots_file, second_robots_file,
     except errors.CitelineError as exc:
         # The audit date validation stands inside this
         # route's recording discipline, as its sibling
-        # failures stand (Step 17 round 4 entry
-        # S17-R4-053): its refusal appends exactly one
+        # failures stand: its refusal appends exactly one
         # failure record where the chain accepts appends.
         _append_failure_record(
             home, "robots preview", exc, first_robots_file,
@@ -2137,7 +2091,7 @@ def robots_preview(*, home, first_robots_file, second_robots_file,
     _require_home(home)
     # A killed batch standing on the home stands recovered
     # before this route runs, as at the standalone robots
-    # route (Step 17 round 4 entry S17-R4-052).
+    # route.
     _recover_interrupted_batch(home)
     _guard_supplied_path(first_robots_file)
     _guard_supplied_path(second_robots_file)
@@ -2216,17 +2170,15 @@ def _flow_pairs_hook(pairs):
     """The flow block pairs hook of the service counters.
 
     Both service key counters stand on the one block
-    reading the parser reads (Step 17 round 6 entry
-    S17-R6-046): a duplicated key in a flow block stands
-    counted as it stands, every occurrence standing in
-    the count, never collapsed in silence by the parse
-    before the count stands taken, where the import
-    reading refuses the same block outright on the same
-    ground, front matter keys standing once each. The
-    parsed record keeps the last value of a repeated
+    reading the parser reads: a duplicated key in a flow
+    block stands counted as it stands, every occurrence
+    standing in the count, never collapsed in silence by
+    the parse before the count stands taken, where the
+    import reading refuses the same block outright on the
+    same ground, front matter keys standing once each.
+    The parsed record keeps the last value of a repeated
     key, as a plain parse holds it, and carries the
-    occurrence count of its own level on the record.
-    """
+    occurrence count of its own level on the record."""
     record = _OccurrenceRecord()
     occurrences = 0
     for key, value in pairs:
@@ -2249,14 +2201,13 @@ def _fence_form(line):
     """One fence line as the fence judgement reads it.
 
     The service fence readings stand on the completed
-    head predicate the import reading states at entry
-    S17-R7-031 (Step 17 round 7, the F4 seam stated for
-    this seat): head material at both edges of the line
-    and between the fence characters themselves stands
-    removed, through the import module's own judged
-    fence helper where it stands, instead of the line
-    standing judged on whitespace stripping alone.
-    """
+    head predicate the import reading states at (the F4
+    seam stated for this seat): head material at both
+    edges of the line and between the fence characters
+    themselves stands removed, through the import
+    module's own judged fence helper where it stands,
+    instead of the line standing judged on whitespace
+    stripping alone."""
     try:
         from citeline import probe_import as import_module
         judged_fence = getattr(
@@ -2276,10 +2227,8 @@ def _front_matter_block_depth(block):
     outside string literals, escapes inside a string
     standing skipped, so a deep block stands judged
     without a parse and without recursion, in the form
-    the depth judgement of the cured seam at entry
-    S17-R14-004 states for a parsed value (Step 17 round
-    15 entry S17-R15-009).
-    """
+    the depth judgement of the cured seam at states for a
+    parsed value."""
     depth = 0
     deepest = 0
     in_string = False
@@ -2308,41 +2257,35 @@ def _front_matter_block_depth(block):
 def _front_matter_key_count(page_file):
     """The top level key count of one page's front matter block.
 
-    The count stands taken over the whole block, not
-    inside a reading window (Step 17 round 4 entry
-    S17-R4-060): a block past any fixed window holds its
-    keys under the limit its record states, so the file
-    stands read whole here and the count runs to the
-    closing fence wherever it stands. Where the first
-    line is not a front matter fence, no block stands
-    and None stands returned.
+    The count stands taken over the whole block, not inside a
+    reading window: a block past any fixed window holds its keys
+    under the limit its record states, so the file stands read
+    whole here and the count runs to the closing fence wherever
+    it stands. Where the first line is not a front matter fence,
+    no block stands and None stands returned.
 
-    The block this counter reads is the one block the
-    parser reads (Step 17 round 5 entry S17-R5-057): the
-    block closes at a line whose judged fence form is the
-    opening fence or the dots fence, the two closings
-    the acquisition reading and the import seam counter
-    both state, and a block with no closing fence stands
-    as no block at all, its body lines counted as
-    nothing. The flow form stands as the parser reads
-    it: a block whose stripped text opens with a brace
-    stands parsed as a JSON object and its top level
-    keys stand counted, on one line or spread over
-    indented lines alike. The line form counts the
-    lines the parser's own line reading judges as key
-    value pairs, blank lines and comment lines among
-    the lines it passes over.
-    """
+    The block this counter reads is the one block the parser
+    reads: the block closes at a line whose judged fence form is
+    the opening fence or the dots fence, the two closings the
+    acquisition reading and the import seam counter both state,
+    and a block with no closing fence stands as no block at all,
+    its body lines counted as nothing. The flow form stands as
+    the parser reads it: a block whose stripped text opens with
+    a brace stands parsed as a JSON object and its top level
+    keys stand counted, on one line or spread over indented
+    lines alike. The line form counts the lines the parser's own
+    line reading judges as key value pairs, blank lines and
+    comment lines among the lines it passes over."""
     try:
         with open(str(page_file), "rb") as handle:
             raw = handle.read()
     except (OSError, ValueError, UnicodeError):
         return None
     # The count stands taken on the same text the parser
-    # parses (Step 17 round 2 entry S17-R2-086): the
-    # extraction path strips one leading byte order mark
-    # before it parses the block, so this counter strips
-    # the same mark before it reads the fence.
+    # parses: the extraction path strips one leading
+    # byte order mark before it parses the block, so
+    # this counter strips the same mark before it reads
+    # the fence.
     if raw.startswith(b"\xef\xbb\xbf"):
         raw = raw[len(b"\xef\xbb\xbf"):]
     text = raw.decode("utf-8", errors="ignore")
@@ -2365,15 +2308,14 @@ def _front_matter_key_count(page_file):
         # The block stands judged on its nesting depth
         # ahead of its parse, on the iterative count
         # above, under the same depth discipline as the
-        # cured seam at entry S17-R14-004: a block nesting
-        # past the JSON nesting depth limit of 100 refuses
-        # here in the recorded vocabulary, and a parse
-        # that still meets the platform recursion standing
-        # converts to the same refusal on the catch below,
-        # so no nesting form escapes the audit route as a
-        # raw RecursionError at any depth (Step 17 round
-        # 15 entry S17-R15-009, on the discipline of entry
-        # S17-R1-033).
+        # cured seam at: a block nesting past the JSON
+        # nesting depth limit of 100 refuses here in the
+        # recorded vocabulary, and a parse that still
+        # meets the platform recursion standing converts
+        # to the same refusal on the catch below, so no
+        # nesting form escapes the audit route as a raw
+        # RecursionError at any depth (on the discipline
+        # of).
         if _front_matter_block_depth(block) > 100:
             _fail(
                 "LIMIT_EXCEEDED",
@@ -2411,13 +2353,11 @@ def _front_matter_key_count(page_file):
 def _audit_preflight_limits(home, page_file, start_limits):
     """The audit seam limit checks, against the limits in force.
 
-    Limit 1, page file size, and limit 12, front matter
-    key count, stand enforced here before any extraction
-    runs, at the values in force for the run the service
-    assigns (Step 17 entries S17-R1-038 and S17-R1-080):
-    a config set value governs the audit path, not the
-    hardcoded default of the component below.
-    """
+    Limit 1, page file size, and limit 12, front matter key
+    count, stand enforced here before any extraction runs, at
+    the values in force for the run the service assigns: a
+    config set value governs the audit path, not the hardcoded
+    default of the component below."""
     by_limit = (start_limits or {}).get("by_limit") or {}
     size_entry = by_limit.get("page_file_size") or {}
     size_limit = size_entry.get("value")
@@ -2449,12 +2389,10 @@ def _cap_evidence_spans(check_results, by_limit):
     Limits 19, 20, and 21 (evidence excerpt length,
     evidence spans per check, evidence spans per report)
     stand enforced on the record the audit stores, at the
-    values in force for its run (Step 17 entry
-    S17-R1-038): excerpts stand cut at the excerpt
-    length, each check keeps at most its span count, and
-    the record keeps at most the report span count in
-    total, in check order.
-    """
+    values in force for its run: excerpts stand cut at
+    the excerpt length, each check keeps at most its span
+    count, and the record keeps at most the report span
+    count in total, in check order."""
     def value_of(key, default):
         entry = (by_limit or {}).get(key) or {}
         value = entry.get("value")
@@ -2497,15 +2435,13 @@ def _audit_assembly_lock(home):
     unrelated append lands between that reading and the
     batch, the stored record cites a snapshot that denotes
     another entry or none, and states limits read under an
-    identity the record does not carry (Step 17 round 3
-    entry S17-R3-052). The assembly therefore stands
-    inside the journal write lock, as the import
-    judgement stands inside it: an append that meets the
-    hold stands contended and stores nothing, the batch
-    appends inside the hold join it, and the identities
-    the assembly computed stand as the identities the
-    storing entries resolve.
-    """
+    identity the record does not carry. The assembly
+    therefore stands inside the journal write lock, as the
+    import judgement stands inside it: an append that
+    meets the hold stands contended and stores nothing,
+    the batch appends inside the hold join it, and the
+    identities the assembly computed stand as the
+    identities the storing entries resolve."""
     journal = _journal()
     lock_class = getattr(journal, "_WriteLock", None)
     if lock_class is None:
@@ -2523,17 +2459,15 @@ def _audit_correction_record(stored, true_snapshot_id):
     the snapshot entry the record's own batch stored,
     and the limits statement, which stands rebuilt from
     the one limits reading the run started under and no
-    other (Step 17 round 5 entry S17-R5-072). The stored
-    record's own limits statement is that reading: its
-    by_limit stands as read at the run's start, so the
-    correction keeps that by_limit whole and restates
-    only the run identity the statement stands under,
-    the identity the record itself carries. No fresh
-    reading of the limits in force stands taken here,
-    so a config shift landing after the batch cannot
-    put the corrected record's statement on a reading
-    the run never enforced.
-    """
+    other. The stored record's own limits statement is
+    that reading: its by_limit stands as read at the
+    run's start, so the correction keeps that by_limit
+    whole and restates only the run identity the
+    statement stands under, the identity the record
+    itself carries. No fresh reading of the limits in
+    force stands taken here, so a config shift landing
+    after the batch cannot put the corrected record's
+    statement on a reading the run never enforced."""
     corrected = copy.deepcopy(stored)
     if true_snapshot_id is not None:
         corrected["snapshot_id"] = true_snapshot_id
@@ -2581,15 +2515,14 @@ def _land_audit_correction(home, audit_sequence, stored,
                            audit_date=None):
     """Land the correction one audit record stands owed.
 
-    The correction append stands judged at its own site
-    (Step 17 round 5 entry S17-R5-050): where the append
-    cannot land, at the journal cap among its forms, the
-    failure stands as the audit's own refusal, raised to
-    the caller, never passed over in silence with the
-    uncorrected record returned as success. Returns the
-    corrected record where the correction lands, and
-    None where no correction stands owed.
-    """
+    The correction append stands judged at its own site:
+    where the append cannot land, at the journal cap
+    among its forms, the failure stands as the audit's
+    own refusal, raised to the caller, never passed over
+    in silence with the uncorrected record returned as
+    success. Returns the corrected record where the
+    correction lands, and None where no correction
+    stands owed."""
     corrected = _audit_record_correction_owed(
         home, audit_sequence, stored)
     if corrected is None:
@@ -2609,13 +2542,11 @@ def _audit_impl(*, home, page_file=None, robots_file=None,
     """One audit: recovery first, then the assembly.
 
     A killed batch standing on the home stands recovered
-    before any count this assembly reads (Step 17 round 3
-    entry S17-R3-029), and a fresh audit's assembly and
-    its batch stand inside the write lock (entry
-    S17-R3-052), so no append and no recovery truncation
-    inside the invocation moves the snapshot or the run
-    the record names.
-    """
+    before any count this assembly reads, and a fresh
+    audit's assembly and its batch stand inside the write
+    lock, so no append and no recovery truncation inside
+    the invocation moves the snapshot or the run the
+    record names."""
     _require_home(home)
     _recover_interrupted_batch(home)
     if run_id is None and page_file is not None:
@@ -2627,20 +2558,19 @@ def _audit_impl(*, home, page_file=None, robots_file=None,
                 audit_date=audit_date, product=product,
                 run_id=run_id)
         # The assembly hold stands closed against a batch
-        # intent record planted inside it (Step 17 round 5
-        # entry S17-R5-051): the assembly lock barred the
-        # recovery from judging an intent planted during
-        # the hold, so the intent stands judged here, after
-        # the hold releases and before the assembly's
-        # entries stand reported settled. Where the
-        # judgement lands, the killed batch's rollback
-        # truncates the assembly's own entries with the
-        # batch's, and the audit stands refused at row I-2
-        # instead of returning a record over truncated
-        # entries. Where the record still stands unjudged
-        # after the attempt, at a deferred cap among its
-        # forms, the refusal stands the same, in the
-        # journal's own token for the state it names.
+        # intent record planted inside it: the assembly
+        # lock barred the recovery from judging an intent
+        # planted during the hold, so the intent stands
+        # judged here, after the hold releases and before
+        # the assembly's entries stand reported settled.
+        # Where the judgement lands, the killed batch's
+        # rollback truncates the assembly's own entries
+        # with the batch's, and the audit stands refused at
+        # row I-2 instead of returning a record over
+        # truncated entries. Where the record still stands
+        # unjudged after the attempt, at a deferred cap
+        # among its forms, the refusal stands the same, in
+        # the journal's own token for the state it names.
         journal = _journal()
         intent_path = getattr(
             journal, "_batch_intent_path", None)
@@ -2688,20 +2618,19 @@ def _audit_body(*, home, page_file=None, robots_file=None,
     row U-8, token MALFORMED_CALL, usage class, exit 2, and
     no named input is silently disregarded. A call naming
     no run stands as a fresh audit and creates a new run,
-    as below. An unknown run identity fails with
-    the recorded value for an unknown round identity, the
-    value the guide route already returns for a missing
-    audit record identity.
+    as below. An unknown run identity fails with the
+    recorded value for an unknown round identity, the value
+    the guide route already returns for a missing audit
+    record identity.
 
     The audit date of a fresh audit stands under brief
     Section 6.2, M1: where no audit date stands supplied,
-    the date defaults to the current date in UTC, that
-    date is the date the run runs on, and the stored
-    record carries it in audit_date with
-    audit_date_defaulted true beside it, naming the date
-    used; a supplied date is recorded as supplied, with
-    audit_date_defaulted false. Where the date was
-    defaulted, audit_date_is_run_date is true by
+    the date defaults to the current date in UTC, that date
+    is the date the run runs, and the stored record carries
+    it in audit_date with audit_date_defaulted true beside
+    it, naming the date used; a supplied date is recorded
+    as supplied, with audit_date_defaulted false. Where the
+    date was defaulted, audit_date_is_run_date is true by
     construction, because the default audit date is the
     current date in UTC; the stored boolean otherwise
     stands exactly as it stood before this recording.
@@ -2721,20 +2650,18 @@ def _audit_body(*, home, page_file=None, robots_file=None,
     product at this seam, and the record, the checks, and
     the snapshot all stand for that product. Where no
     product stands named, the first listed product of the
-    home stands as the record product, as before.
-    """
+    home stands as the record product, as before."""
     audit_date = _validate_audit_date(audit_date)
     _barred_check(home)
     _require_home(home)
     _guard_supplied_path(page_file)
     _guard_supplied_path(robots_file)
-    # The evaluated page path stands under the same guard
-    # (Step 17 round 3 entry S17-R3-046): it is stored on
-    # the snapshot and on the audit record, so an unsafe
-    # form reaches the journal hashing in stored form,
-    # and the guard refuses it here in the governed
-    # vocabulary the audit wrapper converts, as it refuses
-    # its sibling paths.
+    # The evaluated page path stands under the same guard:
+    # it is stored on the snapshot and on the audit
+    # record, so an unsafe form reaches the journal
+    # hashing in stored form, and the guard refuses it
+    # here in the governed vocabulary the audit wrapper
+    # converts, as it refuses its sibling paths.
     _guard_supplied_path(evaluated_page_path)
     run_started = _clock()
     run_candidate = None
@@ -2747,15 +2674,14 @@ def _audit_body(*, home, page_file=None, robots_file=None,
         # run's limits in force stand read under that
         # identity at the run's start, so a raise for the
         # run reaches its appends and its record states the
-        # limits the run started under (Step 17 entries
-        # S17-R1-080, S17-R1X-011, and S17-R1X-016).
+        # limits the run started under.
         run_candidate = "run-%d" % (_entry_count(home) + 2)
         start_limits = _limits_in_force(home, run_candidate)
         # The audit appends twice, a snapshot entry during
         # extraction and its audit record after: where the
         # journal holds room for fewer than both, the call
         # stands refused before either stands written, in
-        # the multi append discipline of entry S17-R1-089.
+        # the multi append discipline of.
         try:
             cap = ((start_limits.get("by_limit") or {}).get(
                 "journal_length") or {}).get("value")
@@ -2791,13 +2717,13 @@ def _audit_body(*, home, page_file=None, robots_file=None,
             payload = _payload(entry)
             # The stored record stands validated as it is
             # scanned, before its identity is compared, as
-            # the guide assembly on the same store states
-            # (Step 17 round 6 entry S17-R6-055): a swapped
-            # identity field stands judged at this reader
-            # in the recorded vocabulary naming the field,
-            # instead of the standing run reading as
-            # unknown, or a standing sibling run standing
-            # handed out over a swapped record beside it.
+            # the guide assembly on the same store states:
+            # a swapped identity field stands judged at
+            # this reader in the recorded vocabulary naming
+            # the field, instead of the standing run
+            # reading as unknown, or a standing sibling run
+            # standing handed out over a swapped record
+            # beside it.
             _validate_audit_payload(payload)
             if payload.get("run_id") == run_id:
                 standing = payload
@@ -2809,22 +2735,21 @@ def _audit_body(*, home, page_file=None, robots_file=None,
                 "identity given: %r" % (run_id,))
         # The form request reader stands under the stored
         # audit field discipline its sibling reader
-        # enforces (Step 17 round 5 entry S17-R5-053): the
-        # record stands judged by the same validation the
-        # full fold runs before it stands handed out, so a
-        # swapped field refuses here as it refuses at every
-        # other reader of the stored record.
+        # enforces: the record stands judged by the same
+        # validation the full fold runs before it stands
+        # handed out, so a swapped field refuses here as it
+        # refuses at every other reader of the stored
+        # record.
         _validate_audit_payload(standing)
         # A standing record whose assembly correction never
         # landed, the correction refused at the cap among
         # its forms, stands healed at this reader where the
-        # correction can land now (Step 17 round 5 entry
-        # S17-R5-050): the correction lands here, rebuilt
-        # from the run's own reading, and the corrected
-        # record stands returned; where the correction
-        # still cannot land, the form request stands
-        # refused with it, never returning the miscited
-        # record as the run's form.
+        # correction can land now: the correction lands
+        # here, rebuilt from the run's own reading, and the
+        # corrected record stands returned; where the
+        # correction still cannot land, the form request
+        # stands refused with it, never returning the
+        # miscited record as the run's form.
         healed = _land_audit_correction(
             home, standing_sequence, standing,
             audit_date=audit_date)
@@ -2866,10 +2791,9 @@ def _audit_body(*, home, page_file=None, robots_file=None,
     # The extraction runs without registering its snapshot:
     # the snapshot append and the audit record append land
     # together on the atomic batch at the end of this
-    # assembly, or not at all (Step 17 round 2 entry
-    # S17-R2-072). The run identity travels to the
-    # extraction reading, so one reading of the limits in
-    # force governs both gates (entry S17-R2-085).
+    # assembly, or not at all. The run identity travels to
+    # the extraction reading, so one reading of the limits
+    # in force governs both gates.
     extraction = acquisition.extract_page(
         str(home), product_id=product_id, page_path=str(page_file),
         audit_date=audit_date,
@@ -2877,8 +2801,7 @@ def _audit_body(*, home, page_file=None, robots_file=None,
         run_id=run_candidate, register_snapshot=False,
         limits_in_force=(start_limits or {}).get("by_limit"))
     # Limit 42, the per file parse time backstop, read
-    # over the extraction this run performed (Step 17
-    # entry S17-R1-038).
+    # over the extraction this run performed.
     parse_limit = ((start_limits or {}).get("by_limit") or {}).get(
         "per_file_parse_time", {}).get("value")
     if isinstance(parse_limit, (int, float)) and \
@@ -2924,9 +2847,9 @@ def _audit_body(*, home, page_file=None, robots_file=None,
             path_defaulted=snapshot.get("path_defaulted"))
     # The run identity derives from the journal sequence
     # of the entry that stores this record, resolved by
-    # the append itself under its write lock (Step 17
-    # entry S17-R1-077): the marker stands in the payload
-    # in place of any count read taken here.
+    # the append itself under its write lock: the marker
+    # stands in the payload in place of any count read
+    # taken here.
     run_id = "run-{sequence}"
     # The guide's trigger codes name the check by the stem
     # the guide's closed list states. Three checks carry a
@@ -2968,7 +2891,7 @@ def _audit_body(*, home, page_file=None, robots_file=None,
     # Where the config changed during the run, the change
     # stands recorded beside them, in the limits the
     # record was read under at its assembly, so the run
-    # can show the change (Step 17 entry S17-R1X-016).
+    # can show the change .
     limits_record = start_limits if start_limits is not None \
         else _limits_in_force(home, run_candidate)
     current_limits = _limits_in_force(home, run_candidate)
@@ -2979,8 +2902,7 @@ def _audit_body(*, home, page_file=None, robots_file=None,
             "limits_at_record": current_limits.get("by_limit"),
         }
     # Limit 41, the per run wall clock backstop, read over
-    # the whole run before its record stands appended
-    # (Step 17 entry S17-R1-038).
+    # the whole run before its record stands appended.
     run_limit = ((start_limits or {}).get("by_limit") or {}).get(
         "per_run_wall_clock_backstop", {}).get("value")
     if isinstance(run_limit, (int, float)) and \
@@ -3043,8 +2965,8 @@ def _audit_body(*, home, page_file=None, robots_file=None,
         # and category terms in force at audit time, so a
         # guide drafted from the run reads the run time
         # basis from the record itself and no later
-        # registry state enters the draft (Step 17 round 2
-        # entry S17-R2-058, the service route limb).
+        # registry state enters the draft (the service
+        # route limb).
         "aliases": list(facts["aliases"]),
         "category_terms": list(facts["category_terms"]),
         "sentences": list(_get(extracted, "sentences", []) or []),
@@ -3052,13 +2974,12 @@ def _audit_body(*, home, page_file=None, robots_file=None,
         "distinct_cited_target_count": cited_count,
     }
     # The audit appends land whole or not at all, on the
-    # atomic batch primitive the import route uses (Step
-    # 17 round 2 entry S17-R2-072, on the S17-R1-089 multi
-    # append discipline): the snapshot entry and the audit
-    # record stand in one batch, so a failure, a kill, or
-    # contention between them leaves no orphan snapshot,
-    # and a contended audit stores nothing, as its
-    # contract states.
+    # atomic batch primitive the import route uses (on the
+    # multi append discipline): the snapshot entry and the
+    # audit record stand in one batch, so a failure, a
+    # kill, or contention between them leaves no orphan
+    # snapshot, and a contended audit stores nothing, as
+    # its contract states.
     batch = [
         ("snapshot_registered", copy.deepcopy(snapshot)),
         ("audit_record", copy.deepcopy(record)),
@@ -3080,25 +3001,23 @@ def _audit_body(*, home, page_file=None, robots_file=None,
     # standing count for its citation and its limits run
     # identity: a recovery landing there appends its
     # ruled record and moves every sequence the count
-    # based identities denote (Step 17 round 4 entry
-    # S17-R4-067). Where the storing entries show that
-    # move, the assembly stands a correction over its
-    # own record at its store, so the standing record
-    # denotes the snapshot entry its own batch stored
-    # and states its limits under the run identity the
-    # record itself carries, as the identity discipline
-    # of S17-R3-052 states for the entries the append
-    # resolved.
+    # based identities denote. Where the storing entries
+    # show that move, the assembly stands a correction
+    # over its own record at its store, so the standing
+    # record denotes the snapshot entry its own batch
+    # stored and states its limits under the run
+    # identity the record itself carries, as the
+    # identity discipline of states for the entries the
+    # append resolved.
     if audit_sequence is not None:
         # The correction stands landed or the audit stands
         # refused, never a success reported over a
-        # correction that never landed (Step 17 round 5
-        # entry S17-R5-050): the append failure propagates
-        # as the audit's own refusal, in the recorded
-        # vocabulary of the state that barred it, and the
-        # corrected record is rebuilt from the run's own
-        # start reading by the shared correction builder
-        # (entry S17-R5-072).
+        # correction that never landed: the append failure
+        # propagates as the audit's own refusal, in the
+        # recorded vocabulary of the state that barred it,
+        # and the corrected record is rebuilt from the
+        # run's own start reading by the shared correction
+        # builder.
         landed = _land_audit_correction(
             home, audit_sequence, stored, audit_date=audit_date)
         if landed is not None:
@@ -3117,18 +3036,17 @@ def audit(*, home, page_file=None, robots_file=None,
     A failed audit over a healthy chain far below cap
     appends exactly one failure record, as the failure
     record claim of brief Section 5.2 states for reading
-    and non appending operations as for writing ones
-    (Step 17 entry S17-R1-085); the barred chain, cap,
-    and contention exceptions stand in the appending
-    helper, as they stand for the import route.
-    """
+    and non appending operations as for writing ones; the
+    barred chain, cap, and contention exceptions stand in
+    the appending helper, as they stand for the import
+    route."""
     try:
         audit_date = _validate_audit_date(audit_date)
     except errors.CitelineError as exc:
         # The date validation stands inside the recording
-        # discipline (Step 17 round 3 entry S17-R3-047):
-        # its refusal appends exactly one failure record,
-        # as every other governed failure of the route.
+        # discipline: its refusal appends exactly one
+        # failure record, as every other governed failure
+        # of the route.
         _append_failure_record(
             home, "audit", exc,
             page_file if page_file is not None else run_id,
@@ -3157,8 +3075,7 @@ def audit(*, home, page_file=None, robots_file=None,
         # here all the same: it converts to the recorded
         # error of its token, and its failure record stands
         # appended exactly once, as for every governed
-        # failure of the route (Step 17 round 2 entry
-        # S17-R2-072).
+        # failure of the route.
         token = getattr(exc, "token", None)
         if token is None or errors.error_for_token(token) is None:
             raise
@@ -3182,18 +3099,16 @@ def _detector_version():
 def _import_judgement_lock(home):
     """Hold the home write lock across one import judgement.
 
-    The duplicate and contradiction judgement and the
-    first import stamp decision of an import stand inside
-    the journal write lock, with the batch append they
-    govern (Step 17 round 2 entry S17-R2-090): a caller
-    that meets the lock held stands contended at row X-10
-    and stores nothing, and a caller that takes the lock
-    reads the standing answers as they stand at its
-    judgement, never as another caller's unstored work
-    left them. The batch and single appends inside the
-    judgement join the hold on this thread, as the journal
-    lock's own re-entry discipline states.
-    """
+    The duplicate and contradiction judgement and the first
+    import stamp decision of an import stand inside the
+    journal write lock, with the batch append they govern: a
+    caller that meets the lock held stands contended at row
+    X-10 and stores nothing, and a caller that takes the
+    lock reads the standing answers as they stand at its
+    judgement, never as another caller's unstored work left
+    them. The batch and single appends inside the judgement
+    join the hold on this thread, as the journal lock's own
+    re-entry discipline states."""
     journal = _journal()
     lock_class = getattr(journal, "_WriteLock", None)
     if lock_class is None:
@@ -3237,14 +3152,12 @@ def _import_preflight(home, answer_file, extra_entries):
     stated cost of the import (the file size as stat
     states it, beside the journal entries the import
     would append: its answer entry and the first import
-    round stamp where one would stand) stands
-    checked against limits 39 and 40. Where the cost
-    does not fit, the import stands refused here with
+    round stamp where one would stand) stands checked
+    against limits 39 and 40. Where the cost does not
+    fit, the import stands refused here with
     refusal_context import_preflight, in the integrity
     class, ahead of every usage class validation the
-    file would otherwise meet (entries S17-R1-037 and
-    S17-R1-034).
-    """
+    file would otherwise meet."""
     journal = _journal()
     try:
         limits = journal.effective_limits(str(home))
@@ -3287,10 +3200,9 @@ def _service_json_depth(value):
     """The nesting depth of one parsed JSON value, counted
     iteratively so a deep value stands judged without
     recursion, in the form the component readings state:
-    the page reading and the import reading each count
-    the depth in this form ahead of their measures and
-    refuse past the JSON nesting depth limit of 100
-    (Step 17 round 14 entry S17-R14-004)."""
+    the page reading and the import reading each count the
+    depth in this form ahead of their measures and refuse
+    past the JSON nesting depth limit of 100."""
     depth = 0
     stack = [(value, 1)]
     while stack:
@@ -3308,21 +3220,19 @@ def _service_container_value_measure(value):
     """The container measure in this module's own form.
 
     The measure stands identical to the import reading
-    measure at entry S17-R7-032, completed at the key
-    position at entry S17-R8-016: a string standing inside
-    a container, as a value or as a key, stands measured
-    by its length in characters, a number standing inside
-    it by its written form (a written number stands as a
-    string holding its token, so its length stands as its
-    token length), and the container marks, quote marks,
-    and separators of a rendering count for nothing. It
-    stands as the fallback measure of
-    _import_front_matter_limits where the import module's
-    measure does not stand, in place of any rendered
-    measure, so no rendered fallback reopens the split
-    at the sizes entry S17-R8-028 works (Step 17 round 8,
-    the F2 and F4 seams stated for this seat).
-    """
+    measure, completed at the key position at: a string
+    standing inside a container, as a value or as a key,
+    stands measured by its length in characters, a number
+    standing inside it by its written form (a written
+    number stands as a string holding its token, so its
+    length stands as its token length), and the container
+    marks, quote marks, and separators of a rendering
+    count for nothing. It stands as the fallback measure
+    of _import_front_matter_limits where the import
+    module's measure does not stand, in place of any
+    rendered measure, so no rendered fallback reopens the
+    split at the sizes works (the F2 and F4 seams stated
+    for this seat)."""
     if isinstance(value, str):
         return len(value)
     if isinstance(value, dict):
@@ -3341,19 +3251,17 @@ def _import_front_matter_limits(home, answer_file):
     """The front matter limits in force at the import seam.
 
     The import adapter receives no home, so the brief
-    values govern inside it, on the bound recorded at
-    entry S17-R2-037. At this seam the home stands known,
-    so the limits in force stand enforced here over the
-    answer file's head block, as the audit preflight
-    enforces its front matter key count at its seam
-    (Step 17 round 3 entry S17-R3-068, import limb):
-    limit 11, block size, limit 12, key count, and limit
-    17, value length, measured in the forms the component
-    measures on a head block. Worksheet slot bodies carry
-    blocks of their own inside the sheet and stand under
-    the adapter reading; this seam reaches the head block
-    of the file as supplied, and no further.
-    """
+    values govern inside it, on the bound recorded at. At
+    this seam the home stands known, so the limits in force
+    stand enforced here over the answer file's head block,
+    as the audit preflight enforces its front matter key
+    count at its seam (import limb): limit 11, block size,
+    limit 12, key count, and limit 17, value length,
+    measured in the forms the component measures on a head
+    block. Worksheet slot bodies carry blocks of their own
+    inside the sheet and stand under the adapter reading;
+    this seam reaches the head block of the file as
+    supplied, and no further."""
     block_limit = _limit_value(home, "front_matter_block_size")
     key_limit = _limit_value(home, "front_matter_key_count")
     value_limit = _limit_value(
@@ -3383,10 +3291,9 @@ def _import_front_matter_limits(home, answer_file):
     # The block size stands measured on the block as it
     # stands in the file, the lines between the fences
     # taken with their terminators at their file width,
-    # as the import reading measures it at entry
-    # S17-R7-033 (Step 17 round 7, the F4 seam stated for
-    # this seat), not on the lines rejoined with newline
-    # characters.
+    # as the import reading measures it at (the F4 seam
+    # stated for this seat), not on the lines rejoined
+    # with newline characters.
     kept_lines = working.splitlines(keepends=True)
     block_in_file = "".join(kept_lines[1:closing])
     if block_limit is not None and len(
@@ -3423,8 +3330,7 @@ def _import_front_matter_limits(home, answer_file):
         # limit of 100 refuses here in the recorded
         # vocabulary and no nesting form reaches a
         # recursive measure past the platform recursion
-        # standing (Step 17 round 14 entry S17-R14-004,
-        # on the discipline of entry S17-R1-033).
+        # standing (on the discipline of).
         if _service_json_depth(parsed) \
                 > _SERVICE_JSON_DEPTH_LIMIT:
             _fail(
@@ -3443,16 +3349,15 @@ def _import_front_matter_limits(home, answer_file):
             for key, value in parsed.items():
                 # A key of the top level object stands
                 # measured by its length in characters at
-                # this seam, in the form the cures at
-                # entries S17-R9-020 and S17-R9-012 state
-                # for that position (Step 17 round 10 entry
-                # S17-R10-001): the loop below measures the
-                # values alone, and the container measure it
-                # borrows stands applied to container values
-                # only, so the key measure stands stated
-                # here, ahead of the value measure, in the
-                # primary form and in the fallback form
-                # alike, neither of which reaches the key.
+                # this seam, in the form the cures at state
+                # for that position: the loop below measures
+                # the values alone, and the container
+                # measure it borrows stands applied to
+                # container values only, so the key measure
+                # stands stated here, ahead of the value
+                # measure, in the primary form and in the
+                # fallback form alike, neither of which
+                # reaches the key.
                 if isinstance(key, str) \
                         and len(key) > value_limit:
                     _fail(
@@ -3463,16 +3368,14 @@ def _import_front_matter_limits(home, answer_file):
                         "record" % ("%g" % (value_limit,),))
                 # The measurement stands whole on a JSON
                 # numeric value, as the module measurement
-                # the F4 cure at entry S17-R5-033 landed
-                # states (Step 17 round 5 entry
-                # S17-R5-070): a number stands measured by
-                # the length of its written form, at a
-                # whole value position and inside a
-                # container alike, so the limit in force
-                # stands enforced on this route as the
-                # seam's docstring states. The container
-                # measure itself stands completed at entry
-                # S17-R7-032, as the branch below states.
+                # the F4 cure at landed states: a number
+                # stands measured by the length of its
+                # written form, at a whole value position
+                # and inside a container alike, so the
+                # limit in force stands enforced on this
+                # route as the seam's docstring states.
+                # The container measure itself stands
+                # completed, as the branch below states.
                 if written_number is not None and isinstance(
                         value, written_number):
                     measured = len(str(value))
@@ -3481,8 +3384,7 @@ def _import_front_matter_limits(home, answer_file):
                 elif isinstance(value, (dict, list)):
                     # A container stands measured on the
                     # container measure the import reading
-                    # states at entry S17-R7-032 (Step 17
-                    # round 7, the F4 seam stated for this
+                    # states at (the F4 seam stated for this
                     # seat): a string inside the container
                     # by its length in characters, a number
                     # inside it by its written form, and the
@@ -3494,10 +3396,8 @@ def _import_front_matter_limits(home, answer_file):
                     # module's own form at
                     # _service_container_value_measure, keys
                     # counted beside values, and no rendered
-                    # measure stands as a fallback (Step 17
-                    # round 8 entries S17-R8-028 and
-                    # S17-R8-016, the F2 and F4 seams stated
-                    # for this seat).
+                    # measure stands as a fallback (the F2
+                    # and F4 seams stated for this seat).
                     container_measure = getattr(
                         import_module,
                         "_container_value_measure", None)
@@ -3567,8 +3467,7 @@ def _worksheet_record_count(answer_file):
     or parsed here counts as None, and the preflight
     falls back to the single record cost while the
     worksheet route raises its own recorded error for
-    the sheet (entry S17-R2-087).
-    """
+    the sheet."""
     try:
         from citeline import probe_import as import_module
         _raw, text, _hash = import_module.read_answer_file(
@@ -3624,9 +3523,8 @@ def probe_import(*, home, answer_file=None, product=None,
     try:
         # The audit date stands under the service
         # validator's stated discipline and token, as on
-        # every sibling route (Step 17 round 3 entry
-        # S17-R3-060): the input stands normalised here,
-        # before the component parser reads it, so a
+        # every sibling route: the input stands normalised
+        # here, before the component parser reads it, so a
         # datetime or an integer in basic ISO form stands
         # accepted and recorded as its ISO date text, and
         # a bad string refuses VALIDATION_FAILED, the one
@@ -3644,14 +3542,14 @@ def probe_import(*, home, answer_file=None, product=None,
         # refusal stands recorded like every other governed
         # failure of the route, carrying the governed token
         # as its error value and rule fired, never the raw
-        # message (Step 17 round 2 entry S17-R2-018).
+        # message.
         _append_failure_record(
             home, "probe import", exc, answer_file, audit_date)
         raise
     # A batch killed inside its appends on an earlier
     # invocation stands rolled back before anything here
     # reads the chain, so no partial batch stands as the
-    # state this import meets (entry S17-R2-083).
+    # state this import meets.
     journal = _journal()
     recover = getattr(journal, "recover_interrupted_batch", None)
     if recover is not None:
@@ -3669,7 +3567,7 @@ def probe_import(*, home, answer_file=None, product=None,
         # counted in the records the sheet would append,
         # beside the first import round stamp, and not as
         # one answer entry however many slots the sheet
-        # holds (entry S17-R2-087).
+        # holds.
         preflight_extra = _first_import_extra(home, product, round)
         if worksheet:
             record_count = _worksheet_record_count(answer_file)
@@ -3679,11 +3577,9 @@ def probe_import(*, home, answer_file=None, product=None,
         _import_front_matter_limits(home, answer_file)
         # Limits 31 and 3's seam companions, enforced at
         # the values in force before the file's validation
-        # runs (Step 17 entries S17-R1-038 and
-        # S17-R1-080): the capture method text length
-        # stands checked here, in code points, as the
-        # engine label length stands checked in the
-        # adapter.
+        # runs: the capture method text length stands
+        # checked here, in code points, as the engine
+        # label length stands checked in the adapter.
         method_limit = _limit_value(
             home, "capture_method_text_length")
         if isinstance(capture_method, str) \
@@ -3710,10 +3606,10 @@ def probe_import(*, home, answer_file=None, product=None,
                 query_set=None, control_count=0)
         except TypeError as exc:
             # The worksheet seam screens the call through the
-            # same conversion the plain file adapter runs, so
-            # a malformed input set refuses in the recorded
+            # same conversion the plain file adapter runs, so a
+            # malformed input set refuses in the recorded
             # vocabulary here too, and its failure record
-            # carries that vocabulary value (entry S17-R2-041).
+            # carries that vocabulary value.
             converted = errors.CitelineError(
                 "IMPORT_VALIDATION_FAILED: adapter call does "
                 "not match the contract inputs: " + str(exc),
@@ -3803,8 +3699,7 @@ def probe_import(*, home, answer_file=None, product=None,
             raise
         try:
             # The seam limits on the prepared records, at the
-            # values in force, before anything stands stored
-            # (Step 17 entries S17-R1-038 and S17-R1-080):
+            # values in force, before anything stands stored:
             # limit 3, extracted text length per answer;
             # limit 22, answers per round; and the two
             # backstops, limit 42 over the preparation and
@@ -3865,13 +3760,12 @@ def probe_import(*, home, answer_file=None, product=None,
         except Exception as exc:
             # The final batch call stands inside this
             # route's failure record discipline, as every
-            # failure stage above it stands (Step 17
-            # round 4 entry S17-R4-073): a batch failure
-            # of the route appends exactly one failure
-            # record where the chain accepts appends, on
-            # the contract C1 terms the route docstring
-            # states, and the failure then raises to the
-            # caller as before.
+            # failure stage above it stands: a batch
+            # failure of the route appends exactly one
+            # failure record where the chain accepts
+            # appends, on the contract C1 terms the route
+            # docstring states, and the failure then
+            # raises to the caller as before.
             _append_failure_record(
                 home, "probe import", exc, answer_file,
                 audit_date)
@@ -3879,7 +3773,7 @@ def probe_import(*, home, answer_file=None, product=None,
         # The identities the appends assigned stand read back
         # from the appended entries themselves, so the record
         # the caller receives names the identity that stands
-        # stored (Step 17 entry S17-R1-077).
+        # stored.
         appended_answers = [
             _payload(entry) for entry in appended
             if _get(entry, "entry_kind") == "answer_imported"]
@@ -3905,11 +3799,10 @@ def probe_import(*, home, answer_file=None, product=None,
 
 # The audit route's form request stands apart: a run
 # identity that names no standing run is refused as
-# UNKNOWN_ROUND and stores nothing, on the Step 16
-# E-05 pin. The reporting and guide routes hold no such
-# pin, and their lookup refusals append a failure
-# record like any other governed failure, on the
-# worked cases of Step 17 entry S17-R1-085.
+# UNKNOWN_ROUND and stores nothing, on the E-05 pin.
+# The reporting and guide routes hold no such pin, and
+# their lookup refusals append a failure record like
+# any other governed failure, on the worked cases of.
 _LOOKUP_REFUSAL_CODES = frozenset({
     "UNKNOWN_ROUND", "NO_SUCH_PRODUCT"})
 
@@ -3917,30 +3810,26 @@ _LOOKUP_REFUSAL_CODES = frozenset({
 def _failure_record_payloads(home):
     """The failure record payloads standing in one home.
 
-    The surfacing assembly limb of Step 17 entry
-    S17-R1-112, carried into the records the service
-    routes hand to rendering (Step 17 round 2 entry
-    S17-R2-101): the stored failure record payloads of
-    the home, in journal order, complete as appended.
+    The surfacing assembly limb, carried into the
+    records the service routes hand to rendering: the
+    stored failure record payloads of the home, in
+    journal order, complete as appended.
 
     The fold stands corrections aware, as the reporting
-    readers fold (Step 17 round 3 entry S17-R3-064): a
-    correction superseding a failure record governs the
-    surface, as it governs every other reporting reader.
-    And a stored entry stands on the surface whatever
-    its payload holds (entry S17-R3-067): an entry
+    readers fold: a correction superseding a failure
+    record governs the surface, as it governs every
+    other reporting reader. And a stored entry stands on
+    the surface whatever its payload holds: an entry
     holding an empty payload is a stored failure record,
     and it surfaces as one, instead of the home reading
-    as if no failure stands.
-    """
+    as if no failure stands."""
     payloads = []
     for entry in _fold(home, apply_corrections=True):
         if _get(entry, "entry_kind") == "failure_record":
             payload = _payload(entry)
             # The surfacing readers judge the kind here,
             # at the one assembly every surfacing route
-            # reads through (Step 17 round 4 entry
-            # S17-R4-066).
+            # reads through.
             _validate_failure_payload(payload)
             payloads.append(payload)
     return payloads
@@ -3949,13 +3838,12 @@ def _failure_record_payloads(home):
 def _surface_failure_records(record, home):
     """Carry one home's failure records into one record.
 
-    The rendering cure of S17-R1-112 fires on a record
-    that carries the payloads; this assembly stands them
-    on the record before it is handed to rendering, so a
-    later operator can distinguish a home with failed
+    The rendering cure of fires on a record that carries
+    the payloads; this assembly stands them on the
+    record before it is handed to rendering, so a later
+    operator can distinguish a home with failed
     operations from a home with none on the operator
-    surfaces themselves.
-    """
+    surfaces themselves."""
     if not isinstance(record, dict):
         return record
     try:
@@ -3963,9 +3851,9 @@ def _surface_failure_records(record, home):
     except errors.CitelineError:
         # A stored field refusal of the surfacing
         # assembly stands as the route's own refusal, in
-        # the recorded vocabulary (Step 17 round 4 entry
-        # S17-R4-066); the assembly's silence covers a
-        # fold that cannot stand, not a judged field.
+        # the recorded vocabulary; the assembly's
+        # silence covers a fold that cannot stand, not a
+        # judged field.
         raise
     except Exception:
         return record
@@ -3981,8 +3869,7 @@ def _append_failure_record(home, operation, exc, subject, audit_date):
     # stands, no failure record stands appended, because
     # the journal append itself would create the home and
     # its journal for a failure whose governed refusal is
-    # that the home stands missing (Step 17 round 2 entry
-    # S17-R2-070, on row U-6).
+    # that the home stands missing (on row U-6).
     try:
         if not os.path.isdir(str(home)):
             return
@@ -4002,8 +3889,7 @@ def _append_failure_record(home, operation, exc, subject, audit_date):
         # stands in the journal as an error value: a bare
         # operating system message on a supplied path
         # stands recorded under the row X-4 token its
-        # refusal carries (Step 17 round 2 entry
-        # S17-R2-018).
+        # refusal carries.
         if "null byte" in str(exc) or "\x00" in str(exc):
             token = "SUPPLIED_PATH_UNSAFE"
         else:
@@ -4017,8 +3903,7 @@ def _append_failure_record(home, operation, exc, subject, audit_date):
         # recorded in its escaped form, so the failure
         # record itself stands appended and carries the
         # governed token, instead of the append failing in
-        # silence on the subject text (Step 17 round 2
-        # entry S17-R2-018).
+        # silence on the subject text.
         subject_text = subject_text.encode(
             "utf-8", "backslashreplace").decode("utf-8")
     payload = {
@@ -4039,18 +3924,16 @@ def _append_failure_record(home, operation, exc, subject, audit_date):
 def _bound_product_record(home, product_record, round_record):
     """The product record as it stood at a round's first import.
 
-    The binding of brief item 29: a registry change
-    recorded after a round's first import does not bind
-    the round. The record that governs the round is the
-    last registry record standing at or before the
-    round's first imported answer, or, where the round
-    holds no answer, the last standing at or before the
-    round's own naming. Where no such record stands, the
-    standing product record stands returned. The choice
-    for a change landing between imports of one round
-    stands as the governed carry S17-R1-115 states, and
-    this reading does not cure past it.
-    """
+    The binding of brief item 29: a registry change recorded
+    after a round's first import does not bind the round. The
+    record that governs the round is the last registry record
+    standing at or before the round's first imported answer, or,
+    where the round holds no answer, the last standing at or
+    before the round's own naming. Where no such record stands,
+    the standing product record stands returned. The choice for
+    a change landing between imports of one round stands as the
+    governed carry states, and this reading does not cure past
+    it."""
     entries = _fold(home, apply_corrections=True)
     product_id = product_record.get("product_id")
     round_id = round_record.get("round_id")
@@ -4089,14 +3972,12 @@ def _round_entries(home, product_record, round_record):
     """The entries one round's computation reads.
 
     The fold stands corrections aware, as the registry
-    readers are (Step 17 entry S17-R1-086), and bound to
-    the round's first import basis (Step 17 entry
-    S17-R1-082): registry entries recorded after the
-    round's first imported answer do not reach the
-    computation, on the item 29 binding, stopping at the
-    governed carry S17-R1-115 for a change landing
-    between imports of the round.
-    """
+    readers are, and bound to the round's first import
+    basis: registry entries recorded after the round's
+    first imported answer do not reach the computation,
+    on the item 29 binding, stopping at the governed
+    carry for a change landing between imports of the
+    round."""
     product_id = product_record.get("product_id")
     round_id = round_record.get("round_id")
     entries = _fold(home, apply_corrections=True)
@@ -4158,11 +4039,11 @@ def _round_datum(entries, product_record, round_record):
     if detector_version is not None:
         datum["detector_version"] = detector_version
     # The query set version stands as it stood at the
-    # round's first import (Step 17 entry S17-R1-082, its
-    # stamp limb): the bound record of _round_entries'
-    # binding, not the standing product record at report
-    # time. The bound record travels as the last selected
-    # registry entry of the round.
+    # round's first import (its stamp limb): the bound
+    # record of _round_entries' binding, not the standing
+    # product record at report time. The bound record
+    # travels as the last selected registry entry of the
+    # round.
     bound_record = None
     for entry in entries:
         payload = _payload(entry)
@@ -4217,15 +4098,14 @@ def _check_run_backstop(home, started):
     """The per run wall clock backstop, limit 41, at this
     seam, on a reporting run.
 
-    The backstop position of the report routes (Step 17
-    round 2 entry S17-R2-052, its report route limb): a
-    probe report or trend recomputes its figures in this
-    invocation, and that run stands under the same limit
-    41 reading the audit and import runs stand under at
-    this seam, through the one clock this module reads.
-    At the backstop the run aborts with the recorded
-    error LIMIT_EXCEEDED and produces no report.
-    """
+    The backstop position of the report routes (its
+    report route limb): a probe report or trend
+    recomputes its figures in this invocation, and that
+    run stands under the same limit 41 reading the audit
+    and import runs stand under at this seam, through the
+    one clock this module reads. At the backstop the run
+    aborts with the recorded error LIMIT_EXCEEDED and
+    produces no report."""
     limit = _limit_value(home, "per_run_wall_clock_backstop")
     if isinstance(limit, (int, float)) and \
             _clock() - started > limit:
@@ -4308,18 +4188,17 @@ def probe_report(*, home, product, round, form=None,
         _require_home(home)
         _recover_interrupted_batch(home)
         _barred_check(home)
-        # The whole artefact stands on one fold instant
-        # (Step 17 round 5 entry S17-R5-058): the head fold
-        # stands taken here, before the product and round
-        # resolution, and every corrections aware fold of
-        # the assembly below reads that instant, the
-        # figure side and the failure side together, so a
-        # correction landing during the assembly enters
-        # neither side of this artefact in place of the
-        # other, and the whole corrected basis stands read
-        # by the next report over the home. The round 4
-        # head surfacing of entry S17-R4-075 stands inside
-        # this wider instant unchanged.
+        # The whole artefact stands on one fold instant:
+        # the head fold stands taken here, before the
+        # product and round resolution, and every
+        # corrections aware fold of the assembly below
+        # reads that instant, the figure side and the
+        # failure side together, so a correction landing
+        # during the assembly enters neither side of this
+        # artefact in place of the other, and the whole
+        # corrected basis stands read by the next report
+        # over the home. The round 4 head surfacing of
+        # stands inside this wider instant unchanged.
         fold_token = _FOLD_SNAPSHOT.set(
             _fold(home, apply_corrections=True))
         try:
@@ -4475,25 +4354,21 @@ def export_capture_worksheet(*, home, product, round, queries=None,
                              output_path=None, audit_date=None):
     """One capture worksheet written from a named round definition.
 
-    The worksheet stands written from the named round
-    definition: where the call names no query list, the
-    product query set for the round stands as the list,
-    and a named query that stands in no query set of the
-    product stands refused here, before any file stands
-    written (entry S17-R1X-021). The inputs travel to the
-    worksheet writer as they stand, with no string or
-    integer coercion at this seam, so a malformed input
-    meets the writer validation in its own form and
-    refuses in a recorded error value (entry S17-R1X-023).
-    """
+    The worksheet stands written from the named round definition:
+    where the call names no query list, the product query set for
+    the round stands as the list, and a named query that stands in
+    no query set of the product stands refused here, before any
+    file stands written . The inputs travel to the worksheet writer
+    as they stand, with no string or integer coercion at this seam,
+    so a malformed input meets the writer validation in its own
+    form and refuses in a recorded error value ."""
     audit_date = _validate_audit_date(audit_date)
     # The home check stands here as it stands on
-    # list_products (Step 17 round 4 entry S17-R4-054),
-    # and the batch recovery stands at the head of this
-    # route as at every reading route of the layer, so
-    # the worksheet stands judged on recovered state and
-    # no artefact stands handed out on a killed batch's
-    # partial state (Step 17 round 4 entry S17-R4-050).
+    # list_products, and the batch recovery stands at
+    # the head of this route as at every reading route
+    # of the layer, so the worksheet stands judged on
+    # recovered state and no artefact stands handed out
+    # on a killed batch's partial state.
     _require_home(home)
     _recover_interrupted_batch(home)
     product_record = _require_product(home, product)
@@ -4525,12 +4400,11 @@ def export_capture_worksheet(*, home, product, round, queries=None,
 # ----------------------------------------------------------------
 
 # The guide store re-read bound, stated in the open
-# where it binds (Step 17 round 5 entry S17-R5-059): the
-# guide assembly re-reads the standing audit record at
-# most this many times while rebuilding its draft on a
-# record that moved, and the store itself stands judged
-# under a sealed hold at the append, as the registry
-# cure at entry S17-R5-006 states its own bound.
+# where it binds: the guide assembly re-reads the
+# standing audit record at most this many times while
+# rebuilding its draft on a record that moved, and the
+# store itself stands judged under a sealed hold at the
+# append, as the registry cure at states its own bound.
 GUIDE_STORE_RE_READ_LIMIT = 5
 
 
@@ -4539,19 +4413,17 @@ def _store_guide_draft(home, draft, run_id, basis_record,
     """Store one guide draft, judged at the store.
 
     The final judgement and the append stand inside one
-    sealed journal hold (Step 17 round 5 entry
-    S17-R5-059): inside the hold the standing audit
-    record stands re-read, and where it differs from the
-    record the draft stands built on, the store stands
-    refused and nothing stands stored, so no guide
-    stands stored on a superseded basis. A correction
-    append attempted by other code inside the hold
-    stands contended at the sealed container and lands
-    nothing, so the append gate form of the race stands
-    closed as the re-read form stands closed. The guide
-    append itself joins the hold under the journal join
-    authorization for its exact payload.
-    """
+    sealed journal hold: inside the hold the standing
+    audit record stands re-read, and where it differs
+    from the record the draft stands built, the store
+    stands refused and nothing stands stored, so no
+    guide stands stored on a superseded basis. A
+    correction append attempted by other code inside the
+    hold stands contended at the sealed container and
+    lands nothing, so the append gate form of the race
+    stands closed as the re-read form stands closed. The
+    guide append itself joins the hold under the journal
+    join authorization for its exact payload."""
     journal = _journal()
     write_lock = getattr(journal, "_WriteLock", None)
     join = getattr(journal, "_join_authorization", None)
@@ -4592,22 +4464,19 @@ def _store_guide_draft_for_round(home, draft, product_record,
 
     The second selector the guide route states stands
     under the same store discipline as the run identity
-    selector (Step 17 round 6 entry S17-R6-044, on the
-    cure at entry S17-R5-059): the final judgement and
-    the append stand inside one sealed journal hold, the
-    basis the draft stands built on stands re-read
-    inside the hold, the round record, the bound product
-    record, and the round entries together, and where
-    any of them differs from the basis the draft stands
-    built on, the store stands refused and nothing
-    stands stored, so no guide taken by product and
-    round stores on a superseded basis. A correction
-    append attempted by other code inside the hold
-    stands contended at the sealed container and lands
-    nothing. The guide append itself joins the hold
+    selector: the final judgement and the append stand
+    inside one sealed journal hold, the basis the draft
+    stands built on stands re-read inside the hold, the
+    round record, the bound product record, and the round
+    entries together, and where any of them differs from
+    the basis the draft stands built, the store stands
+    refused and nothing stands stored, so no guide taken
+    by product and round stores on a superseded basis. A
+    correction append attempted by other code inside the
+    hold stands contended at the sealed container and
+    lands nothing. The guide append itself joins the hold
     under the journal join authorization for its exact
-    payload, as the run identity store stands.
-    """
+    payload, as the run identity store stands."""
     journal = _journal()
     write_lock = getattr(journal, "_WriteLock", None)
     join = getattr(journal, "_join_authorization", None)
@@ -4697,7 +4566,7 @@ def _guide_impl(*, home, run_id=None, product=None,
     # every sibling read only route runs, at row U-6,
     # before its barred check and its lookups, so a guide
     # over a missing home answers HOME_MISSING and creates
-    # nothing (Step 17 round 2 entry S17-R2-071).
+    # nothing.
     _require_home(home)
     _recover_interrupted_batch(home)
     _barred_check(home)
@@ -4726,8 +4595,7 @@ def _guide_impl(*, home, run_id=None, product=None,
             # scanned, before its identity is compared: a
             # run identity in a swapped type refuses in the
             # recorded vocabulary naming the field, instead
-            # of the standing run reading as unknown (Step
-            # 17 round 2 entry S17-R2-081).
+            # of the standing run reading as unknown.
             _validate_audit_payload(payload)
             if payload.get("run_id") == run_id:
                 audit_record = payload
@@ -4778,13 +4646,12 @@ def _guide_impl(*, home, run_id=None, product=None,
         product_record = _guide_product_record(audit_record)
         draft = _build_guide_draft(audit_record, product_record)
         # The guide assembly stands under the identity
-        # discipline the audit assembly stands under
-        # (Step 17 round 4 entry S17-R4-076): the folded
-        # audit record stands re-read at the store, and
-        # where a correction superseding it landed
-        # between the fold and the append, the draft
-        # stands rebuilt from the standing record, so no
-        # stored guide rests on a superseded audit
+        # discipline the audit assembly stands under:
+        # the folded audit record stands re-read at the
+        # store, and where a correction superseding it
+        # landed between the fold and the append, the
+        # draft stands rebuilt from the standing record,
+        # so no stored guide rests on a superseded audit
         # record while citing its run as its source.
         for _attempt in range(GUIDE_STORE_RE_READ_LIMIT):
             fresh_record = None
@@ -4837,10 +4704,9 @@ def guide(*, home, run_id=None, product=None, round_label=None,
           audit_date=None):
     """One guide draft: the public route over the assembly above.
 
-    A failed guide call over a healthy chain far below
-    cap appends exactly one failure record (Step 17 entry
-    S17-R1-085), as the audit route states.
-    """
+    A failed guide call over a healthy chain far below cap
+    appends exactly one failure record, as the audit route
+    states."""
     try:
         audit_date = _validate_audit_date(audit_date)
     except errors.CitelineError as exc:
@@ -4856,8 +4722,8 @@ def guide(*, home, run_id=None, product=None, round_label=None,
     except errors.CitelineError as exc:
         # Every governed failure of this route appends,
         # the unknown run identity and the both selectors
-        # malformed call included, on the worked cases of
-        # Step 17 entry S17-R1-085.
+        # malformed call included, on the worked cases
+        # of.
         _append_failure_record(
             home, "guide", exc,
             run_id if run_id is not None else round_label,

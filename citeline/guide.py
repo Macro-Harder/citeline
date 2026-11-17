@@ -82,22 +82,19 @@ def _get(record, name, default=None):
 
 # The one word token form, in the same shape as the
 # reporting module tokeniser: a number stands as one
-# token whole, carrying its thousands separators in
-# their groups, its decimal parts at every point it
-# carries, and a letter suffix standing on its last
-# part (Step 17 round 5 entry S17-R5-047). The form
+# token whole, carrying its thousands separators in their
+# groups, its decimal parts at every point it carries,
+# and a letter suffix standing on its last part. The form
 # stands completed on the dressings the round 6 entry
 # names, in the same shape as the reporting module: a
-# suffix carrying a trailing digit, an exponent part,
-# and an underscore grouping (Step 17 round 6 entry
-# S17-R6-039). The form stands completed on the dressings
-# the round 7 entry names, in the same shape as the
-# reporting module: an apostrophe grouping, an underscore
-# grouping inside the exponent part, and an underscore
-# digit inside the letter suffix (Step 17 round 7 entry
-# S17-R7-041), and on the composed suffix dressings of
-# round 8, in the same shape as the reporting module
-# (Step 17 round 8 entry S17-R8-022).
+# suffix carrying a trailing digit, an exponent part, and
+# an underscore grouping. The form stands completed on
+# the dressings the round 7 entry names, in the same
+# shape as the reporting module: an apostrophe grouping,
+# an underscore grouping inside the exponent part, and an
+# underscore digit inside the letter suffix, and on the
+# composed suffix dressings of round 8, in the same shape
+# as the reporting module.
 _WORD_TOKEN_PATTERN = (
     r"\d+(?:[,_']\d{3})*(?:\.\d+)*"
     r"(?:[eE][+-]?\d+(?:_\d+)*)?"
@@ -110,8 +107,8 @@ def _word_tokens(text):
     # states: a decimal number counts as one word under
     # brief Section 5.1, so a decimal point standing
     # between digits does not split the number it
-    # stands in (Step 17 round 4 entry S17-R4-048, the
-    # guide side pattern the reporting paper records).
+    # stands in (the guide side pattern the reporting
+    # paper records).
     normalised = unicodedata.normalize("NFC", text or "").casefold()
     return re.findall(
         _WORD_TOKEN_PATTERN, normalised, flags=re.UNICODE)
@@ -125,13 +122,12 @@ def _contains_term(sentence, term):
     # consecutive token sequence. A term standing in no
     # string form stands as no term, in the guard form
     # the module states for its other collections, so no
-    # raw error reaches the caller (Step 17 round 15
-    # entry S17-R15-008). The sentence argument of the
-    # same call stands under the same guard in the same
-    # form: a sentence standing in no string form stands
-    # as no sentence, so no raw error reaches the caller
-    # of the naming test on that argument either (Step
-    # 17 round 16 entry S17-R16-014).
+    # raw error reaches the caller. The sentence
+    # argument of the same call stands under the same
+    # guard in the same form: a sentence standing in no
+    # string form stands as no sentence, so no raw error
+    # reaches the caller of the naming test on that
+    # argument either.
     if not isinstance(term, str):
         return False
     if not isinstance(sentence, str):
@@ -274,8 +270,7 @@ def _term_collection(value):
         # string item stands skipped, as a non string
         # sentence item stands skipped at the choosing
         # reading, so no raw error reaches the caller of
-        # the naming test or of the draft (Step 17 round
-        # 15 entry S17-R15-008).
+        # the naming test or of the draft.
         return [item for item in value if isinstance(item, str)]
     return []
 
@@ -594,8 +589,7 @@ def draft_from_audit_record(record, canonical_line=None, audit_date=None,
     # compared: a count standing in string form stands
     # read as the whole number it writes, and a string
     # standing in no such form stands as no count, so no
-    # raw comparison error reaches the caller (Step 17
-    # round 7 entry S17-R7-043).
+    # raw comparison error reaches the caller.
     if isinstance(distinct_cited_target_count, bool):
         distinct_cited_target_count = None
     elif isinstance(distinct_cited_target_count, str):
@@ -613,8 +607,7 @@ def draft_from_audit_record(record, canonical_line=None, audit_date=None,
             # The cited targets stand read under the
             # module collection discipline: a string value
             # is one item, never its characters, and a
-            # list or tuple stands as its items (Step 17
-            # round 7 entry S17-R7-043).
+            # list or tuple stands as its items.
             distinct_cited_target_count = len(set(
                 _term_collection(cited_targets)))
 
@@ -729,9 +722,9 @@ def draft_from_audit_record(record, canonical_line=None, audit_date=None,
         if chosen:
             opening_text = canonical_line + " " + chosen
             # The draft records the basis its selection
-            # stood on, in the form the reporting limb
-            # reads, so the fixed selection statement of
-            # the IM7-BRK-13 landing prints in every form.
+            # stood, in the form the reporting limb reads,
+            # so the fixed selection statement of the
+            # IM7-BRK-13 landing prints in every form.
             if passes_naming_test(
                     chosen, product_name, aliases,
                     category_terms):
@@ -883,48 +876,41 @@ def _record_states_failed_control(record):
     # field names, so a case shifted, camel, separator, or
     # doubled separator form of one of those names states
     # the failed control as the exact name does, at the
-    # top level and at any depth, over the walked objects
-    # (Step 17 round 5 entry S17-R5-043, round 6 entry
-    # S17-R6-037, round 7 entry S17-R7-039, and round 15
-    # entry S17-R15-007). The component reading itself
-    # stands read from the reporting module, so the two
-    # readings stand as one reading and not as two copies.
-    # The field set the walk judges on an attribute
-    # carrying record stands on the rendering conversion
-    # terms of that module, in its own order: a record
-    # carrying an _asdict form stands judged on the
-    # fields that form states, in place of its object
-    # dict, and an object dict stands judged on its
-    # public attribute names only, a private attribute
-    # name and everything held under it standing dropped
-    # as the conversion drops them, so a record states a
-    # failed control at the draft exactly where it states
-    # one at the rendering (Step 17 round 16 entries
-    # S17-R16-012 and S17-R16-013). A plain record stands
-    # judged on its member names as written, in the
-    # standing form: the conversion drops private names
-    # on object records only.
-    # The walk stands on the conversion terms whole, in
-    # the order that module states them. A value the
-    # conversion passes through as a scalar, standing as
-    # a bool, an int, a float, or a str, states nothing
-    # past itself: a str, int, or float subclass carrier
-    # stands judged on that pass, its public attributes
-    # and its _asdict form standing in no part judged
-    # (Step 17 round 17 entry S17-R17-006). A mapping
-    # returned by an _asdict form stands judged on its
-    # items, in whatever mapping form it stands, dict or
-    # not, as the conversion reads it (Step 17 round 17
-    # entry S17-R17-007). And the value standing under a
-    # flag name stands judged on its converted form, as
-    # the conversion states it, not on its raw form: a
-    # non finite float or Decimal standing as no figure,
-    # and an attribute carrying value standing as the
-    # plain form of its public fields, empty where it
-    # carries none (Step 17 round 17 entry S17-R17-008).
-    # The conversion itself stands read from the
+    # top level and at any depth, over the walked objects.
+    # The component reading itself stands read from the
     # reporting module, so the two readings stand as one
-    # reading on the value as on the field set.
+    # reading and not as two copies. The field set the
+    # walk judges on an attribute carrying record stands
+    # on the rendering conversion terms of that module, in
+    # its own order: a record carrying an _asdict form
+    # stands judged on the fields that form states, in
+    # place of its object dict, and an object dict stands
+    # judged on its public attribute names only, a private
+    # attribute name and everything held under it standing
+    # dropped as the conversion drops them, so a record
+    # states a failed control at the draft exactly where
+    # it states one at the rendering. A plain record
+    # stands judged on its member names as written, in the
+    # standing form: the conversion drops private names on
+    # object records only. The walk stands on the
+    # conversion terms whole, in the order that module
+    # states them. A value the conversion passes through
+    # as a scalar, standing as a bool, an int, a float, or
+    # a str, states nothing past itself: a str, int, or
+    # float subclass carrier stands judged on that pass,
+    # its public attributes and its _asdict form standing
+    # in no part judged. A mapping returned by an _asdict
+    # form stands judged on its items, in whatever mapping
+    # form it stands, dict or not, as the conversion reads
+    # it. And the value standing under a flag name stands
+    # judged on its converted form, as the conversion
+    # states it, not on its raw form: a non finite float
+    # or Decimal standing as no figure, and an attribute
+    # carrying value standing as the plain form of its
+    # public fields, empty where it carries none. The
+    # conversion itself stands read from the reporting
+    # module, so the two readings stand as one reading on
+    # the value as on the field set.
     from citeline import reporting
 
     def walk(node):
@@ -973,10 +959,10 @@ def draft_from_round(round_record=None, canonical_line=None, audit_date=None,
     """
     record = round_record or {}
     # The answers input stands materialised once, in the
-    # form the triggers compute on, so every later reading
-    # in this draft, the empty round notice included,
-    # derives from that same basis and no second reading
-    # of a one pass input can state a different round.
+    # form the triggers compute, so every later reading in
+    # this draft, the empty round notice included, derives
+    # from that same basis and no second reading of a one
+    # pass input can state a different round.
     if answers is not None:
         answers = list(answers)
     if canonical_line is None:

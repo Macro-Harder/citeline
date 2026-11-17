@@ -1,9 +1,8 @@
-"""Step 17 round 5 fix seat F6 tests, guide and reporting.
+"""Guide and reporting.
 
 Each test pins one register entry from the round 5 findings
 register, in the form the register states. Written before
-the cures, watched failing, then watched passing.
-"""
+the cures, watched failing, then watched passing."""
 
 import unittest
 
@@ -50,11 +49,11 @@ def failure_lines(simple):
 
 
 class TestScopeShape042(unittest.TestCase):
-    """S17-R5-042: the scope shape test stands whole on the
-    field names the product itself uses, in the positions
-    and compounds the entry names, and a key holding the
-    letters of rate with no rate component stands outside
-    it, as the Yellow adjacent run records."""
+    """: the scope shape test stands whole on the field names
+    the product itself uses, in the positions and compounds
+    the entry names, and a key holding the letters of rate
+    with no rate component stands outside it, as the Yellow
+    adjacent run records."""
 
     def assert_scope_fixed(self, shape):
         record = {"obj": dict(shape)}
@@ -144,10 +143,10 @@ class TestScopeShape042(unittest.TestCase):
 
 
 class TestControlNotice043(unittest.TestCase):
-    """S17-R5-043: the control notice pass stands whole at
-    the top level on the notice key set the pass itself
-    states, on a list record, and on the flag as the guide
-    module judges it."""
+    """: the control notice pass stands whole at the top
+    level on the notice key set the pass itself states, on
+    a list record, and on the flag as the guide module
+    judges it."""
 
     def test_unflagged_top_level_alternate_notice_keys(self):
         record = {
@@ -221,8 +220,8 @@ class TestControlNotice043(unittest.TestCase):
 
 
 class TestThousandsString044(unittest.TestCase):
-    """S17-R5-044: a thousands separated string figure
-    prints at four places at the named audit positions."""
+    """: a thousands separated string figure prints at four
+    places at the named audit positions."""
 
     def audit(self, **score_over):
         score = {"value": 50.0, "band": "thin"}
@@ -269,9 +268,9 @@ class TestThousandsString044(unittest.TestCase):
 
 
 class TestGenericStringFigure045(unittest.TestCase):
-    """S17-R5-045: the generic Simple emitter prints a
-    string figure at four places under every key in its
-    four place set."""
+    """: the generic Simple emitter prints a string figure
+    at four places under every key in its four place
+    set."""
 
     def test_string_figure_under_set_keys(self):
         for key in ("rate", "share", "percent", "value",
@@ -290,8 +289,8 @@ class TestGenericStringFigure045(unittest.TestCase):
 
 
 class TestBareScoreKey046(unittest.TestCase):
-    """S17-R5-046: the generic Simple emitter prints a
-    float under the bare score key at four places."""
+    """: the generic Simple emitter prints a float under
+    the bare score key at four places."""
 
     def test_bare_score_float_rounds(self):
         record = {"obj": {"score": 0.3333333333333333}}
@@ -306,10 +305,9 @@ class TestBareScoreKey046(unittest.TestCase):
 
 
 class TestTokeniser047(unittest.TestCase):
-    """S17-R5-047: the one word tokeniser stands whole on
-    numbers carrying two separators, a thousands
-    separator, or a letter suffix, in reporting and in
-    guide alike."""
+    """: the one word tokeniser stands whole on numbers
+    carrying two separators, a thousands separator, or a
+    letter suffix, in reporting and in guide alike."""
 
     def report(self, queries, **overrides):
         return reporting.derive_query_set_report(
@@ -388,10 +386,10 @@ class TestTokeniser047(unittest.TestCase):
 
 
 class TestFailureCollector048(unittest.TestCase):
-    """S17-R5-048: the failure record collector stands
-    blind to nothing, a payload standing inside another
-    carry form standing collected in the form it stands
-    in, at the greatest count rule."""
+    """: the failure record collector stands blind to
+    nothing, a payload standing inside another carry
+    form standing collected in the form it stands in,
+    at the greatest count rule."""
 
     def advanced_payloads(self, record):
         advanced = render(record, form="advanced")
@@ -434,9 +432,9 @@ class TestFailureCollector048(unittest.TestCase):
 
 
 class TestFailureLine049(unittest.TestCase):
-    """S17-R5-049: the Simple failure line states only
-    what the payload holds, under the fields it holds,
-    its structure unforgeable by the separators its own
+    """: the Simple failure line states only what the
+    payload holds, under the fields it holds, its
+    structure unforgeable by the separators its own
     form is built from."""
 
     def line_for(self, payload):

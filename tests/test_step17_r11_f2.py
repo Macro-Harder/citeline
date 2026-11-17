@@ -1,25 +1,20 @@
-"""Step 17 round 11 fix seat F2 tests, registry and acquisition.
+"""Registry and acquisition.
 
-Test first pins for register entry S17-R11-001, merged
-from registry S17-R11-REG-001, seams
-S17-R11-SEAMS-001, and red S17-R11-RED-07. Each defect
-test reproduces the defect named at that entry: the
-page side construct judgement in acquisition.py reads
-the follower of the construct character as a plain
-alphabet letter alone at its non start judged
-positions, while the import side reading judges any
-word character or a hyphen, so a construct whose name
-opens on a digit, an underscore, a hyphen, or a letter
-outside the plain alphabet passes the page reading
-whole where the import reading refuses it. The pins
-stand at every judged position, in the line form and
-in the JSON form, at the value position and at the
-key position alike, in plain form and standing behind
-interior head material alike, and each pin asserts the
-two readings together, the page reading refusing with
-PAGE_EXTRACTION_FAILED and the import reading
-refusing with IMPORT_VALIDATION_FAILED.
-"""
+Test first pins for register, merged from registry, seams, and
+red. Each defect test reproduces the defect named at that entry:
+the page side construct judgement in acquisition.py reads the
+follower of the construct character as a plain alphabet letter
+alone at its non start judged positions, while the import side
+reading judges any word character or a hyphen, so a construct
+whose name opens on a digit, an underscore, a hyphen, or a
+letter outside the plain alphabet passes the page reading whole
+where the import reading refuses it. The pins stand at every
+judged position, in the line form and in the JSON form, at the
+value position and at the key position alike, in plain form and
+standing behind interior head material alike, and each pin
+asserts the two readings together, the page reading refusing
+with PAGE_EXTRACTION_FAILED and the import reading refusing with
+IMPORT_VALIDATION_FAILED."""
 
 import json
 import os

@@ -1,34 +1,29 @@
-"""Step 17 round 17 fix seat F2 verdict pins, registry and
-acquisition.
+"""fix seat F2 verdict pins, registry and acquisition.
 
-Verdict form only: no entry stands charged to this seat
-in fix round 17, in the form ruling (d) and Section 3 of
-design/audit/step-17-r17-disposition.md state. These pins
-stand written against the standing behaviour of the cured
-tree, verifying first hand that the fix round 16 F2
-standings hold whole: the gap cures at entries
-S17-R16-009, S17-R16-010, and S17-R16-011, the position
-scan gap reach and the page key judgement in
-citeline/acquisition.py, over the charged forms and past
-them in the registry seat round 17 sweep forms of
-design/audit/step-17-r17-attack-registry.md: structured
-gap chains, the whole head set as single gap apart from
-the whitespace class, and the sole follower union sweep
-reproducing the passing class of exactly 4,023
-characters. The bounded set at entry S17-R15-010, the
-zero width space U+200B, the soft hyphen U+00AD, the
-arabic letter mark U+061C, the word joiner U+2060, and
-the tag character U+E0041, stands pinned as passing
-whole in its bounded form. The whitespace gap class
-stands pinned in its bounded form, the 29 whitespace
-characters of the head set. The non head union mark
-blocker form stands pinned as a bounded observation,
-outside any cure. Where a pin asserts a cured form, the
-revert check form applies in the seat paper: the cure
-removed in a scratch copy, the pin failing in exact
-form. Every pin runs in memory at the readings and at
-the helpers, so no pin stands on a temporary directory.
-"""
+Verdict form only: no entry stands charged to this seat in
+fix round 17, in the form ruling (d) and Section 3 of the
+register paper state. These pins stand written against the
+standing behaviour of the cured tree, verifying first hand
+that the fix round 16 F2 standings hold whole: the gap
+cures, and, the position scan gap reach and the page key
+judgement in citeline/acquisition.py, over the charged
+forms and past them in the registry seat round 17 sweep
+forms of the register paper: structured gap chains, the
+whole head set as single gap apart from the whitespace
+class, and the sole follower union sweep reproducing the
+passing class of exactly 4,023 characters. The bounded
+set, the zero width space U+200B, the soft hyphen U+00AD,
+the arabic letter mark U+061C, the word joiner U+2060, and
+the tag character U+E0041, stands pinned as passing whole
+in its bounded form. The whitespace gap class stands
+pinned in its bounded form, the 29 whitespace characters
+of the head set. The non head union mark blocker form
+stands pinned as a bounded observation, outside any cure.
+Where a pin asserts a cured form, the revert check form
+applies in the seat paper: the cure removed in a scratch
+copy, the pin failing in exact form. Every pin runs in
+memory at the readings and at the helpers, so no pin
+stands on a temporary directory."""
 
 import json
 import unicodedata

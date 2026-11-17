@@ -1,9 +1,7 @@
-"""Step 17 round 8 fix seat F3 tests: checks and robots entries.
+"""Checks and robots entries.
 
-Each test pins one register entry on the behaviour the
-register states, written before its cure. Entries:
-S17-R8-008 to S17-R8-011.
-"""
+Each test pins one register entry on the behaviour the register
+states, written before its cure. Entries: to."""
 
 import unittest
 

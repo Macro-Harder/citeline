@@ -1,20 +1,15 @@
-"""Step 17 round 15 fix seat F6 tests: guide and reporting.
+"""Guide and reporting.
 
-Defect pins for entries S17-R15-007 and S17-R15-008,
-written before the cures they pin, beside verdict pins
-for the standing seams of this family in their forms:
-the failure line seam at entry S17-R9-015, the longer
-compound seam at entry S17-R9-016 in its stated bound,
-and the list branch seam at entry S17-R9-018, each
-judged on the new forms the round 15 guide paper runs,
-and the collector kind discrepancy in its sustained
-form.
-Oracle: the round 15 findings register and
-disposition, ruling (f) and Section 3 seat F6, and
-the round 15 guide attack paper.
+Defect pins, written before the cures they pin, beside
+verdict pins for the standing seams of this family in their
+forms: the failure line seam, the longer compound seam at
+in its stated bound, and the list branch seam, each judged
+on the new forms the round 15 guide paper runs, and the
+collector kind discrepancy in its sustained form. Oracle:
+the round 15 findings register and disposition, ruling (f)
+and Section 3 seat F6, and the round 15 guide attack paper.
 
-Copyright: J.P. Picard aka Macro-Harder.
-"""
+Copyright: J.P. Picard aka Macro-Harder."""
 
 import inspect
 import unittest
@@ -65,13 +60,12 @@ def line_for(key, value):
 
 
 # ----------------------------------------------------------------
-# Entry S17-R15-007: the failed control flag forms the
-# rendering pass judges escape the guide draft
-# suppression. The rendering pass judges three names,
-# control_failed, control_failure, and control_flag,
-# under the component reading, dressed forms included,
-# at the top level and at any depth, by truthiness.
-# The draft must stand on the same terms.
+# Entry: the failed control flag forms the rendering pass judges
+# escape the guide draft suppression. The rendering pass judges
+# three names, control_failed, control_failure, and control_flag,
+# under the component reading, dressed forms included, at the top
+# level and at any depth, by truthiness. The draft must stand on
+# the same terms.
 # ----------------------------------------------------------------
 
 class Test007FailedControlDraftSuppression(unittest.TestCase):
@@ -164,11 +158,11 @@ class Test007FailedControlDraftSuppression(unittest.TestCase):
 
 
 # ----------------------------------------------------------------
-# Entry S17-R15-008: a non string term in a stored alias
-# or category list raises a raw TypeError and kills the
-# draft. A non string term stands skipped, the naming
-# test and the draft standing whole, the whole value
-# guard and the absent item standing standing whole.
+# Entry: a non string term in a stored alias or category list
+# raises a raw TypeError and kills the draft. A non string term
+# stands skipped, the naming test and the draft standing whole,
+# the whole value guard and the absent item standing standing
+# whole.
 # ----------------------------------------------------------------
 
 class Test008NonStringTermGuard(unittest.TestCase):

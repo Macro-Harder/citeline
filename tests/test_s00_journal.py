@@ -1554,31 +1554,30 @@ class ReplayPairTests(HomeCase):
 
 class HonestForgeryPairTests(HomeCase):
     def test_branch_one_nonmatching_external_head_bars_writes(self):
-        """Row plan Section 1.3 S0 honest forgery pair,
-        branch one, writable now. Oracle: plan slice S0 test
+        """Row plan Section 1.3 S0 honest forgery pair, branch
+        one, writable now. Oracle: plan slice S0 test
         status, the honest forgery pair of IM2-INV-3: branch
         one stands barred on a non matching external head.
         The external head here stands recorded in the anchor
-        file the config anchor key names, on brief
-        Section 5.12 IM7-BRK-9 landing terms: where the
-        anchor recorded head is not the standing head, the
+        file the config anchor key names, on brief Section
+        5.12 IM7-BRK-9 landing terms: where the anchor
+        recorded head is not the standing head, the
         agreement stands divergent, no record from the chain
         is claimed as verified on that recording, on brief
         Section 5.12 item 138 head hash duty terms, and a
-        writing invocation over the home stands barred.
-        The anchor file here stands written in the stated
-        record form (Step 13 test audit round 1, entry
-        R1-008): a head hash with its sequence, the hash
-        beside the journal sequence the head was taken at,
-        on the IM7-BRK-9 landing terms in brief
-        Section 5.12, with the sequence stated as 99, a
-        sequence that stands nowhere in this one entry
-        chain, so the recorded head stands nowhere in the
-        chain and the agreement position is divergent. The
-        bar asserted below falls on the round naming append
-        named in the test body, on the S0 row passage
-        itself, which states branch one as barred on a non
-        matching external head."""
+        writing invocation over the home stands barred. The
+        anchor file here stands written in the stated record
+        form (Step 13 test audit round 1, entry R1-008): a
+        head hash with its sequence, the hash beside the
+        journal sequence the head was taken, on the
+        IM7-BRK-9 landing terms in brief Section 5.12, with
+        the sequence stated as 99, a sequence that stands
+        nowhere in this one entry chain, so the recorded
+        head stands nowhere in the chain and the agreement
+        position is divergent. The bar asserted below falls
+        on the round naming append named in the test body,
+        on the S0 row passage itself, which states branch
+        one as barred on a non matching external head."""
         lines, head = chain_lines([{"name": "A", "product_id": "p-a"}])
         self.write_journal(lines)
         anchor = os.path.join(self.tmp.name, "anchor.txt")

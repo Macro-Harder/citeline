@@ -1,13 +1,10 @@
-"""Step 17 round 4 fix seat F1 tests: journal family.
+"""Journal family.
 
 Each test pins one register entry from design/audit/
-step-17-r4-findings-register.md (S17-R4-001 to
-S17-R4-009, S17-R4-063, S17-R4-068, and S17-R4-069) on
-the behaviour the register and the round 4 disposition
-state. Homes are scratch homes under a temporary
-directory. No test here touches a standing test item or
-a governed ground.
-"""
+the register paper on the behaviour the register and
+the round 4 disposition state. Homes are scratch homes
+under a temporary directory. No test here touches a
+standing test item or a governed ground."""
 
 import base64
 import hashlib
@@ -153,11 +150,11 @@ class BatchIntentStartingStateTests(HomeCase):
             self.home, "anchor_path = %s\n" % other)
         self.assertTrue(journal.recover_interrupted_batch(self.home))
         # The partial batch stands removed and the record
-        # stands acted on, not cleared unacted. The
-        # recovery record append itself meets the
-        # repointed config anchor gate and stands under
-        # the round 3 append failure discipline recorded
-        # at entry S17-R3-065, so no record stands here.
+        # stands acted, not cleared unacted. The recovery
+        # record append itself meets the repointed config
+        # anchor gate and stands under the round 3 append
+        # failure discipline recorded, so no record
+        # stands here.
         self.assertEqual(self.kinds(), ["product_registered"])
         self.assertTrue(journal.verify_chain(self.home)["passed"])
         self.assertFalse(self.intent_standing())

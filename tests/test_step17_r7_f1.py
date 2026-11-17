@@ -1,16 +1,14 @@
-"""Step 17 round 7 fix seat F1 tests: journal family.
+"""Journal family.
 
 Each test pins one register entry from design/audit/
-step-17-r7-findings-register.md (S17-R7-001 to
-S17-R7-007) on the behaviour the register and the
-round 7 disposition state. Homes are scratch homes
-under a temporary directory. No test here touches a
-standing test item or a governed ground. Entry
-S17-R7-002 stands refused on the ground recorded in
-the seat paper, and its test stands as an expected
+the register paper on the behaviour the register and
+the round 7 disposition state. Homes are scratch
+homes under a temporary directory. No test here
+touches a standing test item or a governed ground.
+Entry stands refused on the ground recorded in the
+seat paper, and its test stands as an expected
 failure pinning the defect, in the form the refused
-entry S17-R3-051 stands pinned.
-"""
+stands pinned."""
 
 import os
 import subprocess

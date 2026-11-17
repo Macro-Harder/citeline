@@ -358,7 +358,7 @@ class TestStatistics(unittest.TestCase):
 
 class TestQuotations(unittest.TestCase):
     def test_attributed_by_said_full_formula(self):
-        """Plan Section 1.3 S3 limb (c) in its list independent form, check quotations. Oracle: brief Section 5.7 quotations rule, quoted spans of at least 4 words are counted, a span is attributed where a cue within 100 characters after the span is present, the cue set closed as said, according to, and a capitalised name; earned is min(attributed plus 0.5 times unattributed, 2) divided by 2, so one attributed span earns 0.5; reason code QUO_COUNT."""
+        """Plan Section 1.3 S3 limb (c) in its list independent form, check quotations. Oracle: brief Section 5.7 quotations rule, quoted spans of at least 4 words are counted, a span is attributed where a cue within 100 characters after the span is present, the cue set closed as said, according, and a capitalised name; earned is min(attributed plus 0.5 times unattributed, 2) divided by 2, so one attributed span earns 0.5; reason code QUO_COUNT."""
         r = run(score_a_page())["quotations"]
         self.assertEqual(field(r, "earned"), 0.5)
         self.assertEqual(field(r, "reason_code"), "QUO_COUNT")

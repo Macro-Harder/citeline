@@ -1,32 +1,25 @@
-"""Step 17 round 16 fix seat F7 tests: service, watch, seams.
+"""Service, watch, seams.
 
-Seat F7 carries no entry TO FIX in fix round 16. This
-file pins the sustained verdict standings of the seat
-in their charged forms, judged on the current tree:
-the cure at entry S17-R15-009 standing sustained
-whole, the audit preflight counter depth judgement in
-citeline/service.py judging a front matter block on
-its bracket nesting depth ahead of its parse, in list
-shape and in record shape alike, at the limit of 100
-and past it, counting brackets standing outside
-string literals alone, with no raw RecursionError
-standing raised at any depth and exactly one failure
-record standing appended for a refusal on the audit
-route; and the container seam verdict at entries
-S17-R9-003 and S17-R9-020 standing sustained whole in
-its standing form, the three container measures
-agreeing on their worked forms. The seam cure at
-entry S17-R14-004 stands pinned in its standing form
-beside them.
-Oracle: Section 3 of the round 16 disposition, seat
-F7 paragraph, with ruling (j), point 4, the F7
-paragraph of the fix charge section in
-design/audit/step-17-r16-nextwave-charges-draft.md,
-and the fix round 15 F7 paper at
-design/audit/step-17-r15-fix-f7.md.
+Seat F7 carries no entry TO FIX in fix round 16. This file
+pins the sustained verdict standings of the seat in their
+charged forms, judged on the current tree: the cure at
+standing sustained whole, the audit preflight counter depth
+judgement in citeline/service.py judging a front matter block
+on its bracket nesting depth ahead of its parse, in list
+shape and in record shape alike, at the limit of 100 and past
+it, counting brackets standing outside string literals alone,
+with no raw RecursionError standing raised at any depth and
+exactly one failure record standing appended for a refusal on
+the audit route; and the container seam verdict at standing
+sustained whole in its standing form, the three container
+measures agreeing on their worked forms. The seam cure at
+stands pinned in its standing form beside them. Oracle:
+Section 3 of the round 16 disposition, seat F7 paragraph,
+with ruling (j), point 4, the F7 paragraph of the fix charge
+section in the register paper, and the fix round 15 F7 paper
+in the register.
 
-Copyright: J.P. Picard aka Macro-Harder.
-"""
+Copyright: J.P. Picard aka Macro-Harder."""
 
 import json
 import tempfile
@@ -138,10 +131,10 @@ class SeededBase(unittest.TestCase):
 
 
 # ----------------------------------------------------------------
-# The depth helper of the cure at entry S17-R15-009:
-# the bracket count stands string aware, escapes inside
-# a string standing skipped, and real nesting standing
-# counted whole in list shape and in record shape.
+# The depth helper of the cure at: the bracket count stands string
+# aware, escapes inside a string standing skipped, and real
+# nesting standing counted whole in list shape and in record
+# shape.
 # ----------------------------------------------------------------
 
 class TestDepthHelperStringAware(unittest.TestCase):
@@ -170,13 +163,12 @@ class TestDepthHelperStringAware(unittest.TestCase):
 
 
 # ----------------------------------------------------------------
-# Entry S17-R15-009 at the counter directly, at and
-# past the limit of 100: a list nesting of depth 99
-# stands at bracket depth 100 and returns its count,
-# a list nesting of depth 100 stands at bracket depth
-# 101 and refuses, and the record shape stands the
-# same, at the boundary and past the parser flip of
-# either runtime alike, with no raw RecursionError.
+# Entry at the counter directly, at and past the limit of 100: a
+# list nesting of depth 99 stands at bracket depth 100 and returns
+# its count, a list nesting of depth 100 stands at bracket depth
+# 101 and refuses, and the record shape stands the same, at the
+# boundary and past the parser flip of either runtime alike, with
+# no raw RecursionError.
 # ----------------------------------------------------------------
 
 class TestCounterBoundary(unittest.TestCase):
@@ -235,9 +227,9 @@ class TestCounterBoundary(unittest.TestCase):
 
 
 # ----------------------------------------------------------------
-# Entry S17-R15-009 at the audit preflight: the past
-# limit forms refuse in both shapes, and the form at
-# the limit stands passed by the preflight.
+# Entry at the audit preflight: the past limit forms refuse in
+# both shapes, and the form at the limit stands passed by the
+# preflight.
 # ----------------------------------------------------------------
 
 class TestPreflightBoundary(SeededBase):
@@ -269,11 +261,10 @@ class TestPreflightBoundary(SeededBase):
 
 
 # ----------------------------------------------------------------
-# Entry S17-R15-009 through service.audit whole: each
-# refusal appends exactly one failure record, at the
-# boundary depth and past the parser flip alike, in
-# list shape and in record shape, and the form at the
-# limit runs whole.
+# Entry through service.audit whole: each refusal appends exactly
+# one failure record, at the boundary depth and past the parser
+# flip alike, in list shape and in record shape, and the form at
+# the limit runs whole.
 # ----------------------------------------------------------------
 
 class TestAuditRouteBoundary(SeededBase):
@@ -300,11 +291,9 @@ class TestAuditRouteBoundary(SeededBase):
 
 
 # ----------------------------------------------------------------
-# The standing forms of the family: the seam cure at
-# entry S17-R14-004 in its standing form, and the
-# container seam verdict at entries S17-R9-003 and
-# S17-R9-020, the three measures agreeing alike on
-# their worked forms.
+# The standing forms of the family: the seam cure at in its
+# standing form, and the container seam verdict, the three
+# measures agreeing alike on their worked forms.
 # ----------------------------------------------------------------
 
 class TestStandingFormsHold(SeededBase):

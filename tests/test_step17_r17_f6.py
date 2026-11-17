@@ -1,44 +1,35 @@
-"""Step 17 round 17 fix seat F6 tests: guide and reporting.
+"""Guide and reporting.
 
-Defect pins for entries S17-R17-006, S17-R17-007, and
-S17-R17-008, written before the cures they pin.
-Entry S17-R17-006: the guide walk in
-_record_states_failed_control judges the public
-attributes and the _asdict form of str, int, and float
-subclass carriers, while reporting._plain passes such
-a carrier through as a scalar before any _asdict limb
-and before any object dict limb, so the draft
-suppresses on fields the rendering never states. A
-carrier the rendering passes through as a scalar must
-stand judged at the draft on the rendering terms.
-Entry S17-R17-007: the rendering reading notices a
-non dict mapping returned by an _asdict form through
-its items call, while the guide walk yields the fields
-of that return only where the return stands as a dict,
-so a failed control stated in a mapping proxy return,
-a custom Mapping return, or an items only return
-escapes the draft whole. Such a return must stand
-judged by the draft as by the rendering.
-Entry S17-R17-008: the guide walk judges the value
-standing under a flag name by its raw truthiness,
-while the rendering judges the value as
-reporting._plain converts it, so a flag whose raw
-value stands truthy and whose converted value stands
-falsy states the failed control at the draft and
-states nothing at the rendering, and a flag whose raw
-value stands falsy and whose converted value stands
-truthy states it at the rendering alone. The flag
-value must stand judged on the converted terms at
-both readings.
-Oracle: the round 17 findings register and
-disposition, ruling (e) and Section 3 seat F6, the
-round 17 guide attack paper at finding
-S17-R17-GR-001 and S17-R17-GR-002, the Red paper at
-finding S17-R17-RED-005, and the Yellow paper at
-finding S17-R17-Y-07.
+Defect pins, and, written before the cures they pin. Entry:
+the guide walk in _record_states_failed_control judges the
+public attributes and the _asdict form of str, int, and
+float subclass carriers, while reporting._plain passes such
+a carrier through as a scalar before any _asdict limb and
+before any object dict limb, so the draft suppresses on
+fields the rendering never states. A carrier the rendering
+passes through as a scalar must stand judged at the draft
+on the rendering terms. Entry: the rendering reading
+notices a non dict mapping returned by an _asdict form
+through its items call, while the guide walk yields the
+fields of that return only where the return stands as a
+dict, so a failed control stated in a mapping proxy return,
+a custom Mapping return, or an items only return escapes
+the draft whole. Such a return must stand judged by the
+draft as by the rendering. Entry: the guide walk judges the
+value standing under a flag name by its raw truthiness,
+while the rendering judges the value as reporting._plain
+converts it, so a flag whose raw value stands truthy and
+whose converted value stands falsy states the failed
+control at the draft and states nothing at the rendering,
+and a flag whose raw value stands falsy and whose converted
+value stands truthy states it at the rendering alone. The
+flag value must stand judged on the converted terms at both
+readings. Oracle: the round 17 findings register and
+disposition, ruling (e) and Section 3 seat F6, the round 17
+guide attack paper at finding and, the Red paper at
+finding, and the Yellow paper at finding.
 
-Copyright: J.P. Picard aka Macro-Harder.
-"""
+Copyright: J.P. Picard aka Macro-Harder."""
 
 import math
 import unittest
@@ -196,11 +187,10 @@ def assert_agree_escaped(case, record):
 
 
 # ----------------------------------------------------------------
-# Entry S17-R17-006: a str, int, or float subclass
-# carrier stands judged at the draft on the rendering
-# terms, the rendering passing the carrier through as
-# a scalar, so its public attributes and its _asdict
-# form state nothing at either reading.
+# Entry: a str, int, or float subclass carrier stands judged at
+# the draft on the rendering terms, the rendering passing the
+# carrier through as a scalar, so its public attributes and its
+# _asdict form state nothing at either reading.
 # ----------------------------------------------------------------
 
 class Test006ScalarSubclassCarriers(unittest.TestCase):
@@ -266,9 +256,8 @@ class Test006ScalarSubclassCarriers(unittest.TestCase):
 
 
 # ----------------------------------------------------------------
-# Entry S17-R17-007: a non dict mapping returned by an
-# _asdict form stands judged by the draft as by the
-# rendering, on its items alone.
+# Entry: a non dict mapping returned by an _asdict form stands
+# judged by the draft as by the rendering, on its items alone.
 # ----------------------------------------------------------------
 
 class Test007NonDictMappingReturns(unittest.TestCase):
@@ -322,10 +311,9 @@ class Test007NonDictMappingReturns(unittest.TestCase):
 
 
 # ----------------------------------------------------------------
-# Entry S17-R17-008: a flag value stands judged on the
-# converted terms at both readings, on the Red battery
-# of non finite float and Decimal values and empty
-# object values, and on the Yellow battery of an
+# Entry: a flag value stands judged on the converted terms at both
+# readings, on the Red battery of non finite float and Decimal
+# values and empty object values, and on the Yellow battery of an
 # attribute record converting to an empty plain form.
 # ----------------------------------------------------------------
 

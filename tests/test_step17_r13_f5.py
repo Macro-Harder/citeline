@@ -1,24 +1,21 @@
-# Step 17 round 13 fix seat F5 tests, verdict form only.
-#
+# fix seat F5 tests, verdict form only.
 # Seat F5 carries no TO FIX entry in fix round 13. The
-# family entry S17-R11-012, extending S17-R10-010,
-# stands DISPOSED on the ruling of Captain JP of
-# 2026-11-16, in her words: "Just remove the two minute
-# limit." The two minute limit stands removed for this
-# family and the refusal ground stands dissolved on
-# her ruling, as the fix paper of this seat records.
-# These tests pin the
-# verdicts of this seat on the tree as it stands: the
-# two copies of _similar_components standing byte
-# identical; the round 10 cure standing exact against
-# direct pair computations on the differential forms of
-# this seat, written from the rule; and the four Red
-# round 10 constructions standing at the behaviour the
-# papers record at the scales these pins run, process
-# CPU time, construction excluded, the singleton result
-# judged at every cost scale. No product module stands
-# edited by this seat.
-#
+# family, extending, stands DISPOSED on the ruling of
+# Captain JP of 2026-11-16, in her words: "Just remove
+# the two minute limit." The two minute limit stands
+# removed for this family and the refusal ground stands
+# dissolved on her ruling, as the fix paper of this seat
+# records. These tests pin the verdicts of this seat on
+# the tree as it stands: the two copies of
+# _similar_components standing byte identical; the round
+# 10 cure standing exact against direct pair
+# computations on the differential forms of this seat,
+# written from the rule; and the four Red round 10
+# constructions standing at the behaviour the papers
+# record at the scales these pins run, process CPU time,
+# construction excluded, the singleton result judged at
+# every cost scale. No product module stands edited by
+# this seat.
 # Copyright: J.P. Picard aka Macro-Harder.
 
 import random
@@ -396,18 +393,17 @@ class TestR13F5ConstructionCostPins(unittest.TestCase):
 
     # The two fourth construction pins below stand
     # re-pinned under the ruling of Captain JP of
-    # 2026-11-16 on entry S17-R11-012, in her words:
-    # "Just remove the two minute limit." The two minute
-    # limit stands removed for this family, so these pins
-    # assert the correctness standing of the family at
-    # this scale, the singleton result judged, and no
-    # time bound assertion on this family stands in
-    # their place. Their old form, the same construction
-    # at this scale against a bound of 40.0 seconds of
-    # process CPU time, stands recorded in the fix
-    # papers of rounds 10 to 13 in its standing as a pin
-    # form derived from the backstop judgement on this
-    # family.
+    # 2026-11-16, in her words: "Just remove the two
+    # minute limit." The two minute limit stands removed
+    # for this family, so these pins assert the
+    # correctness standing of the family at this scale,
+    # the singleton result judged, and no time bound
+    # assertion on this family stands in their place.
+    # Their old form, the same construction at this scale
+    # against a bound of 40.0 seconds of process CPU
+    # time, stands recorded in the fix papers of rounds
+    # 10 to 13 in its standing as a pin form derived from
+    # the backstop judgement on this family.
 
     def _run_correct_at_scale(self, module, type_sets):
         components = module._similar_components(type_sets)

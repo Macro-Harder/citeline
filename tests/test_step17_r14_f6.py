@@ -1,28 +1,23 @@
-"""Step 17 round 14 fix seat F6 tests: guide and reporting.
+"""Guide and reporting.
 
-Verdict pins only: this seat charges no cure of its own
-and edits no product module. The pins stand on the
-guide and reporting seams in the standing verdict form
-(the failure line seam at entry S17-R9-015, the longer
-compound seam at entry S17-R9-016 in its stated bound,
-and the list branch seam at entry S17-R9-018, as the
-fix round 13 F6 paper states them and the round 14
-guide paper rejudged them on new forms), on the guide
-selection readings in their standing forms as the
-round 14 guide paper judges them as their own scope,
-on the collector kind discrepancy in its sustained
-recorded form, extended on the new forms the round 14
-guide paper runs, and on the standing watch figures
-and the methods note version stamp in their exact
-forms. Each pin was written before the verdict it
-records and stands passing on the tree the verdicts
-judge.
-Oracle: the round 14 findings register and
-disposition, ruling (j) and Section 3 seat F6, and
-the round 14 guide attack paper.
+Verdict pins only: this seat charges no cure of its own and
+edits no product module. The pins stand on the guide and
+reporting seams in the standing verdict form (the failure
+line seam, the longer compound seam at in its stated bound,
+and the list branch seam, as the fix round 13 F6 paper
+states them and the round 14 guide paper rejudged them on
+new forms), on the guide selection readings in their
+standing forms as the round 14 guide paper judges them as
+their own scope, on the collector kind discrepancy in its
+sustained recorded form, extended on the new forms the
+round 14 guide paper runs, and on the standing watch
+figures and the methods note version stamp in their exact
+forms. Each pin was written before the verdict it records
+and stands passing on the tree the verdicts judge. Oracle:
+the round 14 findings register and disposition, ruling (j)
+and Section 3 seat F6, and the round 14 guide attack paper.
 
-Copyright: J.P. Picard aka Macro-Harder.
-"""
+Copyright: J.P. Picard aka Macro-Harder."""
 
 import inspect
 import json
@@ -148,13 +143,11 @@ class SeededBase(unittest.TestCase):
 
 
 # ----------------------------------------------------------------
-# Seam 1, entry S17-R9-015: the failure line seam. The
-# judged set stands at ten characters, equal to the
-# whole line boundary set under the standard reading,
-# judged exhaustively, and the round 14 forms plant
-# breaks in further partial fields, at a subject
-# standing as a bare break, and at an operation
-# standing as a doubled break.
+# Seam 1,: the failure line seam. The judged set stands at ten
+# characters, equal to the whole line boundary set under the
+# standard reading, judged exhaustively, and the round 14 forms
+# plant breaks in further partial fields, at a subject standing as
+# a bare break, and at an operation standing as a doubled break.
 # ----------------------------------------------------------------
 
 class Test015FailureLineSeamVerdict(unittest.TestCase):
@@ -251,11 +244,10 @@ class Test015FailureLineSeamVerdict(unittest.TestCase):
 
 
 # ----------------------------------------------------------------
-# Seam 2, entry S17-R9-016: the longer compound seam,
-# Simple form only, judged at the scalar branch on the
-# head and middle pairings of round 14, in plain and
-# dressed forms, on its pinned bounds, and on the rate
-# digit forms standing on their own limb.
+# Seam 2,: the longer compound seam, Simple form only, judged at
+# the scalar branch on the head and middle pairings of round 14,
+# in plain and dressed forms, on its pinned bounds, and on the
+# rate digit forms standing on their own limb.
 # ----------------------------------------------------------------
 
 class Test016LongerCompoundSeamVerdict(unittest.TestCase):
@@ -329,12 +321,11 @@ class Test016LongerCompoundSeamVerdict(unittest.TestCase):
 
 
 # ----------------------------------------------------------------
-# Seam 3, entry S17-R9-018: the list branch seam. The
-# four place set stands stated in one helper shared by
-# the scalar and list branches, judged on the round 14
-# pairing keys at the list branch, nested seven levels
-# deep, and on the record stop one level deeper than
-# the earlier rounds ran it.
+# Seam 3,: the list branch seam. The four place set stands stated
+# in one helper shared by the scalar and list branches, judged on
+# the round 14 pairing keys at the list branch, nested seven
+# levels deep, and on the record stop one level deeper than the
+# earlier rounds ran it.
 # ----------------------------------------------------------------
 
 class Test018ListBranchSeamVerdict(unittest.TestCase):

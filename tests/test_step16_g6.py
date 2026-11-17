@@ -1,4 +1,4 @@
-"""Step 16 supplementary fix G6 tests: E-08 and E-09.
+"""E-08 and E-09.
 
 Written test first for the round 2 supplementary defects
 E-08 and E-09. The recorded perspective of this seat:
@@ -21,16 +21,15 @@ and is not a failure, beside the limb that a config file
 that cannot be parsed, holds a wrong form value, or
 holds a duplicate key fails the install and fails any
 run that reads it; plan Section 3.2 rule 4: an unknown
-key is reported as a warning and is not a failure.
-The surfaces cured are the ones those statements and
-the round 2 evidence reach: the installer install route
-over a pre-existing config at the install location, and
-the run side home reporting routes, status and verify,
-whose records are built from the journal snapshot that
-reads the home config. Installer work runs on faithful
-copies of the shipped tree in scratch, never into the
-shipped tree.
-"""
+key is reported as a warning and is not a failure. The
+surfaces cured are the ones those statements and the
+round 2 evidence reach: the installer install route over
+a pre-existing config at the install location, and the
+run side home reporting routes, status and verify, whose
+records are built from the journal snapshot that reads
+the home config. Installer work runs on faithful copies
+of the shipped tree in scratch, never into the shipped
+tree."""
 
 import contextlib
 import hashlib

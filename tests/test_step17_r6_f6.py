@@ -1,9 +1,8 @@
-"""Step 17 round 6 fix seat F6 tests, guide and reporting.
+"""Guide and reporting.
 
 Each test pins one register entry from the round 6 findings
 register, in the form the register states. Written before
-the cures, watched failing, then watched passing.
-"""
+the cures, watched failing, then watched passing."""
 
 import unittest
 
@@ -46,11 +45,11 @@ def failure_lines(simple):
 
 
 class TestScopeShape035(unittest.TestCase):
-    """S17-R6-035: the scope shape test stands whole on the
-    fused field names and on the score limb's own named keys
-    in every case and compound form the entry names, a key
-    holding the letters of rate with no rate component
-    standing outside it, as the Yellow boundary states."""
+    """: the scope shape test stands whole on the fused field
+    names and on the score limb's own named keys in every
+    case and compound form the entry names, a key holding
+    the letters of rate with no rate component standing
+    outside it, as the Yellow boundary states."""
 
     def assert_scope_fixed(self, shape):
         record = {"obj": dict(shape)}
@@ -115,9 +114,9 @@ class TestScopeShape035(unittest.TestCase):
 
 
 class TestControlNotice036(unittest.TestCase):
-    """S17-R6-036: the control notice pass judges its three
-    notice keys as the same notice name in any case, at the
-    top level and in nested objects."""
+    """: the control notice pass judges its three notice keys
+    as the same notice name in any case, at the top level
+    and in nested objects."""
 
     def test_top_level_case_shifted_notice_keys_removed(self):
         for key in ("Control_Notice", "CONTROL_NOTICE",
@@ -147,8 +146,8 @@ class TestControlNotice036(unittest.TestCase):
 
 
 class TestControlFlag037(unittest.TestCase):
-    """S17-R6-037: control_flag stands judged at any depth
-    as the other two flags are judged."""
+    """: control_flag stands judged at any depth as the other
+    two flags are judged."""
 
     def test_nested_control_flag_gains_fixed_notice(self):
         record = {"inner": {
@@ -179,9 +178,9 @@ class TestControlFlag037(unittest.TestCase):
 
 
 class TestGenericEmitter038(unittest.TestCase):
-    """S17-R6-038: the generic emitter stands at four places
-    under rate_value, rate_pct, overall_score, and the bare
-    wilson key, in float form and in string form alike."""
+    """: the generic emitter stands at four places under
+    rate_value, rate_pct, overall_score, and the bare wilson
+    key, in float form and in string form alike."""
 
     def assert_four_places(self, key, value):
         record = {"obj": {key: value}}
@@ -211,10 +210,10 @@ class TestGenericEmitter038(unittest.TestCase):
 
 
 class TestTokeniser039(unittest.TestCase):
-    """S17-R6-039: the one word tokeniser stands whole on a
-    suffix carrying a trailing digit, on the exponent form,
-    and on the underscore grouping, in reporting and in
-    guide alike."""
+    """: the one word tokeniser stands whole on a suffix
+    carrying a trailing digit, on the exponent form, and on
+    the underscore grouping, in reporting and in guide
+    alike."""
 
     def report(self, queries, **overrides):
         return reporting.derive_query_set_report(
@@ -279,11 +278,11 @@ class TestTokeniser039(unittest.TestCase):
 
 
 class TestFailureCollector040(unittest.TestCase):
-    """S17-R6-040: the failure record collector stands blind
-    to nothing in the positions the entry names: an entries
-    list inside a failure payload stands in no entries form,
-    and an entries list under the entries name in any case
-    stands collected."""
+    """: the failure record collector stands blind to nothing
+    in the positions the entry names: an entries list inside
+    a failure payload stands in no entries form, and an
+    entries list under the entries name in any case stands
+    collected."""
 
     def advanced_payloads(self, record):
         advanced = render(record, form="advanced")
@@ -321,11 +320,10 @@ class TestFailureCollector040(unittest.TestCase):
 
 
 class TestFailureLine041(unittest.TestCase):
-    """S17-R6-041: the Simple failure line stands
-    unforgeable by a quote character inside a value and by
-    a separator standing in a field name, each value and
-    each name judged by the quoting the line is built
-    from."""
+    """: the Simple failure line stands unforgeable by a
+    quote character inside a value and by a separator
+    standing in a field name, each value and each name
+    judged by the quoting the line is built from."""
 
     def line_for(self, payload):
         simple = render(

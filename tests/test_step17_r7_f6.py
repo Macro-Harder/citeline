@@ -1,11 +1,8 @@
-# Step 17 round 7 fix seat F6 tests.
-#
-# Entries S17-R7-037 to S17-R7-044 and S17-R7-049: guide and
-# reporting family. Each defect pin stands on the worked
-# cases of the round 7 register and its source papers, the
-# guide attack paper and the Red paper at entry
-# S17-R7-049 and at the merged limb of S17-R7-040.
-#
+# fix seat F6 tests.
+# Entries to and: guide and reporting family. Each defect
+# pin stands on the worked cases of the round 7 register and
+# its source papers, the guide attack paper and the Red
+# paper at and at the merged limb of.
 # Copyright: J.P. Picard aka Macro-Harder.
 
 import unittest

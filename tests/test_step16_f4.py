@@ -1,7 +1,7 @@
-"""Step 16 fix wave, builder F4: shell, launcher, installer.
+"""Shell, launcher, installer.
 
 Pins the round 1 defects D-07, D-08, D-21, and D-22 from the
-Step 16 record. Oracle: brief Section 5.12 (a usage error call
+record. Oracle: brief Section 5.12 (a usage error call
 reproduces the subcommand list in full and carries the
 malformed call value; the form input defaults to simple and
 the home input to the default home; a call missing a required
@@ -11,8 +11,7 @@ where the chain accepts appends), and plan Section 8.3 (the
 installer overlap check runs before any install write).
 Installer overlap and default location work runs on faithful
 copies of the shipped tree in scratch, never on the shipped
-tree itself.
-"""
+tree itself."""
 
 import contextlib
 import io

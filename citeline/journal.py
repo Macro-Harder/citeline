@@ -388,8 +388,7 @@ def _container_depth(value):
     The count walks an explicit stack and stops as soon as
     the depth passes MAX_DEPTH, so a hostile depth is
     judged by this test instead of exhausting the
-    interpreter stack inside it (Step 17 entry S17-R1-002).
-    """
+    interpreter stack inside it."""
     depth = 0
     stack = [(value, 1)]
     while stack:
@@ -431,8 +430,7 @@ def _ensure_home_directory(home, make_error):
     any other form that is not a directory, stands
     answered by make_error in the recorded vocabulary of
     the calling route, and no raw FileExistsError from
-    the directory creation reaches the caller (Step 17
-    round 7 entry S17-R7-007)."""
+    the directory creation reaches the caller."""
     if os.path.lexists(home) and not os.path.isdir(home):
         raise make_error()
     try:
@@ -455,8 +453,8 @@ def _path_is_unsafe_home_file(path):
     """Whether a home own file path stands in a form no
     write may follow: a symbolic link, a non regular
     file, or a file with a hard link count above one,
-    the discipline the product states for supplied files
-    (Step 17 round 5 entry S17-R5-061)."""
+    the discipline the product states for supplied
+    files."""
     try:
         info = os.lstat(path)
     except OSError:
@@ -468,36 +466,31 @@ def _path_is_unsafe_home_file(path):
 
 def _open_home_file_descriptor(path, mode, create=None,
                                defer_truncate=False):
-    """Open one home own file for a writing route, judged
-    at the open itself.
+    """Open one home own file for a writing route, judged at
+    the open itself.
 
     The open carries the no follow guard, so a link
     landing at the path at any point up to the open is
     not followed, and the opened handle itself stands
-    judged before anything is written or truncated: a
-    non regular file and a hard link count above one
-    each stand refused on the handle that stands open,
-    and the path stands judged as still naming that
-    handle beside them, so a file moved away from its
-    path before the open, or a replacement standing at
-    its path, stands refused at the open in the same
-    form (Step 17 round 5 entries S17-R5-001, S17-R5-061,
-    and S17-R5-062, completed at round 15 entry
-    S17-R15-001). Mode "a" appends, mode "w" writes and
-    truncates only after the judgement stands, mode
-    "r+" reads and writes without truncating, and mode
-    "r" reads only. Where defer_truncate stands at a
-    mode "w" open, the truncate stands deferred to the
-    caller, which truncates through the handle only
-    after a further rejudgement of the handle stands:
-    no truncate then stands placed after the judgement
-    at the open and before the rejudgement that catches
-    a plant at the return of that judgement (Step 17
-    round 9 entry S17-R9-001). A path that stands in an
-    unsafe form, and a path that cannot be opened,
-    raises _UnsafeHomeFile or the OSError the open
-    raised.
-    """
+    judged before anything is written or truncated: a non
+    regular file and a hard link count above one each
+    stand refused on the handle that stands open, and the
+    path stands judged as still naming that handle beside
+    them, so a file moved away from its path before the
+    open, or a replacement standing at its path, stands
+    refused at the open in the same form. Mode "a"
+    appends, mode "w" writes and truncates only after the
+    judgement stands, mode "r+" reads and writes without
+    truncating, and mode "r" reads only. Where
+    defer_truncate stands at a mode "w" open, the
+    truncate stands deferred to the caller, which
+    truncates through the handle only after a further
+    rejudgement of the handle stands: no truncate then
+    stands placed after the judgement at the open and
+    before the rejudgement that catches a plant at the
+    return of that judgement. A path that stands in an
+    unsafe form, and a path that cannot be opened, raises
+    _UnsafeHomeFile or the OSError the open raised."""
     if create is None:
         create = mode in ("a", "w")
     if mode == "a":
@@ -577,10 +570,10 @@ def _judge_path_still_names_handle(info, path):
     one whole, so the handle facts alone judge nothing
     about it: the path identity stands judged beside them
     at the open judgement and at every rejudgement of
-    every journal write site (Step 17 round 15 entry
-    S17-R15-001). No anchor on any parent directory
-    stands stated by this judgement, and no home identity
-    apart from the home path stands stated by it."""
+    every journal write site. No anchor on any parent
+    directory stands stated by this judgement, and no
+    home identity apart from the home path stands stated
+    by it."""
     try:
         path_info = os.lstat(path)
     except OSError:
@@ -593,17 +586,15 @@ def _judge_path_still_names_handle(info, path):
 
 
 def _rejudge_open_descriptor(descriptor, path):
-    """Judge an opened home file handle again, between
-    the judgement at its open and the write that follows
-    it: a hard link planted against the path in that
-    window names the same inode the descriptor holds, so
-    the link count stands read again on the handle before
+    """Judge an opened home file handle again, between the
+    judgement at its open and the write that follows it:
+    a hard link planted against the path in that window
+    names the same inode the descriptor holds, so the
+    link count stands read again on the handle before
     anything is written or truncated through it, and the
     path stands judged as still naming that handle beside
     it, so a rename plant in the same window stands
-    refused in the same form (Step 17 round 6 entry
-    S17-R6-006, completed at round 15 entry
-    S17-R15-001)."""
+    refused in the same form."""
     info = os.fstat(descriptor)
     if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
         raise _UnsafeHomeFile(path)
@@ -617,10 +608,10 @@ def _open_home_file_read_descriptor(path):
     link count alone cannot tell a victim file linked to
     the path from the genuine file linked outward, so the
     reader judges the content it reads, as the batch
-    intent reader does (Step 17 round 6 entry
-    S17-R6-005). The open carries the no follow guard and
-    the non blocking flag, so a FIFO standing at the path
-    is met as a non regular file without opening it."""
+    intent reader does. The open carries the no follow
+    guard and the non blocking flag, so a FIFO standing
+    at the path is met as a non regular file without
+    opening it."""
     flags = os.O_RDONLY
     if hasattr(os, "O_NOFOLLOW"):
         flags |= os.O_NOFOLLOW
@@ -650,17 +641,16 @@ def _open_home_file_read_descriptor(path):
 
 
 def _restore_preserved_target(target, preserved_bytes):
-    """Put back the bytes a target held before its
-    replace, through an exclusively created temporary in
-    the target directory, best effort: where the restore
+    """Put back the bytes a target held before its replace,
+    through an exclusively created temporary in the
+    target directory, best effort: where the restore
     itself fails the target stands absent, as it stood
     under the remedy this restore extends. The restore
     replace stands judged on the same terms as every
     judged replace in this module, and a restore whose
     temporary stands swapped stands tried once more with
     a fresh temporary, so the remedy does not itself move
-    a planted link onto the target (Step 17 round 8 entry
-    S17-R8-001)."""
+    a planted link onto the target."""
     directory = os.path.dirname(target) or "."
     for _attempt in range(2):
         try:
@@ -688,17 +678,16 @@ def _restore_preserved_target(target, preserved_bytes):
 
 def _replace_judged_temporary(temporary, inode, target,
                               preserve_target=False):
-    """Replace a target with a writer own temporary,
-    judged at the replace itself: the file standing at
-    the temporary name stands judged for a regular file,
-    the very inode the writer created, and a link count
-    of one before the replace, and the file standing at
-    the target stands judged on the same terms after it,
-    so a temporary swapped for a planted link in the
-    write window is never moved onto the target behind a
+    """Replace a target with a writer own temporary, judged
+    at the replace itself: the file standing at the
+    temporary name stands judged for a regular file, the
+    very inode the writer created, and a link count of
+    one before the replace, and the file standing at the
+    target stands judged on the same terms after it, so
+    a temporary swapped for a planted link in the write
+    window is never moved onto the target behind a
     success report, and a link that lands at the replace
-    point itself stands removed and reported instead
-    (Step 17 round 6 entry S17-R6-004).
+    point itself stands removed and reported instead.
 
     Where preserve_target stands, the content the target
     held before the replace stands read before it, and
@@ -707,8 +696,7 @@ def _replace_judged_temporary(temporary, inode, target,
     anchor the target is the anchor recording itself,
     and a swap caught only after the replace must not
     leave the recording deleted whole, barring every
-    later append over a chain that still verifies (Step
-    17 round 7 entry S17-R7-003)."""
+    later append over a chain that still verifies."""
     info = os.lstat(temporary)
     if stat.S_ISLNK(info.st_mode) \
             or not stat.S_ISREG(info.st_mode) \
@@ -731,8 +719,7 @@ def _replace_judged_temporary(temporary, inode, target,
             # preserved only the plain form, a regular file
             # with a link count of one, still left the
             # recording deleted whole at an anchor standing
-            # in a link form (Step 17 round 8 entry
-            # S17-R8-001, extending entry S17-R7-003).
+            # in a link form (extending).
             preserve = stat.S_ISREG(standing.st_mode)
             if stat.S_ISLNK(standing.st_mode):
                 try:
@@ -801,7 +788,7 @@ def _stat_key(path):
     # can restore its modification time, and no ordinary
     # call restores the change time, so a tampered file
     # never reproduces the key of the scan it would be
-    # served from (Step 17 entry S17-R1-001).
+    # served from.
     return (info.st_ino, info.st_size, info.st_mtime_ns,
             info.st_ctime_ns)
 
@@ -813,8 +800,7 @@ def _lock_held_by_other(home):
         # A lock path standing as a link or another non
         # regular form is never opened by the probe: the
         # probe answers as it answers for an unheld lock
-        # and writes nothing through the link (Step 17
-        # round 5 entry S17-R5-061).
+        # and writes nothing through the link.
         return False
     try:
         descriptor = _open_home_file_descriptor(path, "r+")
@@ -862,16 +848,15 @@ def _partial_tail_bytes(path):
 
 
 def _is_plausible_entry_prefix(partial):
-    """Whether partial bytes could be the standing holder
-    own entry, written in part.
+    """Whether partial bytes could be the standing holder own
+    entry, written in part.
 
     Brief Section 5.12 item 138 admits a final partial line
     as a live holder append in progress only where it is
     the holder own partial write. Bytes that do not decode
     as UTF-8, or whose bracket and string structure no
     canonical entry prefix can have, are no entry prefix,
-    whoever holds the lock (Step 17 entry S17-R1-007).
-    """
+    whoever holds the lock."""
     if not partial:
         return False
     try:
@@ -885,8 +870,7 @@ def _is_plausible_entry_prefix(partial):
     # letters of the three literal values. Text standing
     # outside that form anywhere is no prefix of any
     # canonical entry, so the test does not pass vacuously
-    # over plain words or digits (Step 17 round 2 entry
-    # S17-R2-003).
+    # over plain words or digits.
     if not text.startswith("{"):
         return False
     if len(text) > 1 and text[1] != '"':
@@ -903,11 +887,10 @@ def _is_plausible_entry_prefix(partial):
     # no second value starts directly after a completed
     # value with no delimiter at all. The test therefore
     # tracks the container frame each token stands in and
-    # the place the frame stands at, not the shape of one
+    # the place the frame stands, not the shape of one
     # token alone. Brace led text in any other shape is no
-    # entry prefix, whoever holds the lock (Step 17 round 3
-    # entry S17-R3-006, reopened at round 4 entry
-    # S17-R4-001).
+    # entry prefix, whoever holds the lock (reopened at
+    # round 4).
     stack = []
     root_done = False
     in_string = False
@@ -1094,9 +1077,7 @@ def _raise_value_in_range(payload):
     type, and the value range at row X-1. A supplied chain
     is judged by the same checks at scan and at replay, so
     a chain the append path could never write does not
-    verify and its raise does not stand in force (Step 17
-    round 2 entry S17-R2-002).
-    """
+    verify and its raise does not stand in force."""
     key = _member_to_key(payload.get("limit"))
     if key is None:
         return False
@@ -1119,14 +1100,12 @@ def _correction_form_ok(payload, position=None, target_kind=None):
     itself, the range the append path judges at row U-8,
     and the entry it names must stand in a kind the append
     path accepts as a target: a correction of a correction
-    stands refused at row U-8, on the ground recorded at
-    entry S17-R1X-028, so a supplied chain carrying one
-    does not verify and does not replay. A correction
-    superseding its own sequence stands inside that range
-    and outside that refusal, so the standing vector V-10
-    keeps its governed form (Step 17 round 2 entry
-    S17-R2-002, reopened at round 3 entry S17-R3-007 and
-    at round 4 entry S17-R4-005)."""
+    stands refused at row U-8, on the ground recorded, so
+    a supplied chain carrying one does not verify and does
+    not replay. A correction superseding its own sequence
+    stands inside that range and outside that refusal, so
+    the standing vector V-10 keeps its governed form
+    (reopened at round 3 and at round 4)."""
     supersedes = payload.get("supersedes_sequence")
     if type(supersedes) is not int:
         return False
@@ -1208,8 +1187,7 @@ def _scan(home, partial_mode="probe"):
     except (OSError, _UnsafeHomeFile):
         # A journal path that stands but cannot be read as
         # a file (a directory at the path, a read error) is
-        # an integrity state, not an empty journal (Step 17
-        # entry S17-R1-006).
+        # an integrity state, not an empty journal.
         scan.failure = {"position": 1, "reason": "unreadable",
                         "row": "I-2"}
         _scan_cache[cache_key] = (stat, scan)
@@ -1276,13 +1254,11 @@ def _scan(home, partial_mode="probe"):
                         # is a property of the chain, not of
                         # one writing route: a supplied chain
                         # carrying two raises for one run and
-                        # limit does not verify (Step 17 entry
-                        # S17-R1X-010). The raise key stands
-                        # judged by equality, as the append
-                        # path and effective_limits judge it,
-                        # so numeric spellings of one value
-                        # stand as one raise (Step 17 round 3
-                        # entry S17-R3-005).
+                        # limit does not verify . The raise
+                        # key stands judged by equality, as
+                        # the append path and effective_limits
+                        # judge it, so numeric spellings of
+                        # one value stand as one raise.
                         payload = parsed.get("payload") or {}
                         raise_key = (payload.get("run_id"),
                                      payload.get("limit"))
@@ -1324,9 +1300,7 @@ def _entries_with_hash(scan):
             # cache, every member it carries and not the
             # payload only, so a caller mutation of a fold
             # result cannot write back into what later reads
-            # in this process return (Step 17 round 3 entry
-            # S17-R3-008, reopened at round 4 entry
-            # S17-R4-006).
+            # in this process return (reopened at round 4).
             entry = copy.deepcopy(parsed)
             if position <= len(scan.line_hashes):
                 # The scan verified this line: its entry
@@ -1428,8 +1402,7 @@ def _resolve_anchor_path(home, value):
 
     Config validation and every anchor read and write use
     this one resolved path, so the anchor the product uses
-    is the anchor it checked (Step 17 entry S17-R1X-003).
-    """
+    is the anchor it checked ."""
     if os.path.isabs(value):
         return os.path.normpath(value)
     return os.path.normpath(os.path.join(str(home), value))
@@ -1449,28 +1422,26 @@ def _read_anchor(path):
     file in any other form (an undecodable byte, a missing
     or non integer sequence, trailing extra tokens)
     reports "malformed", and no part of it is silently
-    dropped (Step 17 entries S17-R1X-001, S17-R1X-002, and
-    S17-R1-073).
+    dropped.
 
     The read itself stands guarded, on the descriptor
-    discipline the batch intent reader stands under
-    (Step 19 item R19-034): the path stands opened with
-    the non blocking flag, so a FIFO standing at the path
-    never wedges the open; the opened handle stands
-    judged a regular file before any byte is read, so a
-    device or another non regular form stands answered
-    "malformed" unread (a directory stands answered
-    "absent", as the plain open answered it); and the
-    read stands bounded at _ANCHOR_READ_LIMIT bytes, far
-    past the longest recording the writer writes, so an
-    endless or oversize file is never read whole into
-    memory. A link to a regular file stands read through,
-    as it stood read: the guard judges the file the
-    handle names, not the path form. The states this
-    reader returns, and what each state bars or reports,
-    stand unchanged: the guard changes only how the bytes
-    are reached, never what they mean.
-    """
+    discipline the batch intent reader stands under (Step
+    19 item R19-034): the path stands opened with the non
+    blocking flag, so a FIFO standing at the path never
+    wedges the open; the opened handle stands judged a
+    regular file before any byte is read, so a device or
+    another non regular form stands answered "malformed"
+    unread (a directory stands answered "absent", as the
+    plain open answered it); and the read stands bounded
+    at _ANCHOR_READ_LIMIT bytes, far past the longest
+    recording the writer writes, so an endless or oversize
+    file is never read whole into memory. A link to a
+    regular file stands read through, as it stood read:
+    the guard judges the file the handle names, not the
+    path form. The states this reader returns, and what
+    each state bars or reports, stand unchanged: the guard
+    changes only how the bytes are reached, never what
+    they mean."""
     flags = os.O_RDONLY
     if hasattr(os, "O_NONBLOCK"):
         flags |= os.O_NONBLOCK
@@ -1515,8 +1486,7 @@ def _read_anchor(path):
     # inside the integer conversion limit. A token in any
     # other form reads as malformed here, and its length is
     # judged before any conversion, so an over long token
-    # never reaches the conversion as a raw error (Step 17
-    # round 2 entry S17-R2-004).
+    # never reaches the conversion as a raw error.
     if re.fullmatch(r"0|[1-9][0-9]*", sequence_token) is None \
             or len(sequence_token) > 18:
         return "malformed", {"head_hash": head_hash, "sequence": None}
@@ -1531,13 +1501,12 @@ def _read_anchor(path):
 def _agreement_for(recorded, scan):
     """Classify one anchor recording against the standing chain.
 
-    The recording is the pair of its head hash and its
-    sequence. The head stands at the chain position its
-    hash recomputes to, and the recording stands in a
-    position only where its sequence is that position:
-    the standing head is matching, an earlier position
-    is stale, and every other recording is divergent.
-    """
+    The recording is the pair of its head hash and its sequence.
+    The head stands at the chain position its hash recomputes,
+    and the recording stands in a position only where its
+    sequence is that position: the standing head is matching, an
+    earlier position is stale, and every other recording is
+    divergent."""
     position = None
     for index, raw in enumerate(scan.lines, start=1):
         if hashlib.sha256(raw).hexdigest() == recorded["head_hash"]:
@@ -1653,8 +1622,7 @@ def _member_to_key(member):
     # judged before its conversion: a digit string past
     # the integer conversion limit names no limit and
     # stands answered in the recorded vocabulary at every
-    # caller, never as a raw ValueError (Step 17 round 7
-    # entry S17-R7-006).
+    # caller, never as a raw ValueError.
     significant = match.group(1).lstrip("0") or "0"
     if len(significant) > 18:
         return None
@@ -1702,8 +1670,7 @@ def parse_config(text, home=None):
         # A byte order mark at the head is an encoding
         # prefix, not part of the first key: the page and
         # robots intakes strip it by stated rule, and the
-        # config intake does the same (Step 17 entry
-        # S17-R1-076).
+        # config intake does the same.
         text = text[1:]
     lines = text.split("\n")
     if lines and lines[-1] == "":
@@ -1740,7 +1707,7 @@ def parse_config(text, home=None):
                 # A digit string past the integer conversion
                 # limit is a value far past its hard ceiling,
                 # refused in the vocabulary, never a raw
-                # error (Step 17 entry S17-R1X-012).
+                # error .
                 raise ConfigError(
                     "a config value past its hard ceiling: %s"
                     % (key,), row="X-1", token="CONFIG_INVALID")
@@ -1761,8 +1728,7 @@ def parse_config(text, home=None):
             if key == "home_path":
                 # The home is fixed by the call that names
                 # it; this key governs nothing, and the parse
-                # says so instead of accepting it silently
-                # (Step 17 entry S17-R1X-014).
+                # says so instead of accepting it silently .
                 warnings.append(
                     "home_path has no effect: the home is the "
                     "directory the call names")
@@ -1809,7 +1775,7 @@ def parse_config(text, home=None):
         # The check runs on the real location, not the
         # lexical spelling: a path through a symlinked
         # directory whose real location is inside the home
-        # is inside the home (Step 17 entry S17-R1X-004).
+        # is inside the home .
         candidate_real = os.path.realpath(candidate)
         home_real = os.path.realpath(str(home))
         if candidate_real == home_real \
@@ -1934,7 +1900,7 @@ def _read_config_values(home):
     if not os.path.isfile(path):
         # A config path that stands but is not a file (a
         # directory at the path) is a config failure, not
-        # an absent config (Step 17 entry S17-R1X-013).
+        # an absent config .
         raise ConfigError(
             "the config path stands but is not a file",
             row="X-1", token="CONFIG_INVALID")
@@ -1944,7 +1910,7 @@ def _read_config_values(home):
         # The config reader stands under the link
         # discipline the config writer stands under: a
         # link standing at the config path governs no
-        # limits (Step 17 round 6 entry S17-R6-048).
+        # limits.
         raise ConfigError(
             "the config path stands as a link, a non "
             "regular file, or a hard linked file; the "
@@ -1971,11 +1937,9 @@ def _read_config_values(home):
 def write_config(home, text):
     """Write the config file, named config.txt, inside the home given.
 
-    The writing half applies the parse the reading half
-    applies on every read, so the product cannot write a
-    config it will itself refuse to read (Step 17 entry
-    S17-R1X-015).
-    """
+    The writing half applies the parse the reading half applies on
+    every read, so the product cannot write a config it will itself
+    refuse to read ."""
     home = str(home)
     parse_config(text, home=home)
     _ensure_home_directory(home, lambda: ConfigError(
@@ -1990,8 +1954,7 @@ def write_config(home, text):
     except _UnsafeHomeFile:
         # The config file is a home own file: a link
         # standing at its path is not written through, in
-        # the supplied file discipline (Step 17 round 5
-        # entry S17-R5-061).
+        # the supplied file discipline.
         raise ConfigError(
             "the config path stands as a link, a non "
             "regular file, or a hard linked file; the "
@@ -2012,8 +1975,7 @@ def write_config(home, text):
         # judgement at the open stands caught by that
         # rejudgement before any truncate can land, so
         # the standing config text stands whole where
-        # the write refuses on that plant (Step 17
-        # round 9 entry S17-R9-001).
+        # the write refuses on that plant.
         os.ftruncate(handle.fileno(), 0)
         handle.seek(0)
         handle.write(text)
@@ -2024,14 +1986,13 @@ def write_config(home, text):
         except _UnsafeHomeFile:
             # The link count stands judged at the write
             # itself as well as before it, at this site as
-            # at the two sites entry S17-R7-004 charges: a
-            # hard link planted at the return of the
-            # rejudgement reading names the handle the
-            # write just used, so the written text stands
-            # truncated off that handle and the config name
-            # stands removed, and no config text stands
-            # readable under the outside name (Step 17
-            # round 8 entry S17-R8-025).
+            # at the two sites charges: a hard link planted
+            # at the return of the rejudgement reading
+            # names the handle the write just used, so the
+            # written text stands truncated off that handle
+            # and the config name stands removed, and no
+            # config text stands readable under the outside
+            # name.
             handle.truncate(0)
             handle.flush()
             os.fsync(handle.fileno())
@@ -2057,8 +2018,8 @@ def write_config(home, text):
             # the written text truncated off the handle
             # and the config name removed, so no written
             # config text stands readable under the
-            # outside name and no success stands reported
-            # (Step 17 round 9 entry S17-R9-017).
+            # outside name and no success stands
+            # reported.
             handle.truncate(0)
             handle.flush()
             os.fsync(handle.fileno())
@@ -2085,8 +2046,7 @@ def write_config(home, text):
             # and the config name removed, so no written
             # config text stands readable under the
             # outside name and no success stands reported
-            # (Step 17 round 10 entry S17-R10-011,
-            # extending entry S17-R9-017).
+            # (extending).
             handle.truncate(0)
             handle.flush()
             os.fsync(handle.fileno())
@@ -2113,8 +2073,7 @@ def write_config(home, text):
             # the handle and the config name removed, so
             # no written config text stands readable
             # under the outside name and no success
-            # stands reported (Step 17 round 11 entry
-            # S17-R11-013, extending entry S17-R10-011).
+            # stands reported (extending).
             handle.truncate(0)
             handle.flush()
             os.fsync(handle.fileno())
@@ -2141,8 +2100,7 @@ def write_config(home, text):
             # off the handle and the config name removed,
             # so no written config text stands readable
             # under the outside name and no success
-            # stands reported (Step 17 round 12 entry
-            # S17-R12-009, extending entry S17-R11-013).
+            # stands reported (extending).
             handle.truncate(0)
             handle.flush()
             os.fsync(handle.fileno())
@@ -2158,19 +2116,18 @@ def write_config(home, text):
         try:
             _rejudge_open_descriptor(handle.fileno(), path)
         except _UnsafeHomeFile:
-            # A final judgement stands after the one
-            # more final judgement above: a hard link
-            # planted at the return of that one more final
+            # A final judgement stands after the one more
+            # final judgement above: a hard link planted
+            # at the return of that one more final
             # judgement reading stands unseen by it, so
             # the handle stands judged once more before
             # the write answers, and a plant that this
             # judgement catches stands answered in the
             # same form, the written text truncated off
             # the handle and the config name removed, so
-            # no written config text stands readable
-            # under the outside name and no success
-            # stands reported (Step 17 round 13 entry
-            # S17-R13-006, extending entry S17-R12-009).
+            # no written config text stands readable under
+            # the outside name and no success stands
+            # reported (extending).
             handle.truncate(0)
             handle.flush()
             os.fsync(handle.fileno())
@@ -2246,27 +2203,24 @@ def start_run(home, run_id=None, audit_date=None):
 class _WriteLock:
     """The exclusion: an advisory exclusive lock, held per home.
 
-    The lock is the flock advisory lock on the file named
-    .citeline-write.lock inside the home, taken with a
+    The lock is the flock advisory lock on the file
+    named.citeline-write.lock inside the home, taken with a
     non-blocking attempt and held for the whole writing
-    invocation. Contention fails at row X-10. A platform
-    or filesystem that cannot give the lock fails closed
-    at row X-12. No stale holder recovery act exists: the
-    operating system releases the lock when the holder
-    process ends, and the lock file presence on disk after
-    a holder ends bars nothing.
+    invocation. Contention fails at row X-10. A platform or
+    filesystem that cannot give the lock fails closed at row
+    X-12. No stale holder recovery act exists: the operating
+    system releases the lock when the holder process ends, and
+    the lock file presence on disk after a holder ends bars
+    nothing.
 
-    A hold of kind "batch" is a sealed container: it
-    grants no join permit of its own and it suspends any
-    permit it joined under, so the permit stands only
-    where the container own code grants it around one of
-    its own append calls. An append made by other code
-    running on the holder thread inside the window, a
-    signal handler among its forms, therefore stands
-    contended at row X-10 and stores nothing, instead of
-    joining a batch whose rollback would erase it whole
-    (Step 17 round 4 entry S17-R4-003).
-    """
+    A hold of kind "batch" is a sealed container: it grants no
+    join permit of its own and it suspends any permit it joined
+    under, so the permit stands only where the container own
+    code grants it around one of its own append calls. An append
+    made by other code running on the holder thread inside the
+    window, a signal handler among its forms, therefore stands
+    contended at row X-10 and stores nothing, instead of joining
+    a batch whose rollback would erase it whole."""
 
     def __init__(self, home, kind="container", authorization=None):
         self.home = str(home)
@@ -2302,15 +2256,15 @@ class _WriteLock:
         with _HELD_LOCKS_GUARD:
             held = _HELD_LOCKS.get(path)
             if held is not None and held[4] != os.getpid():
-                # The registry entry stands inherited from
-                # a fork: the holder is another process now,
+                # The registry entry stands inherited from a
+                # fork: the holder is another process now,
                 # whatever the inherited thread and permit
                 # state says, so this process stands as any
                 # other caller in another process stands and
                 # takes its answer from the flock itself.
                 # The inherited handle copy stands closed
                 # here; the holder own copy still holds the
-                # lock (Step 17 round 5 entry S17-R5-069).
+                # lock.
                 try:
                     held[0].close()
                 except Exception:
@@ -2334,9 +2288,7 @@ class _WriteLock:
                 # payload deepcopy hook among them, can join:
                 # it stands contended at row X-10 and stores
                 # nothing, exactly as a caller in another
-                # process does (Step 17 round 2 entry
-                # S17-R2-001, reopened at round 3 entry
-                # S17-R3-001).
+                # process does (reopened at round 3).
                 handle, depth, owner_thread, invocation, \
                     owner_pid = held
                 permit_join = \
@@ -2350,8 +2302,7 @@ class _WriteLock:
                 # thread before this point, in the grant
                 # prologue of the batch loop or of the
                 # recovery, holds the token that call
-                # carries, so it cannot join on it (Step
-                # 17 round 5 entry S17-R5-068).
+                # carries, so it cannot join on it.
                 token_join = \
                     threading.get_ident() == owner_thread \
                     and self._authorization is not None \
@@ -2378,8 +2329,8 @@ class _WriteLock:
             except _UnsafeHomeFile:
                 # The lock file is a home own file: a link
                 # standing at its path is not written
-                # through, in the supplied file discipline
-                # (Step 17 round 5 entry S17-R5-061).
+                # through, in the supplied file
+                # discipline.
                 raise _unsafe_home_file_error(path, "write lock")
             except OSError:
                 raise JournalError(
@@ -2390,10 +2341,9 @@ class _WriteLock:
             # directory itself beside the lock file: the
             # directory descriptor flock is taken first, so
             # unlinking the lock file during a hold mints no
-            # second exclusion on a recreated lock file,
-            # the new caller meeting the directory flock the
-            # standing holder holds (Step 17 round 6 entry
-            # S17-R6-003).
+            # second exclusion on a recreated lock file, the
+            # new caller meeting the directory flock the
+            # standing holder holds.
             try:
                 dir_fd = os.open(self.home, os.O_RDONLY)
             except OSError:
@@ -2457,8 +2407,7 @@ class _WriteLock:
                 # the handle, and the acquire stands refused
                 # in the vocabulary of the site, the
                 # exclusion standing on the directory flock
-                # in every form (Step 17 round 16 entry
-                # S17-R16-003).
+                # in every form.
                 try:
                     handle.seek(0)
                     handle.truncate(0)
@@ -2473,8 +2422,8 @@ class _WriteLock:
                 _rejudge_open_descriptor(handle.fileno(), path)
             except _UnsafeHomeFile:
                 # A further rejudgement stands after the
-                # post write judgement, in the bounded
-                # limb form of this site, judging its path
+                # post write judgement, in the bounded limb
+                # form of this site, judging its path
                 # reading as the judgement judges its
                 # handle reading: a rename plant timed at
                 # the return of the lstat reading of the
@@ -2483,8 +2432,7 @@ class _WriteLock:
                 # handle, and the acquire stands refused in
                 # the vocabulary of the site, the exclusion
                 # standing on the directory flock in every
-                # form (Step 17 round 17 entry
-                # S17-R17-010).
+                # form.
                 try:
                     handle.seek(0)
                     handle.truncate(0)
@@ -2516,8 +2464,7 @@ class _WriteLock:
             # open file description the fork shares, which
             # would release the parent flock whole. The
             # child closes its own handle copies only, the
-            # act that leaves the parent lock standing
-            # (Step 17 round 6 entry S17-R6-002).
+            # act that leaves the parent lock standing.
             try:
                 self.handle.close()
             except Exception:
@@ -2622,24 +2569,22 @@ class _AuthorizationContext:
 
 
 class _join_authorization:
-    """An authorization for one exact append call to join
-    the hold its caller stands inside.
+    """An authorization for one exact append call to join the
+    hold its caller stands inside.
 
     The authorization names the entry kind and the payload
-    object of the one call it stands for, and it stands
-    bound to the call that registered it: the first append
-    call entered under it claims it at its own entry,
-    before any judgement that runs payload code, and no
-    second call presenting the same kind and the same
-    payload object can spend it. A second call that finds
-    the authorization already spent by a landed append of
-    the very entry it presents stands answered by that
-    landed entry itself, at the journal head, and stores
-    nothing further; a second call that finds it claimed
-    but unspent calls the append without the token and
-    stands contended (Step 17 round 5 entry S17-R5-068,
-    reopened at round 6 entry S17-R6-001).
-    """
+    object of the one call it stands, and it stands bound to
+    the call that registered it: the first append call
+    entered under it claims it at its own entry, before any
+    judgement that runs payload code, and no second call
+    presenting the same kind and the same payload object can
+    spend it. A second call that finds the authorization
+    already spent by a landed append of the very entry it
+    presents stands answered by that landed entry itself, at
+    the journal head, and stores nothing further; a second
+    call that finds it claimed but unspent calls the append
+    without the token and stands contended (reopened at round
+    6)."""
 
     def __init__(self, path, entry_kind, payload):
         self.path = path
@@ -2670,16 +2615,15 @@ def _standing_authorization(path, entry_kind, payload):
 
 
 def _claim_authorization(path, entry_kind, payload):
-    """Claim the standing authorization for one append
-    call, at that call own entry.
+    """Claim the standing authorization for one append call,
+    at that call own entry.
 
     Returns a pair of the context and its state: "claimed"
     where this call is the call the authorization stands
-    bound to, "spent" where a landed append of the same
-    entry already spent it, "busy" where the bound call
-    stands in flight, and None where no authorization for
-    this kind and payload object stands.
-    """
+    bound, "spent" where a landed append of the same entry
+    already spent it, "busy" where the bound call stands
+    in flight, and None where no authorization for this
+    kind and payload object stands."""
     for record in reversed(_authorizations(path)):
         if record.entry_kind == entry_kind \
                 and record.payload_id == id(payload):
@@ -2698,19 +2642,18 @@ def _authorization_claimed(path, token):
 
 
 def _adopt_spent_authorization(home, context):
-    """The landed entry a spent authorization names, where
-    it still stands in the chain at its own sequence, or
+    """The landed entry a spent authorization names, where it
+    still stands in the chain at its own sequence, or
     None.
 
     The spent answer stands on the landed entry itself,
     verified by its sequence and its head hash at that
     sequence, not on the entry standing at the journal
-    head: an append that lands after the spent entry
-    moves the head past it and does not spend the answer,
-    so the repeat call stands answered by the landed
-    entry wherever it stands in the chain and stores
-    nothing further (Step 17 round 7 entry S17-R7-001).
-    """
+    head: an append that lands after the spent entry moves
+    the head past it and does not spend the answer, so the
+    repeat call stands answered by the landed entry
+    wherever it stands in the chain and stores nothing
+    further."""
     sequence, head_hash = context.spent
     scan = _scan(home, "probe")
     if scan.failure is not None \
@@ -2732,8 +2675,7 @@ def _write_anchor(anchor_path, head_hash, sequence):
     # name no planter can predict, so a link planted in
     # the anchor directory is never the file this write
     # opens and the replace never moves a planted link
-    # onto the anchor path (Step 17 round 5 entry
-    # S17-R5-063).
+    # onto the anchor path.
     descriptor, temporary = tempfile.mkstemp(
         prefix=os.path.basename(anchor_path) + ".tmp-",
         dir=directory)
@@ -2749,8 +2691,7 @@ def _write_anchor(anchor_path, head_hash, sequence):
     except FileNotFoundError:
         # The temporary stands lost under its writer before
         # its link step: the condition row X-13 names, in
-        # the vocabulary that row states (Step 17 round 3
-        # entry S17-R3-062).
+        # the vocabulary that row states.
         try:
             os.unlink(temporary)
         except OSError:
@@ -2772,7 +2713,7 @@ def _restore_anchor_bytes(anchor_path, anchor_bytes):
     the bytes stand written to an exclusively created
     temporary under an unpredictable name in the anchor
     directory and replaced onto the path, on the
-    discipline of entry S17-R5-063."""
+    discipline of."""
     directory = os.path.dirname(anchor_path) or "."
     descriptor, temporary = tempfile.mkstemp(
         prefix=os.path.basename(anchor_path) + ".tmp-",
@@ -2802,8 +2743,7 @@ def _restore_journal_size(path, size):
         # unsafe form is not truncated through, as every
         # home own file write stands under the same
         # discipline; the restore is best effort and
-        # reports nothing (Step 17 round 5 entry
-        # S17-R5-061).
+        # reports nothing.
         descriptor = None
     if descriptor is not None:
         try:
@@ -2813,7 +2753,7 @@ def _restore_journal_size(path, size):
                 # before the truncate, so a judgement that
                 # catches a plant after the truncate can put
                 # them back on the handle in its remedy
-                # below (Step 17 round 16 entry S17-R16-002).
+                # below.
                 handle.seek(size)
                 tail = handle.read()
                 # A second judgement stands after the
@@ -2865,22 +2805,19 @@ def _resolve_sequence_identity(value, sequence, field=None):
 
     Resolution stands confined to the identity fields the
     mechanism was charged with resolving: snapshot_id,
-    run_id, and answer_id, at any depth. A string standing
-    in any other field is caller text and stands stored
-    exactly as written, marker spelling included (Step 17
-    round 3 entry S17-R3-009). Values carrying no marker
-    stand as they stand.
+    run_id, and answer_id, at any depth. A string standing in
+    any other field is caller text and stands stored exactly
+    as written, marker spelling included. Values carrying no
+    marker stand as they stand.
 
     The field context stands held through a list or a tuple
-    standing under an identity key, so a marker in an
-    element of such a list resolves as the marker standing
-    directly under the key resolves (Step 17 round 4 entry
-    S17-R4-071). A corrected record carried by a correction
-    payload stands resolved against the sequence the record
-    replaces, the supersedes value its own payload names,
-    not against the sequence of the correction entry that
-    carries it (Step 17 round 4 entry S17-R4-015).
-    """
+    standing under an identity key, so a marker in an element
+    of such a list resolves as the marker standing directly
+    under the key resolves. A corrected record carried by a
+    correction payload stands resolved against the sequence
+    the record replaces, the supersedes value its own payload
+    names, not against the sequence of the correction entry
+    that carries it."""
     if isinstance(value, str):
         if field in _IDENTITY_MARKER_FIELDS:
             return value.replace("{sequence}", str(sequence))
@@ -2917,18 +2854,15 @@ def _write_batch_intent(home, journal_size, anchor_path, anchor_bytes,
                         count):
     """Record one batch in flight, before its first entry lands.
 
-    The record names the journal size and the anchor content
-    the batch started from, so a batch whose process is
-    killed, which raises nothing and runs no rollback, can
-    still be rolled back whole by the next invocation that
-    finds this record standing (Step 17 round 2 entry
-    S17-R2-083, on the S17-R1-089 batch discipline). A
-    failure to record the intent stands reported to the
-    caller, which bars the batch in the journal vocabulary:
-    a batch never runs with its kill protection silently
-    off (Step 17 round 3 entry S17-R3-053). Returns True
-    where the record stands written.
-    """
+    The record names the journal size and the anchor content the
+    batch started, so a batch whose process is killed, which
+    raises nothing and runs no rollback, can still be rolled
+    back whole by the next invocation that finds this record
+    standing (on the batch discipline). A failure to record the
+    intent stands reported to the caller, which bars the batch
+    in the journal vocabulary: a batch never runs with its kill
+    protection silently off. Returns True where the record
+    stands written."""
     record = {
         "journal_size": journal_size,
         "anchor_path": anchor_path,
@@ -2947,9 +2881,7 @@ def _write_batch_intent(home, journal_size, anchor_path, anchor_bytes,
     # home holding the record content. The write stands
     # refused, and the batch caller bars the batch in the
     # journal vocabulary on that report, as it bars it on
-    # any intent write failure (Step 17 round 4 entry
-    # S17-R4-009, reopened at round 5 entries S17-R5-001
-    # and S17-R5-062).
+    # any intent write failure (reopened at round 5).
     try:
         descriptor = _open_home_file_descriptor(intent_path, "w")
     except (OSError, _UnsafeHomeFile):
@@ -2972,8 +2904,7 @@ def _write_batch_intent(home, journal_size, anchor_path, anchor_bytes,
                 # used, so the written content stands
                 # truncated off that handle and the intent
                 # name stands removed, and no intent content
-                # stands readable under the outside name
-                # (Step 17 round 7 entry S17-R7-004).
+                # stands readable under the outside name.
                 handle.truncate(0)
                 handle.flush()
                 os.fsync(handle.fileno())
@@ -3015,26 +2946,22 @@ def _home_total_size(home):
 
 
 def _size_cap_also_met(home):
-    """Whether the total home size cap also stands met
-    over this home, judged on the state as it stands at
-    the moment this reading is taken. The recovery
-    judgement takes this reading from the append itself,
-    at the instant the append meets its journal length
-    cap, stated on the error the append raises: where a
-    recovery record append meets
-    the journal length cap in flight while the size cap
-    also stands met, the append actually met both caps in
-    the mixed state, and its failure stands judged on the
-    size cap terms of entry S17-R5-004, as a landed
-    recovery, not as a length cap deferral reported over
-    a truncation that has already landed (Step 17 round
-    6 entry S17-R6-007, completed at round 8 entry
-    S17-R8-002). The reading is the whole home reading,
-    _home_total_size: the judgement's governed question
-    is the home's state at the append, and the Step 19
-    cure at item R19-022, which charges the cap itself
-    with product created files only, does not name this
-    judgement."""
+    """Whether the total home size cap also stands met over
+    this home, judged on the state as it stands at the
+    moment this reading is taken. The recovery judgement
+    takes this reading from the append itself, at the
+    instant the append meets its journal length cap, stated
+    on the error the append raises: where a recovery record
+    append meets the journal length cap in flight while the
+    size cap also stands met, the append actually met both
+    caps in the mixed state, and its failure stands judged
+    on the size cap terms, as a landed recovery, not as a
+    length cap deferral reported over a truncation that has
+    already landed. The reading is the whole home reading,
+    _home_total_size: the judgement's governed question is
+    the home's state at the append, and the Step 19 cure at
+    item R19-022, which charges the cap itself with product
+    created files only, does not name this judgement."""
     try:
         limits = effective_limits(home)
     except Exception:
@@ -3052,8 +2979,7 @@ def _size_cap_also_met(home):
 # anchor the record names that cannot be confirmed. The
 # record stands for a later invocation to judge again
 # once that state is repaired, so a genuine record is
-# not destroyed by a fault outside it (Step 17 round 4
-# entries S17-R4-002 and S17-R4-004).
+# not destroyed by a fault outside it.
 _DEFER_BATCH_RECOVERY = object()
 
 
@@ -3066,15 +2992,13 @@ def recover_interrupted_batch(home):
     record names, the anchor stands restored to the
     content the record names, and the record stands
     removed, so no partial batch stands as ordinary state
-    and the import it belonged to can be run again whole
-    (entry S17-R2-083). The record stands validated
-    against the standing journal and the home before any
-    of that acts (round 3 entry S17-R3-002), judged
-    against the state the batch started from, so a later
+    and the import it belonged to can be run again whole.
+    The record stands validated against the standing
+    journal and the home before any of that acts, judged
+    against the state the batch started, so a later
     config change or config fault does not destroy a
-    genuine record (round 4 entry S17-R4-002), and a
-    landed recovery appends its own failure record
-    stating that it ran (round 3 entry S17-R3-065, under
+    genuine record, and a landed recovery appends its own
+    failure record stating that it ran (round 3, under
     the Manager ruling recorded in the step record).
     Returns True where a recovery landed. Where the home
     stands held by a live batch, or no record stands,
@@ -3083,12 +3007,10 @@ def recover_interrupted_batch(home):
     its ruled failure record cannot land at the journal
     length cap, the recovery does not stand reported as
     landed: this call returns False and the record
-    stands, so the recovery can land whole once the
-    state that bars it is repaired or the cap is raised
-    (round 4 entries S17-R4-004 and S17-R4-069, the
-    second on the terms of the round 4 disposition
-    ruling (d)).
-    """
+    stands, so the recovery can land whole once the state
+    that bars it is repaired or the cap is raised (round
+    4, the second on the terms of the round 4 disposition
+    ruling (d))."""
     home = str(home)
     intent_path = _batch_intent_path(home)
     if not os.path.lexists(intent_path):
@@ -3098,8 +3020,8 @@ def recover_interrupted_batch(home):
         # recovery debris to clear: it stands left in
         # place, so the batch intent write judgement
         # meets it standing and bars the batch on it, in
-        # the form entry S17-R4-009 pins. The recovery
-        # simply does not act on it.
+        # the form pins. The recovery simply does not
+        # act on it.
         return False
     try:
         with _WriteLock(home, kind="batch"):
@@ -3112,16 +3034,13 @@ def recover_interrupted_batch(home):
                 # stands judged at its raw text, a
                 # duplicated key refusing through the same
                 # pairs hook the journal own line reader
-                # judges its lines by (Step 17 round 5
-                # entries S17-R5-002 and S17-R5-003). A hard
-                # link count above one stands admitted at
-                # this reader and judged by the validation
-                # of the record itself: a genuine record
-                # linked outward validates and recovers,
-                # and a victim file linked to the path
-                # validates as no record and stands cleared
-                # as debris (Step 17 round 6 entry
-                # S17-R6-005).
+                # judges its lines by. A hard link count
+                # above one stands admitted at this reader
+                # and judged by the validation of the record
+                # itself: a genuine record linked outward
+                # validates and recovers, and a victim file
+                # linked to the path validates as no record
+                # and stands cleared as debris.
                 descriptor = _open_home_file_read_descriptor(
                     intent_path)
                 with os.fdopen(descriptor, "r",
@@ -3138,11 +3057,11 @@ def recover_interrupted_batch(home):
                 # returns, a deeply nested record among its
                 # forms, stands judged in the same recorded
                 # vocabulary as every sibling JSON reader
-                # judges it, and never as a raw error (Step
-                # 17 round 4 entry S17-R4-063). A link that
-                # landed at the path in the meantime stands
-                # left in place, on the same ground as the
-                # link judgement at the head of this call.
+                # judges it, and never as a raw error. A link
+                # that landed at the path in the meantime
+                # stands left in place, on the same ground as
+                # the link judgement at the head of this
+                # call.
                 if not os.path.islink(intent_path):
                     _clear_batch_intent(home)
                 return False
@@ -3158,8 +3077,7 @@ def recover_interrupted_batch(home):
                 # the standing journal and the home names no
                 # batch this recovery may act on: it stands
                 # cleared and nothing is truncated, written,
-                # or deleted on its word (Step 17 round 3
-                # entry S17-R3-002).
+                # or deleted on its word.
                 _clear_batch_intent(home)
                 return False
             journal_size, count, anchor_path, anchor_bytes, \
@@ -3171,13 +3089,12 @@ def recover_interrupted_batch(home):
                 journal_cap = None
             if journal_cap is not None \
                     and restored_count + 1 > journal_cap:
-                # The recovery record the ruling at entry
-                # S17-R3-065 requires could not land at the
-                # cap, so the recovery does not land at all
-                # in silence: it stands deferred whole, its
-                # record standing, until the cap admits both
-                # the restored prefix and the record (Step
-                # 17 round 4 entry S17-R4-069).
+                # The recovery record the ruling at requires
+                # could not land at the cap, so the recovery
+                # does not land at all in silence: it stands
+                # deferred whole, its record standing, until
+                # the cap admits both the restored prefix
+                # and the record.
                 return False
             _restore_journal_size(journal_path(home), journal_size)
             if anchor_path is not None:
@@ -3191,21 +3108,19 @@ def recover_interrupted_batch(home):
                 except OSError:
                     pass
             # The recovery itself stands recorded, under
-            # the Manager ruling on entry S17-R3-065: a
-            # failure record entry, appended through the
-            # ordinary append path under this same hold,
-            # stating that a recovery ran, the interrupted
-            # batch it answered, and the point the journal
-            # stands restored to. No new entry kind stands
+            # the Manager ruling on: a failure record
+            # entry, appended through the ordinary append
+            # path under this same hold, stating that a
+            # recovery ran, the interrupted batch it
+            # answered, and the point the journal stands
+            # restored to. No new entry kind stands
             # invented. A failure of this append leaves the
             # recovery itself standing, except a failure at
             # the journal length cap: that failure stands
             # judged, the recovery does not stand reported
             # as landed, and the intent record stands as
-            # its evidence (Step 17 round 4 entry
-            # S17-R4-069).
-            # The record stands built through the
-            # CitelineError constructor guard, as every
+            # its evidence. The record stands built through
+            # the CitelineError constructor guard, as every
             # recorded error stands: its error_value is a
             # token of the closed vocabulary, the row X-13
             # token for a writer lost before its write
@@ -3243,9 +3158,7 @@ def recover_interrupted_batch(home):
             # stood: a change of the size state landing
             # inside the append call, or as the call
             # returns, must not hand the judgement a state
-            # the append never met (Step 17 round 7 entry
-            # S17-R7-005, completed at round 8 entry
-            # S17-R8-002).
+            # the append never met.
             with _join_authorization(
                     _lock_path(home), "failure_record", payload):
                 try:
@@ -3258,23 +3171,21 @@ def recover_interrupted_batch(home):
                         size_cap_met_at_append = \
                             _size_cap_also_met(home)
                     # The cap judgement stands on the cap
-                    # the append actually met, read from
-                    # the limit number the error carries:
-                    # only the journal length cap, limit
-                    # 39, holds the deferral the ruling at
-                    # entry S17-R4-069 states. A failure at
-                    # the total home size cap, limit 40,
-                    # stands judged on its own terms under
-                    # the append failure discipline: the
-                    # restore has already landed, so no
-                    # deferral stands reported over it and
-                    # the recovery stands as landed below
-                    # (Step 17 round 5 entry S17-R5-004).
-                    # A failure carrying limit 39 stands
-                    # judged the same way where the size cap
-                    # also stands met in the mixed state, on
-                    # the cap the append actually met
-                    # (Step 17 round 6 entry S17-R6-007).
+                    # the append actually met, read from the
+                    # limit number the error carries: only
+                    # the journal length cap, limit 39,
+                    # holds the deferral the ruling at
+                    # states. A failure at the total home
+                    # size cap, limit 40, stands judged on
+                    # its own terms under the append failure
+                    # discipline: the restore has already
+                    # landed, so no deferral stands reported
+                    # over it and the recovery stands as
+                    # landed below. A failure carrying limit
+                    # 39 stands judged the same way where
+                    # the size cap also stands met in the
+                    # mixed state, on the cap the append
+                    # actually met.
                     if error.token == "JOURNAL_CAP_EXCEEDED" \
                             and getattr(error, "limit_number",
                                         None) == 39 \
@@ -3301,8 +3212,7 @@ def _record_anchor_plausible(home, anchor_path, standing):
     is the guard that lets a genuine record be judged
     against the state its batch started from where the
     config no longer names that anchor, without opening
-    the recovery to a record naming an arbitrary file
-    (Step 17 round 4 entry S17-R4-002)."""
+    the recovery to a record naming an arbitrary file."""
     state, recorded = _read_anchor(anchor_path)
     if state != "ok":
         return False
@@ -3317,42 +3227,37 @@ def _record_anchor_plausible(home, anchor_path, standing):
 def _validate_batch_intent(home, record):
     """Validate one batch intent record against the standing
     journal and the home, or return None where it does not
-    stand, or the deferral marker where the state it must
-    be judged against does not stand ready.
+    stand, or the deferral marker where the state it must be
+    judged against does not stand ready.
 
     The record is read as a claim to verify, as the journal
-    own lines are read, never as instructions (Step 17
-    round 3 entry S17-R3-002). Its form stands judged
-    whole: the genuine writer writes exactly four members,
-    and every member beyond those four, and a record
-    naming no batch at all, stands refused (Step 17 round
-    4 entries S17-R4-008 and S17-R4-068). Its journal size
-    must stand at a line boundary of the standing journal
-    and no past it. Its count must cover the entries
-    standing past that size, and no tail longer than the
-    batch it names may stand rolled back on its word. The
-    restored prefix the size names must itself recompute
-    as a chain before the record is judged or acted on,
-    so a damaged prefix stands judged as damaged and the
-    record stands deferred over it, not destroyed and not
-    reported recovered (Step 17 round 4 entry S17-R4-004).
-    Its anchor content must be the recording the product
-    own writer writes for the head the size names, or no
-    content where that size names no entry or no anchor
-    stood at the batch start. Its anchor path stands
-    judged against the state the batch started from: the
-    path the config now resolves stands accepted as
-    before, and a path the config no longer names, or
-    cannot name because the config does not parse, stands
-    accepted only where the file at that path is a
-    recording of this journal, the mark of the home own
-    former anchor, so a config change or a config fault
-    after the kill does not destroy a genuine record
-    (Step 17 round 4 entry S17-R4-002). On success returns
-    the journal size, the count, the anchor path the
-    batch started from, the decoded anchor bytes, and the
-    entry count the size names.
-    """
+    own lines are read, never as instructions. Its form
+    stands judged whole: the genuine writer writes exactly
+    four members, and every member beyond those four, and a
+    record naming no batch at all, stands refused. Its
+    journal size must stand at a line boundary of the
+    standing journal and no past it. Its count must cover
+    the entries standing past that size, and no tail longer
+    than the batch it names may stand rolled back on its
+    word. The restored prefix the size names must itself
+    recompute as a chain before the record is judged or
+    acted, so a damaged prefix stands judged as damaged and
+    the record stands deferred over it, not destroyed and
+    not reported recovered. Its anchor content must be the
+    recording the product own writer writes for the head the
+    size names, or no content where that size names no entry
+    or no anchor stood at the batch start. Its anchor path
+    stands judged against the state the batch started from:
+    the path the config now resolves stands accepted as
+    before, and a path the config no longer names, or cannot
+    name because the config does not parse, stands accepted
+    only where the file at that path is a recording of this
+    journal, the mark of the home own former anchor, so a
+    config change or a config fault after the kill does not
+    destroy a genuine record. On success returns the journal
+    size, the count, the anchor path the batch started, the
+    decoded anchor bytes, and the entry count the size
+    names."""
     if not isinstance(record, dict):
         return None
     if set(record.keys()) != {"journal_size", "anchor_path",
@@ -3427,8 +3332,7 @@ def _validate_batch_intent(home, record):
         # be judged under it either: the record stands
         # deferred whole until the config is repaired, and
         # the fault itself stands reported loudly by the
-        # caller own config read (Step 17 round 4 entry
-        # S17-R4-002).
+        # caller own config read.
         return _DEFER_BATCH_RECOVERY
     configured = values.get("anchor_path")
     expected_anchor = _resolve_anchor_path(home, configured) \
@@ -3468,7 +3372,7 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
     # itself runs inside this call, and any second call
     # presenting the same kind and payload object, finds
     # the authorization already bound to this call and
-    # cannot spend it (Step 17 round 6 entry S17-R6-001).
+    # cannot spend it.
     claimed_context, claim_state = _claim_authorization(
         _lock_path(home), entry_kind, payload)
     authorization = None
@@ -3486,7 +3390,7 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
     # record standing; the next append on this home rolls
     # that batch back before it reads the chain, unless
     # this append itself stands inside a batch this process
-    # holds, whose intent is its own (entry S17-R2-083).
+    # holds, whose intent is its own.
     with _HELD_LOCKS_GUARD:
         _batch_held = _lock_path(home) in _HELD_LOCKS
     if not _batch_held:
@@ -3497,8 +3401,7 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
             # The journal file is a home own file: a link
             # or another unsafe form standing at its path
             # bars the append before any reading or
-            # writing follows it (Step 17 round 5 entry
-            # S17-R5-061).
+            # writing follows it.
             raise _unsafe_home_file_error(
                 journal_path(home), "journal")
         scan = _scan(home, "torn")
@@ -3513,14 +3416,12 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
             resolved_anchor = _resolve_anchor_path(home, anchor_path)
             anchor_state, recorded = _read_anchor(resolved_anchor)
             # A configured anchor that is absent, emptied,
-            # unreadable, malformed, stale, or divergent
-            # over a standing journal is an integrity state
-            # that bars the append: the append is the act
-            # that would rewrite the anchor and erase the
-            # signal (Step 17 entries S17-R1X-001, S17-R1X-002,
-            # and S17-R1X-006). Over an empty journal an
-            # absent anchor bars nothing: the first append
-            # establishes it.
+            # unreadable, malformed, stale, or divergent over a
+            # standing journal is an integrity state that bars
+            # the append: the append is the act that would
+            # rewrite the anchor and erase the signal. Over an
+            # empty journal an absent anchor bars nothing: the
+            # first append establishes it.
             if anchor_state == "malformed" or (
                     anchor_state == "ok"
                     and _agreement_for(recorded, scan) != "matching"
@@ -3566,8 +3467,7 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
             # other special payload kind is: its target must
             # be a whole sequence naming a standing entry
             # that is not itself a correction, and its
-            # corrected record must be a record (Step 17
-            # entry S17-R1X-028).
+            # corrected record must be a record .
             supersedes = payload.get("supersedes_sequence")
             corrected = payload.get("corrected_record")
             if type(supersedes) is not int \
@@ -3600,8 +3500,7 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
             # it took after the append failed, hands the
             # judgement a state the append never met where
             # the size state changes inside the append call
-            # or as the call returns (Step 17 round 8 entry
-            # S17-R8-002, extending entry S17-R7-005).
+            # or as the call returns (extending).
             error.size_cap_also_met_at_append = \
                 _size_cap_also_met(home)
             raise error
@@ -3620,12 +3519,11 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
         # is resolved here, under the write lock, at the
         # moment the sequence stands assigned, so no caller
         # side count read can mint an identity another
-        # append also mints (Step 17 entry S17-R1-077,
-        # cured at the service seam in seat F7 with this
-        # one mechanism in the append path). Resolution
-        # stands confined to the identity fields, so caller
-        # text in every other field stands stored as
-        # written (Step 17 round 3 entry S17-R3-009).
+        # append also mints (cured at the service seam in
+        # seat F7 with this one mechanism in the append
+        # path). Resolution stands confined to the identity
+        # fields, so caller text in every other field
+        # stands stored as written.
         entry["payload"] = _resolve_sequence_identity(
             entry["payload"], entry["sequence"])
         if _container_depth(entry) > MAX_DEPTH:
@@ -3650,8 +3548,7 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
         except _UnsafeHomeFile:
             # The journal stands judged at its open as at
             # its scan: a link landing at the journal path
-            # is not written through (Step 17 round 5
-            # entry S17-R5-061).
+            # is not written through.
             raise _unsafe_home_file_error(path, "journal")
         try:
             _rejudge_open_descriptor(descriptor, path)
@@ -3676,10 +3573,9 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
                     # the handle the write just used, so the
                     # appended entry stands truncated off
                     # that handle, back to the size the
-                    # journal stood at, and no appended
-                    # content stands readable under the
-                    # outside name (Step 17 round 7 entry
-                    # S17-R7-004).
+                    # journal stood, and no appended content
+                    # stands readable under the outside
+                    # name.
                     handle.truncate(original_size)
                     handle.flush()
                     os.fsync(handle.fileno())
@@ -3687,12 +3583,12 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
         except _UnsafeHomeFile:
             raise _unsafe_home_file_error(path, "journal")
         except OSError:
-            # A write that fails part way stands rolled
-            # back to the size the journal stood at, so the
-            # append is one complete write or nothing, and
-            # the failure reaches the caller in the recorded
+            # A write that fails part way stands rolled back
+            # to the size the journal stood, so the append
+            # is one complete write or nothing, and the
+            # failure reaches the caller in the recorded
             # vocabulary, never as a bare OSError over a
-            # torn tail (Step 17 entry S17-R1-090).
+            # torn tail.
             _restore_journal_size(path, original_size)
             raise JournalError(
                 "the entry write failed; the journal stands "
@@ -3727,8 +3623,7 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
         # later read in this process scans the path as it
         # stands, at entry_count 0 over an absent path and
         # at the seed alone over a seed replacement, as a
-        # rename after the call returns reads (Step 17
-        # round 17 entry S17-R17-001).
+        # rename after the call returns reads.
         if stat is not None and appended_info is not None \
                 and stat[0] == appended_info.st_ino \
                 and stat[1] == original_size + len(canonical) + 1:
@@ -3745,9 +3640,9 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
                               entry["sequence"])
             except JournalError:
                 # A lost anchor temporary reports in its own
-                # vocabulary at row X-13 (entry S17-R3-062);
-                # the append stands rolled back all the same,
-                # and the error stands as it was raised.
+                # vocabulary at row X-13; the append stands
+                # rolled back all the same, and the error
+                # stands as it was raised.
                 _restore_journal_size(path, original_size)
                 for cache_key in [key for key in _scan_cache
                                   if key[0] == path]:
@@ -3757,8 +3652,7 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
                 # An anchor write that fails is not swallowed:
                 # the append stands rolled back and the
                 # failure is reported, so no append reports
-                # success with no anchor standing (Step 17
-                # entry S17-R1X-005).
+                # success with no anchor standing .
                 _restore_journal_size(path, original_size)
                 for cache_key in [key for key in _scan_cache
                                   if key[0] == path]:
@@ -3776,24 +3670,21 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
 def append_entries_atomic(home, entries, audit_date=None, run_id=None):
     """Append a batch of entries as one invocation, or none.
 
-    The batch is the multi append discipline (Step 17
-    entry S17-R1-089): an invocation that appends more
-    than one entry holds the write lock across the whole
-    batch, checks the whole batch cost against the
-    journal length cap before the first entry stands
-    written, and, where any entry of the batch fails,
-    rolls the journal and the anchor back to the state
-    they stood in before the batch, so no partial work
-    stands behind a failure report. Before the first
-    entry lands the batch records its starting state in
-    a batch intent record inside the home, so a batch
-    whose process is killed inside it, which runs no
-    rollback of its own, stands rolled back by the next
-    invocation through recover_interrupted_batch (entry
-    S17-R2-083). Entries stand as
-    (entry_kind, payload) pairs in append order. Returns
-    the appended entry records in order.
-    """
+    The batch is the multi append discipline: an invocation
+    that appends more than one entry holds the write lock
+    across the whole batch, checks the whole batch cost
+    against the journal length cap before the first entry
+    stands written, and, where any entry of the batch fails,
+    rolls the journal and the anchor back to the state they
+    stood in before the batch, so no partial work stands
+    behind a failure report. Before the first entry lands
+    the batch records its starting state in a batch intent
+    record inside the home, so a batch whose process is
+    killed inside it, which runs no rollback of its own,
+    stands rolled back by the next invocation through
+    recover_interrupted_batch. Entries stand as (entry_kind,
+    payload) pairs in append order. Returns the appended
+    entry records in order."""
     home = str(home)
     # The argument form is judged before any vocabulary
     # check inside the loop, in the form the sibling replay
@@ -3801,8 +3692,7 @@ def append_entries_atomic(home, entries, audit_date=None, run_id=None):
     # collection of pairs, and an item that is no pair, a
     # pair of the wrong length, or a collection that is no
     # collection of pairs at all is a malformed call, never
-    # a raw unpacking error (Step 17 round 2 entry
-    # S17-R2-007).
+    # a raw unpacking error.
     if entries is None or isinstance(entries, (str, bytes, bytearray,
                                                dict)):
         raise JournalError(
@@ -3871,8 +3761,7 @@ def append_entries_atomic(home, entries, audit_date=None, run_id=None):
             # batch would run with its kill protection off:
             # it stands refused before any entry lands, in
             # the journal vocabulary, as the anchor intent
-            # failure of the append path stands refused
-            # (Step 17 round 3 entry S17-R3-053).
+            # failure of the append path stands refused.
             raise JournalError(
                 "the batch intent record could not be "
                 "written; the batch stands refused before "
@@ -3888,8 +3777,7 @@ def append_entries_atomic(home, entries, audit_date=None, run_id=None):
                 # so no ambient append inside the batch
                 # window, and no code running in the grant
                 # prologue of this call, joins the batch
-                # (Step 17 round 4 entry S17-R4-003,
-                # reopened at round 5 entry S17-R5-068).
+                # (reopened at round 5).
                 with _join_authorization(
                         _lock_path(home), entry_kind, payload):
                     appended.append(append_entry(
@@ -3903,7 +3791,7 @@ def append_entries_atomic(home, entries, audit_date=None, run_id=None):
             # the restored journal, and the next invocation
             # recovers from it, instead of leaving a partial
             # batch standing as ordinary state with no
-            # record (Step 17 round 3 entry S17-R3-004).
+            # record.
             _restore_journal_size(path, original_size)
             if resolved_anchor is not None:
                 try:
@@ -3937,8 +3825,7 @@ def fold(home, kinds=None, to_sequence=None, apply_corrections=False):
     if scan.failure is not None:
         # The reader family runs the barred check its own
         # append path runs: a chain that fails verify is
-        # not consumed as state, in whole or in prefix
-        # (Step 17 entry S17-R1-004).
+        # not consumed as state, in whole or in prefix.
         raise JournalError(
             "the journal does not recompute; reads stand barred",
             row="I-2", token="JOURNAL_VERIFY_FAILED")
@@ -3999,8 +3886,7 @@ def fold_registry(home, to_sequence=None):
                 # in no hashable form meets this reader in
                 # the journal vocabulary, as its sibling
                 # readers meet a hostile chain, and not as a
-                # raw error (Step 17 round 4 entry
-                # S17-R4-007).
+                # raw error.
                 raise JournalError(
                     "the journal holds a registry entry whose "
                     "product id stands in no hashable form; "
@@ -4082,22 +3968,18 @@ def _validate_chain_lines(lines):
 def replay(home, entries, resume=False):
     """Replay stated entry lines into a home, returning the head hash.
 
-    With no resume, the replay starts from empty. With
-    resume, the stated lines stand appended to the chain
-    as it stands, so a replay from a mid chain state
-    reaches the same head as the full replay.
+    With no resume, the replay starts from empty. With resume, the
+    stated lines stand appended to the chain as it stands, so a replay
+    from a mid chain state reaches the same head as the full replay.
 
-    The replay validates before it writes (Step 17 entries
-    S17-R1-005 and S17-R1X-029): the entries argument must
-    be a collection of entry lines (a single string, a
-    bytes object, a mapping, and a non line element are
-    each refused as a malformed call, before anything is
-    written), the resulting chain must recompute, the
-    journal length cap must admit it, and the anchor gate
-    the append path runs must pass. A replay without
-    resume over a standing journal stands refused: it
-    would destroy the standing entries with no record.
-    """
+    The replay validates before it writes : the entries argument must
+    be a collection of entry lines (a single string, a bytes object, a
+    mapping, and a non line element are each refused as a malformed
+    call, before anything is written), the resulting chain must
+    recompute, the journal length cap must admit it, and the anchor
+    gate the append path runs must pass. A replay without resume over
+    a standing journal stands refused: it would destroy the standing
+    entries with no record."""
     home = str(home)
     if entries is None or isinstance(entries, (str, bytes, bytearray,
                                                dict)):
@@ -4134,7 +4016,7 @@ def replay(home, entries, resume=False):
     # recovered before the replay validates or writes, so
     # no replayed entry lands on a partial batch the next
     # append recovery would erase after the replay
-    # reported success (Step 17 round 3 entry S17-R3-003).
+    # reported success.
     recover_interrupted_batch(home)
     with _WriteLock(home, kind="batch"):
         if _path_is_unsafe_home_file(journal_path(home)):
@@ -4163,8 +4045,7 @@ def replay(home, entries, resume=False):
             # does not stand as the standing head bars, and
             # an absent recording over a standing journal
             # bars. An empty journal is the exact state a
-            # full truncation leaves, so it skips nothing
-            # (Step 17 round 2 entry S17-R2-005).
+            # full truncation leaves, so it skips nothing.
             anchor_state, recorded = _read_anchor(resolved_anchor)
             if anchor_state == "malformed" or (
                     anchor_state == "ok"
@@ -4253,8 +4134,8 @@ def replay(home, entries, resume=False):
                         _rejudge_open_descriptor(
                             handle.fileno(), path)
                     except _UnsafeHomeFile:
-                        # The resume branch stands under
-                        # the same post write judgement
+                        # The resume branch stands under the
+                        # same post write judgement
                         # discipline as the append road: a
                         # rename plant timed at the return
                         # of the helper lstat reading of its
@@ -4262,10 +4143,9 @@ def replay(home, entries, resume=False):
                         # judged after the write, the
                         # replayed lines stand truncated off
                         # the handle back to the size the
-                        # journal stood at, and no replayed
+                        # journal stood, and no replayed
                         # content stands readable under the
-                        # outside name (Step 17 round 16
-                        # entry S17-R16-001).
+                        # outside name.
                         handle.truncate(original_size)
                         handle.flush()
                         os.fsync(handle.fileno())
@@ -4274,19 +4154,18 @@ def replay(home, entries, resume=False):
                         _rejudge_open_descriptor(
                             handle.fileno(), path)
                     except _UnsafeHomeFile:
-                        # A further rejudgement stands
-                        # after the post write judgement,
-                        # judging its path reading as the
-                        # judgement judges its handle
-                        # reading: a rename plant timed at
-                        # the return of the lstat reading
-                        # of the post write judgement stands
-                        # judged here, the replayed lines
-                        # stand truncated off the handle in
-                        # the remedy form above, and no
-                        # replayed content stands readable
-                        # under the outside name (Step 17
-                        # round 17 entry S17-R17-009).
+                        # A further rejudgement stands after
+                        # the post write judgement, judging
+                        # its path reading as the judgement
+                        # judges its handle reading: a
+                        # rename plant timed at the return
+                        # of the lstat reading of the post
+                        # write judgement stands judged
+                        # here, the replayed lines stand
+                        # truncated off the handle in the
+                        # remedy form above, and no replayed
+                        # content stands readable under the
+                        # outside name.
                         handle.truncate(original_size)
                         handle.flush()
                         os.fsync(handle.fileno())
@@ -4300,18 +4179,16 @@ def replay(home, entries, resume=False):
                     "stands as it stood", row="I-2",
                     token="JOURNAL_VERIFY_FAILED")
         else:
-            # The replacing branch carries the same guard
-            # as the resume branch and the append path: a
-            # write failure reports in the vocabulary at
-            # row I-2, and its temporary file does not stand
-            # left inside the home (Step 17 round 2 entry
-            # S17-R2-006).
-            # The replacement temporary stands created
-            # exclusively under a name no planter can
-            # predict, on the same discipline as the
-            # anchor temporary at entry S17-R5-063, so a
-            # planted link at a guessed name is never the
-            # file this write opens.
+            # The replacing branch carries the same guard as
+            # the resume branch and the append path: a write
+            # failure reports in the vocabulary at row I-2,
+            # and its temporary file does not stand left
+            # inside the home. The replacement temporary
+            # stands created exclusively under a name no
+            # planter can predict, on the same discipline as
+            # the anchor temporary, so a planted link at a
+            # guessed name is never the file this write
+            # opens.
             descriptor, temporary = tempfile.mkstemp(
                 prefix=os.path.basename(path) + ".replay-",
                 dir=os.path.dirname(path) or ".")
@@ -4327,8 +4204,7 @@ def replay(home, entries, resume=False):
             except FileNotFoundError:
                 # The temporary stands lost under its writer
                 # before its link step: the condition row
-                # X-13 names (Step 17 round 3 entry
-                # S17-R3-062).
+                # X-13 names.
                 try:
                     os.unlink(temporary)
                 except OSError:
@@ -4356,8 +4232,8 @@ def replay(home, entries, resume=False):
                               len(candidate))
             except JournalError:
                 # A lost anchor temporary reports in its own
-                # vocabulary at row X-13 (entry S17-R3-062);
-                # the replay stands rolled back all the same.
+                # vocabulary at row X-13; the replay stands
+                # rolled back all the same.
                 rollback_write()
                 raise
             except OSError:
@@ -4365,8 +4241,7 @@ def replay(home, entries, resume=False):
                 # the replay stands rolled back and the
                 # failure is reported, as the append path
                 # reports it, so no replay reports success
-                # with no anchor standing (Step 17 round 2
-                # entry S17-R2-005).
+                # with no anchor standing.
                 rollback_write()
                 raise JournalError(
                     "the anchor write failed; the replay "

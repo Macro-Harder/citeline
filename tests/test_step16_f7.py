@@ -1,12 +1,11 @@
-"""Step 16 fix wave, builder F7: artefact forms, tables, acquisition.
+"""Artefact forms, tables, acquisition.
 
-Defects pinned here, one failing test first per defect:
-D-10, Agentic form collapse and envelope contract fields.
-D-13, crawler table evidence labels on rows 9, 12, 13, 14.
-D-14, crawler table obedience statement and crawl delay position.
-D-15, Markdown heading offsets in extracted text coordinates.
-D-29, a second form of a standing audit renders the stored record.
-"""
+Defects pinned here, one failing test first per defect: D-10, Agentic
+form collapse and envelope contract fields. D-13, crawler table
+evidence labels on rows 9, 12, 13, 14. D-14, crawler table obedience
+statement and crawl delay position. D-15, Markdown heading offsets in
+extracted text coordinates. D-29, a second form of a standing audit
+renders the stored record."""
 
 import io
 import json
@@ -286,10 +285,10 @@ class TestD29StandingAuditForm(F7Base):
         self.assertIn("schema_stamp", parsed)
 
     def test_service_second_form_renders_stored_record(self):
-        """Supersession recorded (Step 16 supplementary wave,
-        defect E-05, on the F3 pattern): as first written this
-        test named the page file and the audit date beside the
-        run identity in the second form call, which is the
+        """Supersession recorded (supplementary wave, defect
+        E-05, on the F3 pattern): as first written this test
+        named the page file and the audit date beside the run
+        identity in the second form call, which is the
         defective form E-05 cures: a call naming run_id with
         any fresh audit input beside it now refuses
         MALFORMED_CALL at row U-8. The second form call here

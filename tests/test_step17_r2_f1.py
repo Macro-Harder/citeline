@@ -1,11 +1,9 @@
-"""Step 17 round 2 fix seat F1 tests: journal family.
+"""Journal family.
 
-Each test pins one register entry from design/audit/
-step-17-r2-findings-register.md (S17-R2-001 to S17-R2-007)
-on the behaviour the register states. Homes are scratch
-homes under a temporary directory. No test here touches a
-standing test item or a governed ground.
-"""
+Each test pins one register entry from design/audit/ the
+register paper on the behaviour the register states. Homes
+are scratch homes under a temporary directory. No test
+here touches a standing test item or a governed ground."""
 
 import fcntl
 import hashlib

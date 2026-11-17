@@ -1,16 +1,10 @@
-"""Step 17 round 2 fix seat F7 tests: service, watch, seams.
+"""Service, watch, seams.
 
 Pins the register entries charged to F7 in fix round 2:
-S17-R2-018, S17-R2-070, S17-R2-071, S17-R2-072,
-S17-R2-073, S17-R2-074, S17-R2-075, S17-R2-076,
-S17-R2-077, S17-R2-078, S17-R2-079, S17-R2-080,
-S17-R2-081, S17-R2-085, S17-R2-086, S17-R2-090,
-S17-R2-093, S17-R2-101, and S17-R2-103, plus the report
-route backstop limb of S17-R2-052 charged through the F5
-refusal. Every test was written before its cure and run
-failing for the register stated reason. Oracle: the
-round 2 findings register and disposition.
-"""
+and, plus the report route backstop limb of charged
+through the F5 refusal. Every test was written before
+its cure and run failing for the register stated reason.
+Oracle: the round 2 findings register and disposition."""
 
 import contextlib
 import hashlib
@@ -163,9 +157,9 @@ class SeededBase(HomeBase):
         seed(self, self.home)
 
 
-# ----------------------------------------------------------------
-# S17-R2-018: a NUL byte in a supplied path stands in the
-# governed vocabulary at the service routes.
+# ----------------------------------------------------------------:
+# a NUL byte in a supplied path stands in the governed vocabulary
+# at the service routes.
 # ----------------------------------------------------------------
 
 class Test018NulPathVocabulary(SeededBase):
@@ -254,8 +248,8 @@ class Test018NulPathVocabulary(SeededBase):
 
 
 # ----------------------------------------------------------------
-# S17-R2-070 and S17-R2-071: no state created by a read over
-# a missing home, and the guide assembly runs the home check.
+# and: no state created by a read over a missing home, and the
+# guide assembly runs the home check.
 # ----------------------------------------------------------------
 
 class Test070MissingHomeCreatesNothing(unittest.TestCase):
@@ -313,10 +307,10 @@ class Test071GuideMissingHome(SeededBase):
         self.assertFalse(self.missing.exists())
 
 
-# ----------------------------------------------------------------
-# S17-R2-072: the audit appends land whole or not at all, on
-# the batch primitive, and its failure record catches every
-# governed failure class of the route.
+# ----------------------------------------------------------------:
+# the audit appends land whole or not at all, on the batch
+# primitive, and its failure record catches every governed failure
+# class of the route.
 # ----------------------------------------------------------------
 
 class Test072AuditAppendComposition(SeededBase):
@@ -372,9 +366,9 @@ class Test072AuditAppendComposition(SeededBase):
         self.assertEqual(records[0]["run_id"], record["run_id"])
 
 
-# ----------------------------------------------------------------
-# S17-R2-058, service limb: the run time aliases and category
-# terms reach the guide draft from the audit record.
+# ----------------------------------------------------------------,
+# service limb: the run time aliases and category terms reach the
+# guide draft from the audit record.
 # ----------------------------------------------------------------
 
 class Test058ServiceGuideBasis(HomeBase):
@@ -421,9 +415,9 @@ class Test058ServiceGuideBasis(HomeBase):
         self.assertIn("Widge recorded", draft["opening_text"])
 
 
-# ----------------------------------------------------------------
-# S17-R2-073, S17-R2-074, S17-R2-079: WatchPlan validation in
-# its named values and its duplicate identity.
+# ----------------------------------------------------------------,:
+# WatchPlan validation in its named values and its duplicate
+# identity.
 # ----------------------------------------------------------------
 
 class Test073NullSelectors(SeededBase):
@@ -511,8 +505,8 @@ class Test079EmptyRobotsIdentity(SeededBase):
             token_of(caught.exception), "WATCH_DUPLICATE_TARGET")
 
 
-# ----------------------------------------------------------------
-# S17-R2-075: the install argument shapes.
+# ----------------------------------------------------------------:
+# the install argument shapes.
 # ----------------------------------------------------------------
 
 class Test075InstallArgumentShapes(unittest.TestCase):
@@ -545,8 +539,8 @@ class Test075InstallArgumentShapes(unittest.TestCase):
         self.assertIn("MALFORMED_CALL", err)
 
 
-# ----------------------------------------------------------------
-# S17-R2-076: the audit date validator's type discipline.
+# ----------------------------------------------------------------:
+# the audit date validator's type discipline.
 # ----------------------------------------------------------------
 
 class Test076AuditDateTypes(SeededBase):
@@ -571,8 +565,8 @@ class Test076AuditDateTypes(SeededBase):
 
 
 # ----------------------------------------------------------------
-# S17-R2-077 and S17-R2-078: the output and target path
-# strings judged before any filesystem call can raise.
+# and: the output and target path strings judged before any
+# filesystem call can raise.
 # ----------------------------------------------------------------
 
 class Test077OutputPathGoverned(SeededBase):
@@ -638,8 +632,8 @@ class Test078TargetPathValidation(SeededBase):
         self.assertEqual(token_of(caught.exception), "MALFORMED_CALL")
 
 
-# ----------------------------------------------------------------
-# S17-R2-080: the shell list intake's depth discipline.
+# ----------------------------------------------------------------:
+# the shell list intake's depth discipline.
 # ----------------------------------------------------------------
 
 class Test080ShellListDepth(SeededBase):
@@ -658,8 +652,8 @@ class Test080ShellListDepth(SeededBase):
         self.assertIn("MALFORMED_CALL", err.getvalue())
 
 
-# ----------------------------------------------------------------
-# S17-R2-081: the type swap field validation at the readers.
+# ----------------------------------------------------------------:
+# the type swap field validation at the readers.
 # ----------------------------------------------------------------
 
 class Test081TypeSwapReaders(SeededBase):
@@ -812,8 +806,8 @@ class Test081TypeSwapReaders(SeededBase):
             "product_id")
 
 
-# ----------------------------------------------------------------
-# S17-R2-085: the limits plumbing to acquisition, one reading.
+# ----------------------------------------------------------------:
+# the limits plumbing to acquisition, one reading.
 # ----------------------------------------------------------------
 
 class Test085LimitsPlumbing(SeededBase):
@@ -852,8 +846,8 @@ class Test085LimitsPlumbing(SeededBase):
         self.assertEqual(record["run_id"], run_id)
 
 
-# ----------------------------------------------------------------
-# S17-R2-086: the front matter key count on the parsed text.
+# ----------------------------------------------------------------:
+# the front matter key count on the parsed text.
 # ----------------------------------------------------------------
 
 class Test086FrontMatterBom(SeededBase):
@@ -884,8 +878,8 @@ class Test086FrontMatterBom(SeededBase):
         self.assertEqual(token_of(caught.exception), "LIMIT_EXCEEDED")
 
 
-# ----------------------------------------------------------------
-# S17-R2-090: concurrent first imports judged inside the lock.
+# ----------------------------------------------------------------:
+# concurrent first imports judged inside the lock.
 # ----------------------------------------------------------------
 
 class Test090ConcurrentFirstImports(SeededBase):
@@ -954,8 +948,8 @@ class Test090ConcurrentFirstImports(SeededBase):
                     outcome, ("DUPLICATE_IMPORT", "WRITE_CONTENDED"))
 
 
-# ----------------------------------------------------------------
-# S17-R2-093: the cadence conversion bounded.
+# ----------------------------------------------------------------:
+# the cadence conversion bounded.
 # ----------------------------------------------------------------
 
 class Test093CadenceDigitRun(SeededBase):
@@ -974,8 +968,8 @@ class Test093CadenceDigitRun(SeededBase):
             {"recorded": False, "state": "not_recorded"})
 
 
-# ----------------------------------------------------------------
-# S17-R2-101: failure records surface on operator surfaces.
+# ----------------------------------------------------------------:
+# failure records surface on operator surfaces.
 # ----------------------------------------------------------------
 
 class Test101FailureRecordSurfacing(SeededBase):
@@ -1024,8 +1018,8 @@ class Test101FailureRecordSurfacing(SeededBase):
         self.assertIn("UNKNOWN_ROUND", self.failure_values(draft))
 
 
-# ----------------------------------------------------------------
-# S17-R2-103: the staleness assembly reads corrections.
+# ----------------------------------------------------------------:
+# the staleness assembly reads corrections.
 # ----------------------------------------------------------------
 
 class Test103StalenessCorrections(SeededBase):
@@ -1051,9 +1045,9 @@ class Test103StalenessCorrections(SeededBase):
         self.assertEqual(rows[0]["state"], "across a break")
 
 
-# ----------------------------------------------------------------
-# S17-R2-052, report route backstop limb: limit 41 at the
-# service seam on the report routes, on the F5 refusal.
+# ----------------------------------------------------------------,
+# report route backstop limb: limit 41 at the service seam on the
+# report routes, on the F5 refusal.
 # ----------------------------------------------------------------
 
 class Test052ReportBackstop(SeededBase):

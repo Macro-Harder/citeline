@@ -1,15 +1,13 @@
-# Step 17 round 8 fix seat F5 tests.
-#
-# Entries S17-R8-018 and S17-R8-019: two cost defects at the
-# passes the fix round 7 cures rebuilt, correctness standing
-# verified against direct pair computations written from the
-# rule beside every cost series. Timing probes stand on
-# process CPU time, never on wall clock. The registered
-# constructions of round 7 stand as controls, and the round 8
-# attack constructions stand as the failing probes, at the
-# largest scales that run in reasonable time, with the
-# projection to the cap stated in the seat paper.
-#
+# fix seat F5 tests.
+# Entries and: two cost defects at the passes the fix round 7
+# cures rebuilt, correctness standing verified against direct
+# pair computations written from the rule beside every cost
+# series. Timing probes stand on process CPU time, never on
+# wall clock. The registered constructions of round 7 stand
+# as controls, and the round 8 attack constructions stand as
+# the failing probes, at the largest scales that run in
+# reasonable time, with the projection to the cap stated in
+# the seat paper.
 # Copyright: J.P. Picard aka Macro-Harder.
 
 import random
@@ -67,20 +65,20 @@ def _shared_pool_family(count, seed=19):
 
 
 def _red_pool_family(count, seed=42):
-    # The S17-R8-RED-01 construction: every set a seeded
-    # random 200 of one pool of 2,000 shingles, seed 42, each
-    # shingle standing in about a tenth of the sets, two sets
-    # sharing about 20 shingles against the threshold of 178.
+    # The construction: every set a seeded random 200 of one
+    # pool of 2,000 shingles, seed 42, each shingle standing
+    # in about a tenth of the sets, two sets sharing about 20
+    # shingles against the threshold of 178.
     rng = random.Random(seed)
     pool = list(range(2000))
     return [set(rng.sample(pool, 200)) for _index in range(count)]
 
 
 def _registered_pool_family(count, seed=7):
-    # The registered construction of S17-R7-035, standing as
-    # a control: a pool of 170 shingles, each set holding a
-    # seeded random 100 of the pool plus 100 shingles of its
-    # own, size 200 throughout, no pair similar.
+    # The registered construction, standing as a control: a
+    # pool of 170 shingles, each set holding a seeded random
+    # 100 of the pool plus 100 shingles of its own, size 200
+    # throughout, no pair similar.
     rng = random.Random(seed)
     pool = list(range(170))
     type_sets = []
@@ -113,10 +111,10 @@ def _wide_clique_family(count, seed=31):
 
 
 def _registered_clique_family(count, seed=11):
-    # The registered construction of S17-R7-036, standing as
-    # a control: each further set misses a seeded random 85
-    # to 100 parts of a 170 part pool and adds a common core
-    # of 70 plus parts of its own, size 900, a true clique.
+    # The registered construction, standing as a control:
+    # each further set misses a seeded random 85 to 100
+    # parts of a 170 part pool and adds a common core of 70
+    # plus parts of its own, size 900, a true clique.
     rng = random.Random(seed)
     pivot = set(range(900))
     pool = list(range(170))
@@ -134,8 +132,8 @@ def _registered_clique_family(count, seed=11):
 
 
 def _deferred_family(links, per_pair=120, seed=9000):
-    # The registered construction of S17-R7-048, standing as
-    # a control, in the form the round 7 seat states it.
+    # The registered construction, standing as a control, in
+    # the form the round 7 seat states it.
     core = set(range(60))
     type_sets = []
     for index in range(links):
@@ -159,7 +157,7 @@ def _deferred_family(links, per_pair=120, seed=9000):
 
 
 class TestR8F5SeedPassSharedPool(unittest.TestCase):
-    # S17-R8-018, detection and metrics copies.
+    # , detection and metrics copies.
 
     def test_shared_pool_correct_small_both_copies(self):
         type_sets = _shared_pool_family(300)
@@ -228,7 +226,7 @@ class TestR8F5SeedPassSharedPool(unittest.TestCase):
 
 
 class TestR8F5WideClique(unittest.TestCase):
-    # S17-R8-019, metrics copy only.
+    # , metrics copy only.
 
     def test_wide_clique_correct_small(self):
         type_sets = _wide_clique_family(160)

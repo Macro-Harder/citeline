@@ -1,21 +1,18 @@
-# Step 17 round 9 fix seat F5 tests.
-#
-# Entry S17-R9-014: the prefix seed pass of
-# _similar_components stands outside its backstops on the
-# pool families the wide reading guards leave on the
-# prefix form, at both module copies. The families stand
-# as the round 9 papers state them: the seed size guard
-# limb at set size 3,000 over a pool of 4,500, seed 7
-# (detection R9-DM-01), at set size 3,000 over a pool of
-# 6,000, seed 42, and at set size 2,001 over a pool of
-# 4,002, seed 7 (red S17-R9-RED-01); and the prefix
-# posting total guard limb at seed size 2,000 with the
-# pool standing at 500 times the set count, seed 11
-# (detection R9-DM-02). Correctness stands judged against
-# direct pair computations written from the rule beside
-# every cost series, and timing stands on process CPU
-# time, never on wall clock.
-#
+# fix seat F5 tests.
+# Entry: the prefix seed pass of _similar_components
+# stands outside its backstops on the pool families the
+# wide reading guards leave on the prefix form, at both
+# module copies. The families stand as the round 9 papers
+# state them: the seed size guard limb at set size 3,000
+# over a pool of 4,500, seed 7 (detection R9-DM-01), at
+# set size 3,000 over a pool of 6,000, seed 42, and at
+# set size 2,001 over a pool of 4,002, seed 7 (red); and
+# the prefix posting total guard limb at seed size 2,000
+# with the pool standing at 500 times the set count, seed
+# 11 (detection R9-DM-02). Correctness stands judged
+# against direct pair computations written from the rule
+# beside every cost series, and timing stands on process
+# CPU time, never on wall clock.
 # Copyright: J.P. Picard aka Macro-Harder.
 
 import random
@@ -65,19 +62,19 @@ def _seed_size_family(count, size=3000, pool=4500, seed=7):
 
 
 def _red_seed_size_family(count, size=3000, pool=6000, seed=42):
-    # The S17-R9-RED-01 first construction: every set a
-    # seeded random 3,000 of one pool of 6,000 shingles,
-    # seed 42, two sets sharing about 1,500 shingles
-    # against the threshold of 2,667, no pair similar.
+    # The first construction: every set a seeded random
+    # 3,000 of one pool of 6,000 shingles, seed 42, two
+    # sets sharing about 1,500 shingles against the
+    # threshold of 2,667, no pair similar.
     rng = random.Random(seed)
     pool_list = list(range(pool))
     return [set(rng.sample(pool_list, size)) for _index in range(count)]
 
 
 def _red_past_guard_family(count, size=2001, pool=4002, seed=7):
-    # The S17-R9-RED-01 second construction: set size
-    # 2,001, one shingle past the wide reading seed size
-    # guard, drawn from a pool of 4,002, seed 7, no pair
+    # The second construction: set size 2,001, one
+    # shingle past the wide reading seed size guard,
+    # drawn from a pool of 4,002, seed 7, no pair
     # similar.
     rng = random.Random(seed)
     pool_list = list(range(pool))
@@ -138,19 +135,19 @@ def _large_pair_family(count=120, seed=11):
 
 
 def _shared_pool_family(count, seed=19):
-    # The S17-R8-018 construction, standing as a control:
-    # every set a seeded random 200 of one pool of 300
-    # shingles, seed 19, no pair similar.
+    # The construction, standing as a control: every set
+    # a seeded random 200 of one pool of 300 shingles,
+    # seed 19, no pair similar.
     rng = random.Random(seed)
     pool_list = list(range(300))
     return [set(rng.sample(pool_list, 200)) for _index in range(count)]
 
 
 def _deferred_family(links, per_pair=120, seed=9000):
-    # The registered construction of S17-R7-048, standing
-    # as a control, in the form the round 7 seat states
-    # it, so the two queue organisation stands exercised
-    # whole beside this cure.
+    # The registered construction, standing as a control,
+    # in the form the round 7 seat states it, so the two
+    # queue organisation stands exercised whole beside
+    # this cure.
     core = set(range(60))
     type_sets = []
     for index in range(links):
@@ -174,7 +171,7 @@ def _deferred_family(links, per_pair=120, seed=9000):
 
 
 class TestR9F5SeedSizeLimbCorrectness(unittest.TestCase):
-    # S17-R9-014, the seed size guard limb.
+    # , the seed size guard limb.
 
     def test_seed_size_family_correct_both_copies(self):
         type_sets = _seed_size_family(150)
@@ -210,7 +207,7 @@ class TestR9F5SeedSizeLimbCorrectness(unittest.TestCase):
 
 
 class TestR9F5PrefixTotalLimbCorrectness(unittest.TestCase):
-    # S17-R9-014, the prefix posting total guard limb.
+    # , the prefix posting total guard limb.
 
     def test_prefix_total_family_correct_both_copies(self):
         type_sets = _prefix_total_family(200)
@@ -230,8 +227,8 @@ class TestR9F5PrefixTotalLimbCorrectness(unittest.TestCase):
 
 
 class TestR9F5SeedSizeLimbCost(unittest.TestCase):
-    # S17-R9-014, cost on the seed size guard limb, process
-    # CPU time, construction excluded.
+    # , cost on the seed size guard limb, process CPU time,
+    # construction excluded.
 
     def test_seed_size_detection_inside_bound(self):
         type_sets = _seed_size_family(600)
@@ -295,8 +292,8 @@ class TestR9F5SeedSizeLimbCost(unittest.TestCase):
 
 
 class TestR9F5PrefixTotalLimbCost(unittest.TestCase):
-    # S17-R9-014, cost on the prefix posting total guard
-    # limb, process CPU time, construction excluded.
+    # , cost on the prefix posting total guard limb,
+    # process CPU time, construction excluded.
 
     def test_prefix_total_detection_inside_bound(self):
         type_sets = _prefix_total_family(2000)
@@ -320,10 +317,9 @@ class TestR9F5PrefixTotalLimbCost(unittest.TestCase):
 
 
 class TestR9F5StandingControls(unittest.TestCase):
-    # The cures this entry stands beside: the S17-R8-018
-    # families, the two queue organisation of S17-R7-048,
-    # and the S17-R8-019 clique reading, which this cure
-    # does not touch.
+    # The cures this entry stands beside: the families,
+    # the two queue organisation, and the clique
+    # reading, which this cure does not touch.
 
     def test_shared_pool_control_both_copies(self):
         type_sets = _shared_pool_family(2400)

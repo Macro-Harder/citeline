@@ -1,11 +1,9 @@
-"""Step 17 fix seat F2 tests, registry and acquisition.
+"""Registry and acquisition.
 
-Test first pins for register entries S17-R1-008 to
-S17-R1-013, S17-R1-015 to S17-R1-019, and S17-R1-088.
-Each test reproduces the defect named at its register
-entry against the governing brief or plan text cited
-there, then stands as the pin for its cure.
-"""
+Test first pins for register, and. Each test
+reproduces the defect named at its register entry
+against the governing brief or plan text cited there,
+then stands as the pin for its cure."""
 
 import multiprocessing
 import os

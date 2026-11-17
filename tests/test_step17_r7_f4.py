@@ -1,10 +1,8 @@
-"""Step 17 round 7 fix seat F4 tests: import family.
+"""Import family.
 
-Test first pins for register entries S17-R7-026 to
-S17-R7-034, from design/audit/step-17-r7-findings-register.md
-and the source paper step-17-r7-attack-import.md, with the
-seam verdict pins the F2 fix paper of this round states.
-"""
+Test first pins for register, from the register and the
+source paper the register paper, with the seam verdict pins
+the F2 fix paper of this round states."""
 
 import hashlib
 import io

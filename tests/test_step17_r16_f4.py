@@ -1,25 +1,24 @@
-"""Step 17 round 16 fix seat F4 tests, import family.
+"""Import family.
 
-Test first pins for the import side limbs of register
-entries S17-R16-009 and S17-R16-010, each Low, each
-counted at its lead seat F2, cured at the import side
-helper _holds_tag_construct in probe_import.py, at its
-position scan _position_scan_holds, in the form the F2
-cure rule states for this seat. Entry S17-R16-009: a
-sole category Lo follower separated from its construct
-by one head gap character passes at both readings, the
-follower judgement of the position scan standing on
-the character immediately after the construct
-character while the older readings remove the gap and
-the follower together. Entry S17-R16-010: pair forms
-with a head gap character in front of a mark follower
-pass at both readings, the scan unable to reach the
-mark past the gap and the older readings consuming
-the second construct judged position at the first
-finditer match. No limb of entry S17-R16-011 stands
-inside this charge: its cure stands at the page key
-judgement alone and the import judgement stands as
-the form that cure matches.
+Test first pins for the import side limbs of register,
+each Low, each counted at its lead seat F2, cured at
+the import side helper _holds_tag_construct in
+probe_import.py, at its position scan
+_position_scan_holds, in the form the F2 cure rule
+states for this seat. Entry: a sole category Lo
+follower separated from its construct by one head gap
+character passes at both readings, the follower
+judgement of the position scan standing on the
+character immediately after the construct character
+while the older readings remove the gap and the
+follower together. Entry: pair forms with a head gap
+character in front of a mark follower pass at both
+readings, the scan unable to reach the mark past the
+gap and the older readings consuming the second
+construct judged position at the first finditer match.
+No limb of stands inside this charge: its cure stands
+at the page key judgement alone and the import
+judgement stands as the form that cure matches.
 
 The defect pins assert the import reading and the
 import side helper alone, in the form the import side
@@ -29,8 +28,7 @@ this wave ahead of this seat in the dependency order.
 The controls assert both readings where the standing
 the control names already stands at both. Every pin
 runs in memory at the readings and at the helpers, so
-no pin stands on a temporary directory.
-"""
+no pin stands on a temporary directory."""
 
 import json
 import unittest

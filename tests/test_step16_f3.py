@@ -1,18 +1,13 @@
-"""Step 16 fix F3 tests: D-03 register page standing snapshot and D-04 watch coverage.
+"""D-03 register page standing snapshot and D-04 watch coverage.
 
-Written test first for the round 1 defects D-03 and D-04.
-D-03 oracle: brief Section 5.2 PageSnapshot shape and
-Section 5.12 item 136, registration sets is_product_page on
-the standing PageSnapshot named by its snapshot_id for that
-product, and plan joined entry 13 row X-5, token
-VALIDATION_FAILED, usage class, exit code 2, failure record
-appended where the chain accepts appends, the row this fix
-chooses for an identifier naming no standing snapshot for
-the product, stated in the fix paper.
-D-04 oracle: plan Section 5.1 WatchRun coverage statement,
-registered product page snapshots counted against snapshots
-audited, computed from registry and journal facts.
-"""
+Written test first for the round 1 defects D-03 and D-04. D-03 oracle: brief Section
+5.2 PageSnapshot shape and Section 5.12 item 136, registration sets is_product_page on
+the standing PageSnapshot named by its snapshot_id for that product, and plan joined
+entry 13 row X-5, token VALIDATION_FAILED, usage class, exit code 2, failure record
+appended where the chain accepts appends, the row this fix chooses for an identifier
+naming no standing snapshot for the product, stated in the fix paper. D-04 oracle:
+plan Section 5.1 WatchRun coverage statement, registered product page snapshots
+counted against snapshots audited, computed from registry and journal facts."""
 
 import json
 import os

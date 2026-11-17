@@ -1,24 +1,20 @@
-"""Step 17 round 10 fix seat F6 tests: guide and reporting.
+"""Guide and reporting.
 
-Verdict pins only: this seat charges no cure of its own
-and edits no product module. The pins stand on the
-guide and reporting seams in the standing form (the
-failure line seam at entry S17-R9-015, the longer
-compound seam at entry S17-R9-016, and the list branch
-seam at entry S17-R9-018, as the round 9 F6 fix paper
-states them and the round 10 guide paper rejudged
-them), on the collector kind discrepancy in its
-sustained recorded form at register Section 3,
-record 3 of the round 10 register, and on the standing
-watch figures and the methods note version stamp in
-their exact forms. Each pin was written before the
-verdict it records and stands passing on the cured
-tree the verdicts judge.
-Oracle: the round 10 findings register and
+Verdict pins only: this seat charges no cure of its own and
+edits no product module. The pins stand on the guide and
+reporting seams in the standing form (the failure line
+seam, the longer compound seam, and the list branch seam,
+as the round 9 F6 fix paper states them and the round 10
+guide paper rejudged them), on the collector kind
+discrepancy in its sustained recorded form at register
+Section 3, record 3 of the round 10 register, and on the
+standing watch figures and the methods note version stamp
+in their exact forms. Each pin was written before the
+verdict it records and stands passing on the cured tree the
+verdicts judge. Oracle: the round 10 findings register and
 disposition, Section 3 seat F6.
 
-Copyright: J.P. Picard aka Macro-Harder.
-"""
+Copyright: J.P. Picard aka Macro-Harder."""
 
 import inspect
 import json
@@ -105,10 +101,9 @@ class SeededBase(unittest.TestCase):
 
 
 # ----------------------------------------------------------------
-# Seam 1, entry S17-R9-015: the failure line seam. The
-# builder form as landed stands at ten judged characters,
-# the three separators U+001C to U+001E escaped in their
-# backslash u forms inside the quoting.
+# Seam 1,: the failure line seam. The builder form as landed
+# stands at ten judged characters, the three separators U+001C to
+# U+001E escaped in their backslash u forms inside the quoting.
 # ----------------------------------------------------------------
 
 class Test015FailureLineSeamVerdict(unittest.TestCase):
@@ -172,10 +167,9 @@ class Test015FailureLineSeamVerdict(unittest.TestCase):
 
 
 # ----------------------------------------------------------------
-# Seam 2, entry S17-R9-016: the longer compound seam,
-# Simple form only, the limb bounded at exactly three
-# components with a named middle, judged on the eight
-# worked keys.
+# Seam 2,: the longer compound seam, Simple form only, the limb
+# bounded at exactly three components with a named middle, judged
+# on the eight worked keys.
 # ----------------------------------------------------------------
 
 class Test016LongerCompoundSeamVerdict(unittest.TestCase):
@@ -214,9 +208,8 @@ class Test016LongerCompoundSeamVerdict(unittest.TestCase):
 
 
 # ----------------------------------------------------------------
-# Seam 3, entry S17-R9-018: the list branch seam. The
-# four place set stands stated in one helper shared by
-# the scalar and list branches.
+# Seam 3,: the list branch seam. The four place set stands stated
+# in one helper shared by the scalar and list branches.
 # ----------------------------------------------------------------
 
 class Test018ListBranchSeamVerdict(unittest.TestCase):

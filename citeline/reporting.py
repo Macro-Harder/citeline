@@ -455,8 +455,8 @@ def _apply_fixed_texts(body):
 
 
 def _failure_record_payloads(body):
-    """The failure record payloads a record carries, in
-    the forms they travel in: a failure_records list of
+    """The failure record payloads a record carries, in the
+    forms they travel in: a failure_records list of
     payloads, a single failure_record payload, or journal
     entries of the failure_record kind carrying their
     payload, at the top level or inside an entries list.
@@ -467,32 +467,28 @@ def _failure_record_payloads(body):
     at is the greatest count it stands at in any one
     form, never the sum over forms. Two identical stored
     records inside one form still stand as two, as a
-    retried failure stands (Step 17 round 3 entry
-    S17-R3-063, and round 4 entry S17-R4-049 for the
+    retried failure stands (and round 4 for the
     composition over forms).
 
-    The gathering stands by position, blind to nothing:
-    a payload standing inside another carry form stands
+    The gathering stands by position, blind to nothing: a
+    payload standing inside another carry form stands
     collected in the form it stands in, so an entry
     shaped wrapper standing in the list form or the
-    single form contributes its payload to that form,
-    and only an entry standing inside an entries list
-    stands in the entries form (Step 17 round 5 entry
-    S17-R5-048). An entries list standing inside a
-    failure payload carried by the list form or the
-    single form stands in no entries form, and an
-    entries list standing under the entries name in any
-    case stands collected (Step 17 round 6 entry
-    S17-R6-040). The entries name and the carry keys
-    stand judged under the module component reading, so
-    a camel or separator form of either name stands as
-    the same name (Step 17 round 7 entry S17-R7-042).
-    """
+    single form contributes its payload to that form, and
+    only an entry standing inside an entries list stands
+    in the entries form. An entries list standing inside
+    a failure payload carried by the list form or the
+    single form stands in no entries form, and an entries
+    list standing under the entries name in any case
+    stands collected. The entries name and the carry keys
+    stand judged under the module component reading, so a
+    camel or separator form of either name stands as the
+    same name."""
     # The names this collector judges stand judged under
     # the component reading this module states for field
     # names, so a camel, capitalised camel, hyphen, or
     # space form of a name stands as the same name as its
-    # underscore form (Step 17 round 7 entry S17-R7-042).
+    # underscore form.
     def components_of(key):
         return tuple(_key_components(key))
 
@@ -522,8 +518,7 @@ def _failure_record_payloads(body):
         # in the form the wrapper stands in: the wrapper
         # is a carry form, not a payload, and its payload
         # does not stand in the entries form merely
-        # because a wrapper carries it there (Step 17
-        # round 5 entry S17-R5-048).
+        # because a wrapper carries it there.
         while isinstance(item, dict) \
                 and item.get("entry_kind") == "failure_record" \
                 and isinstance(payload_of(item), dict):
@@ -537,19 +532,18 @@ def _failure_record_payloads(body):
         # entries list, stands in the entries form, and
         # an entry shaped object standing anywhere else
         # stands in the form that carries it, never in
-        # this one.
-        # The walk never descends into a failure payload
-        # looking for entries: a payload carried by the
-        # list form or the single form stands under the
-        # failure_records or failure_record key, as a
-        # wrapper payload stands under the payload key,
-        # and an entries list standing inside such a
-        # payload stands in no entries form (Step 17
-        # round 6 entry S17-R6-040). The entries name
-        # itself stands judged in any case, as the other
-        # readings in this module judge a field name by
-        # its case shifted form, so an entries list under
-        # a case shifted entries key stands collected.
+        # this one. The walk never descends into a
+        # failure payload looking for entries: a payload
+        # carried by the list form or the single form
+        # stands under the failure_records or
+        # failure_record key, as a wrapper payload stands
+        # under the payload key, and an entries list
+        # standing inside such a payload stands in no
+        # entries form. The entries name itself stands
+        # judged in any case, as the other readings in
+        # this module judge a field name by its case
+        # shifted form, so an entries list under a case
+        # shifted entries key stands collected.
         if isinstance(node, dict):
             for key, value in node.items():
                 if is_carry_key(key):
@@ -681,8 +675,8 @@ def _selection_marker_values(body):
 
 
 def _apply_guide_texts(body):
-    """Stand the fixed guide texts the record's own state calls
-    for, in the JSON forms as fields.
+    """Stand the fixed guide texts the record's own state calls,
+    in the JSON forms as fields.
 
     The refusal sentence stands where the draft refused. The
     citation only sentence stands where the draft carries the
@@ -692,8 +686,7 @@ def _apply_guide_texts(body):
     statement stands where a marker field of the draft record
     names the fallback or the preference as the opening's
     basis; the marker is read in any of its stated spellings,
-    as a bare word or as a compound value naming it.
-    """
+    as a bare word or as a compound value naming it."""
     if not (isinstance(body, dict) and "opening_text" in body
             and "actions" in body):
         return
@@ -730,7 +723,7 @@ def _apply_guide_texts(body):
     # The basis stands judged as a stated form whole, not
     # as a substring: a value that negates, combines, or
     # embeds the stated words is no stated form and renders
-    # no statement (Step 17 round 3 entry S17-R3-044).
+    # no statement.
     stated = basis.strip().casefold() if isinstance(basis, str) \
         else None
     if stated == "fallback":
@@ -769,7 +762,7 @@ def _apply_control_failure_notice(body):
         # level stands as a record top level for the pass,
         # so a spoofed notice on one stands removed and a
         # flagged one gains the fixed notice, as a dict
-        # record does (Step 17 round 5 entry S17-R5-043).
+        # record does.
         for item in body:
             if isinstance(item, (dict, list)):
                 _apply_control_failure_notice(item)
@@ -778,31 +771,28 @@ def _apply_control_failure_notice(body):
         return
     # The notice stands only on a record that states a
     # failed control, by its control_failed or
-    # control_failure flag standing true, and it stands
-    # in its fixed text. Notice text read from the record
-    # never stands as the artefact notice, at the top
-    # level or promoted from a nested object, and a
-    # record stating no failed control carries no notice:
-    # its notice shaped fields do not stand in the
-    # artefact in that role.
-    # The flag stands judged by truthiness, as the guide
-    # module judges the same field through bool() in
-    # draft_from_round, so one product reads a record as
-    # a failed control on the same terms the other
-    # renders its notice on; a control_flag standing at
-    # the record own top level states the failed control
-    # in the same way (Step 17 round 5 entry S17-R5-043).
-    # The three flag names stand judged as the same name
-    # under the component reading this module states for
-    # field names, so a flag standing under a case shifted,
-    # camel, or separator form of one of the three names
-    # states the failed control as the exact name does, at
-    # the top level and at any depth (Step 17 round 7
-    # entry S17-R7-039). control_flag stands judged at any
-    # depth as the other two flags are judged, over the
-    # walked objects, so a flag standing in a nested object
-    # or in a list item states the failed control in the
-    # same way (Step 17 round 6 entry S17-R6-037).
+    # control_failure flag standing true, and it stands in
+    # its fixed text. Notice text read from the record
+    # never stands as the artefact notice, at the top level
+    # or promoted from a nested object, and a record
+    # stating no failed control carries no notice: its
+    # notice shaped fields do not stand in the artefact in
+    # that role. The flag stands judged by truthiness, as
+    # the guide module judges the same field through bool
+    # in draft_from_round, so one product reads a record as
+    # a failed control on the same terms the other renders
+    # its notice on; a control_flag standing at the record
+    # own top level states the failed control in the same
+    # way. The three flag names stand judged as the same
+    # name under the component reading this module states
+    # for field names, so a flag standing under a case
+    # shifted, camel, or separator form of one of the three
+    # names states the failed control as the exact name
+    # does, at the top level and at any depth. control_flag
+    # stands judged at any depth as the other two flags are
+    # judged, over the walked objects, so a flag standing
+    # in a nested object or in a list item states the
+    # failed control in the same way.
     flag_components = (
         ("control", "failed"), ("control", "failure"),
         ("control", "flag"))
@@ -818,9 +808,7 @@ def _apply_control_failure_notice(body):
     # key carrying a hyphen, a doubled separator, or a
     # trailing space stands under the pass as the exact
     # underscore name does, as a case shifted form of one
-    # of the three names stood under it before (Step 17
-    # round 6 entry S17-R6-036, and round 7 entry
-    # S17-R7-038).
+    # of the three names stood under it before.
     notice_components = (
         ("control", "failure", "notice"), ("control", "notice"),
         ("failed", "control", "notice"))
@@ -841,8 +829,7 @@ def _apply_control_failure_notice(body):
     # The nested removal runs on every path, not only on
     # the path where no flag and no guide notice stands:
     # a spoofed notice in a nested object stands removed
-    # beside the fixed notice as on the empty path (Step
-    # 17 round 3 entry S17-R3-043).
+    # beside the fixed notice as on the empty path.
     for obj in _walk(body):
         if obj is body:
             continue
@@ -854,8 +841,8 @@ def _apply_control_failure_notice(body):
     # spoofed notice under any of the three keys at the
     # top level stands removed as a nested one does, and
     # only the fixed notice, or the guide notice a guide
-    # record carries in its own form, stands in its place
-    # (Step 17 round 5 entry S17-R5-043).
+    # record carries in its own form, stands in its
+    # place.
     for key in list(body):
         if is_notice_key(key):
             body.pop(key, None)
@@ -1002,8 +989,7 @@ def _advanced_body(record):
             # A list record stands under the passes that
             # judge the objects it carries at its top
             # level, the control notice pass and the scope
-            # pass, as a dict record does (Step 17 round 5
-            # entry S17-R5-043).
+            # pass, as a dict record does.
             _apply_control_failure_notice(body)
             _apply_agentic_scope(body)
         return body
@@ -1028,7 +1014,7 @@ def _advanced_body(record):
     # of the report markers: a flagged record carrying no
     # marker stands under both limbs of the discipline,
     # the fixed notice and the nested removal, as a marked
-    # record does (Step 17 round 4 entry S17-R4-045).
+    # record does.
     _apply_control_failure_notice(body)
     _apply_guide_texts(body)
     if _is_query_set_report(body):
@@ -1053,18 +1039,16 @@ def _advanced_body(record):
     return body
 
 
-# The words a fused field name can stand built from, for
-# the component reading at Step 17 round 6 entry
-# S17-R6-035: a fused name stands read as its components
-# only where the whole name segments into words of this
-# set, so a key holding the letters of a component inside
-# a longer word that segments no such way, as accurate
-# holds the letters of rate, keeps that component standing
-# outside it, as the Yellow boundary states. The set stands
-# completed on the product nouns the round 7 entry names:
-# citation, citations, evidence, quotation, quotations,
-# statistics, freshness, and sampling (Step 17 round 7
-# entry S17-R7-037).
+# The words a fused field name can stand built, for the
+# component reading at: a fused name stands read as its
+# components only where the whole name segments into words
+# of this set, so a key holding the letters of a component
+# inside a longer word that segments no such way, as
+# accurate holds the letters of rate, keeps that component
+# standing outside it, as the Yellow boundary states. The
+# set stands completed on the product nouns the round 7
+# entry names: citation, citations, evidence, quotation,
+# quotations, statistics, freshness, and sampling.
 _FUSED_COMPONENT_WORDS = frozenset((
     "action", "actions", "answer", "answers", "applicable",
     "audit", "band", "basis", "capture", "captured", "card",
@@ -1130,8 +1114,7 @@ def _key_components(key):
     separators and on its case shifts, in lower case. A
     part carrying no separator and no case shift stands
     read by the fused segmentation above, so a fused name
-    stands on the same components as its separated form
-    (Step 17 round 6 entry S17-R6-035)."""
+    stands on the same components as its separated form."""
     spaced = re.sub(
         r"(?<=[a-z0-9])(?=[A-Z])", "_", str(key))
     spaced = re.sub(
@@ -1163,16 +1146,14 @@ def _names_rate(key):
     names no rate, and a rate at the head of a compound
     whose next component is no rate qualifier, as
     rate_card stands, names none either, no product field
-    standing in that shape (Step 17 round 5 entry
-    S17-R5-042, with the Yellow adjacent run of round 5
-    at entry S17-R4-044). The fused forms stand read by
-    the same components as their separated forms, and the
-    head position limb stands judged on the same
-    component reading, its qualifier set completed on the
-    qualifiers the round 6 entry names beside the five
-    the round 5 cure names: low, high, count, interval,
-    share, ratio, mean, and total (Step 17 round 6 entry
-    S17-R6-035)."""
+    standing in that shape (with the Yellow adjacent run
+    of round 5 at). The fused forms stand read by the same
+    components as their separated forms, and the head
+    position limb stands judged on the same component
+    reading, its qualifier set completed on the qualifiers
+    the round 6 entry names beside the five the round 5
+    cure names: low, high, count, interval, share, ratio,
+    mean, and total."""
     parts = _key_components(key)
     if not parts:
         return False
@@ -1187,8 +1168,7 @@ def _names_rate(key):
         return True
     # The head qualifier set stands as one set for the
     # rate and score limbs alike, completed with basis,
-    # the score qualifier the rate set omitted (Step 17
-    # round 8 entry S17-R8-020).
+    # the score qualifier the rate set omitted.
     return parts[1] in _HEAD_QUALIFIERS
 
 
@@ -1202,7 +1182,7 @@ def _names_score(key):
     qualifier, as score_value stands. A score at the head
     whose next component is no qualifier, as the score
     version stamp key score_ruleset_version stands, names
-    no score figure (Step 17 round 6 entry S17-R6-035)."""
+    no score figure."""
     parts = _key_components(key)
     if "score" not in parts:
         return False
@@ -1213,7 +1193,7 @@ def _names_score(key):
     # score and rate limbs alike, so a score at the head
     # stands judged on every qualifier the rate limb
     # states, as a rate at the head stands judged on
-    # basis (Step 17 round 8 entry S17-R8-020).
+    # basis.
     return parts[1] in _HEAD_QUALIFIERS
 
 
@@ -1258,8 +1238,7 @@ def _apply_agentic_scope(body):
             # type but no value key stands as a ScoreObject
             # still: its claim type is the scope value in
             # every form, as a constant of its shape, and
-            # no missing value key shields it (Step 17
-            # round 5 entry S17-R5-042).
+            # no missing value key shields it.
             obj["claim_type"] = SCOPE_VALUE
             continue
         # The pass own stated rule: any record object
@@ -1267,30 +1246,27 @@ def _apply_agentic_scope(body):
         # the scope value in that same object. The shape
         # test stands on that rule whole, not on two
         # shapes: a tier beside a count, a bare rate, and
-        # a bare score key each carry the value (Step 17
-        # round 3 entry S17-R3-042). A score standing as a
-        # record object is the ScoreObject itself, whose
-        # claim type the fixed texts pass governs through
-        # its value field, so a dict score value here
-        # names that nested object, not a score figure
-        # this object carries.
-        # A rate stands under the field names the product
-        # itself uses for rates, not only under the bare
-        # rate key: a key naming a rate, as cited_rate and
+        # a bare score key each carry the value. A score
+        # standing as a record object is the ScoreObject
+        # itself, whose claim type the fixed texts pass
+        # governs through its value field, so a dict score
+        # value here names that nested object, not a score
+        # figure this object carries. A rate stands under
+        # the field names the product itself uses for
+        # rates, not only under the bare rate key: a key
+        # naming a rate, as cited_rate and
         # cited_rate_gross name one, carries a rate, and
         # the rate interval fields wilson_low and
         # wilson_high carry one on their own, with no tier
-        # standing beside them (Step 17 round 4 entry
-        # S17-R4-044).
-        # The shape test stands on the pass own rule
-        # whole, on the field names the product itself
-        # uses in every position and compound those names
-        # stand in: a tier under a compound key, a rate at
-        # the head of its key or fused or case shifted,
-        # the wilson interval fields in their pairings,
-        # and a score under a compound key each carry a
-        # rate, a tier, an interval, or a score as the
-        # bare keys do (Step 17 round 5 entry S17-R5-042).
+        # standing beside them. The shape test stands on
+        # the pass own rule whole, on the field names the
+        # product itself uses in every position and
+        # compound those names stand in: a tier under a
+        # compound key, a rate at the head of its key or
+        # fused or case shifted, the wilson interval
+        # fields in their pairings, and a score under a
+        # compound key each carry a rate, a tier, an
+        # interval, or a score as the bare keys do.
         carries = (
             any(
                 isinstance(key, str) and _names_tier(key)
@@ -1550,8 +1526,8 @@ def _figure_or_none(value):
             # its stated grouping, three digits to a group
             # after the first, so the figure stands judged
             # as a figure whole, where a misgrouped comma
-            # string reads as no figure and stands as text
-            # (Step 17 round 5 entry S17-R5-044).
+            # string reads as no figure and stands as
+            # text.
             parsed = float(value.strip().replace(",", ""))
         if parsed is None:
             return None
@@ -1576,13 +1552,12 @@ def _figure_text(value):
     """One figure in the Simple form at the precision the
     product states for its disclosed figures, four decimal
     places for a float, so no printed position stands at
-    full stored precision (Step 17 round 3 entry
-    S17-R3-045). A figure carried as a string that reads
-    as a finite number stands at the same precision, as
-    the rate and score readings already judge a string
-    figure through _figure_or_none (Step 17 round 4
-    entry S17-R4-046). A figure in no such form stands
-    as the plain scalar text stands."""
+    full stored precision. A figure carried as a string
+    that reads as a finite number stands at the same
+    precision, as the rate and score readings already
+    judge a string figure through _figure_or_none. A
+    figure in no such form stands as the plain scalar text
+    stands."""
     if isinstance(value, float):
         return _rate_value_text(value)
     if isinstance(value, str):
@@ -1681,7 +1656,7 @@ def _rate_line(name, node):
         # the fixed text stands where the stored form is
         # true or stands as that text, and a stored string
         # in any other words never replaces it in the
-        # artefact (Step 17 round 7 entry S17-R7-044).
+        # artefact.
         if warning is True or warning == SMALL_SAMPLE_WARNING:
             line += " " + SMALL_SAMPLE_WARNING
         return line
@@ -1754,13 +1729,12 @@ def _key_names_figure(key):
     components whose head is a figure word the branch
     names, whose tail is value, and whose middle component
     is a word the branch itself names, in its tail set or
-    in its head qualifier set, stands in the set as the
-    two component head compounds stand (Step 17 round 9
-    entry S17-R9-016). And the reading stands judged at
-    the list branch of _emit in this same form, so a
-    figure standing inside a list under a key of the set
-    prints at four places as the scalar under that key
-    does (Step 17 round 9 entry S17-R9-018)."""
+    in its head qualifier set, stands in the set as the two
+    component head compounds stand. And the reading stands
+    judged at the list branch of _emit in this same form,
+    so a figure standing inside a list under a key of the
+    set prints at four places as the scalar under that key
+    does."""
     if not isinstance(key, str):
         return False
     components = _key_components(key)
@@ -1820,9 +1794,9 @@ def _emit(lines, key, value, depth, suppress_anchor_bare=False,
         # four place set prints at four places, in float
         # form and in string form alike, and the judgement
         # stands carried through a nested list, whose
-        # items stand under the same key (Step 17 round 9
-        # entry S17-R9-018). An item standing as a record
-        # stands judged by its own keys, as before.
+        # items stand under the same key. An item standing
+        # as a record stands judged by its own keys, as
+        # before.
         item_figure = figure_key or _key_names_figure(key)
         for item in value:
             if isinstance(item, list):
@@ -1843,30 +1817,25 @@ def _emit(lines, key, value, depth, suppress_anchor_bare=False,
     # string under a key the set names prints at four
     # places as its float form does, judged through the
     # same _figure_or_none reading the named positions
-    # use, and the bare score key stands in the set, a
-    # key the product itself treats as carrying a figure
-    # (Step 17 round 5 entries S17-R5-045 and S17-R5-046).
-    # The set stands completed on the four further keys
-    # the precision cures themselves name as product
-    # figure names: rate_value, rate_pct, overall_score,
-    # and the bare wilson key (Step 17 round 6 entry
-    # S17-R6-038).
-    # The branch key reading stands completed under the
-    # module component reading: a score compound, a pct
-    # compound, and a wilson name standing as a suffix
-    # stand in the set as the cured forms do, in float
-    # form and in string form alike (Step 17 round 7
-    # entry S17-R7-040). The head compound limb of that
-    # reading stands completed past score: a percent,
-    # pct, share, gross, or net component standing at
-    # the head of a compound whose next component is
-    # value stands in the set as score_value stands
-    # (Step 17 round 8 entry S17-R8-021). That limb
-    # stands completed on the three component compounds
-    # whose middle component the branch itself names,
-    # and the whole reading stands in _key_names_figure,
-    # judged at the list branch in the same form (Step
-    # 17 round 9 entries S17-R9-016 and S17-R9-018).
+    # use, and the bare score key stands in the set, a key
+    # the product itself treats as carrying a figure. The
+    # set stands completed on the four further keys the
+    # precision cures themselves name as product figure
+    # names: rate_value, rate_pct, overall_score, and the
+    # bare wilson key. The branch key reading stands
+    # completed under the module component reading: a
+    # score compound, a pct compound, and a wilson name
+    # standing as a suffix stand in the set as the cured
+    # forms do, in float form and in string form alike.
+    # The head compound limb of that reading stands
+    # completed past score: a percent, pct, share, gross,
+    # or net component standing at the head of a compound
+    # whose next component is value stands in the set as
+    # score_value stands. That limb stands completed on
+    # the three component compounds whose middle component
+    # the branch itself names, and the whole reading
+    # stands in _key_names_figure, judged at the list
+    # branch in the same form.
     if _value_is_figure_form(value) and _key_names_figure(key):
         lines.append("%s%s: %s" % (pad, key, _figure_text(value)))
         return
@@ -2397,9 +2366,9 @@ def _render_audit_simple(body):
             continue
         # The earned figure is a fraction of the check
         # weight, never points out of the weight: the line
-        # states the fraction, the weight it is a fraction
-        # of, and the points the fraction is worth toward
-        # the score, so the arithmetic a reader does on the
+        # states the fraction, the weight it is a fraction,
+        # and the points the fraction is worth toward the
+        # score, so the arithmetic a reader does on the
         # line is the arithmetic the score rests on.
         earned = check.get("earned")
         weight = check.get("weight")
@@ -2623,22 +2592,20 @@ def _failure_value_text(value):
     """One stored field value in the Simple failure line.
 
     A value holding one of the separators the line itself
-    is built from, the field separator, the sentence
+    is built, the field separator, the sentence
     separator, or the separator phrase, stands quoted, so
     the value cannot forge a second field, a second
     subject, or a second sentence inside the one line:
     the break the separator limb states stands in the
     line structure, and the quoting closes it while the
     value itself stands character for character inside
-    its quotes (Step 17 round 5 entry S17-R5-049). A
-    quote character the value itself holds stands
-    escaped inside the quoting, and a backslash stands
-    escaped before it, so the quoted span cannot break
-    open at the value own quote and no separator inside
-    the value stands outside the quotes after all (Step
-    17 round 6 entry S17-R6-041). A value holding no
-    separator stands as the plain scalar text stands, as
-    before."""
+    its quotes. A quote character the value itself holds
+    stands escaped inside the quoting, and a backslash
+    stands escaped before it, so the quoted span cannot
+    break open at the value own quote and no separator
+    inside the value stands outside the quotes after all.
+    A value holding no separator stands as the plain
+    scalar text stands, as before."""
     text = _scalar_text(value)
     if ", " in text or ". " in text or " failed with " in text \
             or any(br in text for br in _LINE_BREAK_CHARS):
@@ -2647,20 +2614,17 @@ def _failure_value_text(value):
         # form is built of lines, so the value stands
         # quoted and its line breaks stand escaped inside
         # the quoting, and the one line the builder builds
-        # stands as one physical line (Step 17 round 7
-        # entry S17-R7-049). The judged set stands
-        # completed on the whole standard line boundary
-        # set the artefact itself is read by, the vertical
-        # tab, the form feed, the next line character, the
-        # line separator, and the paragraph separator
-        # standing beside the newline and the carriage
-        # return (Step 17 round 8 entry S17-R8-023). The
-        # set stands completed on the three remaining
-        # characters of that same reading, the file
-        # separator, the group separator, and the record
-        # separator, each standing in its backslash u form
-        # inside the quoting (Step 17 round 9 entry
-        # S17-R9-015).
+        # stands as one physical line. The judged set
+        # stands completed on the whole standard line
+        # boundary set the artefact itself is read, the
+        # vertical tab, the form feed, the next line
+        # character, the line separator, and the paragraph
+        # separator standing beside the newline and the
+        # carriage return. The set stands completed on the
+        # three remaining characters of that same reading,
+        # the file separator, the group separator, and the
+        # record separator, each standing in its backslash
+        # u form inside the quoting.
         escaped = text.replace("\\", "\\\\").replace(
             '"', '\\"').replace("\r", "\\r").replace(
             "\n", "\\n").replace("\x0b", "\\v").replace(
@@ -2683,12 +2647,10 @@ def _failure_record_line(failure):
     operation, its error value, and its subject. A field
     the payload does not hold stands in no form in the
     line: the scalar text for an absent value would
-    state a value the store does not hold (Step 17
-    round 4 entry S17-R4-074). A partial payload states
-    every field it holds under its field name, and only
-    a payload holding no field at all stands stated as
-    holding none (Step 17 round 5 entry S17-R5-049).
-    """
+    state a value the store does not hold. A partial
+    payload states every field it holds under its field
+    name, and only a payload holding no field at all
+    stands stated as holding none."""
     operation = failure.get("operation")
     error_value = failure.get("error_value")
     subject = failure.get("subject_identity")
@@ -2705,9 +2667,8 @@ def _failure_record_line(failure):
     # standing form renders, a date and a rule among
     # them, and the figure fields a recovery record
     # carries, and a payload holding any of them does
-    # not stand stated as holding no fields (Step 17
-    # round 5 entry S17-R5-049, merging reporting GR-8
-    # and White W-04).
+    # not stand stated as holding no fields (merging
+    # reporting GR-8 and White W-04).
     parts = []
     stated = set()
     for key, label in (
@@ -2727,13 +2688,12 @@ def _failure_record_line(failure):
         if key in stated or value is None:
             continue
         # Each further field name stands judged by the
-        # quoting the line is built from, as each value
-        # is: a name holding one of the line own
-        # separators stands quoted with its quote
-        # characters escaped, so a separator standing in
-        # a field name cannot forge a field boundary, a
-        # subject segment, or a sentence in the line
-        # (Step 17 round 6 entry S17-R6-041).
+        # quoting the line is built, as each value is: a
+        # name holding one of the line own separators
+        # stands quoted with its quote characters
+        # escaped, so a separator standing in a field
+        # name cannot forge a field boundary, a subject
+        # segment, or a sentence in the line.
         parts.append(
             "%s %s" % (_failure_value_text(key),
                        _failure_value_text(value)))
@@ -3045,29 +3005,26 @@ def _fold(text):
     return " ".join(folded.split())
 
 
-# The one word token form, shared in shape with the
-# guide module tokeniser: a number stands as one token
-# whole, carrying its thousands separators in their
-# groups, its decimal parts at every point it carries,
-# and a letter suffix standing on its last part, so no
-# separator the number is written with splits it (Step
-# 17 round 5 entry S17-R5-047). The form stands completed
-# on the dressings the round 6 entry names: a suffix
-# carrying a trailing digit stands on the last part with
-# its digit, an exponent part stands in the number, and
-# an underscore grouping stands as a thousands grouping
-# does (Step 17 round 6 entry S17-R6-039). The form stands
-# completed on the dressings the round 7 entry names: an
-# apostrophe grouping stands as a thousands grouping, an
-# underscore grouping stands inside the exponent part, and
-# an underscore digit stands inside the letter suffix
-# (Step 17 round 7 entry S17-R7-041). The suffix limb
-# stands completed again on the composed dressings: a
-# trailing digit standing before an underscore digit
-# group, and underscore digit groups standing repeated
-# inside the suffix, as the exponent limb already admits
-# its grouping repeated (Step 17 round 8 entry
-# S17-R8-022).
+# The one word token form, shared in shape with the guide
+# module tokeniser: a number stands as one token whole,
+# carrying its thousands separators in their groups, its
+# decimal parts at every point it carries, and a letter
+# suffix standing on its last part, so no separator the
+# number is written with splits it. The form stands
+# completed on the dressings the round 6 entry names: a
+# suffix carrying a trailing digit stands on the last part
+# with its digit, an exponent part stands in the number,
+# and an underscore grouping stands as a thousands
+# grouping does. The form stands completed on the
+# dressings the round 7 entry names: an apostrophe
+# grouping stands as a thousands grouping, an underscore
+# grouping stands inside the exponent part, and an
+# underscore digit stands inside the letter suffix. The
+# suffix limb stands completed again on the composed
+# dressings: a trailing digit standing before an
+# underscore digit group, and underscore digit groups
+# standing repeated inside the suffix, as the exponent
+# limb already admits its grouping repeated.
 _WORD_TOKEN_PATTERN = (
     r"\d+(?:[,_']\d{3})*(?:\.\d+)*"
     r"(?:[eE][+-]?\d+(?:_\d+)*)?"
@@ -3081,8 +3038,7 @@ def _word_tokens(text):
     over word tokens, words as alphanumeric tokens, and
     a decimal number counting as one word, so a decimal
     point standing between digits does not split the
-    number it stands in (Step 17 round 4 entry
-    S17-R4-048)."""
+    number it stands in."""
     return re.findall(
         _WORD_TOKEN_PATTERN, _fold(text), flags=re.UNICODE)
 
@@ -3090,8 +3046,7 @@ def _word_tokens(text):
 def _tokens_match(tokens, entry_tokens):
     """True where an entry stands in a token list as a
     consecutive token sequence. An entry folding to no
-    token matches nothing (Step 17 round 3 entries
-    S17-R3-056 and S17-R3-057)."""
+    token matches nothing."""
     if not tokens or not entry_tokens:
         return False
     width = len(entry_tokens)
@@ -3119,7 +3074,7 @@ def _classify_query(query, product_names, competitor_names):
     if named_competitor:
         # The comparison form also stands where a
         # registered competitor name or alias stands in
-        # the query (Step 17 round 3 entry S17-R3-054).
+        # the query.
         comparison = True
     bare_topic = not (interrogative or comparison or named_product
                       or named_competitor)
@@ -3185,7 +3140,7 @@ def derive_query_set_report(product):
                 # is no list of strings is a type swapped
                 # field, refused in the open instead of
                 # standing converted by string form into a
-                # name (Step 17 round 3 entry S17-R3-058).
+                # name.
                 if not isinstance(aliases, (list, tuple)) or any(
                         not isinstance(item, str) for item in aliases):
                     raise ValueError(
@@ -3498,9 +3453,8 @@ def _rule_text_changed_rows(first, second, existing):
             # The wildcard group supplies every table row,
             # so a pair the finding rows state on any row
             # already states the wildcard candidate, the
-            # governed form the S17-R1X-036 reconciliation
-            # records. A named token is judged on its own
-            # rows alone.
+            # governed form the reconciliation records. A
+            # named token is judged on its own rows alone.
             stated = finding_pairs_any if display == "*" \
                 else finding_pairs.get(display, ())
             if (before, after) in stated:

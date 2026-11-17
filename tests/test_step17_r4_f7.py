@@ -1,18 +1,12 @@
-"""Step 17 round 4 fix seat F7 tests: service, watch, seams.
+"""Service, watch, seams.
 
 Pins the register entries charged to F7 in fix round 4:
-S17-R4-050, S17-R4-051, S17-R4-052, S17-R4-053,
-S17-R4-054, S17-R4-055, S17-R4-056, S17-R4-057,
-S17-R4-058, S17-R4-059, S17-R4-060, S17-R4-061,
-S17-R4-066, S17-R4-067, S17-R4-073, S17-R4-075, and
-S17-R4-076. Entry S17-R4-072 is a rename charge in
-product/tests/test_step16_f5.py and stands pinned by
-that file's own run, not by a test here. Every test
-was written before its cure and run failing for the
-register stated reason, except the controls named as
-controls. Oracle: the round 4 findings register and
-disposition.
-"""
+and. Entry is a rename charge in
+product/tests/test_step16_f5.py and stands pinned by that
+file's own run, not by a test here. Every test was written
+before its cure and run failing for the register stated
+reason, except the controls named as controls. Oracle: the
+round 4 findings register and disposition."""
 
 import json
 import os
@@ -124,8 +118,8 @@ class SeededBase(unittest.TestCase):
         return do_import(self.home, answer)
 
 
-# ----------------------------------------------------------------
-# S17-R4-050: export_capture_worksheet runs the recovery.
+# ----------------------------------------------------------------:
+# export_capture_worksheet runs the recovery.
 # ----------------------------------------------------------------
 
 class Test050WorksheetExportRecovery(SeededBase):
@@ -143,8 +137,8 @@ class Test050WorksheetExportRecovery(SeededBase):
         self.assertFalse(out.exists())
 
 
-# ----------------------------------------------------------------
-# S17-R4-051: registry judgement routes judge recovered state.
+# ----------------------------------------------------------------:
+# registry judgement routes judge recovered state.
 # ----------------------------------------------------------------
 
 class Test051RegistryRoutesRecover(SeededBase):
@@ -168,8 +162,8 @@ class Test051RegistryRoutesRecover(SeededBase):
         self.assertFalse(intent.exists())
 
 
-# ----------------------------------------------------------------
-# S17-R4-052: robots routes leave no partial batch standing.
+# ----------------------------------------------------------------:
+# robots routes leave no partial batch standing.
 # ----------------------------------------------------------------
 
 class Test052RobotsRoutesRecover(SeededBase):
@@ -189,8 +183,8 @@ class Test052RobotsRoutesRecover(SeededBase):
         self.assertFalse(intent.exists())
 
 
-# ----------------------------------------------------------------
-# S17-R4-053: robots preview audit date failure is recorded.
+# ----------------------------------------------------------------:
+# robots preview audit date failure is recorded.
 # ----------------------------------------------------------------
 
 class Test053PreviewAuditDateRecorded(SeededBase):
@@ -208,8 +202,8 @@ class Test053PreviewAuditDateRecorded(SeededBase):
         self.assertEqual(after - before, 1)
 
 
-# ----------------------------------------------------------------
-# S17-R4-054: the home check stands on estate_grounds and
+# ----------------------------------------------------------------:
+# the home check stands on estate_grounds and
 # export_capture_worksheet as on list_products.
 # ----------------------------------------------------------------
 
@@ -246,8 +240,8 @@ class Test054HomeCheck(unittest.TestCase):
         self.assertEqual(token_of(caught.exception), "HOME_MISSING")
 
 
-# ----------------------------------------------------------------
-# S17-R4-055: the snapshot boolean stands judged.
+# ----------------------------------------------------------------:
+# the snapshot boolean stands judged.
 # ----------------------------------------------------------------
 
 class Test055SnapshotBooleanJudged(SeededBase):
@@ -277,8 +271,8 @@ class Test055SnapshotBooleanJudged(SeededBase):
         self.assertEqual(count, 0)
 
 
-# ----------------------------------------------------------------
-# S17-R4-056: a negative answer size count stands judged.
+# ----------------------------------------------------------------:
+# a negative answer size count stands judged.
 # ----------------------------------------------------------------
 
 class Test056NegativeAnswerSize(SeededBase):
@@ -297,8 +291,8 @@ class Test056NegativeAnswerSize(SeededBase):
             token_of(caught.exception), "VALIDATION_FAILED")
 
 
-# ----------------------------------------------------------------
-# S17-R4-057: an empty string selector stands as no selector.
+# ----------------------------------------------------------------:
+# an empty string selector stands as no selector.
 # ----------------------------------------------------------------
 
 class Test057EmptySelector(unittest.TestCase):
@@ -328,8 +322,8 @@ class Test057EmptySelector(unittest.TestCase):
         self.assertEqual(len(targets), 1)
 
 
-# ----------------------------------------------------------------
-# S17-R4-058: the cadence reading stands inside its stated forms.
+# ----------------------------------------------------------------:
+# the cadence reading stands inside its stated forms.
 # ----------------------------------------------------------------
 
 class Test058CadenceForms(unittest.TestCase):
@@ -347,9 +341,9 @@ class Test058CadenceForms(unittest.TestCase):
             watch._cadence_interval_days("every 2 days"), 2)
 
 
-# ----------------------------------------------------------------
-# S17-R4-059: the vocabulary lookup helpers meet an
-# unhashable value in the module's own form.
+# ----------------------------------------------------------------:
+# the vocabulary lookup helpers meet an unhashable value in the
+# module's own form.
 # ----------------------------------------------------------------
 
 class Test059LookupHelpers(unittest.TestCase):
@@ -375,8 +369,8 @@ class Test059LookupHelpers(unittest.TestCase):
             errors.error_for_row("U-6")["token"], "HOME_MISSING")
 
 
-# ----------------------------------------------------------------
-# S17-R4-060: the key count stands enforced over the whole block.
+# ----------------------------------------------------------------:
+# the key count stands enforced over the whole block.
 # ----------------------------------------------------------------
 
 class Test060KeyCountWholeBlock(SeededBase):
@@ -402,8 +396,8 @@ class Test060KeyCountWholeBlock(SeededBase):
         self.assertEqual(token_of(caught.exception), "LIMIT_EXCEEDED")
 
 
-# ----------------------------------------------------------------
-# S17-R4-061: one reading of the limits governs the whole run.
+# ----------------------------------------------------------------:
+# one reading of the limits governs the whole run.
 # ----------------------------------------------------------------
 
 class Test061OneLimitsReading(SeededBase):
@@ -438,9 +432,8 @@ class Test061OneLimitsReading(SeededBase):
         self.assertEqual(token_of(caught.exception), "LIMIT_EXCEEDED")
 
 
-# ----------------------------------------------------------------
-# S17-R4-066: the failure record kind stands judged at its
-# surfacing readers.
+# ----------------------------------------------------------------:
+# the failure record kind stands judged at its surfacing readers.
 # ----------------------------------------------------------------
 
 class Test066FailureRecordKindJudged(SeededBase):
@@ -479,9 +472,9 @@ class Test066FailureRecordKindJudged(SeededBase):
         self.assertEqual(len(result.get("failure_records") or []), 1)
 
 
-# ----------------------------------------------------------------
-# S17-R4-067: the audit identities stand against a batch
-# head recovery landing inside the assembly hold.
+# ----------------------------------------------------------------:
+# the audit identities stand against a batch head recovery landing
+# inside the assembly hold.
 # ----------------------------------------------------------------
 
 class Test067AuditIdentitiesAgainstRecovery(SeededBase):
@@ -514,9 +507,9 @@ class Test067AuditIdentitiesAgainstRecovery(SeededBase):
             standing["limits_in_force"]["run_id"], record["run_id"])
 
 
-# ----------------------------------------------------------------
-# S17-R4-073: the probe import batch call stands inside the
-# route failure record discipline.
+# ----------------------------------------------------------------:
+# the probe import batch call stands inside the route failure
+# record discipline.
 # ----------------------------------------------------------------
 
 class Test073ImportBatchFailureRecorded(SeededBase):
@@ -535,9 +528,8 @@ class Test073ImportBatchFailureRecorded(SeededBase):
         self.assertEqual(records[0].get("operation"), "probe import")
 
 
-# ----------------------------------------------------------------
-# S17-R4-075: one probe report artefact stands on one fold
-# instant.
+# ----------------------------------------------------------------:
+# one probe report artefact stands on one fold instant.
 # ----------------------------------------------------------------
 
 class Test075ProbeReportOneInstant(SeededBase):
@@ -577,9 +569,9 @@ class Test075ProbeReportOneInstant(SeededBase):
         self.assertIn("UNKNOWN_ROUND", values)
 
 
-# ----------------------------------------------------------------
-# S17-R4-076: the guide assembly stands under the identity
-# discipline the audit assembly stands under.
+# ----------------------------------------------------------------:
+# the guide assembly stands under the identity discipline the
+# audit assembly stands under.
 # ----------------------------------------------------------------
 
 class Test076GuideStoreReReads(SeededBase):

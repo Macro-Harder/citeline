@@ -1,42 +1,32 @@
-"""Step 17 round 16 fix seat F2 tests, registry and acquisition.
+"""Registry and acquisition.
 
-Test first pins for register entries S17-R16-009,
-S17-R16-010, and S17-R16-011, each Low. Entry
-S17-R16-009: a sole category Lo follower separated
-from its construct by one head gap character passes
-at both readings, the follower judgement of the
-position scan standing on the character immediately
-after the construct character while the older
-readings remove the gap and the follower together.
-Entry S17-R16-010: pair forms with a head gap
-character in front of a mark follower pass at both
-readings, the scan unable to reach the mark past
-the gap and the older readings consuming the second
-construct judged position at the first finditer
-match. Entry S17-R16-011: the two worked pair forms
-of entry S17-R16-010 stand refused at the import
-line key position and passed at the page line key
-position on the same block text, the import key
-judgement running its helper on the judged key and
-on the key past its head material and the page key
-judgement running its helper on the key past its
-head material alone.
+Test first pins for register, and, each Low. Entry: a sole
+category Lo follower separated from its construct by one head
+gap character passes at both readings, the follower judgement of
+the position scan standing on the character immediately after
+the construct character while the older readings remove the gap
+and the follower together. Entry: pair forms with a head gap
+character in front of a mark follower pass at both readings, the
+scan unable to reach the mark past the gap and the older
+readings consuming the second construct judged position at the
+first finditer match. Entry: the two worked pair forms of stand
+refused at the import line key position and passed at the page
+line key position on the same block text, the import key
+judgement running its helper on the judged key and on the key
+past its head material and the page key judgement running its
+helper on the key past its head material alone.
 
-The defect pins assert the page side alone, in the
-form the page side limb pins of the earlier rounds
-took: the import side limbs of entries S17-R16-009
-and S17-R16-010 stand inside the F4 charge of this
-wave and land after this seat in the dependency
-order, by the cure rule this seat states in its
-paper. Entry S17-R16-011 stands at the page key
-judgement alone, with no F4 limb. The controls
-assert both readings where the standing the control
-names already stands at both, and assert the page
-reading where a control names a page standing the
-scan cure moves, in the form the entry states.
-Every pin runs in memory at the readings and at the
-helpers, so no pin stands on a temporary directory.
-"""
+The defect pins assert the page side alone, in the form the page
+side limb pins of the earlier rounds took: the import side limbs
+of stand inside the F4 charge of this wave and land after this
+seat in the dependency order, by the cure rule this seat states
+in its paper. Entry stands at the page key judgement alone, with
+no F4 limb. The controls assert both readings where the standing
+the control names already stands at both, and assert the page
+reading where a control names a page standing the scan cure
+moves, in the form the entry states. Every pin runs in memory at
+the readings and at the helpers, so no pin stands on a temporary
+directory."""
 
 import json
 import unittest

@@ -1,9 +1,8 @@
-"""Step 17 round 2 fix seat F6 tests, guide and reporting.
+"""Guide and reporting.
 
 Each test pins one register entry from the round 2 findings
 register, in the form the register states. Written before
-the cures, watched failing, then watched passing.
-"""
+the cures, watched failing, then watched passing."""
 
 import json
 import unittest
@@ -50,8 +49,8 @@ def guide_record(**overrides):
 
 
 class TestQuotableOneRule056(unittest.TestCase):
-    """S17-R2-056: the guide quotable test stands on the
-    checks earning rules as one rule."""
+    """: the guide quotable test stands on the checks
+    earning rules as one rule."""
 
     FALSE_CASES = [
         "Example Product launched in 2025, to wide praise "
@@ -100,8 +99,8 @@ class TestQuotableOneRule056(unittest.TestCase):
 
 
 class TestFixedGuideSentences057(unittest.TestCase):
-    """S17-R2-057: fixed guide sentences assigned outright,
-    selection governed by selection_basis at rendering."""
+    """: fixed guide sentences assigned outright, selection
+    governed by selection_basis at rendering."""
 
     def test_basis_governs_over_marker_shaped_run_id(self):
         record = guide_record(
@@ -154,8 +153,8 @@ class TestFixedGuideSentences057(unittest.TestCase):
 
 
 class TestGuideFromRun058(unittest.TestCase):
-    """S17-R2-058: selection inputs of a draft from a
-    stored run stand on the stored record."""
+    """: selection inputs of a draft from a stored run
+    stand on the stored record."""
 
     GADGET = (
         "Gadget Weekly recorded 42 percent faster "
@@ -184,8 +183,7 @@ class TestGuideFromRun058(unittest.TestCase):
 
 
 class TestChoosingGate059(unittest.TestCase):
-    """S17-R2-059: the choosing function runs the quotable
-    gate itself."""
+    """: the choosing function runs the quotable gate itself."""
 
     def test_only_unquotable_returns_none(self):
         self.assertIsNone(
@@ -199,8 +197,8 @@ class TestChoosingGate059(unittest.TestCase):
 
 
 class TestSentenceCollection060(unittest.TestCase):
-    """S17-R2-060: a string sentence collection is one
-    item, never its characters."""
+    """: a string sentence collection is one item, never
+    its characters."""
 
     def test_string_sentences_input_is_one_sentence(self):
         draft = guide.draft_from_audit_record(
@@ -214,8 +212,8 @@ class TestSentenceCollection060(unittest.TestCase):
 
 
 class TestEmptyRoundNotice061(unittest.TestCase):
-    """S17-R2-061: the empty round notice derives from
-    the basis the triggers computed on."""
+    """: the empty round notice derives from the basis
+    the triggers computed on."""
 
     def test_metrics_only_empty_round_carries_notice(self):
         metrics = {"rates": {
@@ -239,8 +237,8 @@ class TestEmptyRoundNotice061(unittest.TestCase):
 
 
 class TestSeparatorEscaping062(unittest.TestCase):
-    """S17-R2-062: U+2028 and U+2029 become spaces at the
-    Simple escaping point."""
+    """: U+2028 and U+2029 become spaces at the Simple
+    escaping point."""
 
     def test_separator_in_value_forges_no_line(self):
         record = {
@@ -261,8 +259,8 @@ class TestSeparatorEscaping062(unittest.TestCase):
 
 
 class TestScopeShield063(unittest.TestCase):
-    """S17-R2-063: no shield position on rate and tier
-    objects; claim_type stands fixed outright."""
+    """: no shield position on rate and tier objects;
+    claim_type stands fixed outright."""
 
     def test_shielded_rate_object_claim_type_fixed(self):
         record = {"rates": {"named": {
@@ -291,8 +289,8 @@ class TestScopeShield063(unittest.TestCase):
 
 
 class TestControlNotice064(unittest.TestCase):
-    """S17-R2-064: the control notice stands only on a
-    record that states a failed control, in fixed text."""
+    """: the control notice stands only on a record that
+    states a failed control, in fixed text."""
 
     def test_spoofed_notice_without_failed_control_absent(self):
         record = {
@@ -338,8 +336,8 @@ class TestControlNotice064(unittest.TestCase):
 
 
 class TestMagnitude065(unittest.TestCase):
-    """S17-R2-065: figures of great magnitude render
-    without raw errors."""
+    """: figures of great magnitude render without raw
+    errors."""
 
     def test_huge_score_simple_renders(self):
         record = {
@@ -374,8 +372,8 @@ class TestMagnitude065(unittest.TestCase):
 
 
 class TestStringFigures066(unittest.TestCase):
-    """S17-R2-066: figures carried as strings stand as
-    no figure in the Simple form and crash nothing."""
+    """: figures carried as strings stand as no figure in
+    the Simple form and crash nothing."""
 
     def test_string_score_prints_no_score_claim(self):
         record = {
@@ -397,8 +395,8 @@ class TestStringFigures066(unittest.TestCase):
 
 
 class TestSimpleKeyCollision067(unittest.TestCase):
-    """S17-R2-067: a key collision created at the Simple
-    escaping point refuses in the open."""
+    """: a key collision created at the Simple escaping
+    point refuses in the open."""
 
     def test_newline_key_collision_refused(self):
         record = {"a\nb": "FIRST-VALUE", "a b": "SECOND-VALUE"}
@@ -413,8 +411,8 @@ class TestSimpleKeyCollision067(unittest.TestCase):
 
 
 class TestSimpleJsonSyntax068(unittest.TestCase):
-    """S17-R2-068: no JSON object syntax stands in the
-    Simple form, on the brief criterion."""
+    """: no JSON object syntax stands in the Simple form,
+    on the brief criterion."""
 
     def test_spaced_object_value_does_not_parse(self):
         record = {"product_name": '{ "evil": 1, "score": 100 }'}
@@ -436,8 +434,7 @@ class TestSimpleJsonSyntax068(unittest.TestCase):
 
 
 class TestPrecision069(unittest.TestCase):
-    """S17-R2-069: figure precision at every printed
-    position."""
+    """: figure precision at every printed position."""
 
     def test_secondary_figure_prints_at_one_decimal(self):
         record = {
@@ -470,8 +467,8 @@ def staleness_record(rows):
 
 
 class TestStalenessSimple096(unittest.TestCase):
-    """S17-R2-096: the staleness Simple form states the
-    uncompared and conflicted states."""
+    """: the staleness Simple form states the uncompared
+    and conflicted states."""
 
     def test_stale_with_uncompared_axis_states_both(self):
         row = {
@@ -519,8 +516,7 @@ def reporting_stale_note():
 
 
 class TestStalenessZeroAxes102(unittest.TestCase):
-    """S17-R2-102: no current verdict over zero compared
-    axes."""
+    """: no current verdict over zero compared axes."""
 
     def test_row_binding_nothing_is_uncompared(self):
         from citeline import service

@@ -164,13 +164,12 @@ def _failure_fields(exc):
 
 def _open_plan(plan_file):
     # The plan file path itself stands judged before any
-    # filesystem call can raise on it (Step 17 round 3
-    # entry S17-R3-049, in the family of S17-R2-077 and
-    # S17-R2-078): a path string carrying a NUL character
-    # or a lone surrogate names no file at all, and refuses
-    # at open as MALFORMED_CALL, in the governed form the
-    # unreadable plan file already answers in, never as a
-    # raw ValueError or UnicodeEncodeError.
+    # filesystem call can raise on it: a path string
+    # carrying a NUL character or a lone surrogate names no
+    # file at all, and refuses at open as MALFORMED_CALL,
+    # in the governed form the unreadable plan file already
+    # answers in, never as a raw ValueError or
+    # UnicodeEncodeError.
     if isinstance(plan_file, str):
         if "\x00" in plan_file:
             _fail(
@@ -288,10 +287,10 @@ def _open_plan(plan_file):
             object_pairs_hook=_pairs_no_duplicates)
     except (UnicodeDecodeError, ValueError, RecursionError) as exc:
         # A duplicate key stands refused outright, as at
-        # the sibling JSON intakes (Step 17 entry
-        # S17-R1-074), and a plan nested past the parser
-        # depth stands refused in the same value, not as a
-        # raw crash (the WatchPlan limb of S17-R1-033).
+        # the sibling JSON intakes, and a plan nested past
+        # the parser depth stands refused in the same
+        # value, not as a raw crash (the WatchPlan limb
+        # of).
         _fail(
             "MALFORMED_CALL",
             "the WatchPlan file does not parse: %s" % (exc,))
@@ -305,9 +304,8 @@ def _pairs_no_duplicates(pairs):
 
     Both sibling JSON intakes (journal lines, config)
     refuse duplicate keys outright; the WatchPlan intake
-    stands under the same discipline (Step 17 entry
-    S17-R1-074), at every object depth of the plan.
-    """
+    stands under the same discipline, at every object
+    depth of the plan."""
     result = {}
     for key, value in pairs:
         if key in result:
@@ -318,8 +316,8 @@ def _pairs_no_duplicates(pairs):
 
 # The plan keys the WatchPlan shape states, and the
 # target keys it states: a key outside these sets stands
-# named in the round's plan warnings (Step 17 entry
-# S17-R1-109), never silently ignored.
+# named in the round's plan warnings, never silently
+# ignored.
 _PLAN_KEYS = ("home", "scope", "targets", "form", "audit_date",
               "output", "cadence", "second_round", "second_rounds")
 _TARGET_KEYS = ("product", "page_file", "round", "robots_file",
@@ -351,11 +349,11 @@ def _plan_warnings(plan, targets):
                     "states and the target runs without it"
                     % (key,))
     # A second_rounds record key naming no product the
-    # plan targets stands warned in the open (Step 17
-    # round 6 entry S17-R6-045): the dispatch reads the
-    # record by product name, so such a key can never be
-    # read, and it stands named here instead of standing
-    # disregarded in silence at the dispatch.
+    # plan targets stands warned in the open: the
+    # dispatch reads the record by product name, so such
+    # a key can never be read, and it stands named here
+    # instead of standing disregarded in silence at the
+    # dispatch.
     second_rounds = plan.get("second_rounds")
     if isinstance(second_rounds, dict):
         target_products = {
@@ -372,14 +370,13 @@ def _plan_warnings(plan, targets):
                         "without it" % (key,))
     if plan.get("scope") == "estate":
         # On an estate plan the record stands disregarded
-        # whole (Step 17 round 7 entry S17-R7-047): the
-        # estate dispatch runs on the grounds rounds and
-        # reads no second_rounds field at all, picked
-        # targets standing empty here by the plan's own
-        # form, so every key of the record, and the list
-        # form beside it, stands named in the open here
-        # instead of standing disregarded in silence, on
-        # the same ground the estate targets discipline
+        # whole: the estate dispatch runs on the grounds
+        # rounds and reads no second_rounds field at all,
+        # picked targets standing empty here by the plan's
+        # own form, so every key of the record, and the
+        # list form beside it, stands named in the open
+        # here instead of standing disregarded in silence,
+        # on the same ground the estate targets discipline
         # states at open. Both watch modes stand as
         # options under Captain JP's rulings; this warning
         # rules neither mode away, it names the field the
@@ -427,8 +424,8 @@ def _validate_plan(plan):
     # The WatchPlan shape states each field's type, and a
     # value outside its field's type stands refused at
     # open as MALFORMED_CALL, as the other shape refusals
-    # stand (Step 17 entries S17-R1-069 and S17-R1-072):
-    # no field stands coerced into a form no one stated.
+    # stand: no field stands coerced into a form no one
+    # stated.
     form = plan.get("form")
     if form is not None and form not in _FORMS:
         _fail(
@@ -469,15 +466,14 @@ def _validate_plan(plan):
             "the WatchPlan cadence stands as a cadence in "
             "words")
     # The second round fields stand under the same shape
-    # discipline as every other field the shape states
-    # (Step 17 round 5 entry S17-R5-066): the plan second
-    # round stands as one round label, and the plan second
-    # rounds stand as a list of round labels or as a record
-    # of round labels, or of lists of round labels, by
-    # product. A form the shape does not state refuses at
-    # open as MALFORMED_CALL, never standing disregarded
-    # in silence where the round assembly reads the fields
-    # on their stated forms alone.
+    # discipline as every other field the shape states: the
+    # plan second round stands as one round label, and the
+    # plan second rounds stand as a list of round labels or
+    # as a record of round labels, or of lists of round
+    # labels, by product. A form the shape does not state
+    # refuses at open as MALFORMED_CALL, never standing
+    # disregarded in silence where the round assembly reads
+    # the fields on their stated forms alone.
     second_round = plan.get("second_round")
     if second_round is not None and not isinstance(
             second_round, str):
@@ -494,14 +490,14 @@ def _validate_plan(plan):
                 isinstance(item, str) for item in value)
 
         if isinstance(second_rounds, dict):
-            # The record keys stand judged with its values
-            # (Step 17 round 6 entry S17-R6-045): the
-            # dispatch reads the record by product name, so
-            # a key that stands in no product name form at
-            # all, a non string key among its forms, can
-            # never be read there and refuses at open in
-            # the same shape discipline, never standing
-            # disregarded in silence at the dispatch.
+            # The record keys stand judged with its values:
+            # the dispatch reads the record by product
+            # name, so a key that stands in no product name
+            # form at all, a non string key among its
+            # forms, can never be read there and refuses at
+            # open in the same shape discipline, never
+            # standing disregarded in silence at the
+            # dispatch.
             bad = any(
                 not isinstance(key, str)
                 or not _label_or_labels(value)
@@ -547,29 +543,26 @@ def _validate_plan(plan):
     seen = []
     for target in targets:
         # The target form stands judged before any of its
-        # fields stand read (Step 17 round 5 entry
-        # S17-R5-065): a target that does not stand as an
-        # object refuses at open as MALFORMED_CALL, in the
-        # shape discipline this validation states, never as
-        # a raw AttributeError from a field reading on a
-        # value that holds no fields.
+        # fields stand read: a target that does not stand
+        # as an object refuses at open as MALFORMED_CALL,
+        # in the shape discipline this validation states,
+        # never as a raw AttributeError from a field
+        # reading on a value that holds no fields.
         if not isinstance(target, dict):
             _fail(
                 "MALFORMED_CALL",
                 "each picked target stands as a target "
                 "object")
         # The selector stands judged on its named values,
-        # not on its keys (Step 17 round 2 entry
-        # S17-R2-073): a selector key holding null names
-        # no selector, so a target whose only selector
-        # holds null names neither, and a target naming a
-        # page file beside a null round names one.
-        # An empty string stands as no selector at all,
-        # as an absent or null value stands (Step 17
-        # round 4 entry S17-R4-057, on the module's own
-        # ground at S17-R2-079): a target whose page file
-        # or round stands as an empty string names no
-        # selector on that limb, and refuses at open
+        # not on its keys: a selector key holding null
+        # names no selector, so a target whose only
+        # selector holds null names neither, and a target
+        # naming a page file beside a null round names
+        # one. An empty string stands as no selector at
+        # all, as an absent or null value stands (on the
+        # module's own ground at): a target whose page
+        # file or round stands as an empty string names
+        # no selector on that limb, and refuses at open
         # where it names none or both.
         page_selector = target.get("page_file")
         round_selector = target.get("round")
@@ -583,12 +576,11 @@ def _validate_plan(plan):
                 "MALFORMED_CALL",
                 "each picked target names a product and one "
                 "of a page file or a named round")
-        # The target field types the shape states (Step
-        # 17 entries S17-R1-069 and S17-R1-072): a product
-        # names a product, and product names are strings
-        # everywhere in the product; a non string product
-        # stands refused at open, before any round runs,
-        # not as a raw crash part way through it.
+        # The target field types the shape states: a
+        # product names a product, and product names are
+        # strings everywhere in the product; a non string
+        # product stands refused at open, before any round
+        # runs, not as a raw crash part way through it.
         if not isinstance(target.get("product"), str) \
                 or not target.get("product"):
             _fail(
@@ -603,12 +595,12 @@ def _validate_plan(plan):
                     "MALFORMED_CALL",
                     "the target %s stands as a string" % (field,))
         # The target path strings stand judged before any
-        # filesystem call can raise on them (Step 17 round
-        # 2 entry S17-R2-078): a page file or robots file
-        # string carrying a NUL character or a lone
-        # surrogate cannot name a path at all, and refuses
-        # at open as MALFORMED_CALL, before the identity
-        # reading below runs any path call on it.
+        # filesystem call can raise on them: a page file
+        # or robots file string carrying a NUL character
+        # or a lone surrogate cannot name a path at all,
+        # and refuses at open as MALFORMED_CALL, before
+        # the identity reading below runs any path call on
+        # it.
         for field in ("page_file", "robots_file",
                       "evaluated_page_path"):
             value = target.get(field)
@@ -633,11 +625,10 @@ def _validate_plan(plan):
                 "MALFORMED_CALL",
                 "the target guide flag stands as a boolean")
         # The target second round stands under the plan
-        # shape discipline as the plan level fields do
-        # (Step 17 round 5 entry S17-R5-066): it stands as
-        # one round label, and a form the shape does not
-        # state refuses at open instead of falling through
-        # the round assembly in silence.
+        # shape discipline as the plan level fields do: it
+        # stands as one round label, and a form the shape
+        # does not state refuses at open instead of
+        # falling through the round assembly in silence.
         target_second = target.get("second_round")
         if target_second is not None and not isinstance(
                 target_second, str):
@@ -658,35 +649,32 @@ def _validate_plan(plan):
 def _target_identity(target):
     """The identity of one target, on the invocation it orders.
 
-    The duplicate refusal of row U-12 compares the
-    invocation each target orders, not the serialisation
-    of the whole target object (Step 17 entry
-    S17-R1-070): a key the shape gives no effect to, a
-    false guide flag, a null field, and a path alias
-    spelling of the same file name the same invocation
-    as the target without them.
-    """
+    The duplicate refusal of row U-12 compares the invocation
+    each target orders, not the serialisation of the whole
+    target object: a key the shape gives no effect, a false
+    guide flag, a null field, and a path alias spelling of the
+    same file name the same invocation as the target without
+    them."""
     product = target.get("product")
 
     def path_form(value):
         # An empty path string orders no file at all, as
-        # an absent or null value orders none (Step 17
-        # round 2 entry S17-R2-079): the empty robots file
-        # spelling stands as the same identity as the
-        # absence it is identical to in effect, never as
-        # the working directory a realpath reading would
-        # map it to.
+        # an absent or null value orders none: the empty
+        # robots file spelling stands as the same identity
+        # as the absence it is identical to in effect,
+        # never as the working directory a realpath
+        # reading would map it to.
         if not value:
             return None
         return os.path.realpath(str(value))
 
     def evaluated_form(value):
         # The evaluated page path stands compared in its
-        # normalised form (Step 17 round 2 entry
-        # S17-R2-074): a doubled slash spelling, a dot
-        # segment spelling, and a trailing slash form of
-        # one path name the same invocation to the audit,
-        # so they name one identity to this comparison.
+        # normalised form: a doubled slash spelling, a
+        # dot segment spelling, and a trailing slash form
+        # of one path name the same invocation to the
+        # audit, so they name one identity to this
+        # comparison.
         if not value:
             return None
         import posixpath
@@ -696,12 +684,12 @@ def _target_identity(target):
         return form
 
     # The identity branches on the selector value as the
-    # open judgement judges it (Step 17 round 5 entry
-    # S17-R5-054): an empty page file stands as no page
-    # selector, as an absent or null value stands, so a
-    # target naming an empty page file beside a named
-    # round carries the probe identity of the round it
-    # names, not the audit identity of the empty path.
+    # open judgement judges it: an empty page file
+    # stands as no page selector, as an absent or null
+    # value stands, so a target naming an empty page
+    # file beside a named round carries the probe
+    # identity of the round it names, not the audit
+    # identity of the empty path.
     if target.get("page_file"):
         return (
             "audit", product, path_form(target.get("page_file")),
@@ -878,26 +866,24 @@ def _standing_product_page_snapshot_count(home, products):
     """The standing product page snapshots of one home.
 
     The count stands on the journal facts the round already
-    stands on, on the plan Section 5.1 WatchRun definition:
+    stands, on the plan Section 5.1 WatchRun definition:
     one per snapshot identity whose most recent
     snapshot_registered record stands as a product page
     (is_product_page true) and carries the PageSnapshot
     supplied_path, for a product standing in the registry
     at the round start. An audit entry of the round, and in
     particular a skipped audit entry, is not a snapshot and
-    counts as none.
-    """
+    counts as none."""
     product_ids = {
         record.get("product_id") for record in products
         if isinstance(record, dict) and record.get("product_id")}
     try:
         from citeline import journal
         # The coverage count folds with corrections, as
-        # the reporting readers do (Step 17 round 3 entry
-        # S17-R3-064): a registration a correction
-        # superseded to not a product page counts as no
-        # standing product page snapshot here, as it
-        # counts nowhere else.
+        # the reporting readers do: a registration a
+        # correction superseded to not a product page
+        # counts as no standing product page snapshot
+        # here, as it counts nowhere else.
         entries = journal.fold(str(home), apply_corrections=True)
     except Exception:
         return 0, set()
@@ -923,8 +909,7 @@ def _standing_product_page_snapshot_count(home, products):
             # form that is not a string, an unhashable form
             # among them, stands refused in the recorded
             # vocabulary instead of crashing the fold raw
-            # (Step 17 round 5 entry S17-R5-064, the watch
-            # limb of the registry fold cure).
+            # (the watch limb of the registry fold cure).
             _fail("VALIDATION_FAILED",
                   "the stored snapshot record carries "
                   "snapshot_id in a form its readers cannot "
@@ -935,10 +920,9 @@ def _standing_product_page_snapshot_count(home, products):
             # The path this count consumes stands judged
             # against the stored field discipline before
             # it stands read, as the identity above it
-            # stands (Step 17 round 5 entry S17-R5-052):
-            # a swapped path refuses in the recorded
-            # vocabulary instead of governing the count
-            # through its string form.
+            # stands: a swapped path refuses in the
+            # recorded vocabulary instead of governing
+            # the count through its string form.
             _fail("VALIDATION_FAILED",
                   "the stored snapshot record carries "
                   "supplied_path in a form its readers cannot "
@@ -948,12 +932,11 @@ def _standing_product_page_snapshot_count(home, products):
                 product_id, str):
             # The product identity this count tests for
             # membership stands judged before the test, as
-            # the identities above it stand (Step 17 round
-            # 6 entry S17-R6-049): an identity in a form
-            # that is not a string, an unhashable form
-            # among them, refuses in the recorded
-            # vocabulary instead of raising raw at the
-            # membership test below.
+            # the identities above it stand: an identity
+            # in a form that is not a string, an
+            # unhashable form among them, refuses in the
+            # recorded vocabulary instead of raising raw
+            # at the membership test below.
             _fail("VALIDATION_FAILED",
                   "the stored snapshot record carries "
                   "product_id in a form its readers cannot "
@@ -993,32 +976,28 @@ def _cadence_interval_days(cadence):
     if text in words:
         return words[text]
     import re
-    # The form stands exactly as the docstring states
-    # (Step 17 round 3 entry S17-R3-059): the word every
-    # stands required, the digits stand as Latin digits,
-    # and a zero count names no interval, because a zero
-    # interval is no cadence and its forward count would
-    # stand as a computed figure where the absence form
-    # belongs. The separator stands as the ordinary
-    # space the stated form writes, and no other
-    # whitespace form stands in the set (Step 17 round
-    # 4 entry S17-R4-058): a Unicode whitespace
-    # separator names no stated form, as the annually
-    # word names none. The stated form writes one
-    # ordinary space at each separator position, so a
-    # run of ordinary spaces at a position stands as
-    # no stated form either (Step 17 round 5 entry
-    # S17-R5-055).
+    # The form stands exactly as the docstring states:
+    # the word every stands required, the digits stand
+    # as Latin digits, and a zero count names no
+    # interval, because a zero interval is no cadence
+    # and its forward count would stand as a computed
+    # figure where the absence form belongs. The
+    # separator stands as the ordinary space the stated
+    # form writes, and no other whitespace form stands
+    # in the set: a Unicode whitespace separator names
+    # no stated form, as the annually word names none.
+    # The stated form writes one ordinary space at each
+    # separator position, so a run of ordinary spaces at
+    # a position stands as no stated form either.
     match = re.fullmatch(
         r"every ([0-9]+) (day|days|week|weeks|month|months"
         r"|year|years)", text)
     if match:
-        # The conversion stands bounded (Step 17 round 2
-        # entry S17-R2-093): a digit run past six digits
-        # names no cadence this product reads, and stands
-        # as no interval, instead of raising at the integer
-        # conversion limit after the round's targets have
-        # stored their records.
+        # The conversion stands bounded: a digit run past
+        # six digits names no cadence this product reads,
+        # and stands as no interval, instead of raising at
+        # the integer conversion limit after the round's
+        # targets have stored their records.
         digits = match.group(1)
         if len(digits) > 6:
             return None
@@ -1132,9 +1111,9 @@ def run_watch(*, plan_file, form=None):
     def target_cost(target):
         # The cost branches on the selector value as the
         # open judgement judges it, as the identity and
-        # the dispatch below do (Step 17 round 5 entry
-        # S17-R5-054): an empty page file names no page
-        # selector and costs as the probe target it is.
+        # the dispatch below do: an empty page file
+        # names no page selector and costs as the probe
+        # target it is.
         if target.get("page_file"):
             return 2 + (1 if target.get("guide") else 0)
         return 1
@@ -1200,10 +1179,10 @@ def run_watch(*, plan_file, form=None):
             _check_round_backstop(home, round_started)
             product = target["product"]
             # The dispatch branches on the selector value
-            # as the open judgement judges it (Step 17
-            # round 5 entry S17-R5-054): a target whose
-            # page file stands empty beside a named round
-            # runs as the probe target it opened as.
+            # as the open judgement judges it: a target
+            # whose page file stands empty beside a named
+            # round runs as the probe target it opened
+            # as.
             if target.get("page_file"):
                 entry = _audit_entry(home, plan, product, target)
                 entries.append(entry)
@@ -1282,13 +1261,12 @@ def run_watch(*, plan_file, form=None):
     for value in ("completed", "failed", "skipped", "stopped"):
         outcome_counts.setdefault(value, 0)
     # The coverage assembly builds every count from the
-    # population its figure names (Step 17 entry
-    # S17-R1-071): products with an audit target counts
-    # registered products only, over the registered
-    # denominator, and snapshots audited counts the
-    # standing product page snapshots the round audited,
-    # over that same standing population, never the fresh
-    # snapshots the round itself created.
+    # population its figure names: products with an audit
+    # target counts registered products only, over the
+    # registered denominator, and snapshots audited
+    # counts the standing product page snapshots the
+    # round audited, over that same standing population,
+    # never the fresh snapshots the round itself created.
     registered_names = {
         record.get("name") for record in products
         if isinstance(record, dict)}
@@ -1375,13 +1353,12 @@ def _write_output(result, output_path, form):
     its own.
     """
     # The output path string stands judged before any
-    # filesystem call can raise on it (Step 17 round 2
-    # entry S17-R2-077): a string carrying a NUL character
-    # or a lone surrogate can name no destination, and the
-    # write step fails on it in its stated governed form
-    # alone, row X-9, DESTINATION_EXISTS, after every
-    # target completed, as every other write failure of
-    # this step does.
+    # filesystem call can raise on it: a string carrying a
+    # NUL character or a lone surrogate can name no
+    # destination, and the write step fails on it in its
+    # stated governed form alone, row X-9,
+    # DESTINATION_EXISTS, after every target completed, as
+    # every other write failure of this step does.
     if isinstance(output_path, str) and "\x00" in output_path:
         _fail(
             "DESTINATION_EXISTS",

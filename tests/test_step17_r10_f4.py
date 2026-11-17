@@ -1,14 +1,9 @@
-"""Step 17 round 10 fix seat F4 tests: import family.
+"""Import family.
 
-Test first pins for register entries S17-R10-005,
-S17-R10-006, S17-R10-007, S17-R10-008, S17-R10-009,
-S17-R10-013, and S17-R10-014, from
-design/audit/step-17-r10-findings-register.md and the
-source papers step-17-r10-attack-import.md and
-step-17-r10-attack-red.md, as dispositioned in
-design/audit/step-17-r10-disposition.md Section 3 and
-rulings (h) and (i).
-"""
+Test first pins for register, and, from the register
+and the source papers the register paper and the
+register paper, as dispositioned in the register
+paper Section 3 and rulings (h) and (i)."""
 
 import hashlib
 import json

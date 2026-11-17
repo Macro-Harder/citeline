@@ -1,37 +1,28 @@
-"""Step 17 round 13 fix seat F2 tests, registry and acquisition.
+"""Registry and acquisition.
 
-Test first pins for register entry S17-R13-001, merged
-from registry S17-R13-REG-001 and red
-S17-R13-RED-03, with the page side limb of entry
-S17-R13-004 inside the same cure. Entry S17-R13-001
-reproduces the defect named at that entry: the import
-side cure at entry S17-R12-006 judges a combining
-mark by general category Mn at any code point, while
-the page side limb of _fm_holds_tag_construct in
-acquisition.py stands in the landed range form
-U+0300 to U+036F alone, so a construct whose name
-opens on a category Mn mark standing outside that
-range and outside the word character set passes the
-page reading whole at its judged positions, in the
-line form and in the JSON form, at the value position
-and at the key position alike, where the import
-reading refuses the same block. The page side limb
-of entry S17-R13-004 stands on ruling (c) of the
-round 13 disposition: the generic combining mark
-term of entry S17-R11-010 stands as the union of the
-mark categories Mn, Mc, and Me, so a construct whose
-name opens on a mark of category Mc or of category
-Me stands refused at the page reading at the judged
-positions, the import side of that entry standing
-charged to seat F4 as lead and landing after this
-seat in the dependency order. The Mc and Me pins
-therefore assert the page reading alone. The pins
-stand at every judged position the entries name, in
-plain form, in JSON escape form, and standing behind
-interior head material alike, beside sweeps of the
-page side helper over every code point of the three
-mark categories.
-"""
+Test first pins for register, merged from registry and red, with
+the page side limb of inside the same cure. Entry reproduces the
+defect named at that entry: the import side cure at judges a
+combining mark by general category Mn at any code point, while
+the page side limb of _fm_holds_tag_construct in acquisition.py
+stands in the landed range form U+0300 to U+036F alone, so a
+construct whose name opens on a category Mn mark standing
+outside that range and outside the word character set passes the
+page reading whole at its judged positions, in the line form and
+in the JSON form, at the value position and at the key position
+alike, where the import reading refuses the same block. The page
+side limb of stands on ruling (c) of the round 13 disposition:
+the generic combining mark term of stands as the union of the
+mark categories Mn, Mc, and Me, so a construct whose name opens
+on a mark of category Mc or of category Me stands refused at the
+page reading at the judged positions, the import side of that
+entry standing charged to seat F4 as lead and landing after this
+seat in the dependency order. The Mc and Me pins therefore
+assert the page reading alone. The pins stand at every judged
+position the entries name, in plain form, in JSON escape form,
+and standing behind interior head material alike, beside sweeps
+of the page side helper over every code point of the three mark
+categories."""
 
 import json
 import os

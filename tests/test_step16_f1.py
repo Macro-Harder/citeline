@@ -1,11 +1,10 @@
-"""Step 16 fix wave, builder F1: reporting rendering defects.
+"""Reporting rendering defects.
 
-Each test pins one defect from the Step 16 round 1 fix register
-(design/steps/step-16-record.md, defects D-01, D-06, D-19,
-D-26, D-27, D-28) at its Simple rendering surface in
-citeline/reporting.py. Every test was written before its cure
-and watched failing on the shipped code.
-"""
+Each test pins one defect from the fix register (the register
+paper, defects D-01, D-06, D-19, D-26, D-27, D-28) at its
+Simple rendering surface in citeline/reporting.py. Every test
+was written before its cure and watched failing on the
+shipped code."""
 
 import tempfile
 import unittest

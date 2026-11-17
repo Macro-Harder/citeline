@@ -1,12 +1,10 @@
-"""Step 17 round 6 fix seat F1 tests: journal family.
+"""Journal family.
 
 Each test pins one register entry from design/audit/
-step-17-r6-findings-register.md (S17-R6-001 to
-S17-R6-007 and S17-R6-048) on the behaviour the register
-and the round 6 disposition state. Homes are scratch
-homes under a temporary directory. No test here touches
-a standing test item or a governed ground.
-"""
+the register paper on the behaviour the register and
+the round 6 disposition state. Homes are scratch homes
+under a temporary directory. No test here touches a
+standing test item or a governed ground."""
 
 import hashlib
 import json

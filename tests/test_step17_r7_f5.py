@@ -1,14 +1,11 @@
-# Step 17 round 7 fix seat F5 tests.
-#
-# Entries S17-R7-035, S17-R7-036, and S17-R7-048: three cost
-# defects, correctness standing verified by differential in
-# the attack papers and rechecked here against a direct pair
+# fix seat F5 tests. Entries, and: three cost defects,
+# correctness standing verified by differential in the attack
+# papers and rechecked here against a direct pair
 # computation. Timing probes stand on process CPU time, never
 # on wall clock, at the attack scales or the largest scale
 # that runs in reasonable time on the uncured tree, with the
-# projection to the cap stated in the seat paper.
-#
-# Copyright: J.P. Picard aka Macro-Harder.
+# projection to the cap stated in the seat paper. Copyright:
+# J.P. Picard aka Macro-Harder.
 
 import random
 import time
@@ -84,15 +81,15 @@ def _clique_family(count, seed=11):
 
 
 def _deferred_family(links, per_pair=120, seed=9000):
-    # The S17-R7-RED-05 construction in the form the attack
-    # states: every set holds 300 shingles, a core of 60 held
-    # by every set, chain links holding a 240 shingle segment
-    # sliding by 33 so a link stands similar to its two
-    # neighbours and to no other link, and 120 reject copies
-    # per link pair, each holding the core, a 175 shingle
-    # turning subset of the pair shared segment, and 65
-    # shingles of its own, sharing 235 with the links of its
-    # pair, under the 267 the rule needs at size 300.
+    # The construction in the form the attack states: every
+    # set holds 300 shingles, a core of 60 held by every set,
+    # chain links holding a 240 shingle segment sliding by 33
+    # so a link stands similar to its two neighbours and to
+    # no other link, and 120 reject copies per link pair,
+    # each holding the core, a 175 shingle turning subset of
+    # the pair shared segment, and 65 shingles of its own,
+    # sharing 235 with the links of its pair, under the 267
+    # the rule needs at size 300.
     core = set(range(60))
     type_sets = []
     for index in range(links):
@@ -116,7 +113,7 @@ def _deferred_family(links, per_pair=120, seed=9000):
 
 
 class TestR7F5SeedCountingPass(unittest.TestCase):
-    # S17-R7-035, detection and metrics copies.
+    # , detection and metrics copies.
 
     def test_pool_family_correct_small_both_copies(self):
         type_sets = _pool_family(60)
@@ -148,7 +145,7 @@ class TestR7F5SeedCountingPass(unittest.TestCase):
 
 
 class TestR7F5SetsClique(unittest.TestCase):
-    # S17-R7-036, metrics copy only.
+    # , metrics copy only.
 
     def test_clique_family_true_small(self):
         type_sets = _clique_family(60)
@@ -216,7 +213,7 @@ class TestR7F5SetsClique(unittest.TestCase):
 
 
 class TestR7F5SecondQueuePass(unittest.TestCase):
-    # S17-R7-048, detection and metrics copies.
+    # , detection and metrics copies.
 
     def test_deferred_family_correct_small_both_copies(self):
         type_sets = _deferred_family(8, per_pair=6)

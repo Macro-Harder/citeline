@@ -1,10 +1,8 @@
-"""Step 17 round 8 fix seat F2 tests, registry and acquisition.
+"""Registry and acquisition.
 
-Test first pins for register entries S17-R8-003 to
-S17-R8-007 and S17-R8-028. Each test reproduces the
-defect named at its register entry, then stands as
-the pin for its cure.
-"""
+Test first pins for register to and. Each test reproduces the
+defect named at its register entry, then stands as the pin for
+its cure."""
 
 import os
 import tempfile
@@ -287,14 +285,14 @@ class TestR8_028ContainerStringCharacterMeasure(Base):
     def test_string_of_4096_inside_a_dict_value_refuses(self):
         # Corrected at fix round 10 under ruling (g) of the
         # round 10 disposition: the pin as first written
-        # stated the standing before the cure at entry
-        # S17-R9-003. On the cured standing a key standing
-        # inside a container stands measured by its length
-        # in characters beside the measure of its value, so
-        # the key k at 1 character beside the string of
-        # 4096 sums to 4097 and stands refused where their
-        # sum passes the limit, and the string of 4095
-        # beside the same key sums to the limit and passes.
+        # stated the standing before the cure at. On the
+        # cured standing a key standing inside a container
+        # stands measured by its length in characters
+        # beside the measure of its value, so the key k at
+        # 1 character beside the string of 4096 sums to
+        # 4097 and stands refused where their sum passes
+        # the limit, and the string of 4095 beside the same
+        # key sums to the limit and passes.
         block = '{"title": {"k": "' + "x" * 4096 + '"}}'
         self.assert_page_limit(block)
         block = '{"title": {"k": "' + "x" * 4095 + '"}}'

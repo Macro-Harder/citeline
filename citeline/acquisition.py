@@ -661,8 +661,8 @@ def segment_text(text, format="text", **kwargs):
 # ----------------------------------------------------------------
 
 def _strip_detection_exclusions(text):
-    """Remove fenced code blocks and blockquote lines, which
-    do not count as content for detection.
+    """Remove fenced code blocks and blockquote lines, which do
+    not count as content for detection.
 
     A line opening with the blockquote mark stands as a
     blockquote line only where the mark opens a blockquote.
@@ -671,9 +671,8 @@ def _strip_detection_exclusions(text):
     continuation of that tag and counts as content: the
     exclusion reads the text as markup, tracking whether a
     tag stands open at the start of the line, a bracket
-    inside a quoted attribute value closing nothing, on
-    the terms the container reading states for tags read
-    whole (Step 17 round 7 entry S17-R7-008)."""
+    inside a quoted attribute value closing nothing, on the
+    terms the container reading states for tags read whole."""
     out = []
     in_fence = False
     in_tag = False
@@ -712,15 +711,14 @@ _COMMENT_CLOSE_RE = re.compile(r"--!?>")
 
 
 def _comment_close(text, start):
-    """The close of the comment that opens at start, found
-    in one search bounded to that comment: the search runs
+    """The close of the comment that opens at start, found in
+    one search bounded to that comment: the search runs
     from the comment opening to the first closing spelling
     of either form and no further, so a run of comments
     closed in one spelling pays no remainder scan per
-    comment for the spelling that is not there (Step 17
-    round 3 entry S17-R3-010). Returns the index just past
-    the closing spelling, or None where the comment never
-    closes."""
+    comment for the spelling that is not there. Returns
+    the index just past the closing spelling, or None
+    where the comment never closes."""
     match = _COMMENT_CLOSE_RE.search(text, start + 4)
     if match is None:
         return None
@@ -731,8 +729,7 @@ def _skip_leading_furniture(text):
     """Step over the leading furniture of a document: HTML
     comments, XML or processing instruction forms, bogus
     declaration forms, and CDATA sections that stand
-    before its own content (Step 17 round 3 entry
-    S17-R3-015). A comment ends where the
+    before its own content. A comment ends where the
     parser ends it, at the two hyphen close or at the bang
     close, and the two abrupt spellings stand as complete
     comments. An unterminated form steps over nothing and
@@ -761,7 +758,7 @@ def _skip_leading_furniture(text):
                 # closing spelling stands as an HTML bogus
                 # comment, which ends at its first closing
                 # bracket, so the content after it stands
-                # read (Step 17 round 4 entry S17-R4-013).
+                # read.
                 bogus_end = _scan_tag_end(text, index)
                 if bogus_end < 0:
                     return text[index:]
@@ -792,8 +789,7 @@ def _content_format(text):
     # A doctype stands judged by its name across the
     # whitespace the doctype form admits between the
     # keyword and the name: any run of whitespace stands
-    # there, not one space only (Step 17 round 5 entry
-    # S17-R5-007).
+    # there, not one space only.
     if re.match(r"<!doctype\s+html\b", low) \
             or low.startswith("<html"):
         return "html"
@@ -816,12 +812,10 @@ def _content_format(text):
                 # in the probe list whole, as the roots do: a
                 # document led by a child element of either
                 # vocabulary is a form the probe exists to
-                # decide (Step 17 round 5 entry S17-R5-007,
-                # completed at round 6 entry S17-R6-015, and
-                # completed on the SVG font face spellings
-                # and the two MathML alignment spellings at
-                # round 7 entry S17-R7-015; the spelling font
-                # stands outside that completion).
+                # decide (completed at round 6, and completed on
+                # the SVG font face spellings and the two MathML
+                # alignment spellings at round 7; the spelling
+                # font stands outside that completion).
                 r"altGlyph|altGlyphDef|altGlyphItem|animate|"
                 r"animateColor|animateMotion|animateTransform|"
                 r"circle|clipPath|color-profile|cursor|"
@@ -944,12 +938,12 @@ def detect_format(content, declared_format=None, filename=None, **kwargs):
 # ----------------------------------------------------------------
 
 def _scan_tag_end(text, start):
-    """The index of the bracket that closes the tag standing
-    at start, read as the parser reads a tag: a bracket
-    inside a quoted attribute value does not close the tag.
+    """The index of the bracket that closes the tag standing at
+    start, read as the parser reads a tag: a bracket inside
+    a quoted attribute value does not close the tag.
 
-    The reading walks the tag attribute by attribute, on
-    the terms HTMLParser walks it. An attribute name stands
+    The reading walks the tag attribute by attribute, on the
+    terms HTMLParser walks it. An attribute name stands
     first: its first character is any character that is not
     whitespace, a slash, or a bracket, and its remaining
     characters are any but whitespace, a slash, an equals
@@ -959,20 +953,17 @@ def _scan_tag_end(text, start):
     allows around it, opens the value: a quoted value runs
     to its closing quote wherever that quote stands, and
     where no closing quote stands the quoted form does not
-    stand as a value at all, the quote standing as the
-    first character of the next attribute name and the tag
-    ending where the parser ends it. An unquoted value runs
-    to whitespace or to the bracket, and a quote or an
-    equals sign inside it is value text. A declaration
-    and a processing instruction form stand read as the
-    parser reads them, ending at the first bracket, and
-    a closing tag stands read on the same attribute
-    terms as an opening tag, as round 3 entry S17-R3-014
-    states for it (Step 17 round 4 entry S17-R4-011,
-    completed
-    at round 5 entry S17-R5-005 on the equals sign forms
-    that entry names). Returns -1 where no closing bracket
-    stands."""
+    stand as a value at all, the quote standing as the first
+    character of the next attribute name and the tag ending
+    where the parser ends it. An unquoted value runs to
+    whitespace or to the bracket, and a quote or an equals
+    sign inside it is value text. A declaration and a
+    processing instruction form stand read as the parser
+    reads them, ending at the first bracket, and a closing
+    tag stands read on the same attribute terms as an
+    opening tag, as round 3 states for it (completed at
+    round 5 on the equals sign forms that entry names).
+    Returns -1 where no closing bracket stands."""
     if text[start:start + 9].casefold() == "<!doctype":
         # A doctype declaration stands read whole across
         # its quoted literals, as the round 2 container
@@ -1044,24 +1035,22 @@ def _scan_tag_end(text, start):
 
 def _tag_self_closed(chunk, name_end):
     """Whether one opening tag chunk stands self closed, as
-    the parser reads it (Step 17 round 3 entries S17-R3-013
-    and S17-R3-014). The self closing flag is a slash that
-    stands between attributes, immediately before the
+    the parser reads it. The self closing flag is a slash
+    that stands between attributes, immediately before the
     closing bracket. A slash inside a quoted attribute
     value is value text, a slash inside an unquoted
     attribute value is part of that value, and a slash
     separated from the bracket by space is ignored, so in
     each of those forms the element still opens. The scan
-    walks the tag once, attribute by attribute, on the
-    same terms _scan_tag_end reads a tag whole, the
-    missing value and stray equals forms included: an
-    equals sign standing where a name is expected is name
-    text and opens no value, a run of equals signs after
-    a name opens the value, and a quoted form with no
-    closing quote stands as no value at all, its quote
-    standing as the first character of the next attribute
-    name (Step 17 round 5 entry S17-R5-005, completed at
-    this sibling scan at round 6 entry S17-R6-008)."""
+    walks the tag once, attribute by attribute, on the same
+    terms _scan_tag_end reads a tag whole, the missing
+    value and stray equals forms included: an equals sign
+    standing where a name is expected is name text and
+    opens no value, a run of equals signs after a name
+    opens the value, and a quoted form with no closing
+    quote stands as no value at all, its quote standing as
+    the first character of the next attribute name
+    (completed at this sibling scan at round 6)."""
     index = name_end
     length = len(chunk)
     while index < length:
@@ -1155,7 +1144,7 @@ def _leading_structure(text):
         # on a slice of its remainder: a slice copies the
         # remainder once per tag, which costs superlinear
         # time on a page of many small tags at the governed
-        # file limit (Step 17 round 4 entry S17-R4-010).
+        # file limit.
         match = _TAG_OPEN_RE.match(text, lt)
         if not match:
             index = lt + 1
@@ -1194,10 +1183,9 @@ def _root_tag_xmlns(chunk):
     attribute by attribute on the terms _scan_tag_end
     states, so a namespace string standing as the value
     of any other attribute of the tag is that attribute
-    text and declares nothing: the judgement at entry
-    S17-R5-008 stands on the namespace the root element
-    declares, in its xmlns attribute, and on no other
-    text of the tag."""
+    text and declares nothing: the judgement at stands
+    on the namespace the root element declares, in its
+    xmlns attribute, and on no other text of the tag."""
     length = len(chunk)
     index = 1
     while index < length and chunk[index] not in " \t\r\n\f/>":
@@ -1226,11 +1214,10 @@ def _root_tag_xmlns(chunk):
             # parser reads it: a second equals sign stands
             # as the first character of the value itself,
             # and no equals run stands consumed on the
-            # attribute (Step 17 round 6 entry S17-R6-009).
-            # The equals run term belongs to the tag end
-            # reading in _scan_tag_end, which finds where a
-            # tag ends, and states no term for the value a
-            # reader takes from the tag.
+            # attribute. The equals run term belongs to the
+            # tag end reading in _scan_tag_end, which finds
+            # where a tag ends, and states no term for the
+            # value a reader takes from the tag.
             index += 1
             while index < length and chunk[index] in " \t\r\n\f":
                 index += 1
@@ -1280,11 +1267,9 @@ def _check_containers(raw, text):
             # judged as the parser decodes it, not by its raw
             # spelling: character references in the xmlns
             # value decode before the reading, as HTMLParser
-            # decodes them (Step 17 round 4 entry S17-R4-012),
-            # and the judgement stands on that declared value
-            # alone, not on a namespace string standing in
-            # any other attribute of the tag (Step 17 round
-            # 5 entry S17-R5-008).
+            # decodes them, and the judgement stands on that
+            # declared value alone, not on a namespace string
+            # standing in any other attribute of the tag.
             _fail("PAGE_EXTRACTION_FAILED",
                   "container failure: the file stands marked as XHTML")
     header_block = re.split(r"\r?\n[ \t]*\r?\n", visible,
@@ -1310,11 +1295,10 @@ def _check_containers(raw, text):
 
 def _read_supplied_file(page_path, size_limit_bytes=None):
     # The page file size limit in force over the run, in
-    # bytes, where the caller states one (Step 17 round 2
-    # entry S17-R2-085): one reading of the limits in force
-    # governs this gate and the service preflight gate, so
-    # the brief default constant stands only where no
-    # value in force reaches this reading.
+    # bytes, where the caller states one: one reading of
+    # the limits in force governs this gate and the service
+    # preflight gate, so the brief default constant stands
+    # only where no value in force reaches this reading.
     limit_bytes = size_limit_bytes if isinstance(
         size_limit_bytes, (int, float)) else _PAGE_FILE_LIMIT
     limit_label = "%s MiB" % (
@@ -1403,10 +1387,8 @@ def _front_matter_key_value(line):
     side reading in probe_import.py, in the form that
     module states at its own _front_matter_key_value: a
     line opening with a quoted string whose closing quote
-    is not followed by a colon holds no key of its own,
-    and a colon inside a quoted key does not split the
-    line (Step 17 round 5 entries S17-R5-010 and
-    S17-R5-011)."""
+    is not followed by a colon holds no key of its own, and
+    a colon inside a quoted key does not split the line."""
     text = line.strip()
     if text[:1] in ("\"", "'"):
         quote = text[0]
@@ -1455,14 +1437,13 @@ _FM_DEFAULT_IGNORABLE_RANGES = (
 
 
 def _fm_is_head_char(char):
-    """One character of head material, on the completed
-    head predicate the import side reading states at its
+    """One character of head material, on the completed head
+    predicate the import side reading states at its
     _is_head_char: byte order marks, control characters,
     whitespace, invisible format or space separator
     characters, and the default ignorable forms, variation
     selectors and the combining grapheme joiner among
-    them, which render as nothing in stored text (Step 17
-    round 7 entry S17-R7-011)."""
+    them, which render as nothing in stored text."""
     code = ord(char)
     return (
         char == "\ufeff"
@@ -1476,14 +1457,14 @@ def _fm_is_head_char(char):
 
 
 def _fm_strip_head(text):
-    """The text past any leading head material, on the
-    terms the import side reading states for its judged
-    key and value positions: byte order marks, control
+    """The text past any leading head material, on the terms
+    the import side reading states for its judged key and
+    value positions: byte order marks, control
     characters, whitespace, and invisible format or space
     separator characters standing at the head of the text
     are not part of the judged text, and the default
     ignorable forms stand in the set on the completed
-    head predicate (Step 17 round 7 entry S17-R7-011)."""
+    head predicate."""
     index = 0
     while index < len(text) and _fm_is_head_char(text[index]):
         index += 1
@@ -1491,10 +1472,9 @@ def _fm_strip_head(text):
 
 
 def _fm_strip_head_edges(text):
-    """The text with head material removed at both edges,
-    on the completed head predicate, as the import side
-    reading states at its _strip_head_edges (Step 17
-    round 7 entries S17-R7-010 and S17-R7-014)."""
+    """The text with head material removed at both edges, on
+    the completed head predicate, as the import side
+    reading states at its _strip_head_edges."""
     start = 0
     while start < len(text) and _fm_is_head_char(text[start]):
         start += 1
@@ -1505,13 +1485,12 @@ def _fm_strip_head_edges(text):
 
 
 def _fm_remove_interior_head(text):
-    """The text with head material removed at any position,
-    as the import side reading states at its
-    _remove_interior_head: head material standing inside
-    a judged form, between the letters of a key name or
+    """The text with head material removed at any position, as
+    the import side reading states at its
+    _remove_interior_head: head material standing inside a
+    judged form, between the letters of a key name or
     between the dashes of a fence, stands removed, while
-    whitespace standing inside the form stands as written
-    (Step 17 round 8 entries S17-R8-004 and S17-R8-005)."""
+    whitespace standing inside the form stands as written."""
     return "".join(
         char for char in text
         if not _fm_is_head_char(char) or char.isspace())
@@ -1519,16 +1498,14 @@ def _fm_remove_interior_head(text):
 
 def _fm_remove_interior_head_except_marks(text):
     """The text with head material removed at any position
-    except a mark of the union of general category Mn,
-    Mc, or Me, which stands as written: the reading the
+    except a mark of the union of general category Mn, Mc,
+    or Me, which stands as written: the reading the
     follower judgement of _fm_holds_tag_construct stands
-    on before the interior head reading, so a mark of
-    the union standing after a construct character
-    stands judged as the follower it stands as in the
-    written text even where the interior head reading
-    would remove it, whitespace standing as written as
-    on that reading (Step 17 round 14 entry
-    S17-R14-001)."""
+    on before the interior head reading, so a mark of the
+    union standing after a construct character stands
+    judged as the follower it stands as in the written
+    text even where the interior head reading would remove
+    it, whitespace standing as written as on that reading."""
     return "".join(
         char for char in text
         if not _fm_is_head_char(char) or char.isspace()
@@ -1539,17 +1516,15 @@ def _fm_judged_key(key):
     """One front matter key as the duplicate judgement
     reads it: head material removed at both edges and at
     any position inside the name, as the import side
-    reading states at its _judged_key (Step 17 round 8
-    entry S17-R8-004)."""
+    reading states at its _judged_key."""
     return _fm_remove_interior_head(_fm_strip_head_edges(key))
 
 
 def _fm_judged_fence(line):
-    """One fence line as the fence judgement reads it:
-    head material removed at both edges and between the
-    fence characters themselves, as the import side
-    reading states at its _judged_fence (Step 17 round 8
-    entry S17-R8-005)."""
+    """One fence line as the fence judgement reads it: head
+    material removed at both edges and between the fence
+    characters themselves, as the import side reading
+    states at its _judged_fence."""
     return _fm_remove_interior_head(_fm_strip_head_edges(line))
 
 
@@ -1567,32 +1542,28 @@ def _fm_position_scan_holds(text):
     match pass consumes a position a later construct
     needs. A construct position stands judged where,
     reading back from the construct over head material
-    that is not whitespace, the scan reaches the start
-    of the text, a whitespace character, or a character
-    of the judged position punctuation set. The follower
-    at such a position stands judged where the character
-    standing immediately after the construct character
-    is a mark of the union of general category Mn, Mc,
-    or Me, or stands as head material and stands in the
-    follower set through a word character or through
-    one of the widened follower characters (Step 17
-    round 15 entries S17-R15-002, S17-R15-003, and
-    S17-R15-010). The follower judgement stands
-    reached past head gap material standing between
-    the construct character and its follower: where
-    the character standing immediately after the
-    construct character stands as head material that
-    is not whitespace and stands judged on no limb
+    that is not whitespace, the scan reaches the start of
+    the text, a whitespace character, or a character of
+    the judged position punctuation set. The follower at
+    such a position stands judged where the character
+    standing immediately after the construct character is
+    a mark of the union of general category Mn, Mc, or
+    Me, or stands as head material and stands in the
+    follower set through a word character or through one
+    of the widened follower characters. The follower
+    judgement stands reached past head gap material
+    standing between the construct character and its
+    follower: where the character standing immediately
+    after the construct character stands as head material
+    that is not whitespace and stands judged on no limb
     of the follower judgement, the scan reads forward
-    over head material characters that are not
-    whitespace and that stand judged on no such limb,
-    and judges the construct on the first character
-    standing past that run where that character
-    stands judged as a follower on the standing
-    limbs; where no such character stands past the
-    run, the construct stands unjudged on that
-    follower ground (Step 17 round 16 entries
-    S17-R16-009 and S17-R16-010)."""
+    over head material characters that are not whitespace
+    and that stand judged on no such limb, and judges the
+    construct on the first character standing past that
+    run where that character stands judged as a follower
+    on the standing limbs; where no such character stands
+    past the run, the construct stands unjudged on that
+    follower ground."""
     def follower_judged(char):
         return unicodedata.category(char) in (
             "Mn", "Mc", "Me") or (
@@ -1634,113 +1605,96 @@ def _fm_position_scan_holds(text):
 
 
 def _fm_holds_tag_construct(text):
-    """True where a key or value text holds a tag
-    construct, on the terms the import side reading
-    states in probe_import.py at its _holds_tag_construct:
-    a construct standing at the start of the text, a
-    construct spelling standing as its own word later in
-    the text, an angle bracket tag spelling anywhere in
-    the text, and a block scalar opening standing as the
-    value (Step 17 round 6 entry S17-R6-012, completed at
-    round 7 entry S17-R7-009 on the three limbs the
-    import side completions of round 6 landed: an angle
-    bracket spelling opens on any URI character, a digit,
-    a hyphen, or an underscore among them; a block scalar
-    header admits both indicator orders, the chomping
-    sign before the indentation digit and the digit
-    before the sign; and a construct stands judged
-    directly after a flow opening bracket, as after the
-    start of the text and after whitespace, completed at
-    round 8 entry S17-R8-003 to the import side landed
-    forms of round 7 entry S17-R7-030: an angle bracket
-    spelling opens on the caret, and a construct stands
-    judged directly after the separator standing between
-    two flow items, after the colon of a flow mapping,
-    after a semicolon, after a quote, and after an
-    opening parenthesis, completed at round 9 entry
-    S17-R9-002 to the import side forms cured at round 8
-    entry S17-R8-015: an angle bracket spelling opens on
-    the hash, and a construct stands judged directly
-    after a closing bracket, the closing square bracket,
-    the closing curly brace, and the closing parenthesis,
-    and completed at round 9 entry S17-R9-019 at the
-    remaining punctuation positions, so a construct
-    stands judged directly after any punctuation
-    character, the position set standing whole, and
-    completed at round 10 entry S17-R10-012 on the
-    interior head reading the duplicate judgement and
-    the fence judgement apply: the judgement stands on
-    the text with head material removed at any position,
-    whitespace standing as written, so a construct
-    standing behind interior head material at a judged
-    position, between the construct character and its
-    letter, or between an angle bracket and its opening
-    character stands judged as the construct it
-    spells, completed at round 11 entry S17-R11-001 on
-    the follower set: the character standing after the
-    construct character stands judged as any word
-    character or a hyphen, the import side set the cure
-    at round 10 entry S17-R10-007 landed, so a name
-    opening on a digit, on an underscore, on a hyphen,
-    or on a letter outside the plain alphabet stands
-    judged at every judged position, completed at
-    round 12 entry S17-R12-001 on the widened set the
-    cure at round 11 entry S17-R11-010 landed at the
-    import side reading: the character standing after
-    the construct character stands judged beside any
-    word character or a hyphen on a full stop, a plus
-    sign, a dollar sign, a tilde, a semicolon, a slash,
-    an equals sign, an at sign, a caret, a backtick, a
-    combining mark, and an undertie, as the import side
-    set stands cured, and completed at the same entry
-    on the page side limb of round 12 entry
-    S17-R12-008 on the six further openings that entry
-    names: a question mark, a backslash, an opening
-    parenthesis, a closing parenthesis, a less than
-    sign, and a colon, completed at round 13 entry
-    S17-R13-001 on the combining mark opening in the
-    generic form the cure at round 11 entry S17-R11-010
-    names: the character standing after the construct
-    character stands judged as that opening where it
-    stands as a combining mark as such, a mark of
-    general category Mn, Mc, or Me at any code point,
-    beside the range the earlier cure landed and beside
-    the word character set, each of which the reading
-    above already refuses, the page side limb of round
-    13 entry S17-R13-004 standing inside the same
-    completion on the category Mc and Me marks, and
-    completed at round 14 entry S17-R14-001 on the sole
-    follower reading: the follower judgement stands
-    reached on a sole follower mark of the union even
-    where the interior head reading would remove that
-    mark, the helper first judging the follower on the
-    text with head material removed at any position
-    except a mark of the union, which stands as
-    written, so a construct whose name opens on one of
-    the union marks that also stand as head material,
-    standing as sole follower with nothing judged
-    standing after it, at the end of the judged text
+    """True where a key or value text holds a tag construct, on
+    the terms the import side reading states in
+    probe_import.py at its _holds_tag_construct: a construct
+    standing at the start of the text, a construct spelling
+    standing as its own word later in the text, an angle
+    bracket tag spelling anywhere in the text, and a block
+    scalar opening standing as the value (completed at round
+    7 on the three limbs the import side completions of
+    round 6 landed: an angle bracket spelling opens on any
+    URI character, a digit, a hyphen, or an underscore among
+    them; a block scalar header admits both indicator
+    orders, the chomping sign before the indentation digit
+    and the digit before the sign; and a construct stands
+    judged directly after a flow opening bracket, as after
+    the start of the text and after whitespace, completed at
+    round 8 to the import side landed forms of round 7: an
+    angle bracket spelling opens on the caret, and a
+    construct stands judged directly after the separator
+    standing between two flow items, after the colon of a
+    flow mapping, after a semicolon, after a quote, and
+    after an opening parenthesis, completed at round 9 to
+    the import side forms cured at round 8: an angle bracket
+    spelling opens on the hash, and a construct stands
+    judged directly after a closing bracket, the closing
+    square bracket, the closing curly brace, and the closing
+    parenthesis, and completed at round 9 at the remaining
+    punctuation positions, so a construct stands judged
+    directly after any punctuation character, the position
+    set standing whole, and completed at round 10 on the
+    interior head reading the duplicate judgement and the
+    fence judgement apply: the judgement stands on the text
+    with head material removed at any position, whitespace
+    standing as written, so a construct standing behind
+    interior head material at a judged position, between the
+    construct character and its letter, or between an angle
+    bracket and its opening character stands judged as the
+    construct it spells, completed at round 11 on the
+    follower set: the character standing after the construct
+    character stands judged as any word character or a
+    hyphen, the import side set the cure at round 10 landed,
+    so a name opening on a digit, on an underscore, on a
+    hyphen, or on a letter outside the plain alphabet stands
+    judged at every judged position, completed at round 12
+    on the widened set the cure at round 11 landed at the
+    import side reading: the character standing after the
+    construct character stands judged beside any word
+    character or a hyphen on a full stop, a plus sign, a
+    dollar sign, a tilde, a semicolon, a slash, an equals
+    sign, an at sign, a caret, a backtick, a combining mark,
+    and an undertie, as the import side set stands cured,
+    and completed at the same entry on the page side limb of
+    round 12 on the six further openings that entry names: a
+    question mark, a backslash, an opening parenthesis, a
+    closing parenthesis, a less than sign, and a colon,
+    completed at round 13 on the combining mark opening in
+    the generic form the cure at round 11 names: the
+    character standing after the construct character stands
+    judged as that opening where it stands as a combining
+    mark as such, a mark of general category Mn, Mc, or Me
+    at any code point, beside the range the earlier cure
+    landed and beside the word character set, each of which
+    the reading above already refuses, the page side limb of
+    round 13 standing inside the same completion on the
+    category Mc and Me marks, and completed at round 14 on
+    the sole follower reading: the follower judgement stands
+    reached on a sole follower mark of the union even where
+    the interior head reading would remove that mark, the
+    helper first judging the follower on the text with head
+    material removed at any position except a mark of the
+    union, which stands as written, so a construct whose
+    name opens on one of the union marks that also stand as
+    head material, standing as sole follower with nothing
+    judged standing after it, at the end of the judged text
     or before only whitespace or head material, stands
-    judged on that reading, the interior head reading
-    then standing as it stood for every other
-    judgement of the helper, and completed at round
-    15 entries S17-R15-002, S17-R15-003, and
-    S17-R15-010 on the position scan at
-    _fm_position_scan_holds: the follower judgement
-    stands reached on the text as written at every
-    construct position in turn, a construct standing
-    behind head material at a judged position standing
-    judged as the scan reads back over that material,
-    a second construct standing after a first standing
-    judged at its own position, and a sole follower
-    character of the follower set that also stands as
-    head material standing judged in the word
-    character form as in the mark form, and completed
-    at round 16 entries S17-R16-009 and S17-R16-010 on
-    the gap reach of that scan: the follower judgement
-    stands reached past head gap material standing
-    between the construct character and its follower,
-    in the form the scan states)."""
+    judged on that reading, the interior head reading then
+    standing as it stood for every other judgement of the
+    helper, and completed at round 15, and on the position
+    scan at _fm_position_scan_holds: the follower judgement
+    stands reached on the text as written at every construct
+    position in turn, a construct standing behind head
+    material at a judged position standing judged as the
+    scan reads back over that material, a second construct
+    standing after a first standing judged at its own
+    position, and a sole follower character of the follower
+    set that also stands as head material standing judged in
+    the word character form as in the mark form, and
+    completed at round 16 on the gap reach of that scan: the
+    follower judgement stands reached past head gap material
+    standing between the construct character and its
+    follower, in the form the scan states)."""
     if _fm_position_scan_holds(text):
         return True
     for match in re.finditer(
@@ -1771,23 +1725,22 @@ def _fm_holds_tag_construct(text):
 
 
 class _FmWrittenNumber(str):
-    """A JSON number carrying its written form, as the
-    import side reading holds it at its _WrittenNumber.
+    """A JSON number carrying its written form, as the import
+    side reading holds it at its _WrittenNumber.
 
     The JSON form value length check measures a numeric
     value by its written form, as it measures a string by
-    its length. Parsing a number into a plain int or
-    float loses that form, a float in particular rendering
-    far shorter than it stands written, so the reader
-    holds the token text itself (Step 17 round 8 entry
-    S17-R8-006)."""
+    its length. Parsing a number into a plain int or float
+    loses that form, a float in particular rendering far
+    shorter than it stands written, so the reader holds
+    the token text itself."""
 
 
 def _fm_json_holds_tag_construct(value):
     """True where any string in a JSON form front matter
     value, at any depth, in a key or in a value, holds a
     tag construct, as the import side reading judges the
-    JSON form whole (Step 17 round 6 entry S17-R6-012)."""
+    JSON form whole."""
     if isinstance(value, _FmWrittenNumber):
         return False
     if isinstance(value, str):
@@ -1805,7 +1758,7 @@ def _fm_json_holds_tag_construct(value):
 def _fm_json_depth(value):
     """The nesting depth of one parsed JSON value, counted
     iteratively, as the import side reading counts it at
-    its _json_depth (Step 17 round 7 entry S17-R7-013)."""
+    its _json_depth."""
     depth = 0
     stack = [(value, 1)]
     while stack:
@@ -1820,22 +1773,20 @@ def _fm_json_depth(value):
 
 
 def _fm_container_value_measure(value):
-    """The length a container value stands measured by,
-    as the import side reading states at its
+    """The length a container value stands measured, as the
+    import side reading states at its
     _container_value_measure: a string standing inside a
     container stands measured by its length in characters,
     the one measure a string standing as a whole value
-    stands measured by, and a number standing inside a
+    stands measured, and a number standing inside a
     container stands measured by its written form, as a
     number standing as a whole value does, and the
     container marks, the quote marks, and the separators
-    of the rendering count for nothing in the measure
-    (Step 17 round 8 entry S17-R8-028, on the cure at
-    round 7 entry S17-R7-032, completed at round 9 entry
-    S17-R9-003 at the key position, on the form the
-    import side cure at round 8 entry S17-R8-016 states:
-    a string standing as a key inside a container stands
-    measured by its length in characters beside the
+    of the rendering count for nothing in the measure (on
+    the cure at round 7, completed at round 9 at the key
+    position, on the form the import side cure at round 8
+    states: a string standing as a key inside a container
+    stands measured by its length in characters beside the
     measure of its value, at any depth)."""
     if isinstance(value, _FmWrittenNumber):
         return len(value)
@@ -1859,9 +1810,7 @@ def _fm_json_value_length(value):
     by its written form, held at parse time as
     _FmWrittenNumber, and a container by the sum of its
     member measures on _fm_container_value_measure, with
-    the container marks counting for nothing (Step 17
-    round 7 entry S17-R7-013, completed at round 8 entries
-    S17-R8-006 and S17-R8-028)."""
+    the container marks counting for nothing."""
     if isinstance(value, _FmWrittenNumber):
         return len(value)
     if isinstance(value, str):
@@ -1897,39 +1846,34 @@ def _fm_json_rendered(value):
 
 
 def _fm_brackets_closed(text):
-    """True where the bracket forms in one front matter
-    text stand balanced, the not closed bracket judgement
-    the import side reading runs on keys, on values, and
-    on continuation lines whole (Step 17 round 6 entry
-    S17-R6-013)."""
+    """True where the bracket forms in one front matter text
+    stand balanced, the not closed bracket judgement the
+    import side reading runs on keys, on values, and on
+    continuation lines whole."""
     return text.count("[") == text.count("]") \
         and text.count("{") == text.count("}")
 
 
 def _front_matter(text, fmt, notes, block_limit_bytes=None,
                   value_limit=None):
-    """Front matter handling. Front matter that fails the
-    D17 control set fails closed: a tag construct standing
-    in front matter is that failure in this module.
+    """Front matter handling. Front matter that fails the D17
+    control set fails closed: a tag construct standing in
+    front matter is that failure in this module.
 
     This reading stands as the one reading with the import
     side reading in probe_import.py, whole: the tag
     construct judgement at every position, in the line
     form and in the JSON form alike, the bracket judgement
-    on keys, on values, and on continuation lines, and
-    the key discipline, each key standing once and the
-    key count limit standing enforced in both forms
-    (Step 17 round 6 entries S17-R6-012, S17-R6-013, and
-    S17-R6-014).
+    on keys, on values, and on continuation lines, and the
+    key discipline, each key standing once and the key
+    count limit standing enforced in both forms.
 
     The block size and value length limits stand as the
     limits in force for the run where the caller states
-    them (Step 17 round 3 entry S17-R3-068): one reading
-    of the limits in force governs the audit record's
-    statement and this enforcement, so the brief default
-    constants stand only where no value in force reaches
-    this reading, as at the page size gate.
-    """
+    them: one reading of the limits in force governs the
+    audit record's statement and this enforcement, so the
+    brief default constants stand only where no value in
+    force reaches this reading, as at the page size gate."""
     if not isinstance(block_limit_bytes, (int, float)):
         block_limit_bytes = _FRONT_MATTER_BLOCK_LIMIT
     if not isinstance(value_limit, (int, float)):
@@ -1973,8 +1917,7 @@ def _front_matter(text, fmt, notes, block_limit_bytes=None,
     # opening fence, or at either edge of either fence
     # line, does not move the block off the reading, as
     # the import side reading states for its opening
-    # fence (Step 17 round 7 entry S17-R7-014), completed
-    # at round 8 entry S17-R8-005 on head material
+    # fence, completed at round 8 on head material
     # standing between the fence characters themselves,
     # through _fm_judged_fence at both fences.
     working = _fm_strip_head(text)
@@ -1987,12 +1930,11 @@ def _front_matter(text, fmt, notes, block_limit_bytes=None,
             # The block size stands measured on the block
             # as it stands in the file, the lines between
             # the fences with the terminators the file
-            # closes them with, at their file width, so a
+            # closes them, at their file width, so a
             # carriage return standing in a terminator
             # counts at its width on every block line, as
             # the import side reading cured at round 7
-            # entry S17-R7-033 measures it (Step 17 round
-            # 8 entry S17-R8-007).
+            # measures it.
             kept_lines = working.splitlines(keepends=True)
             block_in_file = "".join(kept_lines[1:index])
             if len(block_in_file.encode("utf-8")) \
@@ -2002,14 +1944,13 @@ def _front_matter(text, fmt, notes, block_limit_bytes=None,
                       "with rejection and no partial record"
                       % ("%g" % (block_limit_bytes / 1024),))
             # Values stand measured as the governing
-            # readings state them (Step 17 round 4 entry
-            # S17-R4-062): a comment line stands as no
-            # value at all, and an indented continuation
-            # line stands accumulated into the value above
-            # it, as the import side reading cured at
-            # S17-R3-027 accumulates it. The line form
-            # stands judged by the one reading the import
-            # side stands on, _front_matter_key_value
+            # readings state them: a comment line stands
+            # as no value at all, and an indented
+            # continuation line stands accumulated into
+            # the value above it, as the import side
+            # reading cured at accumulates it. The line
+            # form stands judged by the one reading the
+            # import side stands, _front_matter_key_value
             # above: a line holding no key of its own, an
             # indented line opening with a quoted string
             # whose closing quote no colon follows among
@@ -2017,8 +1958,7 @@ def _front_matter(text, fmt, notes, block_limit_bytes=None,
             # stands indented, and a line holding no key
             # and no indentation stands refused here as
             # the import side reading refuses it, in this
-            # module own vocabulary (Step 17 round 5
-            # entries S17-R5-010 and S17-R5-011).
+            # module own vocabulary.
             if block.strip().startswith("{"):
                 # The JSON form of the block stands under
                 # the same control set whole, as the import
@@ -2026,8 +1966,7 @@ def _front_matter(text, fmt, notes, block_limit_bytes=None,
                 # stand refused, the key count limit stands
                 # enforced, and a tag construct standing in
                 # a key or a value at any depth stands
-                # refused (Step 17 round 6 entries
-                # S17-R6-012 and S17-R6-014).
+                # refused.
                 def _no_duplicates(pairs):
                     seen = set()
                     for key, _value in pairs:
@@ -2067,8 +2006,7 @@ def _front_matter(text, fmt, notes, block_limit_bytes=None,
                 # The JSON form stands under the value
                 # length limit and the nesting depth limit
                 # its own line form and the import side
-                # reading enforce on the same block (Step
-                # 17 round 7 entry S17-R7-013).
+                # reading enforce on the same block.
                 if _fm_json_depth(parsed) \
                         > _FRONT_MATTER_JSON_DEPTH_LIMIT:
                     _fail("LIMIT_EXCEEDED",
@@ -2079,8 +2017,7 @@ def _front_matter(text, fmt, notes, block_limit_bytes=None,
                     # A string standing as a key of the top
                     # level object stands measured by its
                     # length in characters, as a string
-                    # standing as a value stands measured
-                    # (Step 17 round 9 entry S17-R9-020).
+                    # standing as a value stands measured.
                     if len(str(json_key)) > value_limit \
                             or _fm_json_value_length(json_value) \
                             > value_limit:
@@ -2114,8 +2051,7 @@ def _front_matter(text, fmt, notes, block_limit_bytes=None,
                         # a tag construct standing on it, at
                         # any position, and an unbalanced
                         # bracket standing on it whole, each
-                        # fail the block (Step 17 round 6
-                        # entries S17-R6-012 and S17-R6-013).
+                        # fail the block.
                         if _fm_holds_tag_construct(
                                 _fm_strip_head(continuation)):
                             _fail("PAGE_EXTRACTION_FAILED",
@@ -2137,8 +2073,7 @@ def _front_matter(text, fmt, notes, block_limit_bytes=None,
                     # reading: a key stands once each, and
                     # the key count limit of 100 stands
                     # enforced, as the import side reading
-                    # enforces both on the same block (Step
-                    # 17 round 6 entry S17-R6-014).
+                    # enforces both on the same block.
                     key_count += 1
                     if key_count > _FRONT_MATTER_KEY_LIMIT:
                         _fail("LIMIT_EXCEEDED",
@@ -2147,21 +2082,18 @@ def _front_matter(text, fmt, notes, block_limit_bytes=None,
                               "partial record")
                     # A line whose key stands empty stands
                     # refused, as the import side reading
-                    # refuses it (Step 17 round 7 entry
-                    # S17-R7-012).
+                    # refuses it.
                     if not pair[0]:
                         _fail("PAGE_EXTRACTION_FAILED",
                               "a front matter line holds no "
                               "key: "
                               + block_line.strip()[:60])
-                    # The duplicate judgement stands on
-                    # the judged key, head material removed
-                    # at both edges and at any position
-                    # inside the name on the completed head
+                    # The duplicate judgement stands on the
+                    # judged key, head material removed at
+                    # both edges and at any position inside
+                    # the name on the completed head
                     # predicate, as the import side reading
-                    # states at its _judged_key (Step 17
-                    # round 7 entry S17-R7-010, completed
-                    # at round 8 entry S17-R8-004).
+                    # states at its _judged_key.
                     duplicate_key = _fm_judged_key(pair[0])
                     if duplicate_key in seen_keys:
                         _fail("PAGE_EXTRACTION_FAILED",
@@ -2171,21 +2103,17 @@ def _front_matter(text, fmt, notes, block_limit_bytes=None,
                               "front matter keys stand once "
                               "each")
                     seen_keys.add(duplicate_key)
-                    # The construct judgement stands on
-                    # the key and on the value at every
+                    # The construct judgement stands on the
+                    # key and on the value at every
                     # position, as the import side reading
-                    # states the construct rule (Step 17
-                    # round 6 entry S17-R6-012), and the
+                    # states the construct rule, and the
                     # bracket judgement stands on the key
-                    # and on the value alike (Step 17
-                    # round 6 entry S17-R6-013). The key
+                    # and on the value alike. The key
                     # construct judgement stands on the
                     # judged key beside the key standing
                     # past its head material, in the import
                     # form, the judged key standing as the
-                    # duplicate judgement above reads it
-                    # (Step 17 round 16 entry
-                    # S17-R16-011).
+                    # duplicate judgement above reads it.
                     judged_key = _fm_strip_head(pair[0])
                     judged_value = _fm_strip_head(pair[1])
                     if _fm_holds_tag_construct(
@@ -3056,19 +2984,17 @@ def _extract_inner(home, product_id, page_path, declared_format,
                    capture_date_asserted, capture_method_asserted,
                    run_id=None, limits_in_force=None):
     # One reading of the limits in force for this run
-    # governs every extraction gate below (Step 17 round 2
-    # entry S17-R2-085): the reading stands taken under
-    # the run identity the service states for the run, so
-    # a raise for that run and a config value both reach
-    # the page size gate and the extracted text gate here,
-    # as they reach the service preflight. Where the
-    # service caller hands its own start reading in, that
-    # one reading governs the whole run (Step 17 round 4
-    # entry S17-R4-061): the audit statement and the
-    # extraction enforcement then stand on the same
-    # values, and no second reading of the config file
-    # limb can move the enforcement away from the values
-    # the record states.
+    # governs every extraction gate below: the reading
+    # stands taken under the run identity the service
+    # states for the run, so a raise for that run and a
+    # config value both reach the page size gate and the
+    # extracted text gate here, as they reach the service
+    # preflight. Where the service caller hands its own
+    # start reading in, that one reading governs the whole
+    # run: the audit statement and the extraction
+    # enforcement then stand on the same values, and no
+    # second reading of the config file limb can move the
+    # enforcement away from the values the record states.
     if limits_in_force is None:
         try:
             from citeline import journal as journal_module
@@ -3114,11 +3040,10 @@ def _extract_inner(home, product_id, page_path, declared_format,
     # The extracted text limit in force over this home
     # governs the extraction, not only the brief default:
     # a config set value reaches this path through the
-    # journal limits in force (Step 17 entry S17-R1-080,
-    # cured at the service seam in seat F7 with this one
-    # reading in the extraction path). Where no limit can
-    # be read, the brief default constant governs, as
-    # before.
+    # journal limits in force (cured at the service seam
+    # in seat F7 with this one reading in the extraction
+    # path). Where no limit can be read, the brief
+    # default constant governs, as before.
     extracted_text_limit = _EXTRACTED_TEXT_LIMIT
     stated_text_limit = (
         limits_in_force.get(
@@ -3141,9 +3066,9 @@ def _extract_inner(home, product_id, page_path, declared_format,
     # in the payload in place of any count read taken here,
     # and the journal append resolves it under its write
     # lock at the moment the sequence stands assigned, in
-    # the form the S17-R1-077 cure established for the
-    # answer and run limbs, so no count read outside the
-    # lock can mint an identity another append also mints.
+    # the form the cure established for the answer and run
+    # limbs, so no count read outside the lock can mint an
+    # identity another append also mints.
     snapshot = {
         "snapshot_id": "snap-{sequence}",
         "product_id": product_id,
@@ -3197,11 +3122,10 @@ def extract_page(home, product_id=None, page_path=None, audit_date=None,
     snapshot = result["snapshot"]
     if kwargs.get("register_snapshot", True) is False:
         # The caller registers the snapshot itself, in the
-        # same batch as the record the snapshot belongs to
-        # (Step 17 round 2 entry S17-R2-072): the snapshot
-        # stands returned with its sequence marker
-        # unresolved, for the caller's batch append to
-        # resolve under its lock.
+        # same batch as the record the snapshot belongs
+        # to: the snapshot stands returned with its
+        # sequence marker unresolved, for the caller's
+        # batch append to resolve under its lock.
         return result
     if _journal_or_none() is not None:
         appended = _journal_append(home, "snapshot_registered",

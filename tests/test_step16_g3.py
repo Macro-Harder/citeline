@@ -1,12 +1,11 @@
-"""Step 16 supplementary fix wave, builder G3: heading location.
+"""Heading location.
 
-Defect pinned here:
-E-03, heading location finds an earlier prose occurrence of the
-heading text (finding S16-R2-S2-01). Where a later heading text
-also stands in earlier body prose, the heading start and the
-section map locate the prose occurrence instead of the heading
-block, in both Markdown and HTML. The two controlled cases are
-the round 2 S2 paper cases, stated in full there:
+Defect pinned here: E-03, heading location finds an earlier
+prose occurrence of the heading text (finding). Where a later
+heading text also stands in earlier body prose, the heading
+start and the section map locate the prose occurrence instead of
+the heading block, in both Markdown and HTML. The two controlled
+cases are the round 2 S2 paper cases, stated in full there:
 
 Case 1: blocks Title Page at 0, the prose sentence Evidence is
 mentioned in this opening sentence at 12, the heading block
@@ -15,11 +14,9 @@ characters. The defective product reported Evidence at 12 and
 sections 0 to 12 and 12 to 101.
 
 Case 2: blocks Opening at 0, the prose sentence The Final Notes
-section is previewed here in prose at 9, the heading block
-Final Notes at 62, running text 93 characters. The defective
-product reported Final Notes at 13 and sections 0 to 13 and
-13 to 93.
-"""
+section is previewed here in prose at 9, the heading block Final
+Notes at 62, running text 93 characters. The defective product
+reported Final Notes at 13 and sections 0 to 13 and 13 to 93."""
 
 import tempfile
 import unittest

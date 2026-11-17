@@ -1,7 +1,7 @@
-"""Step 16 fix wave, builder F2: metrics and service assembly.
+"""Metrics and service assembly.
 
-Tests for defects D-02, D-05, and D-23 of the Step 16 round 1
-fix register, written before the cures.
+Tests for defects D-02, D-05, and D-23 of the fix register,
+written before the cures.
 
 D-02: the importer declaration recorded at round naming, in
 the journal round_named entry, must reach the sampling frame
@@ -9,17 +9,16 @@ of the probe report and of each trend round report, through
 both limbs that carry it: the metrics journal route and the
 service assembly datum.
 
-D-05: guard G3 dominance. Where any one asserted engine
-label, query, or day supplies more than half of a round, the
+D-05: guard G3 dominance. Where any one asserted engine label,
+query, or day supplies more than half of a round, the
 composition carries a dominance note. No axis is exempt for
 holding one value only, so a round supplied wholly by one
 engine at 100.0 percent reports dominance.
 
-D-23: the Advanced probe trend carries the honesty sentence
-at trend level and inside both embedded round reports, as
-the standalone probe report does, including where the trend
-itself stands on a series break.
-"""
+D-23: the Advanced probe trend carries the honesty sentence at
+trend level and inside both embedded round reports, as the
+standalone probe report does, including where the trend itself
+stands on a series break."""
 
 import os
 import tempfile

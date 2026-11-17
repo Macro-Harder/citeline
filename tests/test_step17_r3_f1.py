@@ -1,13 +1,11 @@
-"""Step 17 round 3 fix seat F1 tests: journal family.
+"""Journal family.
 
 Each test pins one register entry from design/audit/
-step-17-r3-findings-register.md (S17-R3-001 to S17-R3-008,
-S17-R3-053, S17-R3-062, and S17-R3-065 under the Manager
-ruling recorded in the step record) on the behaviour the
-register states. Homes are scratch homes under a temporary
-directory. No test here touches a standing test item or a
-governed ground.
-"""
+the register paper (to, and under the Manager ruling
+recorded in the step record) on the behaviour the
+register states. Homes are scratch homes under a
+temporary directory. No test here touches a standing
+test item or a governed ground."""
 
 import base64
 import copy

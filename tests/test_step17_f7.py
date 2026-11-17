@@ -1,20 +1,11 @@
-"""Step 17 fix seat F7 tests: service, watch, and seams family.
+"""Service, watch, and seams family.
 
 Pins the register entries charged to F7 in the combined fix
-wave: S17-R1-038, S17-R1-065, S17-R1-066, S17-R1-067,
-S17-R1-068, S17-R1-069, S17-R1-070, S17-R1-071, S17-R1-072,
-S17-R1-074, S17-R1-075, S17-R1-077, S17-R1-080, S17-R1-082,
-S17-R1-085, S17-R1-086, S17-R1-102, S17-R1-109, S17-R1-111,
-and supplementary S17-R1X-011, S17-R1X-016, S17-R1X-026,
-S17-R1X-027, S17-R1X-030, S17-R1X-033, S17-R1X-041, with
-the WatchPlan limb of S17-R1-033. Every test was written
-before its cure and run failing for the register stated
-reason. Oracle: the register entries at
-design/audit/step-17-r1-findings-register.md and
-design/audit/step-17-r1x-findings-register.md, the brief
-items they cite, and the combined charge at
-design/audit/step-17-r1x-disposition.md.
-"""
+wave: and supplementary, with the WatchPlan limb of. Every
+test was written before its cure and run failing for the
+register stated reason. Oracle: the register entries in the
+register and the register paper, the brief items they cite,
+and the combined charge in the register."""
 
 import contextlib
 import datetime
@@ -146,8 +137,8 @@ class SeededBase(HomeBase):
         seed(self, self.home)
 
 
-# ----------------------------------------------------------------
-# S17-R1-038: stated limits enforced in the paths they govern.
+# ----------------------------------------------------------------:
+# stated limits enforced in the paths they govern.
 # ----------------------------------------------------------------
 
 class Test038LimitsEnforced(SeededBase):
@@ -247,7 +238,7 @@ class Test038LimitsEnforced(SeededBase):
 
 
 # ----------------------------------------------------------------
-# S17-R1-080 and S17-R1X-011: config and raise limits govern.
+# and: config and raise limits govern.
 # ----------------------------------------------------------------
 
 class Test080ConfigGoverns(SeededBase):
@@ -333,7 +324,7 @@ class TestX016MidRunLimits(HomeBase):
 
 
 # ----------------------------------------------------------------
-# S17-R1-065 to S17-R1-068: install and shell failure forms.
+# to: install and shell failure forms.
 # ----------------------------------------------------------------
 
 class TestInstallForms(unittest.TestCase):
@@ -405,8 +396,8 @@ class TestInstallForms(unittest.TestCase):
         self.assertIn("HOME_MISSING", stderr.getvalue())
 
 
-# ----------------------------------------------------------------
-# S17-R1-069 to S17-R1-072, S17-R1-074, S17-R1-109: WatchPlan.
+# ----------------------------------------------------------------,:
+# WatchPlan.
 # ----------------------------------------------------------------
 
 class TestWatchPlanForms(SeededBase):
@@ -537,8 +528,8 @@ class TestWatchPlanForms(SeededBase):
             warnings)
 
 
-# ----------------------------------------------------------------
-# S17-R1-075: readers on type swapped stored fields.
+# ----------------------------------------------------------------:
+# readers on type swapped stored fields.
 # ----------------------------------------------------------------
 
 class Test075TypeSwappedFields(SeededBase):
@@ -588,8 +579,8 @@ class Test075TypeSwappedFields(SeededBase):
             token_of(caught.exception), "VALIDATION_FAILED")
 
 
-# ----------------------------------------------------------------
-# S17-R1-077: identities from the append's own sequence.
+# ----------------------------------------------------------------:
+# identities from the append's own sequence.
 # ----------------------------------------------------------------
 
 class Test077SequenceIdentities(SeededBase):
@@ -616,8 +607,8 @@ class Test077SequenceIdentities(SeededBase):
             "run-%d" % stored[0]["sequence"])
 
 
-# ----------------------------------------------------------------
-# S17-R1-082: the report fold bound to the first import basis.
+# ----------------------------------------------------------------:
+# the report fold bound to the first import basis.
 # ----------------------------------------------------------------
 
 class Test082FirstImportBasis(SeededBase):
@@ -650,8 +641,8 @@ class Test082FirstImportBasis(SeededBase):
         self.assertEqual(stamps.get("query_set_version"), 2)
 
 
-# ----------------------------------------------------------------
-# S17-R1-085: failure records on the routes that append none.
+# ----------------------------------------------------------------:
+# failure records on the routes that append none.
 # ----------------------------------------------------------------
 
 class Test085FailureRecords(SeededBase):
@@ -706,7 +697,7 @@ class Test085FailureRecords(SeededBase):
 
 
 # ----------------------------------------------------------------
-# S17-R1-086 and S17-R1X-027: corrections aware reporting.
+# and: corrections aware reporting.
 # ----------------------------------------------------------------
 
 class Test086Corrections(SeededBase):
@@ -775,8 +766,8 @@ class Test086Corrections(SeededBase):
         self.assertEqual(token_of(caught.exception), "UNKNOWN_ROUND")
 
 
-# ----------------------------------------------------------------
-# S17-R1-102: register page operator explanation.
+# ----------------------------------------------------------------:
+# register page operator explanation.
 # ----------------------------------------------------------------
 
 class Test102RegisterPageExplanation(SeededBase):
@@ -792,8 +783,8 @@ class Test102RegisterPageExplanation(SeededBase):
         self.assertIn("belongs to the product", message)
 
 
-# ----------------------------------------------------------------
-# S17-R1X-026, S17-R1X-033: the audit date validator's types.
+# ----------------------------------------------------------------,:
+# the audit date validator's types.
 # ----------------------------------------------------------------
 
 class TestDateValidatorTypes(SeededBase):
@@ -827,8 +818,8 @@ class TestDateValidatorTypes(SeededBase):
         self.assertIsInstance(stored["audit_date"], str)
 
 
-# ----------------------------------------------------------------
-# S17-R1X-030: list_products on a journal that does not parse.
+# ----------------------------------------------------------------:
+# list_products on a journal that does not parse.
 # ----------------------------------------------------------------
 
 class TestX030ListProducts(SeededBase):
@@ -847,7 +838,7 @@ class TestX030ListProducts(SeededBase):
 
 
 # ----------------------------------------------------------------
-# S17-R1-111 and S17-R1X-041: the staleness axis omission.
+# and: the staleness axis omission.
 # ----------------------------------------------------------------
 
 class Test111StalenessAxes(SeededBase):

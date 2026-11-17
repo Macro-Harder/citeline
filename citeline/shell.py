@@ -463,8 +463,8 @@ def _parse_flags_detailed(tokens, allowed, operation):
 # still stand nested past this depth on a runtime whose
 # parser reads deeper, so the intake judges the depth of
 # the parsed structure itself and never passes a deeper
-# structure on to field validation (Step 17 round 2 entry
-# S17-R2-080, completed at Step 19 entry U-13).
+# structure on to field validation (completed at Step 19
+# entry U-13).
 _LIST_INTAKE_DEPTH = 100
 
 
@@ -520,9 +520,8 @@ def _coerce_list_inputs(inputs):
                     # A list nested past the parser depth
                     # stands as a malformed list input, in
                     # the same governed form as an
-                    # undecodable one (Step 17 round 2 entry
-                    # S17-R2-080), never as a raw crash of
-                    # the whole shell.
+                    # undecodable one, never as a raw crash
+                    # of the whole shell.
                     return None
                 if not isinstance(parsed, list):
                     return None

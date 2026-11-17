@@ -1,9 +1,8 @@
-"""Step 17 round 2 fix seat F5 tests, detection and metrics.
+"""Detection and metrics.
 
-Each test pins one register entry from the Step 17 round 2
-findings register, in the form the register states. Written
-before the cures, watched failing, then watched passing.
-"""
+Each test pins one register entry from the findings
+register, in the form the register states. Written before
+the cures, watched failing, then watched passing."""
 
 import time
 import unittest

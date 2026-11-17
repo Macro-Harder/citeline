@@ -1,49 +1,40 @@
-"""Step 17 round 14 fix seat F7 tests: service, watch, seams.
+"""Service, watch, seams.
 
-Seat F7 carries one entry TO FIX in this round,
-S17-R14-004, Medium: the service seam container
-measure in citeline/service.py recursed with no depth
-guard, so a JSON front matter block nesting past the
-platform recursion standing escaped
-service.probe_import as a raw RecursionError with no
-token, where the page reading and the import reading
-each refuse the same form with LIMIT_EXCEEDED under
-the JSON nesting depth limit of 100. The defect pins
-below stand on that entry: the nesting depth of the
-parsed front matter value stands judged at the seam,
-in _import_front_matter_limits, ahead of either
-container measure, on an iterative count, so a block
-nesting past the limit of 100 refuses at the seam and
-at the service route with LIMIT_EXCEEDED, in the
-primary form and in the fallback form alike, in list
-shape and in record shape alike, and no nesting form
-escapes as a raw RecursionError at any depth, while
-nothing stands accepted past the limit and the forms
-at and below the limit stand as they stood.
-Beside the defect pins, this file carries the
-standing verdict standings of this family in the F7
-form, judged first hand: the container seam at
-entries S17-R9-003 and S17-R9-020 standing whole on
-its worked forms, the form holding a string of 4096
-characters under a key of one character measuring
-4097, the form holding a key of 4090 characters
-beside a value of 10 characters measuring 4100, and
-the list form holding the first form inside it
-measuring 4097, with the container limb judged under
-the limit in force of 100; the top level key position
-standing cured at entry S17-R10-001 at the service
-reading, in the primary form and in the fallback
-form alike; and the watch figures in their exact
-forms, the WatchPlan size figure of 1 MiB and the
-picked scope bound of 100 targets, with both watch
-modes standing as options.
-Oracle: the round 14 disposition, Section 3 seat F7
-and rulings (d) and (f), the round 14 register entry
-S17-R14-004, and the round 14 service attack paper,
-filing S17-R14-SW-01.
+Seat F7 carries one entry TO FIX in this round, Medium: the
+service seam container measure in citeline/service.py
+recursed with no depth guard, so a JSON front matter block
+nesting past the platform recursion standing escaped
+service.probe_import as a raw RecursionError with no token,
+where the page reading and the import reading each refuse the
+same form with LIMIT_EXCEEDED under the JSON nesting depth
+limit of 100. The defect pins below stand on that entry: the
+nesting depth of the parsed front matter value stands judged
+at the seam, in _import_front_matter_limits, ahead of either
+container measure, on an iterative count, so a block nesting
+past the limit of 100 refuses at the seam and at the service
+route with LIMIT_EXCEEDED, in the primary form and in the
+fallback form alike, in list shape and in record shape alike,
+and no nesting form escapes as a raw RecursionError at any
+depth, while nothing stands accepted past the limit and the
+forms at and below the limit stand as they stood. Beside the
+defect pins, this file carries the standing verdict standings
+of this family in the F7 form, judged first hand: the
+container seam at standing whole on its worked forms, the
+form holding a string of 4096 characters under a key of one
+character measuring 4097, the form holding a key of 4090
+characters beside a value of 10 characters measuring 4100,
+and the list form holding the first form inside it measuring
+4097, with the container limb judged under the limit in force
+of 100; the top level key position standing cured at at the
+service reading, in the primary form and in the fallback form
+alike; and the watch figures in their exact forms, the
+WatchPlan size figure of 1 MiB and the picked scope bound of
+100 targets, with both watch modes standing as options.
+Oracle: the round 14 disposition, Section 3 seat F7 and
+rulings (d) and (f), the round 14 register, and the round 14
+service attack paper, filing.
 
-Copyright: J.P. Picard aka Macro-Harder.
-"""
+Copyright: J.P. Picard aka Macro-Harder."""
 
 import json
 import tempfile
@@ -171,13 +162,12 @@ class LimitedBase(SeededBase):
 
 
 # ----------------------------------------------------------------
-# Entry S17-R14-004: the depth of the parsed front
-# matter value stands judged at the seam ahead of
-# either container measure. At the seam alone, under
-# the limit in force of 100, a nesting past the depth
-# limit of 100 refuses LIMIT_EXCEEDED, where the
-# uncured seam passes the same forms whole on the
-# measure of the centred string, standing at 1.
+# Entry: the depth of the parsed front matter value stands judged
+# at the seam ahead of either container measure. At the seam
+# alone, under the limit in force of 100, a nesting past the depth
+# limit of 100 refuses LIMIT_EXCEEDED, where the uncured seam
+# passes the same forms whole on the measure of the centred
+# string, standing at 1.
 # ----------------------------------------------------------------
 
 class TestDeepNestingAtTheSeamPrimary(LimitedBase):
@@ -235,11 +225,10 @@ class TestDeepNestingAtTheSeamFallback(LimitedBase):
 
 
 # ----------------------------------------------------------------
-# Entry S17-R14-004 at the service route: a block
-# nesting past the limit refuses LIMIT_EXCEEDED at
-# every depth, in both shapes and under the fallback
-# forcing, and nothing past the limit stands accepted,
-# while the form at the limit depth imports whole.
+# Entry at the service route: a block nesting past the limit
+# refuses LIMIT_EXCEEDED at every depth, in both shapes and under
+# the fallback forcing, and nothing past the limit stands
+# accepted, while the form at the limit depth imports whole.
 # ----------------------------------------------------------------
 
 class TestDeepNestingAtTheRoute(SeededBase):
@@ -278,10 +267,9 @@ class TestDeepNestingAtTheRoute(SeededBase):
 
 
 # ----------------------------------------------------------------
-# The container seam at entries S17-R9-003 and
-# S17-R9-020, in its standing form: the three readings
-# agree on the worked forms, subject to the cure
-# above on the deep nesting family past those forms.
+# The container seam, in its standing form: the three readings
+# agree on the worked forms, subject to the cure above on the deep
+# nesting family past those forms.
 # ----------------------------------------------------------------
 
 class TestContainerSeamStandingForm(SeededBase):
@@ -338,9 +326,9 @@ class TestContainerKeyAtTheSeamBothForms(LimitedBase):
 
 
 # ----------------------------------------------------------------
-# The top level key position as cured at entry
-# S17-R10-001, standing cured at the service reading,
-# in the primary form and in the fallback form alike.
+# The top level key position as cured, standing cured at the
+# service reading, in the primary form and in the fallback form
+# alike.
 # ----------------------------------------------------------------
 
 class TestTopLevelKeyCuredFormPrimary(LimitedBase):

@@ -1,32 +1,30 @@
-# Step 17 round 10 fix seat F5 tests.
-#
-# Entry S17-R10-010, reopening S17-R9-014: the counted
-# reading of _similar_components prices every seed at
-# the batch count times the distinct size count times
-# the set count width, so a family holding many
-# distinct sizes inside the threshold band prices past
-# the 120 second backstop at the round cap of 10,000
-# sets, at both module copies. The families stand as
-# the round 10 papers state them: the Red constructions
-# at scratch/r10-red/p_f5_cost.py to p_f5_cost4.py
-# (sizes cycling through 1,000 sizes from 1,000 to
-# 1,999 over one pool of 60,000, seed 11; sizes cycling
-# through 900 sizes from 1,600 to 2,499 over the same
-# pool; pairs sharing one rare block and holding apart
-# on a common block, at 451 distinct sizes from 2,000
-# to 2,450; and sizes cycling through 2,250 sizes from
+# fix seat F5 tests.
+# Entry, reopening: the counted reading of
+# _similar_components prices every seed at the batch
+# count times the distinct size count times the set
+# count width, so a family holding many distinct sizes
+# inside the threshold band prices past the 120 second
+# backstop at the round cap of 10,000 sets, at both
+# module copies. The families stand as the round 10
+# papers state them: the Red constructions at
+# scratch/r10-red/p_f5_cost.py to p_f5_cost4.py (sizes
+# cycling through 1,000 sizes from 1,000 to 1,999 over
+# one pool of 60,000, seed 11; sizes cycling through
+# 900 sizes from 1,600 to 2,499 over the same pool;
+# pairs sharing one rare block and holding apart on a
+# common block, at 451 distinct sizes from 2,000 to
+# 2,450; and sizes cycling through 2,250 sizes from
 # 4,000 to 6,249 over a pool of 200,000, seed 11), and
 # the detection seat families at
 # scratch/r10-detection/probe4_wider.py and
 # probe2_cyclic.py with probe2b_cyclic_big.py (the
 # mixed size family at 201 distinct sizes from 800 to
 # 2,800 over one pool of 20,000, seed 3, and the two
-# late miss cyclic constructions at set sizes 3,100
-# and 6,500). Correctness stands judged against direct
-# pair computations written from the rule beside every
-# cost series, and timing stands on process CPU time,
-# never on wall clock.
-#
+# late miss cyclic constructions at set sizes 3,100 and
+# 6,500). Correctness stands judged against direct pair
+# computations written from the rule beside every cost
+# series, and timing stands on process CPU time, never
+# on wall clock.
 # Copyright: J.P. Picard aka Macro-Harder.
 
 import random
@@ -176,9 +174,9 @@ def _cyclic_wide_family(count):
 
 
 class TestR10F5CompoundedCorrectness(unittest.TestCase):
-    # S17-R10-010, correctness on the compounded factor
-    # families at reduced scale, judged against direct
-    # pair computations in both copies.
+    # , correctness on the compounded factor families
+    # at reduced scale, judged against direct pair
+    # computations in both copies.
 
     def test_red_first_construction_correct_both_copies(self):
         type_sets = _band_family(120, 1000, 1000, 60000)
@@ -268,10 +266,10 @@ class TestR10F5CompoundedCorrectness(unittest.TestCase):
 
 
 class TestR10F5CompoundedCost(unittest.TestCase):
-    # S17-R10-010, cost on the Red constructions at the
-    # scales the Red paper measures, process CPU time,
-    # construction excluded, the singleton result judged
-    # at every scale in both copies.
+    # , cost on the Red constructions at the scales the
+    # Red paper measures, process CPU time, construction
+    # excluded, the singleton result judged at every
+    # scale in both copies.
 
     def _run_inside_bound(self, module, type_sets, bound):
         start = time.process_time()
@@ -306,17 +304,17 @@ class TestR10F5CompoundedCost(unittest.TestCase):
 
     # The two fourth construction pins below stand
     # re-pinned under the ruling of Captain JP of
-    # 2026-11-16 on entry S17-R11-012, in her words:
-    # "Just remove the two minute limit." The two minute
-    # limit stands removed for this family, so these pins
-    # assert the correctness standing of the family at
-    # this scale, the singleton result judged, and no
-    # time bound assertion on this family stands in
-    # their place. Their old form, the same construction
-    # at this scale against a bound of 40.0 seconds of
-    # process CPU time, stands recorded in the fix
-    # papers of rounds 10 to 13 in its standing as the
-    # pin form of the backstop judgement on this family.
+    # 2026-11-16, in her words: "Just remove the two
+    # minute limit." The two minute limit stands removed
+    # for this family, so these pins assert the
+    # correctness standing of the family at this scale,
+    # the singleton result judged, and no time bound
+    # assertion on this family stands in their place.
+    # Their old form, the same construction at this scale
+    # against a bound of 40.0 seconds of process CPU
+    # time, stands recorded in the fix papers of rounds
+    # 10 to 13 in its standing as the pin form of the
+    # backstop judgement on this family.
 
     def _run_correct_at_scale(self, module, type_sets):
         components = module._similar_components(type_sets)

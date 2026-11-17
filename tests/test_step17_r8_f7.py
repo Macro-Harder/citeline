@@ -1,15 +1,13 @@
-"""Step 17 round 8 fix seat F7 tests: service, watch, seams.
+"""Service, watch, seams.
 
-Pins the register entry charged to F7 in fix round 8,
-S17-R8-024, and the seam positions the F2, F4, and F6
-papers of this round state for this seat. Every defect
-test was written before its cure and run failing for
-the register stated reason, except the controls named
-as controls.
-Oracle: the round 8 findings register and disposition.
+Pins the register entry charged to F7 in fix round 8, and
+the seam positions the F2, F4, and F6 papers of this round
+state for this seat. Every defect test was written before
+its cure and run failing for the register stated reason,
+except the controls named as controls. Oracle: the round 8
+findings register and disposition.
 
-Copyright: J.P. Picard aka Macro-Harder.
-"""
+Copyright: J.P. Picard aka Macro-Harder."""
 
 import json
 import tempfile
@@ -89,10 +87,9 @@ class SeededBase(unittest.TestCase):
         return do_import(self.home, answer)
 
 
-# ----------------------------------------------------------------
-# S17-R8-024: a plan level second_round field, singular, on
-# an estate plan stands warned in the open, never
-# disregarded in silence.
+# ----------------------------------------------------------------:
+# a plan level second_round field, singular, on an estate plan
+# stands warned in the open, never disregarded in silence.
 # ----------------------------------------------------------------
 
 class Test024EstateSecondRoundSingular(SeededBase):
@@ -174,12 +171,11 @@ class Test024EstateSecondRoundSingular(SeededBase):
 
 
 # ----------------------------------------------------------------
-# F2 seam at entry S17-R8-028: the service reading stands
-# on the same import container measure the page side now
-# states, with no rendered fallback reopening the split
-# at 4,094 to 4,096 characters inside a list, and the
-# block size limb standing on the same file form at page
-# and service.
+# F2 seam at: the service reading stands on the same import
+# container measure the page side now states, with no rendered
+# fallback reopening the split at 4,094 to 4,096 characters inside
+# a list, and the block size limb standing on the same file form
+# at page and service.
 # ----------------------------------------------------------------
 
 class TestF2ContainerSeamServiceReading(SeededBase):
@@ -232,10 +228,9 @@ class TestF2ContainerSeamServiceReading(SeededBase):
 
 
 # ----------------------------------------------------------------
-# F4 seam: the service container measure stands on the
-# import measure at the key position, a string standing
-# as a key inside a container measured by its length in
-# characters, after the S17-R8-016 cure.
+# F4 seam: the service container measure stands on the import
+# measure at the key position, a string standing as a key inside a
+# container measured by its length in characters, after the cure.
 # ----------------------------------------------------------------
 
 class TestF4ContainerKeySeamServiceReading(SeededBase):

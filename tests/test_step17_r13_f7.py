@@ -1,40 +1,33 @@
-"""Step 17 round 13 fix seat F7 tests: service, watch, seams.
+"""Service, watch, seams.
 
-Seat F7 stands in verdict form only in this round and
-carries no entry TO FIX. The pins below judge the F7
-standings of fix round 12 against the tree as it stands
-in this wave, in the forms the round 13 papers record
-and ruling (n) of the round 13 disposition sustains:
-the container seam verdict at entries S17-R9-003 and
-S17-R9-020, the three readings agreeing on the worked
-forms; the top level key position as cured at entry
-S17-R10-001 standing cured at the service reading, in
-the primary form and in the fallback form alike; the
-corrected pin
-test_string_of_4096_inside_a_dict_value_refuses passing
-in its renamed form; and the watch figures in their
-exact forms, the WatchPlan size figure of 1 MiB and
-the picked scope bound of 100 targets, with both watch
-modes standing as options. The colon seam pins judge
-that standing again in its bounded observation
-sustained form under ruling (f) of the round 13
-disposition, recorded and not cured and not reopened
-as an entry. The combining mark pins hold only the
-forms that stand settled on both sides of the cures
-charged at entries S17-R13-001 and S17-R13-004 in
-this wave: a mark inside the landed range refuses at
-both readings, and a mark the word character set
-itself covers refuses at both readings. No pin in
-this file judges the follower limb those two cures
-stand on, which stands in progress in this wave and
-stands judged whole in the next round.
-Oracle: the round 13 disposition, Section 3 seat F7
-and rulings (f) and (n), and register Section 3,
-records 14 and 16, beside the round 13 service and
-seams papers.
+Seat F7 stands in verdict form only in this round and carries
+no entry TO FIX. The pins below judge the F7 standings of fix
+round 12 against the tree as it stands in this wave, in the
+forms the round 13 papers record and ruling (n) of the round
+13 disposition sustains: the container seam verdict, the
+three readings agreeing on the worked forms; the top level
+key position as cured at standing cured at the service
+reading, in the primary form and in the fallback form alike;
+the corrected pin
+test_string_of_4096_inside_a_dict_value_refuses passing in
+its renamed form; and the watch figures in their exact forms,
+the WatchPlan size figure of 1 MiB and the picked scope bound
+of 100 targets, with both watch modes standing as options.
+The colon seam pins judge that standing again in its bounded
+observation sustained form under ruling (f) of the round 13
+disposition, recorded and not cured and not reopened as an
+entry. The combining mark pins hold only the forms that stand
+settled on both sides of the cures charged at in this wave: a
+mark inside the landed range refuses at both readings, and a
+mark the word character set itself covers refuses at both
+readings. No pin in this file judges the follower limb those
+two cures stand, which stands in progress in this wave and
+stands judged whole in the next round. Oracle: the round 13
+disposition, Section 3 seat F7 and rulings (f) and (n), and
+register Section 3, records 14 and 16, beside the round 13
+service and seams papers.
 
-Copyright: J.P. Picard aka Macro-Harder.
-"""
+Copyright: J.P. Picard aka Macro-Harder."""
 
 import json
 import tempfile
@@ -156,8 +149,7 @@ def import_outcome(block):
 
 
 # ----------------------------------------------------------------
-# The container seam at entries S17-R9-003 and
-# S17-R9-020, in its standing form: the three readings
+# The container seam, in its standing form: the three readings
 # agree on the worked forms.
 # ----------------------------------------------------------------
 
@@ -215,9 +207,9 @@ class TestContainerKeyAtTheSeamBothForms(LimitedBase):
 
 
 # ----------------------------------------------------------------
-# The top level key position as cured at entry
-# S17-R10-001, standing cured at the service reading,
-# in the primary form and in the fallback form alike.
+# The top level key position as cured, standing cured at the
+# service reading, in the primary form and in the fallback form
+# alike.
 # ----------------------------------------------------------------
 
 class TestTopLevelKeyCuredFormPrimary(LimitedBase):
@@ -380,10 +372,9 @@ class TestWatchFiguresExactForms(SeededBase):
 
 
 # ----------------------------------------------------------------
-# The page and import follower readings on the cured
-# sets, entries S17-R12-001 and S17-R12-008: the two
-# readings agree on the twelve widened openings and on
-# the six further openings at the judged positions.
+# The page and import follower readings on the cured sets,: the
+# two readings agree on the twelve widened openings and on the six
+# further openings at the judged positions.
 # ----------------------------------------------------------------
 
 WIDENED_OPENINGS = (
@@ -494,12 +485,10 @@ class TestColonSeamSustainedBoundedForm(unittest.TestCase):
 
 
 # ----------------------------------------------------------------
-# The combining mark opening, in the form that stands
-# settled on both sides of the cures charged at
-# entries S17-R13-001 and S17-R13-004 in this wave.
-# The limb those cures stand on stands in progress
-# and stands judged whole in the next round, and no
-# pin in this class judges it.
+# The combining mark opening, in the form that stands settled on
+# both sides of the cures charged at in this wave. The limb those
+# cures stand on stands in progress and stands judged whole in the
+# next round, and no pin in this class judges it.
 # ----------------------------------------------------------------
 
 class TestCombiningMarkSettledForms(unittest.TestCase):

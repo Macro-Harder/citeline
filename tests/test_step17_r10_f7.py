@@ -1,23 +1,19 @@
-"""Step 17 round 10 fix seat F7 tests: service, watch, seams.
+"""Service, watch, seams.
 
-Entry S17-R10-001: the service seam
-_import_front_matter_limits in service.py measures no
-key of the top level object of a JSON front matter
-block, in its primary form or in its fallback form
-alike, so a top level key standing past the value
-length limit in force for the home passes the seam and
-imports whole through service.probe_import. The pins
-below stand on a home whose config states
-front_matter_value_length_per_key = 100 as the limit in
-force, in the worked forms of the registry paper of
-round 10, with the brief value route forms at 4,097
-and 5,000 standing as controls.
-Oracle: the round 10 findings register entry
-S17-R10-001 and the round 10 disposition, ruling (b)
-and Section 3 seat F7.
+Entry: the service seam _import_front_matter_limits in
+service.py measures no key of the top level object of a JSON
+front matter block, in its primary form or in its fallback
+form alike, so a top level key standing past the value length
+limit in force for the home passes the seam and imports whole
+through service.probe_import. The pins below stand on a home
+whose config states front_matter_value_length_per_key = 100
+as the limit in force, in the worked forms of the registry
+paper of round 10, with the brief value route forms at 4,097
+and 5,000 standing as controls. Oracle: the round 10 findings
+register and the round 10 disposition, ruling (b) and Section
+3 seat F7.
 
-Copyright: J.P. Picard aka Macro-Harder.
-"""
+Copyright: J.P. Picard aka Macro-Harder."""
 
 import tempfile
 import unittest
@@ -109,9 +105,9 @@ class LimitedBase(unittest.TestCase):
             token_of(caught.exception), "LIMIT_EXCEEDED")
 
 
-# ----------------------------------------------------------------
-# S17-R10-001, the primary form: a top level key past the
-# limit in force refuses at the seam.
+# ----------------------------------------------------------------,
+# the primary form: a top level key past the limit in force
+# refuses at the seam.
 # ----------------------------------------------------------------
 
 class TestTopLevelKeyAtTheSeamPrimary(LimitedBase):
@@ -127,11 +123,10 @@ class TestTopLevelKeyAtTheSeamPrimary(LimitedBase):
             '{"%s": "v", "note": ["x"]}' % ("k" * 200))
 
 
-# ----------------------------------------------------------------
-# S17-R10-001, the fallback form: with the import container
-# measure removed for the run, so the seam stands on its
-# fallback measure, the top level key stands measured all
-# the same.
+# ----------------------------------------------------------------,
+# the fallback form: with the import container measure removed for
+# the run, so the seam stands on its fallback measure, the top
+# level key stands measured all the same.
 # ----------------------------------------------------------------
 
 class TestTopLevelKeyAtTheSeamFallback(LimitedBase):
@@ -152,10 +147,9 @@ class TestTopLevelKeyAtTheSeamFallback(LimitedBase):
             self.seam_refuses('{"note": {"%s": "v"}}' % ("k" * 200))
 
 
-# ----------------------------------------------------------------
-# S17-R10-001, end to end: the block holding the top level
-# key past the limit in force imports no whole through
-# the service route.
+# ----------------------------------------------------------------,
+# end to end: the block holding the top level key past the limit
+# in force imports no whole through the service route.
 # ----------------------------------------------------------------
 
 class TestTopLevelKeyEndToEnd(LimitedBase):

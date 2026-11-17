@@ -1,49 +1,44 @@
-"""Step 17 round 17 fix seat F1 tests: journal family.
+"""Journal family.
 
-Each defect pin states one entry of
-design/audit/step-17-r17-findings-register.md. Entry
-S17-R17-001: append_entry stores its extended scan
-cache entry after the last judgement of the call, on a
-stat key taken from the journal path as it then stands,
-so a rename plant timed at the return of the last
-judgement lstat reading fixes the key the call stores
-under and later reads in the same process are served a
-passed two entry chain over an absent journal path, or
-over a seed replacement holding one entry. Entry
-S17-R17-009: the post write judgement the replay
-resume cure added reads its handle and then its path,
-and a rename plant timed at the return of that path
-reading passes the judgement whole, the replay
-returning success with the replayed lines under the
-outside name. Entry S17-R17-010, in its bounded limb
+Each defect pin states one entry of the register paper.
+Entry: append_entry stores its extended scan cache
+entry after the last judgement of the call, on a stat
+key taken from the journal path as it then stands, so a
+rename plant timed at the return of the last judgement
+lstat reading fixes the key the call stores under and
+later reads in the same process are served a passed two
+entry chain over an absent journal path, or over a seed
+replacement holding one entry. Entry: the post write
+judgement the replay resume cure added reads its handle
+and then its path, and a rename plant timed at the
+return of that path reading passes the judgement whole,
+the replay returning success with the replayed lines
+under the outside name. Entry, in its bounded limb
 form: the same timing at the post write judgement of
 the lock holder line write leaves the acquire granted
 with the holder line under the outside name. The pins
-for entries S17-R17-009 and S17-R17-010 stand in two
-forms: a plant at the return of the lstat reading of
-the post write judgement the earlier cure added stands
-refused in the vocabulary and the remedy form of its
-site, and a plant at the return of the lstat reading
-of the further rejudgement the cure of this round
-adds, the last judgement of its road, stands pinned in
-its bounded form, equivalent to a rename after the
-call returns, which no judgement inside the call
-reaches, in the form the fix paper at
-design/audit/step-17-r17-fix-f1.md states. The plants
-below wrap os.lstat and rename the target at the
-return of the counted call on that path, returning the
-stale stat result the caller already read, in the form
-the round 17 attack papers state. Counted calls stand
-measured on the uncured tree with the scan cache
-cleared: journal append, journal path 5 calls; replay
-resume, journal path 5 calls; lock acquire, lock path
-3 calls. Homes are scratch homes under a temporary
-directory. No test here touches a standing test item
-or a governed ground: CARRY S17-R4-070 and CARRY
-S17-R5-026 stand untouched in exact form, and the
-refused entry S17-R7-002 stands apart and untouched,
-no cure stating any parent directory anchor.
-"""
+for stand in two forms: a plant at the return of the
+lstat reading of the post write judgement the earlier
+cure added stands refused in the vocabulary and the
+remedy form of its site, and a plant at the return of
+the lstat reading of the further rejudgement the cure
+of this round adds, the last judgement of its road,
+stands pinned in its bounded form, equivalent to a
+rename after the call returns, which no judgement
+inside the call reaches, in the form the fix paper in
+the register states. The plants below wrap os.lstat and
+rename the target at the return of the counted call on
+that path, returning the stale stat result the caller
+already read, in the form the round 17 attack papers
+state. Counted calls stand measured on the uncured tree
+with the scan cache cleared: journal append, journal
+path 5 calls; replay resume, journal path 5 calls; lock
+acquire, lock path 3 calls. Homes are scratch homes
+under a temporary directory. No test here touches a
+standing test item or a governed ground: CARRY and
+CARRY stand untouched in exact form, and the refused
+stands apart and untouched, no cure stating any parent
+directory anchor."""
 
 import hashlib
 import os

@@ -1,12 +1,9 @@
-"""Step 17 fix seat F1 tests: journal, config, anchor, limit_raise.
+"""Journal, config, anchor, limit_raise.
 
-Each test pins one register entry from the Step 17 round 1
-registers (main S17-R1 and supplementary S17-R1X) assigned
-to seat F1 in the combined fix wave charge. Homes are
-scratch homes under a temporary directory. No test here
-touches a standing test item or a Step 15 qualification
-ground.
-"""
+Each test pins one register entry from the registers (main and
+supplementary) assigned to seat F1 in the combined fix wave charge.
+Homes are scratch homes under a temporary directory. No test here
+touches a standing test item or a Step 15 qualification ground."""
 
 import fcntl
 import hashlib

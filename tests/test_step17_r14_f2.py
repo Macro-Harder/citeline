@@ -1,37 +1,29 @@
-"""Step 17 round 14 fix seat F2 tests, registry and acquisition.
+"""Registry and acquisition.
 
-Test first pins for register entry S17-R14-001. The
-entry reproduces the defect named at that entry,
-filed as registry S17-R14-REG-001: a mark of the
-union of general category Mn, Mc, or Me that also
-stands as head material passes the page reading
-whole where it stands as the sole follower of a
-construct character, with nothing judged standing
+Test first pins for register. The entry reproduces the defect
+named at that entry, filed as registry: a mark of the union of
+general category Mn, Mc, or Me that also stands as head material
+passes the page reading whole where it stands as the sole
+follower of a construct character, with nothing judged standing
 after it, because the interior head reading
-_fm_remove_interior_head in acquisition.py removes
-the mark before the follower judgement of
-_fm_holds_tag_construct runs, so the category
-reading the fix round 13 cures land never reaches
-it. On this machine Unicode 15.0.0 tables the head
-set holds 282 marks of the union, every one of
-category Mn, standing in eight ranges: U+034F
-alone, U+0610 to U+061A, U+17B4 to U+17B5, U+180B
-to U+180D, U+180F alone, U+FE00 to U+FE0F, U+1D17B
-to U+1D182, and U+E0100 to U+E01EF. The pins stand
-at the page reading and at the page side helper,
-in the line form and in the JSON form, at the
-value position and at the key position alike, in
-plain form and in JSON escape form alike, beside
-sweeps of the page side helper over every code
-point of the union at the sole follower positions.
-The import side limb of the entry stands inside
-the F4 charge of this wave and lands after this
-seat in the dependency order, so the defect pins
-assert the page reading alone, in the form the
-page side limb pins of fix round 13 took. The
-controls assert both readings where the standing
-the control names already stands at both.
-"""
+_fm_remove_interior_head in acquisition.py removes the mark
+before the follower judgement of _fm_holds_tag_construct runs,
+so the category reading the fix round 13 cures land never
+reaches it. On this machine Unicode 15.0.0 tables the head set
+holds 282 marks of the union, every one of category Mn, standing
+in eight ranges: U+034F alone, U+0610 to U+061A, U+17B4 to
+U+17B5, U+180B to U+180D, U+180F alone, U+FE00 to U+FE0F,
+U+1D17B to U+1D182, and U+E0100 to U+E01EF. The pins stand at
+the page reading and at the page side helper, in the line form
+and in the JSON form, at the value position and at the key
+position alike, in plain form and in JSON escape form alike,
+beside sweeps of the page side helper over every code point of
+the union at the sole follower positions. The import side limb
+of the entry stands inside the F4 charge of this wave and lands
+after this seat in the dependency order, so the defect pins
+assert the page reading alone, in the form the page side limb
+pins of fix round 13 took. The controls assert both readings
+where the standing the control names already stands at both."""
 
 import json
 import os

@@ -1,9 +1,8 @@
-"""Step 17 round 3 fix seat F6 tests, guide and reporting.
+"""Guide and reporting.
 
 Each test pins one register entry from the round 3 findings
 register, in the form the register states. Written before
-the cures, watched failing, then watched passing.
-"""
+the cures, watched failing, then watched passing."""
 
 import tempfile
 import unittest
@@ -39,9 +38,9 @@ def query_product(queries, **overrides):
 
 
 class TestScopeShape042(unittest.TestCase):
-    """S17-R3-042: the fixed scope shape test stands on the
-    pass own stated rule, any object carrying a score, a
-    rate, or a tier."""
+    """: the fixed scope shape test stands on the pass own
+    stated rule, any object carrying a score, a rate, or a
+    tier."""
 
     CASES = [
         {"tier": "reportable", "count": 5,
@@ -69,8 +68,8 @@ class TestScopeShape042(unittest.TestCase):
 
 
 class TestControlNotice043(unittest.TestCase):
-    """S17-R3-043: the control notice pass runs its nested
-    removal on every path."""
+    """: the control notice pass runs its nested removal on
+    every path."""
 
     def test_nested_spoof_removed_on_flag_path(self):
         record = {
@@ -111,8 +110,8 @@ class TestControlNotice043(unittest.TestCase):
 
 
 class TestSelectionBasis044(unittest.TestCase):
-    """S17-R3-044: the selection statement is judged on the
-    basis value as a stated form, not a substring."""
+    """: the selection statement is judged on the basis value
+    as a stated form, not a substring."""
 
     def test_negated_basis_renders_no_fallback(self):
         body = render(guide_record(selection_basis="not_fallback"),
@@ -148,8 +147,8 @@ class TestSelectionBasis044(unittest.TestCase):
 
 
 class TestPrecision045(unittest.TestCase):
-    """S17-R3-045: precision stands at the audit Simple check
-    lines, the score basis line, and the generic emitter keys."""
+    """: precision stands at the audit Simple check lines, the score
+    basis line, and the generic emitter keys."""
 
     def audit(self, **score_over):
         score = {"value": 50.0, "band": "thin"}
@@ -198,8 +197,8 @@ class TestPrecision045(unittest.TestCase):
 
 
 class TestQueryClassification(unittest.TestCase):
-    """S17-R3-054 to S17-R3-057: the query set classification
-    whole, on the brief stated lists and token matching."""
+    """to: the query set classification whole, on the brief
+    stated lists and token matching."""
 
     def report(self, queries, **overrides):
         return reporting.derive_query_set_report(
@@ -268,8 +267,8 @@ class TestQueryClassification(unittest.TestCase):
 
 
 class TestCompetitorAliasValidation058(unittest.TestCase):
-    """S17-R3-058: competitor aliases stand judged at the
-    product record reader and at the derivation."""
+    """: competitor aliases stand judged at the product
+    record reader and at the derivation."""
 
     def test_integer_alias_refused_at_reader(self):
         record = {
@@ -305,8 +304,8 @@ class TestCompetitorAliasValidation058(unittest.TestCase):
 
 
 class TestFailureRecordRendering063(unittest.TestCase):
-    """S17-R3-063: stored failure records surface exactly in
-    count as in order and content."""
+    """: stored failure records surface exactly in count as in
+    order and content."""
 
     PAYLOAD = {
         "operation": "probe report",
@@ -330,8 +329,8 @@ class TestFailureRecordRendering063(unittest.TestCase):
 
 
 class TestStalenessRoundCount066(unittest.TestCase):
-    """S17-R3-066: the staleness view round record count
-    stands as the journal counts them."""
+    """: the staleness view round record count stands as
+    the journal counts them."""
 
     def test_duplicate_round_identity_counts_twice(self):
         root = Path(self.enterContext(

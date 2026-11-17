@@ -1,11 +1,7 @@
-"""Step 17 fix seat F3 tests: checks and robots entries.
+"""Checks and robots entries.
 
 Each test pins one register entry on the behaviour the
-register states, written before its cure. Entries:
-S17-R1-020 to S17-R1-025, S17-R1-027 to S17-R1-031,
-S17-R1-053, S17-R1-079, S17-R1-103, S17-R1-104, and
-S17-R1X-034 to S17-R1X-039.
-"""
+register states, written before its cure."""
 
 import json
 import tempfile

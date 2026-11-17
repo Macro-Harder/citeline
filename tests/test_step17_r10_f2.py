@@ -1,16 +1,13 @@
-"""Step 17 round 10 fix seat F2 tests, registry and acquisition.
+"""Registry and acquisition.
 
-Test first pins for register entry S17-R10-012. Each
-defect test reproduces the defect named at that entry,
-a construct standing behind interior head material at
-a judged position passing the page reading, then
-stands as the pin for its cure. The head characters
-stand as the eight characters the Red filing names:
-a zero width space, a byte order mark, a combining
-grapheme joiner, a word joiner, a variation selector,
-a zero width non joiner, a zero width joiner, and a
-control character at code point 1.
-"""
+Test first pins for register. Each defect test reproduces the
+defect named at that entry, a construct standing behind interior
+head material at a judged position passing the page reading,
+then stands as the pin for its cure. The head characters stand
+as the eight characters the Red filing names: a zero width
+space, a byte order mark, a combining grapheme joiner, a word
+joiner, a variation selector, a zero width non joiner, a zero
+width joiner, and a control character at code point 1."""
 
 import os
 import tempfile

@@ -1,33 +1,27 @@
-"""Step 17 round 16 fix seat F6 tests: guide and reporting.
+"""Guide and reporting.
 
-Defect pins for entries S17-R16-012, S17-R16-013, and
-S17-R16-014, written before the cures they pin.
-Entry S17-R16-012: the draft reading judges object
-fields through vars() with no exclusion, while the
-rendering reading through reporting._plain drops
-private attribute names on object records, so a record
-carrying its content on a private attribute stands
-judged on the draft reading and dropped on the
-rendering reading. The two readings must stand on the
-same field set of an object record.
-Entry S17-R16-013: the rendering reading converts an
-attribute carrying record by its _asdict form where
-the record carries one, while the draft reading never
-calls _asdict, so the mapping form stands carried on
-the rendering reading and absent on the draft reading.
-The mapping form must stand carried alike.
-Entry S17-R16-014: the sentence argument of
-passes_naming_test stands unguarded, so a non string
-sentence raises the raw TypeError of the round through
-the token reading. The sentence argument must stand
-guarded in the form of the term guard of the same
-call.
-Oracle: the round 16 findings register and
-disposition, ruling (e) and Section 3 seat F6, and
-the round 16 guide attack paper.
+Defect pins, and, written before the cures they pin. Entry:
+the draft reading judges object fields through vars with no
+exclusion, while the rendering reading through
+reporting._plain drops private attribute names on object
+records, so a record carrying its content on a private
+attribute stands judged on the draft reading and dropped on
+the rendering reading. The two readings must stand on the
+same field set of an object record. Entry: the rendering
+reading converts an attribute carrying record by its
+_asdict form where the record carries one, while the draft
+reading never calls _asdict, so the mapping form stands
+carried on the rendering reading and absent on the draft
+reading. The mapping form must stand carried alike. Entry:
+the sentence argument of passes_naming_test stands
+unguarded, so a non string sentence raises the raw
+TypeError of the round through the token reading. The
+sentence argument must stand guarded in the form of the
+term guard of the same call. Oracle: the round 16 findings
+register and disposition, ruling (e) and Section 3 seat F6,
+and the round 16 guide attack paper.
 
-Copyright: J.P. Picard aka Macro-Harder.
-"""
+Copyright: J.P. Picard aka Macro-Harder."""
 
 import unittest
 from collections import namedtuple
@@ -120,11 +114,10 @@ def assert_agree_escaped(case, record):
 
 
 # ----------------------------------------------------------------
-# Entry S17-R16-012: a record carrying its content on a
-# private attribute of an object stands judged alike on
-# both readings. The rendering conversion drops private
-# attribute names on object records, so the draft walk
-# stands on that same field set.
+# Entry: a record carrying its content on a private attribute of
+# an object stands judged alike on both readings. The rendering
+# conversion drops private attribute names on object records, so
+# the draft walk stands on that same field set.
 # ----------------------------------------------------------------
 
 class Test012PrivateAttributeReading(unittest.TestCase):
@@ -184,12 +177,11 @@ class Test012PrivateAttributeReading(unittest.TestCase):
 
 
 # ----------------------------------------------------------------
-# Entry S17-R16-013: an object standing in the _asdict
-# mapping form stands carried alike on both readings.
-# The named tuple limb stands in its agreement form
-# outside this cure: both readings read a tuple as a
-# sequence before any _asdict limb, and its field names
-# stand lost to both alike.
+# Entry: an object standing in the _asdict mapping form stands
+# carried alike on both readings. The named tuple limb stands in
+# its agreement form outside this cure: both readings read a tuple
+# as a sequence before any _asdict limb, and its field names stand
+# lost to both alike.
 # ----------------------------------------------------------------
 
 class Test013AsdictConversionReading(unittest.TestCase):
@@ -246,10 +238,9 @@ class Test013AsdictConversionReading(unittest.TestCase):
 
 
 # ----------------------------------------------------------------
-# Entry S17-R16-014: a non string sentence standing
-# passed to passes_naming_test stands judged in the
-# form of the term guard of the same call, read as no
-# sentence, raising no raw error.
+# Entry: a non string sentence standing passed to
+# passes_naming_test stands judged in the form of the term guard
+# of the same call, read as no sentence, raising no raw error.
 # ----------------------------------------------------------------
 
 class Test014SentenceArgumentGuard(unittest.TestCase):

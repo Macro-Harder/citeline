@@ -1,15 +1,13 @@
-"""Step 16 fix tests, builder F5: service validation and failure records.
+"""Service validation and failure records.
 
-Defects covered: D-09 (a refused repeated round trend leaves a
-failure record), D-16 (status over a missing home refuses with
-HOME_MISSING), D-17 (an empty query set admits no query at
-import), D-18 (the audit date input is validated as a date on
-every service route that takes it), and D-20 (guide selector
-validation follows the exactly one rule).
+Defects covered: D-09 (a refused repeated round trend leaves a failure
+record), D-16 (status over a missing home refuses with HOME_MISSING),
+D-17 (an empty query set admits no query at import), D-18 (the audit date
+input is validated as a date on every service route that takes it), and
+D-20 (guide selector validation follows the exactly one rule).
 
-Every test calls the service layer operations the shell calls,
-in a fresh installed home of its own. Dates are call inputs.
-"""
+Every test calls the service layer operations the shell calls, in a fresh
+installed home of its own. Dates are call inputs."""
 
 import io
 import json

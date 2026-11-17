@@ -1,60 +1,49 @@
-"""Step 17 round 15 fix seat F7 tests: service, watch, seams.
+"""Service, watch, seams.
 
-Seat F7 carries one entry TO FIX in this round,
-S17-R15-009, Medium: the audit preflight key count
-counter in citeline/service.py,
-_front_matter_key_count, parses the JSON front matter
-block of a page inside a try that catches ValueError
-alone, so a block nesting past the parser standing
-escapes service.audit as a raw RecursionError with no
-token and no failure record, on a road the cure at
-entry S17-R14-004 did not reach. The defect pins below
-stand on that entry: the counter parse stands judged
-in the recorded vocabulary, catching RecursionError
-beside ValueError and converting it to a refusal with
-LIMIT_EXCEEDED, so no nesting form escapes the audit
-route as a raw RecursionError at any depth, in list
-shape and in record shape alike, at the counter
-directly, at the audit preflight, and through
-service.audit whole, with exactly one failure record
-appended for the governed refusal of the route, while
-the forms at and below the depth limit stand as they
-stood and the cure at entry S17-R14-004 stands whole
-at its seam.
-The flip depths stand stated honestly per runtime, as
-the round 15 papers measure them: on this machine,
-Python 3.12.3, the counter returns its count at list
-depth 8000 and raises a raw RecursionError at list
-depths 10000 and past, the flip standing between 8000
-and 10000; on the bp runtime, Python 3.14.4, the
-counter returns its count at list depth 50000 and
-raises a raw RecursionError at list depths 60000 and
-past, the flip standing between 50000 and 60000, and
-in record shape the counter raises a raw
-RecursionError at depth 100000 on that runtime. The
-discriminating pins therefore stand at depth 100000
-in both shapes, a depth past the flip on both
+Seat F7 carries one entry TO FIX in this round, Medium: the
+audit preflight key count counter in citeline/service.py,
+_front_matter_key_count, parses the JSON front matter block
+of a page inside a try that catches ValueError alone, so a
+block nesting past the parser standing escapes service.audit
+as a raw RecursionError with no token and no failure record,
+on a road the cure at did not reach. The defect pins below
+stand on that entry: the counter parse stands judged in the
+recorded vocabulary, catching RecursionError beside
+ValueError and converting it to a refusal with
+LIMIT_EXCEEDED, so no nesting form escapes the audit route as
+a raw RecursionError at any depth, in list shape and in
+record shape alike, at the counter directly, at the audit
+preflight, and through service.audit whole, with exactly one
+failure record appended for the governed refusal of the
+route, while the forms at and below the depth limit stand as
+they stood and the cure at stands whole at its seam. The flip
+depths stand stated honestly per runtime, as the round 15
+papers measure them: on this machine, Python 3.12.3, the
+counter returns its count at list depth 8000 and raises a raw
+RecursionError at list depths 10000 and past, the flip
+standing between 8000 and 10000; on the bp runtime, Python
+3.14.4, the counter returns its count at list depth 50000 and
+raises a raw RecursionError at list depths 60000 and past,
+the flip standing between 50000 and 60000, and in record
+shape the counter raises a raw RecursionError at depth 100000
+on that runtime. The discriminating pins therefore stand at
+depth 100000 in both shapes, a depth past the flip on both
 runtimes, beside a list pin at depth 20000 that stands
-discriminating on this machine and stands refused
-with LIMIT_EXCEEDED on the bp runtime on the cured
-tree through the extraction depth judgement, as the
-papers record for the uncured tree at that depth.
-Beside the defect pins, this file carries the standing
-forms of this family judged first hand: the counter
-returning its count on shallow JSON forms and on the
-line form, a page nesting at depth 99 standing whole
-at the audit route, the seam cure at entry
-S17-R14-004 standing whole in its standing form, and
-the three container measures agreeing on the worked
-forms of entries S17-R9-003 and S17-R9-020.
-Oracle: the round 15 disposition, Section 3 seat F7
-and ruling (d), the round 15 register entry
-S17-R15-009, and the round 15 service, red, and yellow
-attack papers, filings S17-R15-SW-01, S17-R15-RED-05,
+discriminating on this machine and stands refused with
+LIMIT_EXCEEDED on the bp runtime on the cured tree through
+the extraction depth judgement, as the papers record for the
+uncured tree at that depth. Beside the defect pins, this file
+carries the standing forms of this family judged first hand:
+the counter returning its count on shallow JSON forms and on
+the line form, a page nesting at depth 99 standing whole at
+the audit route, the seam cure at standing whole in its
+standing form, and the three container measures agreeing on
+the worked forms of. Oracle: the round 15 disposition,
+Section 3 seat F7 and ruling (d), the round 15 register, and
+the round 15 service, red, and yellow attack papers, filings,
 and R15-Y-06.
 
-Copyright: J.P. Picard aka Macro-Harder.
-"""
+Copyright: J.P. Picard aka Macro-Harder."""
 
 import json
 import tempfile
@@ -169,11 +158,10 @@ class SeededBase(unittest.TestCase):
 
 
 # ----------------------------------------------------------------
-# Entry S17-R15-009 at the counter directly: a block
-# nesting past the parser standing on either runtime
-# refuses with LIMIT_EXCEEDED at the counter, in list
-# shape and in record shape alike, and no form stands
-# returned as a count and no raw RecursionError stands
+# Entry at the counter directly: a block nesting past the parser
+# standing on either runtime refuses with LIMIT_EXCEEDED at the
+# counter, in list shape and in record shape alike, and no form
+# stands returned as a count and no raw RecursionError stands
 # raised.
 # ----------------------------------------------------------------
 
@@ -228,10 +216,9 @@ class TestCounterDirectDeep(unittest.TestCase):
 
 
 # ----------------------------------------------------------------
-# Entry S17-R15-009 at the audit preflight: the counter
-# stands called from _audit_preflight_limits ahead of
-# any extraction, and a past flip form refuses there
-# with LIMIT_EXCEEDED in both shapes.
+# Entry at the audit preflight: the counter stands called from
+# _audit_preflight_limits ahead of any extraction, and a past flip
+# form refuses there with LIMIT_EXCEEDED in both shapes.
 # ----------------------------------------------------------------
 
 class TestPreflightDeep(SeededBase):
@@ -260,10 +247,9 @@ class TestPreflightDeep(SeededBase):
 
 
 # ----------------------------------------------------------------
-# Entry S17-R15-009 through service.audit whole: a past
-# flip form refuses with LIMIT_EXCEEDED and appends
-# exactly one failure record, in list shape and in
-# record shape alike, and the standing forms of the
+# Entry through service.audit whole: a past flip form refuses with
+# LIMIT_EXCEEDED and appends exactly one failure record, in list
+# shape and in record shape alike, and the standing forms of the
 # route hold whole.
 # ----------------------------------------------------------------
 
@@ -301,10 +287,9 @@ class TestAuditRouteDeep(SeededBase):
 
 
 # ----------------------------------------------------------------
-# The standing forms this cure holds: the seam cure at
-# entry S17-R14-004 in its standing form, and the
-# container measures of entries S17-R9-003 and
-# S17-R9-020 agreeing on their worked forms.
+# The standing forms this cure holds: the seam cure at in its
+# standing form, and the container measures of agreeing on their
+# worked forms.
 # ----------------------------------------------------------------
 
 class TestStandingFormsHold(SeededBase):

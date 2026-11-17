@@ -1,9 +1,8 @@
-"""Step 17 round 4 fix seat F6 tests, guide and reporting.
+"""Guide and reporting.
 
 Each test pins one register entry from the round 4 findings
 register, in the form the register states. Written before
-the cures, watched failing, then watched passing.
-"""
+the cures, watched failing, then watched passing."""
 
 import unittest
 
@@ -34,10 +33,9 @@ def query_product(queries, **overrides):
 
 
 class TestScopeShape044(unittest.TestCase):
-    """S17-R4-044: the fixed scope shape test stands on the
-    pass own stated rule whole, the rate field names the
-    product itself uses and the rate interval fields
-    among them."""
+    """: the fixed scope shape test stands on the pass own
+    stated rule whole, the rate field names the product
+    itself uses and the rate interval fields among them."""
 
     def assert_scope_fixed(self, shape):
         record = {"obj": dict(shape)}
@@ -93,9 +91,8 @@ class TestScopeShape044(unittest.TestCase):
 
 
 class TestControlNotice045(unittest.TestCase):
-    """S17-R4-045: the control notice pass stands on every
-    record the rendering pipeline hands it, marker or no
-    marker."""
+    """: the control notice pass stands on every record the
+    rendering pipeline hands it, marker or no marker."""
 
     def test_flagged_record_no_marker_top_and_nested(self):
         record = {
@@ -159,9 +156,9 @@ class TestControlNotice045(unittest.TestCase):
 
 
 class TestPrecision046(unittest.TestCase):
-    """S17-R4-046: precision stands at the audit Simple
-    check lines and the score basis line for figures
-    carried as strings as for figures carried as floats."""
+    """: precision stands at the audit Simple check lines and
+    the score basis line for figures carried as strings as
+    for figures carried as floats."""
 
     def audit(self, **score_over):
         score = {"value": 50.0, "band": "thin"}
@@ -201,8 +198,8 @@ class TestPrecision046(unittest.TestCase):
 
 
 class TestDesignEffect047(unittest.TestCase):
-    """S17-R4-047: the generic emitter four place set
-    stands over the design_effect key."""
+    """: the generic emitter four place set stands over
+    the design_effect key."""
 
     def test_design_effect_rounds(self):
         record = {
@@ -220,11 +217,10 @@ class TestDesignEffect047(unittest.TestCase):
 
 
 class TestDecimalToken048(unittest.TestCase):
-    """S17-R4-048: the tokeniser judges a decimal number
-    as one word under brief Section 5.1, on the name side
-    and on the query side alike, at the query set
-    derivation, and at the guide side tokeniser of the
-    same form."""
+    """: the tokeniser judges a decimal number as one word
+    under brief Section 5.1, on the name side and on the
+    query side alike, at the query set derivation, and at
+    the guide side tokeniser of the same form."""
 
     def report(self, queries, **overrides):
         return reporting.derive_query_set_report(
@@ -259,10 +255,10 @@ class TestDecimalToken048(unittest.TestCase):
 
 
 class TestFailureCollector049(unittest.TestCase):
-    """S17-R4-049: a payload standing in two carry forms
-    at once surfaces as one stored record, exactly in
-    count as in order and content on every composition
-    of its forms."""
+    """: a payload standing in two carry forms at once
+    surfaces as one stored record, exactly in count as
+    in order and content on every composition of its
+    forms."""
 
     def advanced_payloads(self, record):
         advanced = render(record, form="advanced")
@@ -334,9 +330,9 @@ class TestFailureCollector049(unittest.TestCase):
 
 
 class TestFailureSimple074(unittest.TestCase):
-    """S17-R4-074: the Simple form of a stored failure
-    record states the stored payload as stored, no value
-    standing in the line that the store does not hold."""
+    """: the Simple form of a stored failure record states
+    the stored payload as stored, no value standing in
+    the line that the store does not hold."""
 
     def test_empty_payload_states_no_invented_values(self):
         simple = render({"failure_records": [{}]}, form="simple")

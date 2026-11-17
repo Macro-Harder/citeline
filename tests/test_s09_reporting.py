@@ -149,8 +149,8 @@ def seed_product(home, queries=None):
         competitors=[{"name": "Rival", "domain": "rival.example",
                       "aliases": []}],
         audit_date=AUDIT_DATE)
-    # Step 16 reconciliation under D-17: where the caller names
-    # no query set, the seed registers the file query as the
+    # reconciliation under D-17: where the caller names no
+    # query set, the seed registers the file query as the
     # product query set through the governed set_query_set
     # route before any probe import, so the imported query
     # stands in the product query set already, as brief item
@@ -767,20 +767,19 @@ class TestReverseTrace(ReportingBase):
         snapshot date 2026-11-12; the crawl delay observation
         standing null, because the fixture carries no
         Crawl-delay line; one sitemap line; no line counted in
-        the non protocol count, every fixture line standing as
-        a group, a rule, or the recognised sitemap line; no
-        unknown token, the fixture's one group token standing
-        as the wildcard; and the finding count at the table
-        size of 25. Superseded at Step 16 under defect E-04:
-        the earlier form of this test asserted table_version 1.
-        The Step 16 round 2 disposition, ruling on the brief
-        Section 5.6 version rule on the S4 seat reading,
-        displaces that form: the round 1 fix wave changed the
-        evidence label value on four shipped rows and restored
-        two stated fields across the shipped rows in one
-        published revision, and the rule counts one bump per
-        published table revision with no field change exempt,
-        so the stamp stands at 2. This form asserts
+        the non protocol count, every fixture line standing as a
+        group, a rule, or the recognised sitemap line; no
+        unknown token, the fixture's one group token standing as
+        the wildcard; and the finding count at the table size of
+        25. Superseded at under defect E-04: the earlier form of
+        this test asserted table_version 1. The disposition,
+        ruling on the brief Section 5.6 version rule on the S4
+        seat reading, displaces that form: the round 1 fix wave
+        changed the evidence label value on four shipped rows
+        and restored two stated fields across the shipped rows
+        in one published revision, and the rule counts one bump
+        per published table revision with no field change
+        exempt, so the stamp stands at 2. This form asserts
         table_version 2, with the snapshot date unchanged at
         2026-11-12."""
         robots = service.robots(
@@ -1526,22 +1525,20 @@ class TestRobotsPreview(ReportingBase):
         entry's separate RobotsPreview closure statement: the
         preview stores nothing, so the journal entry count stands
         unchanged across the call, and the artefact's fields stand
-        on its own list, carrying no RobotsReport only field such
-        as next_refresh_due_date. Superseded at Step 16 under
-        defect E-04, on its literal table_version assertion only:
-        the earlier form of this test asserted table_version 1.
-        The Step 16 round 2 disposition, ruling on the brief
-        Section 5.6 version rule on the S4 seat reading,
-        displaces that form: the round 1 fix wave changed the
-        evidence label value on four shipped rows and restored
-        two stated fields across the shipped rows in one
-        published revision, and the rule counts one bump per
-        published table revision with no field change exempt,
-        so the stamp stands at 2. This form asserts
-        table_version 2, with the snapshot date unchanged at
-        2026-11-12. The assertion below binding the preview
-        table_version to the shipped report table_version stands
-        unamended and passes at 2."""
+        on its own list, carrying no RobotsReport only field such as
+        next_refresh_due_date. Superseded at under defect E-04, on
+        its literal table_version assertion only: the earlier form
+        of this test asserted table_version 1. The disposition,
+        ruling on the brief Section 5.6 version rule on the S4 seat
+        reading, displaces that form: the round 1 fix wave changed
+        the evidence label value on four shipped rows and restored
+        two stated fields across the shipped rows in one published
+        revision, and the rule counts one bump per published table
+        revision with no field change exempt, so the stamp stands at
+        2. This form asserts table_version 2, with the snapshot date
+        unchanged at 2026-11-12. The assertion below binding the
+        preview table_version to the shipped report table_version
+        stands unamended and passes at 2."""
         before = field(service.status(home=str(self.home)),
                        "entry_count")
         body = payload(self.preview())

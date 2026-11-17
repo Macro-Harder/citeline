@@ -1,10 +1,8 @@
-"""Step 17 round 13 fix seat F4 tests: import family.
+"""Import family.
 
-Test first pins for register entry S17-R13-004, from
-design/audit/step-17-r13-findings-register.md, as
-dispositioned in design/audit/step-17-r13-disposition.md
-ruling (c) and Section 3.
-"""
+Test first pins for register, from the register, as
+dispositioned in the register paper ruling (c) and
+Section 3."""
 
 import json
 import unicodedata

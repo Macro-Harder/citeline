@@ -1,11 +1,8 @@
-"""Step 17 round 2 fix seat F2 tests, registry and acquisition.
+"""Registry and acquisition.
 
-Test first pins for register entries S17-R2-008 to
-S17-R2-017, S17-R2-019, S17-R2-082, and S17-R2-098. Each
-test reproduces the defect named at its register entry
-against the governing brief or plan text cited there,
-then stands as the pin for its cure.
-"""
+Test first pins for register, and. Each test reproduces the
+defect named at its register entry against the governing brief
+or plan text cited there, then stands as the pin for its cure."""
 
 import hashlib
 import json

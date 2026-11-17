@@ -1,10 +1,8 @@
-"""Step 17 round 6 fix seat F2 tests, registry and acquisition.
+"""Registry and acquisition.
 
-Test first pins for register entries S17-R6-008 to
-S17-R6-015. Each test reproduces the defect named at
-its register entry, then stands as the pin for its
-cure.
-"""
+Test first pins for register to. Each test reproduces the
+defect named at its register entry, then stands as the pin for
+its cure."""
 
 import os
 import tempfile

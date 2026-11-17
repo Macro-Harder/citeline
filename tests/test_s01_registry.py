@@ -144,7 +144,7 @@ class TestSubcommandsAndNameRound(RegistryBase):
         self.assertEqual(field(updated, "category"), [])
 
     def test_register_page_sets_is_product_page(self):
-        """Plan Section 1.3 S1, sole writer discipline for is_product_page. Oracle: brief Section 5.12 item 136, register-page is the only operation that sets that field after creation. Superseded at Step 16 under defect D-03: the earlier form of this test registered the identifier snap-1 in a home where no snapshot stood and asserted only the returned flag, which asserted the defective behaviour D-03 cures. This form registers a standing snapshot created by extraction, on the governed behaviour, and asserts the full PageSnapshot shape stands on the returned record."""
+        """Plan Section 1.3 S1, sole writer discipline for is_product_page. Oracle: brief Section 5.12 item 136, register-page is the only operation that sets that field after creation. Superseded at under defect D-03: the earlier form of this test registered the identifier snap-1 in a home where no snapshot stood and asserted only the returned flag, which asserted the defective behaviour D-03 cures. This form registers a standing snapshot created by extraction, on the governed behaviour, and asserts the full PageSnapshot shape stands on the returned record."""
         product = self.add_default()
         page = os.path.join(self.tmp.name, "page.txt")
         with open(page, "w", encoding="utf-8") as handle:

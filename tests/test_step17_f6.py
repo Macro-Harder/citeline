@@ -1,12 +1,11 @@
-"""Step 17 fix seat F6 tests, guide and reporting family.
+"""Guide and reporting family.
 
-Each test pins one register entry from the Step 17 round 1
-findings registers, in the form the register states. Written
-before the cures, watched failing, then watched passing.
-The staleness tests cure entries whose computation stands
-in service.py; that touch is recorded in the seat paper as
-an out of family touch with its reason.
-"""
+Each test pins one register entry from the findings
+registers, in the form the register states. Written before
+the cures, watched failing, then watched passing. The
+staleness tests cure entries whose computation stands in
+service.py; that touch is recorded in the seat paper as an
+out of family touch with its reason."""
 
 import json
 import shutil
@@ -62,8 +61,8 @@ def audit_record(**overrides):
 
 
 class TestSelectionBasis054(unittest.TestCase):
-    """S17-R1-054: the draft records its selection basis, and
-    the fixed selection statements print in every form."""
+    """: the draft records its selection basis, and the fixed
+    selection statements print in every form."""
 
     def test_preference_basis_recorded_and_statement_prints(self):
         draft = guide.draft_from_audit_record(
@@ -96,8 +95,8 @@ class TestSelectionBasis054(unittest.TestCase):
 
 
 class TestQuotableGate055(unittest.TestCase):
-    """S17-R1-055: the evidence_sentences input stands under
-    the quotable evidence gate and the refusal."""
+    """: the evidence_sentences input stands under the quotable
+    evidence gate and the refusal."""
 
     def test_unquotable_supplied_sentence_refuses(self):
         draft = guide.draft_from_audit_record(
@@ -135,7 +134,7 @@ def rate_object(**overrides):
 
 
 class TestFiniteNumbers056(unittest.TestCase):
-    """S17-R1-056: non finite numbers never stand as figures."""
+    """: non finite numbers never stand as figures."""
 
     def test_nan_and_infinity_rates_become_null(self):
         record = {"rates": {"named": rate_object(
@@ -167,7 +166,7 @@ class TestFiniteNumbers056(unittest.TestCase):
 
 
 class TestSimpleEscaping057(unittest.TestCase):
-    """S17-R1-057: a newline inside a field forges no line."""
+    """: a newline inside a field forges no line."""
 
     def test_product_name_newlines_forge_no_lines(self):
         record = {"product_name": (
@@ -214,7 +213,7 @@ class TestSimpleEscaping057(unittest.TestCase):
 
 
 class TestJsonSyntax058(unittest.TestCase):
-    """S17-R1-058: no JSON object syntax stands in Simple."""
+    """: no JSON object syntax stands in Simple."""
 
     def test_guide_opening_json_syntax_neutralised(self):
         record = {
@@ -231,8 +230,8 @@ class TestJsonSyntax058(unittest.TestCase):
 
 
 class TestControlCharacters059(unittest.TestCase):
-    """S17-R1-059: control and direction characters render
-    as plain text, never raw, in the Simple form."""
+    """: control and direction characters render as plain
+    text, never raw, in the Simple form."""
 
     HOSTILE = "bad\x00\x07\x1b[31mRED\rOVER\u202e\u200b\ufeffx"
 
@@ -249,8 +248,8 @@ class TestControlCharacters059(unittest.TestCase):
 
 
 class TestFixedTexts060(unittest.TestCase):
-    """S17-R1-060, curable limb: stored copies never override
-    the fixed honesty and scope texts."""
+    """, curable limb: stored copies never override the fixed
+    honesty and scope texts."""
 
     def test_spoofed_honesty_sentence_is_replaced(self):
         record = {
@@ -295,8 +294,8 @@ class TestFixedTexts060(unittest.TestCase):
 
 
 class TestSurrogateSafety061(unittest.TestCase):
-    """S17-R1-061: a lone surrogate never crashes the print
-    path of the Simple form."""
+    """: a lone surrogate never crashes the print path of the
+    Simple form."""
 
     def test_surrogate_text_renders_encodable(self):
         simple = render({"product_name": "bad \ud800 x"},
@@ -311,8 +310,8 @@ class TestSurrogateSafety061(unittest.TestCase):
 
 
 class TestKeyCollision062(unittest.TestCase):
-    """S17-R1-062: key stringification drops no field in
-    silence; a colliding record is refused in the open."""
+    """: key stringification drops no field in silence; a
+    colliding record is refused in the open."""
 
     def test_colliding_keys_raise(self):
         with self.assertRaises(ValueError):
@@ -329,7 +328,7 @@ class TestKeyCollision062(unittest.TestCase):
 
 
 class TestPrecision063(unittest.TestCase):
-    """S17-R1-063: Simple figures carry no false precision."""
+    """: Simple figures carry no false precision."""
 
     def test_score_prints_at_one_decimal_place(self):
         record = {
@@ -349,8 +348,8 @@ class TestPrecision063(unittest.TestCase):
 
 
 class TestControlNotice064(unittest.TestCase):
-    """S17-R1-064: the control failure notice stands in the
-    Simple audit form where the record states one."""
+    """: the control failure notice stands in the Simple audit
+    form where the record states one."""
 
     def test_notice_in_simple_audit_form(self):
         record = {
@@ -365,10 +364,10 @@ class TestControlNotice064(unittest.TestCase):
 
 
 class TestEmptyRound078(unittest.TestCase):
-    """S17-R1-078: an empty round guide states its empty
-    basis in plain words on the draft itself. The trigger
-    outcome stands as brief item 137 states it; the cure is
-    the stated basis, recorded in the seat paper."""
+    """: an empty round guide states its empty basis in plain
+    words on the draft itself. The trigger outcome stands
+    as brief item 137 states it; the cure is the stated
+    basis, recorded in the seat paper."""
 
     def test_empty_round_draft_states_no_answers(self):
         draft = guide.draft_from_round(
@@ -397,8 +396,8 @@ class TestEmptyRound078(unittest.TestCase):
 
 
 class TestCapAgreement107(unittest.TestCase):
-    """S17-R1-107: the guide artefact states the run's own
-    cap position, in the audit's words, beside the group
+    """: the guide artefact states the run's own cap
+    position, in the audit's words, beside the group
     headings whose verbatim form stands pinned."""
 
     def test_cap_not_holding_stated_in_guide(self):
@@ -424,8 +423,8 @@ class TestCapAgreement107(unittest.TestCase):
 
 
 class TestWhitespacePage108(unittest.TestCase):
-    """S17-R1-108: a whitespace only page audit says in
-    plain words that the file held no readable text."""
+    """: a whitespace only page audit says in plain words
+    that the file held no readable text."""
 
     def test_no_readable_text_stated(self):
         record = {
@@ -454,8 +453,8 @@ class TestWhitespacePage108(unittest.TestCase):
 
 
 class TestFailureRecordSurfacing112(unittest.TestCase):
-    """S17-R1-112: failure record content stands surfaced
-    on the rendering of a record that carries it."""
+    """: failure record content stands surfaced on the
+    rendering of a record that carries it."""
 
     PAYLOAD = {
         "operation": "probe_import",
@@ -500,8 +499,8 @@ class TestFailureRecordSurfacing112(unittest.TestCase):
 
 
 class TestGuideFromRun114(unittest.TestCase):
-    """S17-R1-114: a guide drafted from a standing run
-    stands on the run's own stored registry facts."""
+    """: a guide drafted from a standing run stands on
+    the run's own stored registry facts."""
 
     def test_record_canonical_line_governs_over_caller(self):
         draft = guide.draft_from_audit_record(
@@ -542,8 +541,8 @@ class TestGuideFromRun114(unittest.TestCase):
 
 
 class TestQuerySetStringCollections032(unittest.TestCase):
-    """S17-R1X-032: a string collection value is one item
-    or a refused shape, never its characters."""
+    """: a string collection value is one item or a refused
+    shape, never its characters."""
 
     def test_string_queries_value_is_one_query(self):
         report = reporting.derive_query_set_report({
@@ -581,7 +580,7 @@ class TestQuerySetStringCollections032(unittest.TestCase):
 
 class StalenessCase(unittest.TestCase):
     """Home for the staleness computation tests, built the
-    way the Step 16 G1 tests build theirs."""
+    way the G1 tests build theirs."""
 
     def setUp(self):
         from citeline import install as install_module
@@ -628,8 +627,8 @@ class StalenessCase(unittest.TestCase):
 
 
 class TestStalenessUncompared040(StalenessCase):
-    """S17-R1X-040: an axis whose in force value cannot be
-    read stands uncompared, never as unchanged."""
+    """: an axis whose in force value cannot be read stands
+    uncompared, never as unchanged."""
 
     def test_ghost_product_axis_is_uncompared(self):
         self.append_audit(
@@ -651,8 +650,8 @@ class TestStalenessUncompared040(StalenessCase):
 
 
 class TestStalenessStampForm042(StalenessCase):
-    """S17-R1X-042: version stamps compare in a checked
-    form; the string integer form stands handled."""
+    """: version stamps compare in a checked form; the
+    string integer form stands handled."""
 
     def test_string_integer_stamp_matches_in_force(self):
         self.append_audit(
@@ -695,8 +694,8 @@ class TestStalenessStampForm042(StalenessCase):
 
 
 class TestStalenessStampConflict043(StalenessCase):
-    """S17-R1X-043: one axis stored twice with different
-    values states the conflict, never a silent first."""
+    """: one axis stored twice with different values states
+    the conflict, never a silent first."""
 
     def test_conflicting_stamp_states_conflict(self):
         self.append_audit(

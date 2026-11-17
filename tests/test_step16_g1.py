@@ -1,17 +1,16 @@
-"""Step 16 supplementary fix tests, builder G1: the staleness view.
+"""The staleness view.
 
-Defect covered: E-01 (High). The staleness view stands claimed
-and unshipped. Brief Section 5.12, the IM7-ANA-5 landing, and
-brief Section 11, contract C9, with plan contract C9 and pass
-condition P59, claim an on demand staleness view over the stored
-records of one home, listing for each stored record the bound
-versions it reads, the versions in force, and its state.
+Defect covered: E-01 (High). The staleness view stands claimed and
+unshipped. Brief Section 5.12, the IM7-ANA-5 landing, and brief
+Section 11, contract C9, with plan contract C9 and pass condition
+P59, claim an on demand staleness view over the stored records of
+one home, listing for each stored record the bound versions it
+reads, the versions in force, and its state.
 
-Every test builds a constructed home of its own: a standing
-product giving the versions in force, and stored AuditRun and
-Round records appended through the journal carrying bound
-versions in differing states. Dates are call inputs.
-"""
+Every test builds a constructed home of its own: a standing product
+giving the versions in force, and stored AuditRun and Round records
+appended through the journal carrying bound versions in differing
+states. Dates are call inputs."""
 
 import hashlib
 import io

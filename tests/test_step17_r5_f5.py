@@ -1,9 +1,8 @@
-"""Step 17 round 5 fix seat F5 tests, detection and metrics.
+"""Detection and metrics.
 
-Each test pins one register entry from the Step 17 round 5
-findings register, in the form the register states. Written
-before the cures, watched failing, then watched passing.
-"""
+Each test pins one register entry from the findings
+register, in the form the register states. Written before
+the cures, watched failing, then watched passing."""
 
 import itertools
 import random
@@ -65,11 +64,11 @@ def brute_components(type_sets):
 
 
 def reject_pool_sets(backbone_count, reject_count):
-    """The shape entry S17-R5-036 measures: backbone sets of
-    200 shingles sliding by 20, consecutive sets sharing 180
-    and second neighbours sharing 160, every set holding the
-    same 10 common shingles, and each reject holding those
-    10 plus 190 shingles of its own, similar to nothing."""
+    """The shape measures: backbone sets of 200 shingles
+    sliding by 20, consecutive sets sharing 180 and second
+    neighbours sharing 160, every set holding the same 10
+    common shingles, and each reject holding those 10 plus
+    190 shingles of its own, similar to nothing."""
     common = {("c", index) for index in range(10)}
     sets = []
     for backbone in range(backbone_count):
@@ -159,12 +158,12 @@ class TestRejectPool036(unittest.TestCase):
 
 
 def varying_missed_family(count, seed=99):
-    """The family entry S17-R5-037 states: member sets of
-    size 57 over a shared core of 27 parts plus a pool of
-    34 parts, each member holding the core and all but 4
-    of the pool, the missed parts varying in size against
-    the pivot and the added parts rotating with no part
-    common to every member."""
+    """The family states: member sets of size 57 over a
+    shared core of 27 parts plus a pool of 34 parts, each
+    member holding the core and all but 4 of the pool,
+    the missed parts varying in size against the pivot
+    and the added parts rotating with no part common to
+    every member."""
     core = set(range(27))
     pool = list(range(27, 61))
     rng = random.Random(seed)

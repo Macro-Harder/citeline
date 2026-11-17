@@ -1,13 +1,8 @@
-# Step 17 round 9 fix seat F6 tests.
-#
-# Entries S17-R9-015, S17-R9-016, and S17-R9-018: guide
-# and reporting family. Each defect pin stands on the
-# worked cases of the round 9 register and its source
-# papers, the guide attack paper at S17-R9-GR-1 and
-# S17-R9-GR-2 and the Red attack paper at
-# S17-R9-RED-03.
-#
-# Copyright: J.P. Picard aka Macro-Harder.
+# fix seat F6 tests. Entries, and: guide and reporting
+# family. Each defect pin stands on the worked cases
+# of the round 9 register and its source papers, the
+# guide attack paper at and and the Red attack paper
+# at. Copyright: J.P. Picard aka Macro-Harder.
 
 import unittest
 

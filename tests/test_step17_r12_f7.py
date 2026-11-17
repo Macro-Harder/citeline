@@ -1,24 +1,21 @@
-"""Step 17 round 12 fix seat F7 tests: service, watch, seams.
+"""Service, watch, seams.
 
-Seat F7 stands in verdict form only in this round and
-carries no entry TO FIX. The pins below stand on the
-cured tree as it stands at this run, in the standing
-forms the round 12 papers record: the container seam
-verdict at entries S17-R9-003 and S17-R9-020, the three
-readings agreeing on the worked forms; the top level
-key position as cured at entry S17-R10-001 standing in
-its cured form at the service seam, in the primary
-form and in the fallback form alike; the corrected pin
-test_string_of_4096_inside_a_dict_value_refuses passing
-in its renamed form; and the watch figures in their
-exact forms, the WatchPlan size figure of 1 MiB and
-the picked scope bound of 100 targets.
-Oracle: the round 12 disposition, Section 3 seat F7,
-and register Section 3, record 14, beside the follower
-standings the F2 and F4 fix papers of this wave state.
+Seat F7 stands in verdict form only in this round and carries
+no entry TO FIX. The pins below stand on the cured tree as it
+stands at this run, in the standing forms the round 12 papers
+record: the container seam verdict, the three readings
+agreeing on the worked forms; the top level key position as
+cured at standing in its cured form at the service seam, in
+the primary form and in the fallback form alike; the
+corrected pin test_string_of_4096_inside_a_dict_value_refuses
+passing in its renamed form; and the watch figures in their
+exact forms, the WatchPlan size figure of 1 MiB and the
+picked scope bound of 100 targets. Oracle: the round 12
+disposition, Section 3 seat F7, and register Section 3,
+record 14, beside the follower standings the F2 and F4 fix
+papers of this wave state.
 
-Copyright: J.P. Picard aka Macro-Harder.
-"""
+Copyright: J.P. Picard aka Macro-Harder."""
 
 import json
 import tempfile
@@ -122,8 +119,7 @@ class LimitedBase(SeededBase):
 
 
 # ----------------------------------------------------------------
-# The container seam at entries S17-R9-003 and
-# S17-R9-020, in its standing form: the three readings
+# The container seam, in its standing form: the three readings
 # agree on the worked forms.
 # ----------------------------------------------------------------
 
@@ -182,9 +178,9 @@ class TestContainerKeyAtTheSeamBothForms(LimitedBase):
 
 
 # ----------------------------------------------------------------
-# The top level key position as cured at entry
-# S17-R10-001, standing in its cured form at the service
-# seam, in the primary form and in the fallback form.
+# The top level key position as cured, standing in its cured form
+# at the service seam, in the primary form and in the fallback
+# form.
 # ----------------------------------------------------------------
 
 class TestTopLevelKeyCuredFormPrimary(LimitedBase):
@@ -350,17 +346,14 @@ if __name__ == "__main__":
 
 
 # ----------------------------------------------------------------
-# The page and import follower readings after the
-# cures of this wave, entries S17-R12-001,
-# S17-R12-006, and S17-R12-008: the two readings agree
-# on the twelve widened openings and on the six
-# further openings, and stand in the cured form on
-# the combining mark opening, a mark outside the
-# landed range refusing at the page reading as at the
-# import reading since the union cure at entry
-# S17-R13-001 landed, the pin at that opening standing
-# corrected in place to its cured form in fix round
-# 14 under ruling (f) of the round 14 disposition.
+# The page and import follower readings after the cures of this
+# wave, and: the two readings agree on the twelve widened openings
+# and on the six further openings, and stand in the cured form on
+# the combining mark opening, a mark outside the landed range
+# refusing at the page reading as at the import reading since the
+# union cure at landed, the pin at that opening standing corrected
+# in place to its cured form in fix round 14 under ruling (f) of
+# the round 14 disposition.
 # ----------------------------------------------------------------
 
 WIDENED_OPENINGS = (

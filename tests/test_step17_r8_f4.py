@@ -1,13 +1,9 @@
-"""Step 17 round 8 fix seat F4 tests: import family.
+"""Import family.
 
-Test first pins for register entries S17-R8-012 to
-S17-R8-017, from design/audit/step-17-r8-findings-register.md
-and the source papers step-17-r8-attack-import.md and
-step-17-r8-attack-red.md (finding S17-R8-RED-06, merged
-at entry S17-R8-013), with the seam positions the F2 fix
-paper of this round states at entries S17-R8-015 and
-S17-R8-016.
-"""
+Test first pins for register, from the register and the
+source papers the register paper and the register paper
+(finding, merged), with the seam positions the F2 fix paper
+of this round states at."""
 
 import hashlib
 import json
@@ -271,15 +267,15 @@ class Test014HeaderJudgementsReadMore(ImportBase):
 
     @unittest.expectedFailure
     def test_v7_letter_padding_form_is_text(self):
-        # Refusal pin for the V7 limb of entry S17-R8-014,
-        # recorded in exact form in the F4 fix paper of this
-        # round: the worked form stands byte for byte as the
-        # archive control form the round 7 cure tests pin, a
-        # 512 byte block of letter A characters with its mode,
-        # size, mtime, uid, and gid fields in octal form, its
-        # type flag as the digit 0, and its checksum field as
-        # the octal sum of the block, so no header reading
-        # refuses the worked form while the control stands.
+        # Refusal pin for the V7 limb, recorded in exact form
+        # in the F4 fix paper of this round: the worked form
+        # stands byte for byte as the archive control form the
+        # round 7 cure tests pin, a 512 byte block of letter A
+        # characters with its mode, size, mtime, uid, and gid
+        # fields in octal form, its type flag as the digit 0,
+        # and its checksum field as the octal sum of the
+        # block, so no header reading refuses the worked form
+        # while the control stands.
         header = bytearray(b"A" * 512)
         header[100:108] = b"000644 \x00"
         header[108:116] = b"000000 \x00"
@@ -357,7 +353,7 @@ class Test016ContainerKeyMeasure(ImportBase):
 
 class EqStr:
     """A value equal to one string, unhashable, no string
-    subclass: the form entry S17-R8-017 works."""
+    subclass: the form works."""
 
     __hash__ = None
 

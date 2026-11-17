@@ -1,52 +1,47 @@
-"""Step 17 round 16 fix seat F1 tests: journal family.
+"""Journal family.
 
-Each defect pin states one entry of
-design/audit/step-17-r16-findings-register.md. Entry
-S17-R16-001: the replay resume branch is a fifth journal
-write road carrying no post write judgement, so a rename
-plant timed at the return of the helper lstat reading of
-its pre write rejudgement passes every judgement and the
+Each defect pin states one entry of the register paper.
+Entry: the replay resume branch is a fifth journal write
+road carrying no post write judgement, so a rename plant
+timed at the return of the helper lstat reading of its
+pre write rejudgement passes every judgement and the
 replayed lines land under the outside name with success
-reported. Entry S17-R16-002: the restore truncate carries
-no judgement after its rejudgement and none after its
+reported. Entry: the restore truncate carries no
+judgement after its rejudgement and none after its
 truncate, so a rename plant timed at the return of the
 helper lstat reading of its rejudgement lands the
-truncate on the file under the outside name. Entry
-S17-R16-003, in its bounded limb form: the lock holder
-line write follows its rejudgement with no post write
-judgement, so a plant at the return of the helper lstat
-of the rejudgement leaves the holder line under the
-outside name with the acquire granted. Entry
-S17-R16-015: a rename plant timed at the return of the
-lstat reading inside the judgement act passes the last
-judgement of the config write, of the journal append,
-and of the batch intent write. The pins for that entry
-stand in two forms: a plant one reading earlier, at the
-return of the lstat reading of the judgement before the
-last, stands refused in the vocabulary and the remedy
-form of its site on every road, and a plant at the
-return of the lstat reading of the last judgement
-stands pinned in its bounded form, the form the fix
-paper at design/audit/step-17-r16-fix-f1.md states in
-its corrected cure claim, equivalent to a rename after
-the call returns, which no judgement inside the call
-reaches. The plants below wrap os.lstat and rename the
-target at the return of the counted call on that path,
-returning the stale stat result the caller already
-read, in the form the round 16 attack papers state.
-Counted calls stand measured on the uncured tree with
-the scan cache cleared, in the form the journal paper
-of round 16 records: replay resume, journal path 4
-calls; restore truncate, journal path 2 calls; lock
-acquire, lock path 2 calls; journal append, journal
-path 5 calls; config write, config path 8 calls; batch
-intent write, intent path 3 calls. Homes are scratch
-homes under a temporary directory. No test here touches
-a standing test item or a governed ground: CARRY
-S17-R4-070 and CARRY S17-R5-026 stand untouched in
-exact form, and the refused entry S17-R7-002 stands
-apart and untouched.
-"""
+truncate on the file under the outside name. Entry, in
+its bounded limb form: the lock holder line write follows
+its rejudgement with no post write judgement, so a plant
+at the return of the helper lstat of the rejudgement
+leaves the holder line under the outside name with the
+acquire granted. Entry: a rename plant timed at the
+return of the lstat reading inside the judgement act
+passes the last judgement of the config write, of the
+journal append, and of the batch intent write. The pins
+for that entry stand in two forms: a plant one reading
+earlier, at the return of the lstat reading of the
+judgement before the last, stands refused in the
+vocabulary and the remedy form of its site on every road,
+and a plant at the return of the lstat reading of the
+last judgement stands pinned in its bounded form, the
+form the fix paper in the register states in its
+corrected cure claim, equivalent to a rename after the
+call returns, which no judgement inside the call reaches.
+The plants below wrap os.lstat and rename the target at
+the return of the counted call on that path, returning
+the stale stat result the caller already read, in the
+form the round 16 attack papers state. Counted calls
+stand measured on the uncured tree with the scan cache
+cleared, in the form the journal paper of round 16
+records: replay resume, journal path 4 calls; restore
+truncate, journal path 2 calls; lock acquire, lock path 2
+calls; journal append, journal path 5 calls; config
+write, config path 8 calls; batch intent write, intent
+path 3 calls. Homes are scratch homes under a temporary
+directory. No test here touches a standing test item or a
+governed ground: CARRY and CARRY stand untouched in exact
+form, and the refused stands apart and untouched."""
 
 import hashlib
 import os

@@ -140,21 +140,18 @@ def error_for_row(row):
 
     A value of a type the vocabulary cannot hold, an
     unhashable value among them, stands as no entry, in
-    the module's own form as the constructor meets it
-    (Step 17 round 4 entry S17-R4-059): the lookup
-    returns None instead of raising a raw TypeError.
-    A value can stand as a string and stand unhashable
-    at once, where a string subclass sets its hash to
-    None, and that form passes the type guard and
-    reaches the dict reading, so the reading itself
-    stands guarded (Step 17 round 5 entry S17-R5-056).
-    A string subclass can also stand hashable and still
-    defeat the dict reading where its equality raises a
-    non TypeError exception, and that form stands as no
-    entry in the same way (Step 17 round 6 entry
-    S17-R6-047): the guard at the reading catches every
-    exception the reading can raise on such a value.
-    """
+    the module's own form as the constructor meets it:
+    the lookup returns None instead of raising a raw
+    TypeError. A value can stand as a string and stand
+    unhashable at once, where a string subclass sets
+    its hash to None, and that form passes the type
+    guard and reaches the dict reading, so the reading
+    itself stands guarded. A string subclass can also
+    stand hashable and still defeat the dict reading
+    where its equality raises a non TypeError
+    exception, and that form stands as no entry in the
+    same way: the guard at the reading catches every
+    exception the reading can raise on such a value."""
     if not isinstance(row, str):
         return None
     try:
@@ -168,15 +165,12 @@ def error_for_token(token):
 
     A value of a type the vocabulary cannot hold, an
     unhashable value among them, stands as no entry, in
-    the module's own form as the constructor meets it
-    (Step 17 round 4 entry S17-R4-059): the lookup
-    returns None instead of raising a raw TypeError.
-    The unhashable string subclass form stands guarded
-    at the reading itself, as at error_for_row (Step 17
-    round 5 entry S17-R5-056), and the equality raising
-    string subclass form stands guarded there in the
-    same way (Step 17 round 6 entry S17-R6-047).
-    """
+    the module's own form as the constructor meets it:
+    the lookup returns None instead of raising a raw
+    TypeError. The unhashable string subclass form
+    stands guarded at the reading itself, as at
+    error_for_row, and the equality raising string
+    subclass form stands guarded there in the same way."""
     if not isinstance(token, str):
         return None
     try:
@@ -198,16 +192,16 @@ class CitelineError(Exception):
         super().__init__(message)
         self.message = message
         # The closed set stands enforced here, at the one
-        # place every recorded error passes through (Step
-        # 17 round 3 entry S17-R3-061): a token or row of a
-        # type the vocabulary cannot hold, a token or row
-        # outside the set, and a row and token naming
-        # different rows each stand refused with a plain
-        # ValueError at construction, instead of shipping
-        # with no class and no exit code or raising a raw
-        # TypeError from the vocabulary lookup. An error
-        # carrying neither a row nor a token stands as
-        # before: the internal journal failures carry none.
+        # place every recorded error passes through: a
+        # token or row of a type the vocabulary cannot
+        # hold, a token or row outside the set, and a row
+        # and token naming different rows each stand
+        # refused with a plain ValueError at construction,
+        # instead of shipping with no class and no exit
+        # code or raising a raw TypeError from the
+        # vocabulary lookup. An error carrying neither a
+        # row nor a token stands as before: the internal
+        # journal failures carry none.
         for name, value in (("row", row), ("token", token)):
             if value is not None and not isinstance(value, str):
                 raise ValueError(
@@ -222,13 +216,11 @@ class CitelineError(Exception):
                 # A string subclass with no hash stands as
                 # a value the vocabulary cannot hold, in
                 # the same ValueError form as every other
-                # such value, never as a raw TypeError
-                # (Step 17 round 5 entry S17-R5-056). A
+                # such value, never as a raw TypeError. A
                 # string subclass whose equality raises
                 # stands in the same form: the reading can
                 # raise on it in any exception form, and
-                # every such form stands as no entry here
-                # (Step 17 round 6 entry S17-R6-047).
+                # every such form stands as no entry here.
                 entry = None
             if entry is None:
                 raise ValueError(

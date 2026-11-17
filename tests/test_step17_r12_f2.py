@@ -1,33 +1,25 @@
-"""Step 17 round 12 fix seat F2 tests, registry and acquisition.
+"""Registry and acquisition.
 
-Test first pins for register entry S17-R12-001, merged
-from registry S17-R12-REG-001, seams
-S17-R12-SEAMS-001, and red S17-R12-RED-04, with the
-page side limb of entry S17-R12-008 inside the same
-cure. Each defect test reproduces the defect named at
-that entry: the page side construct judgement in
-acquisition.py reads the follower of the construct
-character as any word character or a hyphen alone,
-while the import side reading judges any word
-character or a hyphen beside the twelve widened
-openings of entry S17-R11-010, a full stop, a plus
-sign, a dollar sign, a tilde, a semicolon, a slash,
-an equals sign, an at sign, a caret, a backtick, a
-combining mark, and an undertie, so a construct whose
-name opens on one of those openings passes the page
-reading whole where the import reading refuses it.
-The page side limb of entry S17-R12-008 stands on the
-six further openings that entry names, a question
-mark, a backslash, an opening parenthesis, a closing
-parenthesis, a less than sign, and a colon, which
-pass both readings on the uncured tree and stand
-refused at the page reading on the cured tree, their
-import side limb standing charged to seat F4. The
-pins stand at every judged position, in the line form
-and in the JSON form, at the value position and at
-the key position alike, in plain form and standing
-behind interior head material alike.
-"""
+Test first pins for register, merged from registry, seams, and
+red, with the page side limb of inside the same cure. Each
+defect test reproduces the defect named at that entry: the page
+side construct judgement in acquisition.py reads the follower of
+the construct character as any word character or a hyphen alone,
+while the import side reading judges any word character or a
+hyphen beside the twelve widened openings, a full stop, a plus
+sign, a dollar sign, a tilde, a semicolon, a slash, an equals
+sign, an at sign, a caret, a backtick, a combining mark, and an
+undertie, so a construct whose name opens on one of those
+openings passes the page reading whole where the import reading
+refuses it. The page side limb of stands on the six further
+openings that entry names, a question mark, a backslash, an
+opening parenthesis, a closing parenthesis, a less than sign,
+and a colon, which pass both readings on the uncured tree and
+stand refused at the page reading on the cured tree, their
+import side limb standing charged to seat F4. The pins stand at
+every judged position, in the line form and in the JSON form, at
+the value position and at the key position alike, in plain form
+and standing behind interior head material alike."""
 
 import json
 import os

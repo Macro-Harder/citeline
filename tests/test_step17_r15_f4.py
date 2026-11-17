@@ -1,29 +1,26 @@
-"""Step 17 round 15 fix seat F4 tests, import family.
+"""Import family.
 
-Test first pins for the import side limbs of register
-entries S17-R15-002, S17-R15-003, and S17-R15-010, each
-Low, each counted at its lead seat F2, cured at the
-import side helper _holds_tag_construct in
+Test first pins for the import side limbs of register,
+and, each Low, each counted at its lead seat F2, cured
+at the import side helper _holds_tag_construct in
 probe_import.py and at the import reading, in the form
-the F2 cure rule states for this seat. Entry
-S17-R15-002: a head union mark standing between a
-judged position and a construct character blocks the
-cure at both readings, the except marks reading
-keeping the blocker and the interior head reading
-removing blocker and follower together, so no reading
-presents the judged position, the construct, and the
-mark follower together. Entry S17-R15-003: both
-category follower loops run one non overlapping
-finditer pass whose match consumes its judged
-position, construct, and follower characters, so a
-second construct standing directly after a first, or
-after a space the first match consumed, is never
-judged on the mark ground. Entry S17-R15-010: exactly
-four category Lo head material characters, U+115F,
-U+1160, U+3164, and U+FFA0, pass both readings whole
-as sole follower of a construct character, each one
-standing in the follower set through the word
-character limb of entry S17-R11-001 with no head
+the F2 cure rule states for this seat. Entry: a head
+union mark standing between a judged position and a
+construct character blocks the cure at both readings,
+the except marks reading keeping the blocker and the
+interior head reading removing blocker and follower
+together, so no reading presents the judged position,
+the construct, and the mark follower together. Entry:
+both category follower loops run one non overlapping
+finditer pass whose match consumes its judged position,
+construct, and follower characters, so a second
+construct standing directly after a first, or after a
+space the first match consumed, is never judged on the
+mark ground. Entry: exactly four category Lo head
+material characters, U+115F, U+1160, U+3164, and
+U+FFA0, pass both readings whole as sole follower of a
+construct character, each one standing in the follower
+set through the word character limb of with no head
 material exception standing in that limb.
 
 The defect pins assert the import reading and the
@@ -32,10 +29,9 @@ limb pins of fix round 14 took: the page side limbs of
 the three entries stand cured at seat F2 in this wave
 ahead of this seat in the dependency order. The
 controls assert both readings where the standing the
-control names already stands at both. Every pin runs
-in memory at the readings and at the helpers, so no
-pin stands on a temporary directory.
-"""
+control names already stands at both. Every pin runs in
+memory at the readings and at the helpers, so no pin
+stands on a temporary directory."""
 
 import json
 import unicodedata

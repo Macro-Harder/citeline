@@ -551,7 +551,7 @@ class TestR19062RobotsSummaryAndLabels(unittest.TestCase):
 class TestR19063QuerySetPlainTail(unittest.TestCase):
     """R19-063: the query set report Simple form ends in
     defined plain names, the total stands with the counts it
-    relates to, and naming_none_count is stated in words."""
+    relates, and naming_none_count is stated in words."""
 
     def test_plain_tail(self):
         body = {

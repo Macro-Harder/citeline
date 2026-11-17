@@ -541,11 +541,10 @@ def install(location=None, home=None, **_ignored):
 
     A filesystem failure on the install route stands
     reported as a governed recorded error, never as a raw
-    operating system error reaching the caller (Step 17
-    entry S17-R1-065): the wrapping below carries every
-    OSError the route raises into the InstallError form,
-    whose code stands in the item 126 exit table.
-    """
+    operating system error reaching the caller: the
+    wrapping below carries every OSError the route raises
+    into the InstallError form, whose code stands in the
+    item 126 exit table."""
     try:
         return _install_impl(location=location, home=home)
     except OSError as exc:
@@ -573,11 +572,10 @@ def _install_impl(location=None, home=None):
             "MALFORMED_CALL",
             "install names a location and a home")
     if location == "" or home == "":
-        # An empty string names no path at all (Step 17
-        # round 2 entry S17-R2-075): the shape stands as a
-        # malformed call at exit 2, as the same shape
-        # through the shell does, never as a filesystem
-        # failure over the empty path.
+        # An empty string names no path at all: the shape
+        # stands as a malformed call at exit 2, as the
+        # same shape through the shell does, never as a
+        # filesystem failure over the empty path.
         raise InstallError(
             "MALFORMED_CALL",
             "install names a location and a home, and an "
@@ -599,7 +597,7 @@ def _install_impl(location=None, home=None):
         # as a directory at the end of a completed
         # install: a home path standing as a file is
         # refused, as the location path standing as a
-        # file is refused (Step 17 entry S17-R1-066).
+        # file is refused.
         info = os.lstat(home)
         if not stat.S_ISDIR(info.st_mode):
             _fail(
@@ -611,9 +609,9 @@ def _install_impl(location=None, home=None):
         # A config path that stands but is not a regular
         # file (a directory at the path) holds no config
         # file that parses, and fails the install at row
-        # X-1 as an invalid config (Step 17 entry
-        # S17-R1-067); a link to a regular file stands
-        # checked through the link, as a file.
+        # X-1 as an invalid config; a link to a regular
+        # file stands checked through the link, as a
+        # file.
         if not os.path.isfile(config_file):
             raise InstallError(
                 "CONFIG_INVALID",
@@ -739,19 +737,17 @@ def _install_impl(location=None, home=None):
 def uninstall(location=None, home=None, **_ignored):
     """Uninstall over the created items list only, resumably.
 
-    Each created item stands removed under the lstat rule:
-    a link loses itself only, a regular product file stands
-    removed, an installer created config stands removed,
-    and a config the installer did not create stands left.
-    The home stands removed with everything in it, journal
+    Each created item stands removed under the lstat rule: a
+    link loses itself only, a regular product file stands
+    removed, an installer created config stands removed, and
+    a config the installer did not create stands left. The
+    home stands removed with everything in it, journal
     contents included, and the location directory stands
-    removed where it stands empty after those removals.
-    A repeat call over a part removed state completes the
-    list and reports completion. A filesystem failure on
-    the route stands reported as a governed recorded
-    error, as on the install route (Step 17 entry
-    S17-R1-065).
-    """
+    removed where it stands empty after those removals. A
+    repeat call over a part removed state completes the list
+    and reports completion. A filesystem failure on the route
+    stands reported as a governed recorded error, as on the
+    install route."""
     try:
         return _uninstall_impl(location=location, home=home)
     except OSError as exc:
@@ -1046,11 +1042,10 @@ def main(argv=None):
         token = argv[index]
         if token == "uninstall" and mode == "uninstall" \
                 and index != 0:
-            # The mode word stands consumed once (Step 17
-            # round 2 entry S17-R2-075): a second uninstall
-            # word is no location, and the call stands
-            # malformed instead of silently uninstalling a
-            # directory named uninstall.
+            # The mode word stands consumed once: a second
+            # uninstall word is no location, and the call
+            # stands malformed instead of silently
+            # uninstalling a directory named uninstall.
             return _malformed(
                 "the uninstall mode stands named twice")
         if token == "uninstall" and index == 0:

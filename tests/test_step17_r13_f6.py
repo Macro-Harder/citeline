@@ -1,25 +1,21 @@
-"""Step 17 round 13 fix seat F6 tests: guide and reporting.
+"""Guide and reporting.
 
-Verdict pins only: this seat charges no cure of its own
-and edits no product module. The pins stand on the
-guide and reporting seams in the standing form (the
-failure line seam at entry S17-R9-015, the longer
-compound seam at entry S17-R9-016, and the list branch
-seam at entry S17-R9-018, as the round 9 F6 fix paper
-states them and the round 13 guide paper rejudged
-them on new forms), on the collector kind discrepancy
-in its sustained recorded form at register Section 3,
-record 4 of the round 12 register, extended on the new
-forms the round 13 guide paper runs, and on the
-standing watch figures and the methods note version
-stamp in their exact forms. Each pin was written
-before the verdict it records and stands passing on
-the tree the verdicts judge.
-Oracle: the round 13 findings register and
+Verdict pins only: this seat charges no cure of its own and
+edits no product module. The pins stand on the guide and
+reporting seams in the standing form (the failure line
+seam, the longer compound seam, and the list branch seam,
+as the round 9 F6 fix paper states them and the round 13
+guide paper rejudged them on new forms), on the collector
+kind discrepancy in its sustained recorded form at register
+Section 3, record 4 of the round 12 register, extended on
+the new forms the round 13 guide paper runs, and on the
+standing watch figures and the methods note version stamp
+in their exact forms. Each pin was written before the
+verdict it records and stands passing on the tree the
+verdicts judge. Oracle: the round 13 findings register and
 disposition, ruling (n) and Section 3 seat F6.
 
-Copyright: J.P. Picard aka Macro-Harder.
-"""
+Copyright: J.P. Picard aka Macro-Harder."""
 
 import inspect
 import json
@@ -122,11 +118,10 @@ class SeededBase(unittest.TestCase):
 
 
 # ----------------------------------------------------------------
-# Seam 1, entry S17-R9-015: the failure line seam. The
-# judged set stands at ten characters, equal to the
-# whole line boundary set under the standard reading,
-# judged exhaustively, and the round 13 forms plant
-# breaks at the subject position, in all three complete
+# Seam 1,: the failure line seam. The judged set stands at ten
+# characters, equal to the whole line boundary set under the
+# standard reading, judged exhaustively, and the round 13 forms
+# plant breaks at the subject position, in all three complete
 # fields at once, and in further partial field names.
 # ----------------------------------------------------------------
 
@@ -234,10 +229,10 @@ class Test015FailureLineSeamVerdict(unittest.TestCase):
 
 
 # ----------------------------------------------------------------
-# Seam 2, entry S17-R9-016: the longer compound seam,
-# Simple form only, judged at the scalar branch on the
-# new middle components of round 13: high, interval,
-# score, pct, rate, value, gross, net, share, percent.
+# Seam 2,: the longer compound seam, Simple form only, judged at
+# the scalar branch on the new middle components of round 13:
+# high, interval, score, pct, rate, value, gross, net, share,
+# percent.
 # ----------------------------------------------------------------
 
 class Test016LongerCompoundSeamVerdict(unittest.TestCase):
@@ -321,12 +316,11 @@ class Test016LongerCompoundSeamVerdict(unittest.TestCase):
 
 
 # ----------------------------------------------------------------
-# Seam 3, entry S17-R9-018: the list branch seam. The
-# four place set stands stated in one helper shared by
-# the scalar and list branches, judged on the new
-# compound keys of round 13 at the list branch, nested
-# six levels deep, and on the record stop one level
-# deeper than the earlier rounds ran it.
+# Seam 3,: the list branch seam. The four place set stands stated
+# in one helper shared by the scalar and list branches, judged on
+# the new compound keys of round 13 at the list branch, nested six
+# levels deep, and on the record stop one level deeper than the
+# earlier rounds ran it.
 # ----------------------------------------------------------------
 
 class Test018ListBranchSeamVerdict(unittest.TestCase):

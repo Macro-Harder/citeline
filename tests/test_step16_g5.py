@@ -1,26 +1,23 @@
-"""Step 16 supplementary fix wave, builder G5: audit invocation.
+"""Audit invocation.
 
-Defects pinned here, failing tests first:
-E-05, the D-29 run_id form silently disregards fresh inputs
-named beside it. A call naming run_id together with any fresh
-audit input (page file, robots file, audit date, evaluated
-page path, or product) refuses MALFORMED_CALL at row U-8,
-exit 2. Through the shell the refusal carries the standing
-shell outcome: the value printed, the subcommand list in
-full, and one failure record where the chain accepts
-appends. run_id alone, in any of the three forms, renders
-the stored record and appends nothing, and a fresh call
-without run_id audits exactly as before.
-E-06, an audit omitting audit_date stores audit_date null
-with audit_date_is_run_date true and no defaulted recording,
-and freshness scores FRESH_NO_DATE. Brief Section 6.2 M1
-requires the default to be the current UTC date, recorded
-as defaulted and naming the date used: the stored record
-carries audit_date set to the current UTC date and
-audit_date_defaulted true beside it, a supplied date is
-recorded as supplied with audit_date_defaulted false, and
-freshness computes on the date used.
-"""
+Defects pinned here, failing tests first: E-05, the D-29 run_id
+form silently disregards fresh inputs named beside it. A call
+naming run_id together with any fresh audit input (page file,
+robots file, audit date, evaluated page path, or product)
+refuses MALFORMED_CALL at row U-8, exit 2. Through the shell the
+refusal carries the standing shell outcome: the value printed,
+the subcommand list in full, and one failure record where the
+chain accepts appends. run_id alone, in any of the three forms,
+renders the stored record and appends nothing, and a fresh call
+without run_id audits exactly as before. E-06, an audit omitting
+audit_date stores audit_date null with audit_date_is_run_date
+true and no defaulted recording, and freshness scores
+FRESH_NO_DATE. Brief Section 6.2 M1 requires the default to be
+the current UTC date, recorded as defaulted and naming the date
+used: the stored record carries audit_date set to the current
+UTC date and audit_date_defaulted true beside it, a supplied
+date is recorded as supplied with audit_date_defaulted false,
+and freshness computes on the date used."""
 
 import contextlib
 import datetime

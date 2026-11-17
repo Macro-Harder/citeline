@@ -1,17 +1,11 @@
-"""Step 17 round 3 fix seat F7 tests: service, watch, seams.
+"""Service, watch, seams.
 
-Pins the register entries charged to F7 in fix round 3:
-S17-R3-029, S17-R3-046, S17-R3-047, S17-R3-048,
-S17-R3-049, S17-R3-050, S17-R3-051, S17-R3-052,
-S17-R3-059, S17-R3-060, S17-R3-061, S17-R3-064,
-S17-R3-067, and S17-R3-068. Every test was written
-before its cure and run failing for the register stated
-reason, except the controls named as controls and the
-entry S17-R3-051 evidence test, which stands as an
-expected failure beside that entry's refusal in the
-seat paper. Oracle: the round 3 findings register and
-disposition.
-"""
+Pins the register entries charged to F7 in fix round 3: and.
+Every test was written before its cure and run failing for
+the register stated reason, except the controls named as
+controls and the evidence test, which stands as an expected
+failure beside that entry's refusal in the seat paper.
+Oracle: the round 3 findings register and disposition."""
 
 import datetime
 import json
@@ -127,8 +121,8 @@ class SeededBase(unittest.TestCase):
         seed(self, self.home)
 
 
-# ----------------------------------------------------------------
-# S17-R3-029: read routes recover or signal a partial batch.
+# ----------------------------------------------------------------:
+# read routes recover or signal a partial batch.
 # ----------------------------------------------------------------
 
 class Test029ReadSideRecovery(SeededBase):
@@ -177,8 +171,8 @@ class Test029ReadSideRecovery(SeededBase):
             token_of(caught.exception), "VALIDATION_FAILED")
 
 
-# ----------------------------------------------------------------
-# S17-R3-046: the evaluated page path stands under the guard.
+# ----------------------------------------------------------------:
+# the evaluated page path stands under the guard.
 # ----------------------------------------------------------------
 
 class Test046EvaluatedPathGuard(SeededBase):
@@ -211,9 +205,9 @@ class Test046EvaluatedPathGuard(SeededBase):
                          ["SUPPLIED_PATH_UNSAFE"])
 
 
-# ----------------------------------------------------------------
-# S17-R3-047: a bad audit date appends one failure record
-# on the five failure record routes.
+# ----------------------------------------------------------------:
+# a bad audit date appends one failure record on the five failure
+# record routes.
 # ----------------------------------------------------------------
 
 class Test047AuditDateFailureRecord(SeededBase):
@@ -253,9 +247,9 @@ class Test047AuditDateFailureRecord(SeededBase):
             audit_date="not-a-date"))
 
 
-# ----------------------------------------------------------------
-# S17-R3-048: stored field validation over the non string
-# answer fields its readers consume.
+# ----------------------------------------------------------------:
+# stored field validation over the non string answer fields its
+# readers consume.
 # ----------------------------------------------------------------
 
 class Test048StoredFieldValidation(SeededBase):
@@ -302,8 +296,8 @@ class Test048StoredFieldValidation(SeededBase):
 
 
 # ----------------------------------------------------------------
-# S17-R3-049 and S17-R3-050: the plan file path judged at
-# open, and the list_products home check.
+# and: the plan file path judged at open, and the list_products
+# home check.
 # ----------------------------------------------------------------
 
 class Test049PlanPathJudged(unittest.TestCase):
@@ -327,13 +321,12 @@ class Test050ListProductsHomeCheck(unittest.TestCase):
         self.assertEqual(token_of(caught.exception), "HOME_MISSING")
 
 
-# ----------------------------------------------------------------
-# S17-R3-051: the picked watch round cost shape. The
-# evidence test stands as an expected failure beside the
-# refusal recorded in the seat paper: the per target cost
-# grows with the journal the round itself writes, through
-# full journal rehash scans no service or watch cure in
-# this seat's family can remove.
+# ----------------------------------------------------------------:
+# the picked watch round cost shape. The evidence test stands as
+# an expected failure beside the refusal recorded in the seat
+# paper: the per target cost grows with the journal the round
+# itself writes, through full journal rehash scans no service or
+# watch cure in this seat's family can remove.
 # ----------------------------------------------------------------
 
 def _child_append_failure_record(home, go_path, done_path):
@@ -393,9 +386,9 @@ class Test051WatchCostShape(SeededBase):
         self.assertLessEqual(stats["entries"], 150)
 
 
-# ----------------------------------------------------------------
-# S17-R3-052: the audit assembly snapshot identity and
-# limits run identity resolved from the storing entries.
+# ----------------------------------------------------------------:
+# the audit assembly snapshot identity and limits run identity
+# resolved from the storing entries.
 # ----------------------------------------------------------------
 
 class Test052AuditAssemblyIdentity(SeededBase):
@@ -451,9 +444,9 @@ class Test052AuditAssemblyIdentity(SeededBase):
             record["limits_in_force"]["run_id"], record["run_id"])
 
 
-# ----------------------------------------------------------------
-# S17-R3-059: the cadence interval reading stands inside
-# the forms its own docstring states.
+# ----------------------------------------------------------------:
+# the cadence interval reading stands inside the forms its own
+# docstring states.
 # ----------------------------------------------------------------
 
 class Test059CadenceForms(unittest.TestCase):
@@ -478,9 +471,9 @@ class Test059CadenceForms(unittest.TestCase):
             watch._cadence_interval_days("every 2 weeks"), 14)
 
 
-# ----------------------------------------------------------------
-# S17-R3-060: the import route audit date stands under the
-# service validator discipline and token.
+# ----------------------------------------------------------------:
+# the import route audit date stands under the service validator
+# discipline and token.
 # ----------------------------------------------------------------
 
 class Test060ImportAuditDate(SeededBase):
@@ -508,9 +501,9 @@ class Test060ImportAuditDate(SeededBase):
             token_of(caught.exception), "VALIDATION_FAILED")
 
 
-# ----------------------------------------------------------------
-# S17-R3-061: the error vocabulary constructor enforces
-# the closed set its module states.
+# ----------------------------------------------------------------:
+# the error vocabulary constructor enforces the closed set its
+# module states.
 # ----------------------------------------------------------------
 
 class Test061VocabularyConstructor(unittest.TestCase):
@@ -546,9 +539,9 @@ class Test061VocabularyConstructor(unittest.TestCase):
         self.assertIsNone(exc.token)
 
 
-# ----------------------------------------------------------------
-# S17-R3-064: the watch coverage count and the failure
-# record surfacing assembly fold with corrections.
+# ----------------------------------------------------------------:
+# the watch coverage count and the failure record surfacing
+# assembly fold with corrections.
 # ----------------------------------------------------------------
 
 class Test064CorrectionsAwareReaders(SeededBase):
@@ -598,9 +591,9 @@ class Test064CorrectionsAwareReaders(SeededBase):
         self.assertNotIn("UNKNOWN_ROUND", values)
 
 
-# ----------------------------------------------------------------
-# S17-R3-067: the failure surfacing assembly stands a
-# stored entry on its surface whatever its payload holds.
+# ----------------------------------------------------------------:
+# the failure surfacing assembly stands a stored entry on its
+# surface whatever its payload holds.
 # ----------------------------------------------------------------
 
 class Test067EmptyPayloadSurfaces(SeededBase):
@@ -614,10 +607,10 @@ class Test067EmptyPayloadSurfaces(SeededBase):
         self.assertIn({}, result["failure_records"])
 
 
-# ----------------------------------------------------------------
-# S17-R3-068: one reading of the limits in force governs
-# the audit statement and the extraction enforcement, the
-# front matter family included.
+# ----------------------------------------------------------------:
+# one reading of the limits in force governs the audit statement
+# and the extraction enforcement, the front matter family
+# included.
 # ----------------------------------------------------------------
 
 class Test068FrontMatterLimitsPlumbing(SeededBase):

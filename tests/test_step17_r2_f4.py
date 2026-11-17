@@ -1,15 +1,11 @@
-"""Step 17 round 2 fix seat F4 tests: import family.
+"""Import family.
 
-Test first pins for register entries S17-R2-033 to
-S17-R2-041, S17-R2-083, S17-R2-084, S17-R2-087,
-S17-R2-088, and S17-R2-097, from
-design/audit/step-17-r2-findings-register.md and the
-source papers they cite (seats B6, B14, B15, B17, B18).
-Each test reproduces the defect named at its register
-entry on the tree standing after fix round 1 and the
-round 2 F1 and F2 seats, then stands as the pin for
-its cure.
-"""
+Test first pins for register, and, from the register
+and the source papers they cite (seats B6, B14, B15,
+B17, B18). Each test reproduces the defect named at its
+register entry on the tree standing after fix round 1
+and the round 2 F1 and F2 seats, then stands as the pin
+for its cure."""
 
 import datetime
 import json

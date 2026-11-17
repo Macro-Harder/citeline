@@ -1,16 +1,14 @@
-"""Step 16 supplementary fix G2 tests: surface words and figures.
+"""Surface words and figures.
 
-Written test first against the round 2 disposition at
-design/steps/step-16-record.md, defects E-02, E-07, and E-10,
-and the governing texts those entries name: brief Section
-5.8 item 19 guard G1 with pass condition P26 for the importer
-declaration in its three values in words and the unverifiable
-position as a statement, and the IM7-BRK-3 landing in brief
-Section 5.8 for the secondary figure on the not applicable
-as zero basis, which is not stored, recomputes at rendering,
-and travels wherever the headline score travels, labelled in
-words in the Simple form.
-"""
+Written test first against the round 2 disposition in the
+register, defects E-02, E-07, and E-10, and the governing texts
+those entries name: brief Section 5.8 item 19 guard G1 with pass
+condition P26 for the importer declaration in its three values in
+words and the unverifiable position as a statement, and the
+IM7-BRK-3 landing in brief Section 5.8 for the secondary figure
+on the not applicable as zero basis, which is not stored,
+recomputes at rendering, and travels wherever the headline score
+travels, labelled in words in the Simple form."""
 
 import copy
 import unittest

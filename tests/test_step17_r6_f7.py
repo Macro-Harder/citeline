@@ -1,13 +1,10 @@
-"""Step 17 round 6 fix seat F7 tests: service, watch, seams.
+"""Service, watch, seams.
 
-Pins the register entries charged to F7 in fix round 6:
-S17-R6-042, S17-R6-043, S17-R6-044, S17-R6-045,
-S17-R6-046, S17-R6-047, S17-R6-049, S17-R6-050,
-S17-R6-052, S17-R6-053, and S17-R6-055. Every test was
-written before its cure and run failing for the register
-stated reason, except the controls named as controls.
-Oracle: the round 6 findings register and disposition.
-"""
+Pins the register entries charged to F7 in fix round 6: and.
+Every test was written before its cure and run failing for
+the register stated reason, except the controls named as
+controls. Oracle: the round 6 findings register and
+disposition."""
 
 import json
 import os
@@ -122,9 +119,9 @@ class SeededBase(unittest.TestCase):
         return do_import(self.home, answer)
 
 
-# ----------------------------------------------------------------
-# S17-R6-042: the round stamp fields stand judged at the
-# probe report artefact stamp positions.
+# ----------------------------------------------------------------:
+# the round stamp fields stand judged at the probe report artefact
+# stamp positions.
 # ----------------------------------------------------------------
 
 class Test042RoundStampsJudged(SeededBase):
@@ -210,9 +207,9 @@ class Test042RoundStampsJudged(SeededBase):
             frame.get("importer_declaration"), "all_captured")
 
 
-# ----------------------------------------------------------------
-# S17-R6-043: an empty string supplied_path stands read as
-# one value, no path, at every seam.
+# ----------------------------------------------------------------:
+# an empty string supplied_path stands read as one value, no path,
+# at every seam.
 # ----------------------------------------------------------------
 
 class Test043EmptySuppliedPathOneReading(SeededBase):
@@ -264,9 +261,9 @@ class Test043EmptySuppliedPathOneReading(SeededBase):
         self.assertEqual(paths, {os.path.realpath(str(PAGE))})
 
 
-# ----------------------------------------------------------------
-# S17-R6-044: the guide store stands judged at the store on
-# both selectors the guide route states.
+# ----------------------------------------------------------------:
+# the guide store stands judged at the store on both selectors the
+# guide route states.
 # ----------------------------------------------------------------
 
 class Test044GuideStoreBothSelectors(SeededBase):
@@ -359,9 +356,9 @@ class Test044GuideStoreBothSelectors(SeededBase):
             str(guides[-1].get("opening_text") or ""))
 
 
-# ----------------------------------------------------------------
-# S17-R6-045: the plan second_rounds record keys stand
-# judged under the plan shape discipline.
+# ----------------------------------------------------------------:
+# the plan second_rounds record keys stand judged under the plan
+# shape discipline.
 # ----------------------------------------------------------------
 
 class Test045SecondRoundsKeysJudged(SeededBase):
@@ -435,9 +432,9 @@ class Test045SecondRoundsKeysJudged(SeededBase):
             any(PRODUCT in warning for warning in warnings))
 
 
-# ----------------------------------------------------------------
-# S17-R6-046: both service key counters stand on the one
-# block reading the parser reads.
+# ----------------------------------------------------------------:
+# both service key counters stand on the one block reading the
+# parser reads.
 # ----------------------------------------------------------------
 
 FLOW_BLOCK = (
@@ -482,10 +479,9 @@ class Test046FlowDuplicateCountedAsItStands(SeededBase):
             token_of(caught.exception), "LIMIT_EXCEEDED")
 
 
-# ----------------------------------------------------------------
-# S17-R6-047: the error vocabulary helpers and the
-# CitelineError constructor stand guarded against a string
-# subclass whose equality raises.
+# ----------------------------------------------------------------:
+# the error vocabulary helpers and the CitelineError constructor
+# stand guarded against a string subclass whose equality raises.
 # ----------------------------------------------------------------
 
 class EqStr(str):
@@ -520,9 +516,9 @@ class Test047EqualityRaisingStringGuarded(unittest.TestCase):
         self.assertEqual(err.row, "X-5")
 
 
-# ----------------------------------------------------------------
-# S17-R6-049: the watch coverage count judges the product
-# identity before it tests membership.
+# ----------------------------------------------------------------:
+# the watch coverage count judges the product identity before it
+# tests membership.
 # ----------------------------------------------------------------
 
 class Test049CoverageCountJudgesProductIdentity(SeededBase):
@@ -567,9 +563,9 @@ class Test049CoverageCountJudgesProductIdentity(SeededBase):
         self.assertEqual(count, 1)
 
 
-# ----------------------------------------------------------------
-# S17-R6-050: the service round fold judges the stored
-# round identity before it keys its dict.
+# ----------------------------------------------------------------:
+# the service round fold judges the stored round identity before
+# it keys its dict.
 # ----------------------------------------------------------------
 
 class Test050RoundFoldJudgesRoundIdentity(SeededBase):
@@ -604,8 +600,7 @@ class Test050RoundFoldJudgesRoundIdentity(SeededBase):
 
 
 # ----------------------------------------------------------------
-# S17-R6-052 and S17-R6-053: the deferred recovery signal
-# and its readers.
+# and: the deferred recovery signal and its readers.
 # ----------------------------------------------------------------
 
 class DeferredBase(SeededBase):
@@ -739,9 +734,8 @@ class Test053SignalReaderDescriptorDiscipline(DeferredBase):
             % (result.stdout, result.stderr))
 
 
-# ----------------------------------------------------------------
-# S17-R6-055: the audit form request reader stands
-# validated as it scans.
+# ----------------------------------------------------------------:
+# the audit form request reader stands validated as it scans.
 # ----------------------------------------------------------------
 
 class Test055FormRequestValidatedAsItScans(SeededBase):

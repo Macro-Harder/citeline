@@ -1,19 +1,15 @@
-"""Step 17 round 9 fix seat F7 tests: service, watch, seams.
+"""Service, watch, seams.
 
-Verdict pins only: this seat charges no cure of its own
-and edits no product module. The pins stand on the F6
-seams as the round 9 F6 fix paper states them (entries
-S17-R9-015, S17-R9-016, and S17-R9-018), on the
-container seam at entries S17-R9-003 and S17-R9-020 as
-the round 9 F2 fix paper states it, and on the standing
-watch verifications in their exact forms. Each pin was
-written before the verdict it records and stands
-passing on the cured tree the verdicts judge.
-Oracle: the round 9 findings register and disposition,
-Section 3 seat F7.
+Verdict pins only: this seat charges no cure of its own and
+edits no product module. The pins stand on the F6 seams as
+the round 9 F6 fix paper states them, on the container seam
+at as the round 9 F2 fix paper states it, and on the
+standing watch verifications in their exact forms. Each pin
+was written before the verdict it records and stands passing
+on the cured tree the verdicts judge. Oracle: the round 9
+findings register and disposition, Section 3 seat F7.
 
-Copyright: J.P. Picard aka Macro-Harder.
-"""
+Copyright: J.P. Picard aka Macro-Harder."""
 
 import inspect
 import json
@@ -116,10 +112,9 @@ class SeededBase(unittest.TestCase):
 
 
 # ----------------------------------------------------------------
-# F6 seam 1, entry S17-R9-015: the failure line seam. The
-# builder form as landed stands at ten judged characters,
-# the three separators U+001C to U+001E escaped in their
-# backslash u forms inside the quoting.
+# F6 seam 1,: the failure line seam. The builder form as landed
+# stands at ten judged characters, the three separators U+001C to
+# U+001E escaped in their backslash u forms inside the quoting.
 # ----------------------------------------------------------------
 
 class Test015FailureLineSeam(unittest.TestCase):
@@ -183,10 +178,9 @@ class Test015FailureLineSeam(unittest.TestCase):
 
 
 # ----------------------------------------------------------------
-# F6 seam 2, entry S17-R9-016: the longer compound seam,
-# Simple form only, the limb bounded at exactly three
-# components with a named middle, judged on the eight
-# worked keys.
+# F6 seam 2,: the longer compound seam, Simple form only, the limb
+# bounded at exactly three components with a named middle, judged
+# on the eight worked keys.
 # ----------------------------------------------------------------
 
 class Test016LongerCompoundSeam(unittest.TestCase):
@@ -225,9 +219,8 @@ class Test016LongerCompoundSeam(unittest.TestCase):
 
 
 # ----------------------------------------------------------------
-# F6 seam 3, entry S17-R9-018: the list branch seam. The
-# four place set stands stated in one helper shared by
-# the scalar and list branches.
+# F6 seam 3,: the list branch seam. The four place set stands
+# stated in one helper shared by the scalar and list branches.
 # ----------------------------------------------------------------
 
 class Test018ListBranchSeam(unittest.TestCase):
@@ -275,11 +268,10 @@ class Test018ListBranchSeam(unittest.TestCase):
 
 
 # ----------------------------------------------------------------
-# The container seam at entries S17-R9-003 and
-# S17-R9-020: the page measure, the import measure, and
-# the service fallback measure standing together, and
-# the top level key position at the page reading apart
-# from the container position.
+# The container seam at: the page measure, the import measure, and
+# the service fallback measure standing together, and the top
+# level key position at the page reading apart from the container
+# position.
 # ----------------------------------------------------------------
 
 class TestContainerSeam003And020(SeededBase):

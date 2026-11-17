@@ -1,24 +1,18 @@
-"""Step 17 fix round 17 seat F4 tests, import family, verdict form.
+"""Import family, verdict form.
 
-No entry stands charged to this seat in fix round 17:
-Section 3 of design/audit/step-17-r17-disposition.md
-enters no entry at seat F4 and no import side limb of
-any entry, at ruling (d). These pins stand in the
-standing verdict pin form: they pin the standings of
-fix round 16 at this seat as verified first hand on
-the cured tree, the import side limbs of entries
-S17-R16-009 and S17-R16-010 in
-citeline/probe_import.py at its position scan, in the
-F2 rule exact form, over the charged forms and past
-them in the broadened forms of the round 17 import
-paper, and the key judgements of entry S17-R16-011
-standing alike between the modules and inside each
-module. The two F4 category count pins of
-test_step17_r13_f4.py stand outside this file in
-their ruling (h) form and no pin here rests on them.
-Every pin runs in memory, so no pin stands on a
-temporary directory.
-"""
+No entry stands charged to this seat in fix round 17: Section 3 of
+the register paper enters no entry at seat F4 and no import side
+limb of any entry, at ruling (d). These pins stand in the standing
+verdict pin form: they pin the standings of fix round 16 at this
+seat as verified first hand on the cured tree, the import side
+limbs of in citeline/probe_import.py at its position scan, in the
+F2 rule exact form, over the charged forms and past them in the
+broadened forms of the round 17 import paper, and the key
+judgements of standing alike between the modules and inside each
+module. The two F4 category count pins of test_step17_r13_f4.py
+stand outside this file in their ruling (h) form and no pin here
+rests on them. Every pin runs in memory, so no pin stands on a
+temporary directory."""
 
 import json
 import random

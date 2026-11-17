@@ -1,14 +1,10 @@
-"""Step 17 round 5 fix seat F7 tests: service, watch, seams.
+"""Service, watch, seams.
 
-Pins the register entries charged to F7 in fix round 5:
-S17-R5-050, S17-R5-051, S17-R5-052, S17-R5-053,
-S17-R5-054, S17-R5-055, S17-R5-056, S17-R5-057,
-S17-R5-058, S17-R5-059, S17-R5-065, S17-R5-066,
-S17-R5-070, S17-R5-071, and S17-R5-072. Every test was
-written before its cure and run failing for the register
-stated reason, except the controls named as controls.
-Oracle: the round 5 findings register and disposition.
-"""
+Pins the register entries charged to F7 in fix round 5: and.
+Every test was written before its cure and run failing for
+the register stated reason, except the controls named as
+controls. Oracle: the round 5 findings register and
+disposition."""
 
 import json
 import os
@@ -100,7 +96,7 @@ def temp_file(case, content, name="file.txt"):
 
 def gated_batch(case, shift_config=None):
     """A batch gate planting a genuine intent record, in the
-    form of the round 4 seat test for entry S17-R4-067."""
+    form of the round 4 seat test for."""
     real_batch = journal.append_entries_atomic
 
     def gated(home, entries, audit_date=None, run_id=None):
@@ -127,10 +123,9 @@ class SeededBase(unittest.TestCase):
         return do_import(self.home, answer)
 
 
-# ----------------------------------------------------------------
-# S17-R5-050: the assembly correction stands landed or the
-# audit stands refused, never a success over a correction
-# that never landed.
+# ----------------------------------------------------------------:
+# the assembly correction stands landed or the audit stands
+# refused, never a success over a correction that never landed.
 # ----------------------------------------------------------------
 
 class Test050CorrectionLandedOrRefused(SeededBase):
@@ -192,10 +187,9 @@ class Test050CorrectionLandedOrRefused(SeededBase):
             len(entries_of_kind(self.home, "correction")), 1)
 
 
-# ----------------------------------------------------------------
-# S17-R5-051: an intent record planted inside the assembly
-# hold stands judged before the assembly entries stand
-# reported settled.
+# ----------------------------------------------------------------:
+# an intent record planted inside the assembly hold stands judged
+# before the assembly entries stand reported settled.
 # ----------------------------------------------------------------
 
 class Test051IntentPlantedInsideHold(SeededBase):
@@ -264,9 +258,9 @@ class Test051IntentPlantedInsideHold(SeededBase):
             len(entries_of_kind(self.home, "correction")), 1)
 
 
-# ----------------------------------------------------------------
-# S17-R5-052: the stored snapshot field supplied_path stands
-# judged at the readers that consume it.
+# ----------------------------------------------------------------:
+# the stored snapshot field supplied_path stands judged at the
+# readers that consume it.
 # ----------------------------------------------------------------
 
 class Test052SuppliedPathJudged(unittest.TestCase):
@@ -322,9 +316,9 @@ class Test052SuppliedPathJudged(unittest.TestCase):
             paths, {os.path.realpath(str(PAGE))})
 
 
-# ----------------------------------------------------------------
-# S17-R5-053: the audit form request reader stands under the
-# stored audit field discipline its sibling reader enforces.
+# ----------------------------------------------------------------:
+# the audit form request reader stands under the stored audit
+# field discipline its sibling reader enforces.
 # ----------------------------------------------------------------
 
 class Test053FormRequestJudged(SeededBase):
@@ -372,10 +366,10 @@ class Test053FormRequestJudged(SeededBase):
             standing["snapshot_id"], record["snapshot_id"])
 
 
-# ----------------------------------------------------------------
-# S17-R5-054: the picked target identity and dispatch stand
-# judged on the selector values, an empty page file beside a
-# named round standing as no page selector on every seam.
+# ----------------------------------------------------------------:
+# the picked target identity and dispatch stand judged on the
+# selector values, an empty page file beside a named round
+# standing as no page selector on every seam.
 # ----------------------------------------------------------------
 
 class Test054EmptyPageFileBesideRound(SeededBase):
@@ -418,9 +412,9 @@ class Test054EmptyPageFileBesideRound(SeededBase):
         self.assertEqual(entry["outcome"], "completed")
 
 
-# ----------------------------------------------------------------
-# S17-R5-055: the cadence separator stands as the one
-# ordinary space the stated form writes.
+# ----------------------------------------------------------------:
+# the cadence separator stands as the one ordinary space the
+# stated form writes.
 # ----------------------------------------------------------------
 
 class Test055CadenceOneSpace(unittest.TestCase):
@@ -442,9 +436,9 @@ class Test055CadenceOneSpace(unittest.TestCase):
             watch._cadence_interval_days("every 2 months"), 60)
 
 
-# ----------------------------------------------------------------
-# S17-R5-056: the error vocabulary helpers stand guarded
-# against an unhashable string subclass.
+# ----------------------------------------------------------------:
+# the error vocabulary helpers stand guarded against an unhashable
+# string subclass.
 # ----------------------------------------------------------------
 
 class BadStr(str):
@@ -478,9 +472,9 @@ class Test056UnhashableStringSubclass(unittest.TestCase):
             errors.error_for_row("U-6")["token"], "HOME_MISSING")
 
 
-# ----------------------------------------------------------------
-# S17-R5-057: the audit front matter key counter stands on
-# the one block reading the parser reads.
+# ----------------------------------------------------------------:
+# the audit front matter key counter stands on the one block
+# reading the parser reads.
 # ----------------------------------------------------------------
 
 class Test057KeyCounterOneBlockReading(SeededBase):
@@ -550,10 +544,9 @@ class Test057KeyCounterOneBlockReading(SeededBase):
             token_of(caught.exception), "LIMIT_EXCEEDED")
 
 
-# ----------------------------------------------------------------
-# S17-R5-058: one probe report artefact stands on one fold
-# instant whole, its figure side and its failure side
-# taken together.
+# ----------------------------------------------------------------:
+# one probe report artefact stands on one fold instant whole, its
+# figure side and its failure side taken together.
 # ----------------------------------------------------------------
 
 class Test058ProbeReportOneFoldInstant(SeededBase):
@@ -615,10 +608,10 @@ class Test058ProbeReportOneFoldInstant(SeededBase):
             (per_query.get(Q2) or {}).get("answer_count"), 1)
 
 
-# ----------------------------------------------------------------
-# S17-R5-059: the guide store stands judged at the store, a
-# guide stored only on the standing audit record at the
-# moment it lands, the attempt bound stated in the open.
+# ----------------------------------------------------------------:
+# the guide store stands judged at the store, a guide stored only
+# on the standing audit record at the moment it lands, the attempt
+# bound stated in the open.
 # ----------------------------------------------------------------
 
 class Test059GuideStoreJudged(SeededBase):
@@ -731,9 +724,9 @@ class Test059GuideStoreJudged(SeededBase):
             str(guides[-1].get("opening_text") or ""))
 
 
-# ----------------------------------------------------------------
-# S17-R5-065: the WatchPlan target form stands judged
-# before its fields stand read.
+# ----------------------------------------------------------------:
+# the WatchPlan target form stands judged before its fields stand
+# read.
 # ----------------------------------------------------------------
 
 class Test065TargetFormJudgedAtOpen(unittest.TestCase):
@@ -757,9 +750,8 @@ class Test065TargetFormJudgedAtOpen(unittest.TestCase):
         self.assertEqual(len(targets), 1)
 
 
-# ----------------------------------------------------------------
-# S17-R5-066: the second round fields stand under the plan
-# shape discipline.
+# ----------------------------------------------------------------:
+# the second round fields stand under the plan shape discipline.
 # ----------------------------------------------------------------
 
 class Test066SecondRoundFieldsJudged(unittest.TestCase):
@@ -811,10 +803,10 @@ class Test066SecondRoundFieldsJudged(unittest.TestCase):
              "second_round": "round-2"}))), 1)
 
 
-# ----------------------------------------------------------------
-# S17-R5-070: the service seam duplicate front matter
-# measurement stands whole on a JSON numeric value, the
-# limit in force enforced on the service route.
+# ----------------------------------------------------------------:
+# the service seam duplicate front matter measurement stands whole
+# on a JSON numeric value, the limit in force enforced on the
+# service route.
 # ----------------------------------------------------------------
 
 class Test070SeamNumericMeasurement(SeededBase):
@@ -853,9 +845,9 @@ class Test070SeamNumericMeasurement(SeededBase):
         self.assertIsNotNone(result)
 
 
-# ----------------------------------------------------------------
-# S17-R5-071: the reading routes stand signalled where a
-# recovery stands deferred whole.
+# ----------------------------------------------------------------:
+# the reading routes stand signalled where a recovery stands
+# deferred whole.
 # ----------------------------------------------------------------
 
 class Test071DeferredRecoverySignalled(SeededBase):
@@ -913,9 +905,9 @@ class Test071DeferredRecoverySignalled(SeededBase):
         self.assertEqual(names, [PRODUCT])
 
 
-# ----------------------------------------------------------------
-# S17-R5-072: the assembly correction stands on the one
-# limits reading the run started under.
+# ----------------------------------------------------------------:
+# the assembly correction stands on the one limits reading the run
+# started under.
 # ----------------------------------------------------------------
 
 class Test072CorrectionOnTheStartReading(SeededBase):

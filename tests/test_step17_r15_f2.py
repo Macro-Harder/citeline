@@ -1,39 +1,32 @@
-"""Step 17 round 15 fix seat F2 tests, registry and acquisition.
+"""Registry and acquisition.
 
-Test first pins for register entries S17-R15-002,
-S17-R15-003, and S17-R15-010, each Low, each reopening
-or extending the cure at entry S17-R14-001 at the page
-side helper _fm_holds_tag_construct in acquisition.py
-and at the page reading. Entry S17-R15-002: a head
-union mark standing between a judged position and a
-construct character blocks the cure at both readings,
-the except marks reading keeping the blocker and the
-interior head reading removing blocker and follower
-together, so no reading presents the judged position,
-the construct, and the mark follower together. Entry
-S17-R15-003: both category follower loops run one non
-overlapping finditer pass whose match consumes its
-judged position, construct, and follower characters,
-so a second construct standing directly after a first,
-or after a space the first match consumed, is never
-judged on the mark ground. Entry S17-R15-010: exactly
-four category Lo head material characters, U+115F,
-U+1160, U+3164, and U+FFA0, pass both readings whole
-as sole follower of a construct character, each one
-standing in the follower set through the word
-character limb of entry S17-R11-001 with no head
+Test first pins for register, and, each Low, each reopening or
+extending the cure at at the page side helper
+_fm_holds_tag_construct in acquisition.py and at the page
+reading. Entry: a head union mark standing between a judged
+position and a construct character blocks the cure at both
+readings, the except marks reading keeping the blocker and the
+interior head reading removing blocker and follower together, so
+no reading presents the judged position, the construct, and the
+mark follower together. Entry: both category follower loops run
+one non overlapping finditer pass whose match consumes its
+judged position, construct, and follower characters, so a second
+construct standing directly after a first, or after a space the
+first match consumed, is never judged on the mark ground. Entry:
+exactly four category Lo head material characters, U+115F,
+U+1160, U+3164, and U+FFA0, pass both readings whole as sole
+follower of a construct character, each one standing in the
+follower set through the word character limb of with no head
 material exception standing in that limb.
 
-The defect pins assert the page reading and the page
-side helper alone, in the form the page side limb pins
-of fix round 14 took: the import side limbs of the
-three entries stand inside the F4 charge of this wave
-and land after this seat in the dependency order. The
-controls assert both readings where the standing the
-control names already stands at both. Every pin runs
-in memory at the readings and at the helpers, so no
-pin stands on a temporary directory.
-"""
+The defect pins assert the page reading and the page side helper
+alone, in the form the page side limb pins of fix round 14 took:
+the import side limbs of the three entries stand inside the F4
+charge of this wave and land after this seat in the dependency
+order. The controls assert both readings where the standing the
+control names already stands at both. Every pin runs in memory
+at the readings and at the helpers, so no pin stands on a
+temporary directory."""
 
 import json
 import unicodedata
