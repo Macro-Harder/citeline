@@ -1071,11 +1071,18 @@ def run_watch(*, plan_file):
     audited_snapshot_paths = set()
     entries = []
     trend_no_pair_count = 0
-    # The append cost of one target, on the S0 append cost
-    # table: one entry per entry kind the target's operation
-    # appends. An audit appends a snapshot_registered entry
-    # and an audit_record entry, a guide call appends a
-    # guide_record entry, and a probe target appends none.
+    # The append cost of one target, priced from what the
+    # round will actually append, failure records included:
+    # an audit appends a snapshot_registered entry and an
+    # audit_record entry on success and one failure record
+    # on failure, so its price stands at 2 either way; a
+    # guide call appends a guide_record entry on success and
+    # one failure record on failure, so its price stands at
+    # 1 either way; a probe target appends nothing on success
+    # and one failure record on failure, so its price stands
+    # at 1. The projection is the most a round can append, so
+    # a round reported as fitting cannot end part refused at
+    # the cap.
     def target_cost(target):
         # The cost branches on the selector value as the
         # open judgement judges it, as the identity and
@@ -1084,7 +1091,7 @@ def run_watch(*, plan_file):
         # selector and costs as the probe target it is.
         if target.get("page_file"):
             return 2 + (1 if target.get("guide") else 0)
-        return 0
+        return 1
 
     estate_grounds_by_product = {}
     if scope == "estate":
@@ -1107,6 +1114,7 @@ def run_watch(*, plan_file):
                 projected_entries += 2
             for _label in grounds.get("rounds") or []:
                 attempted.append({"round": _label})
+                projected_entries += 1
     total_targets = len(attempted)
     status_record = service.status(home=home)
     outlook = status_record.get("capacity_outlook") or {}
