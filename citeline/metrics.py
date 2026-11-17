@@ -1952,7 +1952,12 @@ def compute_trend(first_round, second_round):
     elif axes:
         delta = None
     elif first_value is not None and second_value is not None:
-        delta = second_value - first_value
+        # The delta stands rounded to the stated precision
+        # for disclosed rate figures, four decimal places,
+        # before it is stored and served, so every form
+        # holds the same figure for the one delta (Step 19
+        # register entry R19-006).
+        delta = round(second_value - first_value, 4)
         honesty_line = HONESTY_LINE
     if both_empty:
         no_delta_statement = "no delta stands printed for this pair"

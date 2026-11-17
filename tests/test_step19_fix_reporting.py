@@ -567,3 +567,24 @@ class TestR19088EmptyDomainCompetitor(unittest.TestCase):
         self.assertTrue(entry["cited_not_applicable"])
         self.assertIsNone(entry["cited_rate"])
         self.assertIn("empty", entry["cited_reason"])
+
+
+class TestR19006TrendDeltaRounded(unittest.TestCase):
+    """R19-006: the trend delta is rounded to the stated
+    precision of four decimal places before it is stored
+    and served, so every form holds the same figure."""
+
+    def test_delta_rounded(self):
+        from citeline import metrics
+
+        def round_with(rate):
+            return {
+                "metrics": {"rates": {"named": {"rate": rate}}},
+                "frame": {"capture_methods": ["manual copy"],
+                          "engine_label_set": ["engine-a"],
+                          "capture_dates": ["2026-11-10"]},
+            }
+
+        trend = metrics.compute_trend(round_with(1.0),
+                                      round_with(0.8))
+        self.assertEqual(trend["delta"], -0.2)
