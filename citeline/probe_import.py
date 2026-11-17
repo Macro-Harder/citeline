@@ -1092,13 +1092,23 @@ def check11_form(raw_bytes, text):
             return "json"
         nonempty = [line for line in first.splitlines() if line.strip()]
         if len(nonempty) >= 2:
-            all_json = True
+            json_count = 0
             for line in nonempty:
                 _value, ok = _loads_json(line)
-                if not ok:
-                    all_json = False
-                    break
-            if all_json:
+                if ok:
+                    json_count += 1
+            bad = len(nonempty) - json_count
+            # A JSON lines export stands judged on the shape of
+            # the whole file, not on unanimity: one framing
+            # header line or one truncated final line does not
+            # return fifty JSON lines to plain answer reading.
+            # Where at least two lines parse as JSON and the
+            # lines that do not are a small minority (one line,
+            # or at most a tenth of the file), the file stands
+            # as JSON lines and fails import on that ground.
+            if json_count == len(nonempty) or (
+                    json_count >= 2
+                    and (bad <= 1 or bad * 10 <= len(nonempty))):
                 return "json_lines"
     delimited = _delimited_test(first)
     if delimited == "parse_failed":
