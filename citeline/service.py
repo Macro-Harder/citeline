@@ -4620,7 +4620,18 @@ def _guide_impl(*, home, run_id=None, product=None,
     UNKNOWN_ROUND, as the branch below states: the closed
     vocabulary holds no run specific token, and the joined
     table assigns guide its missing references at U-4.
+
+    Repeat bound (Step 19 entry R19-023): plan trade T-9
+    grants that each repeat call over an unchanged record
+    appends a new guide_record, and that grant stands.
+    The route reads the clock: every call stands under
+    limit 41, the per run wall clock backstop, checked
+    before its record stands appended, and repeat appends
+    stand bounded in total by limit 39, the journal cap,
+    as every append stands. A call whose run passes the
+    backstop appends nothing.
     """
+    run_started = _clock()
     audit_date = _validate_audit_date(audit_date)
     # The guide assembly runs the home existence check
     # every sibling read only route runs, at row U-6,
@@ -4745,6 +4756,7 @@ def _guide_impl(*, home, run_id=None, product=None,
             canonical_line=bound_record.get("canonical_line"),
             audit_date=audit_date,
             answers=answers)
+    _check_run_backstop(home, run_started)
     if run_id is not None:
         entry = _store_guide_draft(
             home, draft, run_id, audit_record, audit_date)
