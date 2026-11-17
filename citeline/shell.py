@@ -339,19 +339,35 @@ def _exit_code_for(exc):
 
 
 def _parse_flags(tokens, allowed, operation):
+    parsed, _fault = _parse_flags_detailed(tokens, allowed, operation)
+    return parsed
+
+
+def _parse_flags_detailed(tokens, allowed, operation):
+    """Parse named flags, returning the inputs and any fault.
+
+    The pair stands as (inputs, None) on a clean parse and as
+    (None, fault) on a malformed one, where the fault names
+    what stands wrong where the parser can name it. Repetition
+    stands admitted for list valued inputs only (brief
+    CL19-044): a scalar flag standing repeated stands refused
+    here, so its last value never silently governs (register
+    item R19-099).
+    """
     inputs = {}
     aliases = _FLAG_ALIASES.get(operation, {})
+    seen = set()
     index = 0
     while index < len(tokens):
         token = tokens[index]
         if not token.startswith("--"):
-            return None
-        name = token[2:].replace("-", "_")
-        name = aliases.get(name, name)
+            return None, None
+        raw = token[2:].replace("-", "_")
+        name = aliases.get(raw, raw)
         if name not in allowed:
-            return None
+            return None, None
         if index + 1 >= len(tokens):
-            return None
+            return None, None
         value = tokens[index + 1]
         if name in _LIST_INPUTS and name in inputs:
             standing = inputs[name]
@@ -360,9 +376,16 @@ def _parse_flags(tokens, allowed, operation):
             else:
                 inputs[name] = [standing, value]
         else:
+            if name not in _LIST_INPUTS and raw in seen:
+                return None, (
+                    "the flag --%s stands repeated on the call; "
+                    "a scalar input stands named once, and "
+                    "repetition stands admitted for list valued "
+                    "inputs only" % raw)
             inputs[name] = value
+        seen.add(raw)
         index += 2
-    return inputs
+    return inputs, None
 
 
 def _coerce_list_inputs(inputs):
@@ -615,12 +638,13 @@ def main(argv=None):
             home=_extract_value(argv, "--home"),
             operation=subcommand)
     operation, allowed = _SURFACE[subcommand]
-    inputs = _parse_flags(tokens, allowed, operation)
+    inputs, fault = _parse_flags_detailed(tokens, allowed, operation)
     if inputs is None:
         return _usage_error(
-            "the call stands malformed: its inputs stand as "
-            "named flags with a value each, from the inputs "
-            "the subcommand accepts",
+            fault or (
+                "the call stands malformed: its inputs stand as "
+                "named flags with a value each, from the inputs "
+                "the subcommand accepts"),
             home=_extract_value(tokens, "--home"),
             operation=subcommand,
             audit_date=_extract_value(tokens, "--audit_date"))
