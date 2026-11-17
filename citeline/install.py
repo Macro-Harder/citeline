@@ -708,6 +708,74 @@ def _default_home():
     return os.path.join(os.path.expanduser("~"), ".citeline")
 
 
+_USAGE_LINES = (
+    "usage: python install.py [install location]",
+    "usage: python install.py uninstall "
+    "[install location] [home]",
+    "usage: python install.py --location [location] "
+    "--home [home]",
+)
+
+
+def _print_usage(stream):
+    for line in _USAGE_LINES:
+        print(line, file=stream)
+    print(
+        "run python install.py --help for the full help "
+        "text", file=stream)
+
+
+def _print_help():
+    print("citeline installer")
+    _print_usage(sys.stdout)
+    print(
+        "install creates the product file, the package "
+        "copy, and the installer config in the install "
+        "location, and the product home where none stands")
+    print(
+        "uninstall removes only what the installer "
+        "created, the used home and its journal contents "
+        "included, and names everything that remains")
+    print(
+        "running the installer of a newer tree over a "
+        "standing installation upgrades it in place")
+    print(
+        "the flag forms --location and --home stand "
+        "accepted beside the positional forms, and "
+        "--uninstall stands beside the word uninstall")
+
+
+def _malformed(message):
+    """A malformed installer call, answered in full: what
+    happened, the usage, the next step, and the statement
+    that nothing was installed or removed, because a call
+    that fails to parse runs no route at all."""
+    print("install: MALFORMED_CALL: %s" % message,
+          file=sys.stderr)
+    _print_usage(sys.stderr)
+    print(
+        "next step: correct the call as the usage states "
+        "and run it again", file=sys.stderr)
+    print("nothing was installed or removed", file=sys.stderr)
+    return 2
+
+
+def _print_error_furniture(mode):
+    _print_usage(sys.stderr)
+    print(
+        "next step: correct the fault named above and run "
+        "the call again; a repeat call completes what "
+        "stands part done", file=sys.stderr)
+    if mode == "uninstall":
+        print(
+            "the uninstall did not complete by this call",
+            file=sys.stderr)
+    else:
+        print(
+            "the install did not complete by this call",
+            file=sys.stderr)
+
+
 def main(argv=None):
     """The install.py invocation, with its uninstall mode.
 
@@ -724,6 +792,9 @@ def main(argv=None):
     states the home path.
     """
     argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] in ("--help", "-h", "help"):
+        _print_help()
+        return 0
     mode = "install"
     location = None
     home = None
@@ -737,9 +808,8 @@ def main(argv=None):
             # word is no location, and the call stands
             # malformed instead of silently uninstalling a
             # directory named uninstall.
-            print("install: MALFORMED_CALL: the uninstall "
-                  "mode stands named twice", file=sys.stderr)
-            return 2
+            return _malformed(
+                "the uninstall mode stands named twice")
         if token == "uninstall" and index == 0:
             mode = "uninstall"
             index += 1
@@ -748,9 +818,7 @@ def main(argv=None):
             index += 1
         elif token in ("--location", "--home"):
             if index + 1 >= len(argv):
-                print("install: MALFORMED_CALL: %s names a value"
-                      % token, file=sys.stderr)
-                return 2
+                return _malformed("%s names a value" % token)
             if token == "--location":
                 location = argv[index + 1]
             else:
@@ -769,9 +837,8 @@ def main(argv=None):
             home = token
             index += 1
         else:
-            print("install: MALFORMED_CALL: unrecognised "
-                  "argument: %s" % token, file=sys.stderr)
-            return 2
+            return _malformed(
+                "unrecognised argument: %s" % token)
     if location is None:
         location = _default_location()
     if home is None:
@@ -805,6 +872,7 @@ def main(argv=None):
                 print("created: %s" % created)
     except InstallError as exc:
         print("install: %s" % (exc,), file=sys.stderr)
+        _print_error_furniture(mode)
         return exc.exit_code
     except OSError as exc:
         # The entry point backstop of the same discipline:
@@ -816,6 +884,7 @@ def main(argv=None):
             "the install filesystem operation failed: %s"
             % (exc,))
         print("install: %s" % (wrapped,), file=sys.stderr)
+        _print_error_furniture(mode)
         return wrapped.exit_code
     return 0
 

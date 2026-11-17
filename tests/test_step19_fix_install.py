@@ -316,5 +316,48 @@ class TestR19030UninstallRemaining(InstallCase):
         self.assertIn("remaining: %s" % self.home, out)
 
 
+class TestR19042HelpAndErrors(InstallCase):
+    """R19-042: the installer has a help surface, and every
+    installer error states the usage, the next step, and
+    what was not installed or removed. CL19-127."""
+
+    def run_main(self, argv):
+        import contextlib
+        import io
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), \
+                contextlib.redirect_stderr(err):
+            code = install_module.main(argv)
+        return code, out.getvalue(), err.getvalue()
+
+    def test_help_surface_answers_at_exit_0(self):
+        for flag in ("--help", "-h"):
+            code, out, _ = self.run_main([flag])
+            self.assertEqual(code, 0, flag)
+            self.assertIn("usage", out.lower())
+            self.assertIn("uninstall", out)
+
+    def test_malformed_calls_state_usage_next_step_and_no_act(self):
+        for argv in (["--bogus"], ["--location"],
+                     ["extra1", "extra2"]):
+            code, _, err = self.run_main(argv)
+            self.assertEqual(code, 2, argv)
+            self.assertIn("MALFORMED_CALL", err)
+            self.assertIn("usage", err.lower())
+            self.assertIn("next step", err)
+            self.assertIn(
+                "nothing was installed or removed", err)
+
+    def test_install_error_states_usage_next_step_and_no_completion(self):
+        blocker = self.tmp / "blocker"
+        blocker.write_text("occupied\n", encoding="utf-8")
+        code, _, err = self.run_main(
+            [str(blocker / "loc"), "--home", str(self.home)])
+        self.assertIn(code, (2, 3, 5))
+        self.assertIn("usage", err.lower())
+        self.assertIn("next step", err)
+        self.assertIn("did not complete", err)
+
+
 if __name__ == "__main__":
     unittest.main()
