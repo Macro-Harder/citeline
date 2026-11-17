@@ -871,23 +871,39 @@ def main(argv=None):
                 home=inputs.get("home"),
                 operation=subcommand,
                 audit_date=inputs.get("audit_date"))
-    if "home" not in inputs:
-        # The default home stands first, and the
-        # home_path config key standing there names the
-        # product home where it differs from the default
-        # (plan Section 3 EC-15 row 43; Step 19 item
-        # R19-106).
-        from citeline import journal
-        inputs["home"] = journal.selected_home(_default_home())
+    defaulted_home = "home" not in inputs
+    if defaulted_home:
+        # The default home stands named as it stands, and
+        # the service layer applies the home_path selection
+        # standing there once, at its own home seam, as it
+        # does for a call that names the default home
+        # directly, so a call through this shell and a
+        # direct call govern the same home (plan Section 3
+        # EC-15 row 43; Step 19 items R19-106 and
+        # S19-P7A2-05). Resolving the selection here as
+        # well would apply it twice where selections chain
+        # and govern a home one hop further on than the
+        # direct call governs.
+        inputs["home"] = _default_home()
     call = dict(inputs)
     call.pop("form", None)
     try:
         record = getattr(service, operation)(**call)
     except TypeError:
+        record_home = inputs.get("home")
+        if defaulted_home and record_home:
+            # The malformed record stands in the home the
+            # call would have governed, the selected home,
+            # as it did while the shell resolved the
+            # selection at this layer.
+            try:
+                record_home = service._resolve_home(record_home)
+            except Exception:
+                pass
         return _usage_error(
             "the call stands malformed against the inputs "
             "the subcommand accepts",
-            home=inputs.get("home"),
+            home=record_home,
             operation=subcommand,
             audit_date=inputs.get("audit_date"))
     except Exception as exc:

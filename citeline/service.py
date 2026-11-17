@@ -236,12 +236,20 @@ def _resolve_home(home):
     home sets home_path to another directory, that
     directory is the home this call governs. Where it
     sets nothing, or names the home itself, the named
-    home governs as before.
+    home governs as before. A relative value denotes a
+    home under the named home whose config carries it,
+    never a home under the caller's working directory,
+    so the governed home stands fixed by the config
+    alone (Step 19 Phase 7 item S19-P7A2-06).
     """
     try:
-        return _journal().selected_home(home)
+        selected = _journal().selected_home(home)
     except Exception:
         return home
+    if selected != str(home) and not os.path.isabs(str(selected)):
+        return os.path.normpath(
+            os.path.join(str(home), str(selected)))
+    return selected
 
 
 def _require_named_home(home):
