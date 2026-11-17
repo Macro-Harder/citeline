@@ -3224,7 +3224,15 @@ def _import_preflight(home, answer_file, extra_entries):
         raise _preflight_refusal(39)
     try:
         snapshot = journal.status_snapshot(str(home))
-        size_remaining = snapshot.get("total_home_size_remaining")
+        # The snapshot nests the size remaining figure in
+        # its capacity outlook (Step 19 entry R19-009): the
+        # preflight reads it there, so the limit 40 limb
+        # can fire.
+        outlook = snapshot.get("capacity_outlook") or {}
+        size_remaining = outlook.get("total_home_size_remaining")
+        if size_remaining is None:
+            size_remaining = snapshot.get(
+                "total_home_size_remaining")
         file_size = 0
         if answer_file is not None:
             try:
