@@ -80,8 +80,7 @@ _SURFACE = {
         "robots_preview",
         ("home", "first_robots_file", "second_robots_file",
          "evaluated_page_path", "first_capture_date",
-         "second_capture_date", "first_captured_on",
-         "second_captured_on", "form", "audit_date")),
+         "second_capture_date", "form", "audit_date")),
     "probe import": (
         "probe_import",
         ("home", "answer_file", "product", "round",
