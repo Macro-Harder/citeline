@@ -174,5 +174,38 @@ class TestR19013RealInstall(InstallCase):
         self.assertIn("DESTINATION_EXISTS", result.stderr)
 
 
+class TestR19015Permissions(InstallCase):
+    """R19-015: restrictive permissions on the home, the
+    journal, and the config, set by the product itself and
+    not by whatever the process umask gives."""
+
+    def setUp(self):
+        super().setUp()
+        self.old_umask = os.umask(0o022)
+        self.addCleanup(os.umask, self.old_umask)
+
+    def mode(self, path):
+        return stat.S_IMODE(os.lstat(path).st_mode)
+
+    def test_home_and_installer_config_are_owner_only(self):
+        self.install()
+        self.assertEqual(self.mode(self.home), 0o700)
+        self.assertEqual(
+            self.mode(self.location / "config.txt"), 0o600)
+
+    def test_journal_and_home_config_tightened_on_repeat(self):
+        self.install()
+        journal = self.home / "journal.jsonl"
+        journal.write_text('{"entry": 1}\n', encoding="utf-8")
+        os.chmod(journal, 0o644)
+        home_config = self.home / "config.txt"
+        home_config.write_text("x = 1\n", encoding="utf-8")
+        os.chmod(home_config, 0o644)
+        self.install()
+        self.assertEqual(self.mode(journal), 0o600)
+        self.assertEqual(self.mode(home_config), 0o600)
+        self.assertEqual(self.mode(self.home), 0o700)
+
+
 if __name__ == "__main__":
     unittest.main()

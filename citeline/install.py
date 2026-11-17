@@ -179,6 +179,24 @@ def _check_no_overlap(location):
             "refused before any write: %s" % location)
 
 
+def _restrict(path, mode):
+    """Set an owner only permission on a product file or
+    directory the product created or keeps, so protection
+    is set by the product itself and never left to whatever
+    the process umask gives. A link at the path is never
+    followed for this."""
+    try:
+        info = os.lstat(path)
+    except OSError:
+        return
+    if stat.S_ISLNK(info.st_mode):
+        return
+    try:
+        os.chmod(path, mode)
+    except OSError:
+        pass
+
+
 def _config_text(home):
     return "home = %s\n%s\n" % (home, _CONFIG_MARKER)
 
@@ -439,6 +457,11 @@ def _install_impl(location=None, home=None):
     if not os.path.lexists(home):
         os.makedirs(home)
         created_items.append(home)
+    _restrict(home, 0o700)
+    _restrict(os.path.join(home, "journal.jsonl"), 0o600)
+    _restrict(os.path.join(home, CONFIG_FILE_NAME), 0o600)
+    if config_state != "pre-existing config left untouched":
+        _restrict(config_file, 0o600)
     return {
         "location": location,
         "home": home,
