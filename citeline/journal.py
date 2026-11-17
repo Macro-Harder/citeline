@@ -1310,7 +1310,13 @@ def verify_chain(home):
         "head_hash": scan.head_hash,
         "claim": "internal consistency only",
         "exit_code": 0 if passed else 5,
-        "error_value": None if passed else 5,
+        # The error_value field carries the vocabulary
+        # token, as every other record field of this name
+        # does: the closed vocabulary at CL19-197 and
+        # CL19-151 admits no other value form here, and
+        # the integer 5 stands only in the exit_code field
+        # (Step 19 item R19-094).
+        "error_value": None if passed else "JOURNAL_VERIFY_FAILED",
         "row": None if passed else "I-2",
         "token": None if passed else "JOURNAL_VERIFY_FAILED",
         "failing_sequence": None if passed else scan.failure["position"],

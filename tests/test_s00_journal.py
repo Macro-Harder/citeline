@@ -738,7 +738,9 @@ class VerifyAndStatusTests(HomeCase):
         stored line whose form_version stands absent, at a
         value other than 1, or in a non integer form fails
         verify as an integrity failure, reported on row I-2
-        with error value 5."""
+        with the I-2 token as its error value and exit code
+        5 (Step 19 item R19-094 supersedes the integer
+        error value reading)."""
         good = json.loads(canonical_line(
             {"name": "A", "product_id": "p-a"}, 1, None))
         for mutate in (
@@ -753,7 +755,8 @@ class VerifyAndStatusTests(HomeCase):
             self.write_journal([line])
             result = service.verify(home=self.home)
             self.assertFalse(result["passed"])
-            self.assertEqual(result["error_value"], 5)
+            self.assertEqual(result["error_value"],
+                             "JOURNAL_VERIFY_FAILED")
             self.assertEqual(result["row"], "I-2")
 
     def test_depth_100_passes_101_fails(self):
