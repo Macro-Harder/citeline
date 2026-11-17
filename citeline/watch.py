@@ -26,7 +26,15 @@ form key governs the form of a round where the invocation
 names no form. A form named on the invocation, the watch
 --form flag, governs the whole call: the printed rendering
 and the written WatchRun artefact take that one form, so
-the two can never carry opposite form values.
+the two can never carry opposite form values. The plan key
+second_rounds stands specified here: it stands as a list
+of round labels, or as a record of round labels, or of
+lists of round labels, by product name, and it names the
+extra rounds a picked target trend runs over beside the
+rounds its targets name, the second rounds of the trend
+pairing. On an estate plan the estate round reads no
+second_rounds field, and the key stands warned as
+disregarded in the round plan warnings.
 
 Contention fields, written here in the plan form at
 Section 3, W-5, discharging the W-5 boundary contention

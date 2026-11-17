@@ -285,5 +285,15 @@ class TestR19104PlanWarnings(unittest.TestCase):
             for warning in result["plan_warnings"]))
 
 
+class TestR19107SecondRoundsSpecified(unittest.TestCase):
+    """R19-107: the second_rounds plan key stands specified in
+    shipped product text."""
+
+    def test_second_rounds_is_specified_in_the_module_text(self):
+        doc = watch.__doc__ or ""
+        self.assertIn("second_rounds", doc)
+        self.assertIn("trend", doc)
+
+
 if __name__ == "__main__":
     unittest.main()
