@@ -39,9 +39,15 @@ anything the page or an answer says.
   round: the canonical line, an evidence sentence
   where the record supports one, and an ordered
   list of work.
-- Runs scheduled watch rounds from a plan file you
-  supply, covering either the targets the plan
-  picks or the whole estate, as the plan states.
+- Runs watch rounds from a plan file you supply,
+  covering either the targets the plan picks or
+  the whole estate, as the plan states. The
+  product schedules nothing: an external
+  scheduler, written and maintained by the
+  operator, must run the watch command, one
+  invocation is one round only, and the cadence
+  word in a plan is an operator statement and
+  not a product promise.
 
 Third party mentions stand outside version 1
 measurement, and no figure speaks for them.
