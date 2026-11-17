@@ -1058,6 +1058,21 @@ def run_watch(*, plan_file):
     scope = plan["scope"]
     audit_date = plan.get("audit_date")
     form = plan.get("form") or "simple"
+    output = plan.get("output")
+    if output:
+        # An occupied output path refuses before any round
+        # work runs, so no round is spent producing no
+        # artefact: the refusal the write step would raise
+        # at the end stands raised here, at the start.
+        try:
+            occupied = os.path.lexists(str(output))
+        except (ValueError, UnicodeError, OSError):
+            occupied = False
+        if occupied:
+            _fail(
+                "DESTINATION_EXISTS",
+                "the WatchRun output path stands occupied and "
+                "stands never replaced: %s" % output)
     verification = service.verify(home=home)
     if not verification.get("passed"):
         _fail(
