@@ -3010,7 +3010,12 @@ def _audit_body(*, home, page_file=None, robots_file=None,
         "snapshot_format": snapshot.get("format"),
         "checks": check_results,
         "score": score,
-        "facts_counts": {"recorded": False, "state": "not_recorded"},
+        # No facts_counts field stands on the record
+        # (Step 19 queue addition U-11): the field stands
+        # as a blocked gap on L-CC-4, outside the traced
+        # field set of the audit artefact, and a
+        # placeholder for a blocked gap is not a traced
+        # field, so the stored record carries none.
         "robots_summary": robots_summary,
         "audit_date": audit_date,
         "audit_date_defaulted": audit_date_defaulted,
