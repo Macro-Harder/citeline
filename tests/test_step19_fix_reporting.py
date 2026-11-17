@@ -250,3 +250,38 @@ class TestR19059HonestySentencePlacement(unittest.TestCase):
              "evidence_class": "paper_tested"}])
         self.assertIn("signal index",
                       reporting.render(body, "simple"))
+
+
+class TestR19060SelfCitationReason(unittest.TestCase):
+    """R19-060, self citation limb: where the audit record
+    citations check reason is CIT_SELF_ONLY, the guide
+    citations action states the self citation reason beside
+    the distinct cited target count of 0."""
+
+    def test_low_citations_action_states_self_only_reason(self):
+        from citeline import guide as guide_module
+
+        record = {
+            "run_id": "run-9", "product_id": "p-x",
+            "audit_date": "2026-11-13",
+            "trigger_codes": ["LOW_CITATIONS"],
+            "distinct_cited_target_count": 0,
+            "checks": [
+                {"check_id": "citations", "earned": 0.0,
+                 "weight": 16, "status": None,
+                 "reason_code": "CIT_SELF_ONLY",
+                 "detail_counts": {"distinct_target_count": 0}},
+            ],
+            "sentences": ["Example Product answers questions."],
+            "score": {"value": 30.0, "band": "poor",
+                      "cap_status": False},
+        }
+        draft = guide_module.draft_from_audit_record(
+            record, canonical_line="Example Product answers "
+                                   "questions.",
+            product_name="Example Product")
+        texts = [a.get("text", "") for a in draft["actions"]]
+        joined = "\n".join(texts)
+        self.assertIn("distinct cited target count stands "
+                      "at 0", joined)
+        self.assertIn("own domain", joined)

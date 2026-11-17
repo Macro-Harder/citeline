@@ -393,12 +393,31 @@ def _check_evidence_phrase(result):
     return "the audit record shows this outcome"
 
 
-def _cited_count_phrase(distinct_cited_target_count):
+def _cited_count_phrase(distinct_cited_target_count,
+                        record=None):
     if distinct_cited_target_count is None:
         return "the distinct cited target count stands in the audit record"
-    return (
+    phrase = (
         "the distinct cited target count stands at %s"
         % distinct_cited_target_count)
+    # Where the count stands at 0 because the audit record
+    # citations check carries the self only reason, the
+    # phrase states that reason beside the count: the page
+    # targets point at the product own domain, so the count
+    # of outside targets stands at 0 (Step 19 register
+    # entry R19-060).
+    if distinct_cited_target_count == 0 and record is not None:
+        for result in _get(record, "checks", None) or []:
+            if str(_get(result, "check_id", "") or "") == \
+                    "citations" and \
+                    _get(result, "reason_code", None) == \
+                    "CIT_SELF_ONLY":
+                return (
+                    phrase + ", because every citation "
+                    "target on the page points at the "
+                    "product own domain and no target "
+                    "stands outside it")
+    return phrase
 
 
 def _action_text(code, evidence=None):
@@ -730,7 +749,8 @@ def draft_from_audit_record(record, canonical_line=None, audit_date=None,
                 _check_result_for(record, code[5:]))
         if code in ("LOW_CITATIONS",
                     "CITATION_ONLY_NO_QUOTABLE_SENTENCE"):
-            return _cited_count_phrase(distinct_cited_target_count)
+            return _cited_count_phrase(
+                distinct_cited_target_count, record)
         return None
 
     actions = [
