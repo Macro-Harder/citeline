@@ -33,7 +33,7 @@ FORMS = ("simple", "advanced", "agentic")
 # plain single value stands as a one item list. No value
 # stands split into its characters.
 _LIST_INPUTS = ("competitors", "aliases", "query_set",
-                "category_terms")
+                "category_terms", "queries", "engine_labels")
 
 _USAGE = 2
 
@@ -66,6 +66,10 @@ _SURFACE = {
     "register-page": (
         "register_page",
         ("home", "product", "snapshot", "audit_date", "form")),
+    "export-capture-worksheet": (
+        "export_capture_worksheet",
+        ("home", "product", "round", "queries", "engine_labels",
+         "planned_answers", "output_path", "audit_date", "form")),
     "name-round": (
         "name_round",
         ("home", "product", "round_label",
@@ -208,6 +212,9 @@ def help_text():
         "--audit_date --form",
         "register-page --home --product --snapshot "
         "--audit_date --form",
+        "export-capture-worksheet --home --product --round "
+        "--queries --engine_labels --planned_answers "
+        "--output_path --audit_date --form",
         "name-round --home --product --round_label "
         "--importer_declaration --supplier_relation "
         "--audit_date --form",
@@ -814,6 +821,22 @@ def main(argv=None):
             home=inputs.get("home"),
             operation=subcommand,
             audit_date=inputs.get("audit_date"))
+    if operation == "export_capture_worksheet" \
+            and "planned_answers" in inputs:
+        # The worksheet writer judges the planned count as a
+        # whole count at its own seam; the shell carries the
+        # flag text to that count where it states one, and
+        # refuses the call as malformed where it does not.
+        try:
+            inputs["planned_answers"] = int(
+                str(inputs["planned_answers"]).strip(), 10)
+        except ValueError:
+            return _usage_error(
+                "the planned_answers input stands as no "
+                "whole count: %s" % inputs["planned_answers"],
+                home=inputs.get("home"),
+                operation=subcommand,
+                audit_date=inputs.get("audit_date"))
     missing = _missing_required(operation, inputs)
     if missing:
         return _usage_error(
@@ -865,11 +888,19 @@ def main(argv=None):
     except Exception as exc:
         _print_error(exc)
         return _exit_code_for(exc)
-    try:
-        rendered = _render_for_print(record, form=form or "simple")
-        _print_rendered(rendered)
-    except Exception:
-        pass
+    if isinstance(record, str):
+        # A text record stands printed as it stands: the
+        # capture worksheet export returns the worksheet
+        # text it wrote, and no form rendering stands
+        # between the operator and that text.
+        _print_rendered(record)
+    else:
+        try:
+            rendered = _render_for_print(
+                record, form=form or "simple")
+            _print_rendered(rendered)
+        except Exception:
+            pass
     if operation == "verify":
         return 0 if record.get("passed") else 5
     return 0
