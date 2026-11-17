@@ -9,8 +9,9 @@ on its bracket nesting depth ahead of its parse, in list
 shape and in record shape alike, at the limit of 100 and past
 it, counting brackets standing outside string literals alone,
 with no raw RecursionError standing raised at any depth and
-exactly one failure record standing appended for a refusal on
-the audit route; and the container seam verdict at standing
+no failure record standing appended for a refusal on
+the audit route (restated for Step 19 register item
+R19-041: a cap refusal stores nothing on every route); and the container seam verdict at standing
 sustained whole in its standing form, the three container
 measures agreeing on their worked forms. The seam cure at
 stands pinned in its standing form beside them. Oracle:
@@ -120,14 +121,21 @@ class SeededBase(unittest.TestCase):
             home=str(self.home), page_file=str(page),
             audit_date=AUDIT_DATE)
 
-    def audit_refuses_limit_one_record(self, page):
+    def audit_refuses_limit_no_record(self, page):
+        # Restated for Step 19 register item R19-041: a cap
+        # refusal stores nothing on every route, under the
+        # cure in citeline/service.py where
+        # _append_failure_record returns without storing
+        # on a LIMIT_EXCEEDED refusal. The refusal and its
+        # token stand at full strength; the record limb
+        # now pins that the count stands unchanged.
         before = failure_record_count(self.home)
         with self.assertRaises(errors.CitelineError) as caught:
             self.audit(page)
         self.assertEqual(
             token_of(caught.exception), "LIMIT_EXCEEDED")
         self.assertEqual(
-            failure_record_count(self.home), before + 1)
+            failure_record_count(self.home), before)
 
 
 # ----------------------------------------------------------------
@@ -261,28 +269,30 @@ class TestPreflightBoundary(SeededBase):
 
 
 # ----------------------------------------------------------------
-# Entry through service.audit whole: each refusal appends exactly
-# one failure record, at the boundary depth and past the parser
+# Entry through service.audit whole: each refusal appends no
+# failure record, at the boundary depth and past the parser
 # flip alike, in list shape and in record shape, and the form at
-# the limit runs whole.
+# the limit runs whole. Restated for Step 19 register item
+# R19-041: a cap refusal stores nothing on every route, so
+# the record count stands unchanged beside the refusal.
 # ----------------------------------------------------------------
 
 class TestAuditRouteBoundary(SeededBase):
 
     def test_audit_list_past_the_limit_one_failure_record(self):
-        self.audit_refuses_limit_one_record(
+        self.audit_refuses_limit_no_record(
             self.page(block_with(nest_list(100))))
 
     def test_audit_record_past_the_limit_one_failure_record(self):
-        self.audit_refuses_limit_one_record(
+        self.audit_refuses_limit_no_record(
             self.page(block_with(nest_record(100))))
 
     def test_audit_list_past_the_flip_one_failure_record(self):
-        self.audit_refuses_limit_one_record(
+        self.audit_refuses_limit_no_record(
             self.page(block_with(nest_list(100000))))
 
     def test_audit_record_past_the_flip_one_failure_record(self):
-        self.audit_refuses_limit_one_record(
+        self.audit_refuses_limit_no_record(
             self.page(block_with(nest_record(100000))))
 
     def test_audit_list_at_the_limit_runs_whole(self):

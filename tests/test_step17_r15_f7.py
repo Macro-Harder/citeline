@@ -13,9 +13,10 @@ ValueError and converting it to a refusal with
 LIMIT_EXCEEDED, so no nesting form escapes the audit route as
 a raw RecursionError at any depth, in list shape and in
 record shape alike, at the counter directly, at the audit
-preflight, and through service.audit whole, with exactly one
+preflight, and through service.audit whole, with no
 failure record appended for the governed refusal of the
-route, while the forms at and below the depth limit stand as
+route (restated for Step 19 register item R19-041: a cap
+refusal stores nothing on every route), while the forms at and below the depth limit stand as
 they stood and the cure at stands whole at its seam. The flip
 depths stand stated honestly per runtime, as the round 15
 papers measure them: on this machine, Python 3.12.3, the
@@ -248,26 +249,42 @@ class TestPreflightDeep(SeededBase):
 
 # ----------------------------------------------------------------
 # Entry through service.audit whole: a past flip form refuses with
-# LIMIT_EXCEEDED and appends exactly one failure record, in list
-# shape and in record shape alike, and the standing forms of the
-# route hold whole.
+# LIMIT_EXCEEDED and appends no failure record, in list shape
+# and in record shape alike, and the standing forms of the
+# route hold whole. Restated for Step 19 register item
+# R19-041: a cap refusal stores nothing on every route, so
+# the record count stands unchanged beside the refusal.
 # ----------------------------------------------------------------
 
 class TestAuditRouteDeep(SeededBase):
 
     def test_audit_list_past_flip_refuses_with_failure_record(self):
+        # Restated for Step 19 register item R19-041: a cap
+        # refusal stores nothing on every route, under the
+        # cure in citeline/service.py where
+        # _append_failure_record returns without storing
+        # on a LIMIT_EXCEEDED refusal. The refusal and its
+        # token stand at full strength; the record limb
+        # now pins that the count stands unchanged.
         page = self.page(block_with(nest_list(100000)))
         before = failure_record_count(self.home)
         self.audit_refuses_limit(page)
         self.assertEqual(
-            failure_record_count(self.home), before + 1)
+            failure_record_count(self.home), before)
 
     def test_audit_record_past_flip_refuses_with_failure_record(self):
+        # Restated for Step 19 register item R19-041: a cap
+        # refusal stores nothing on every route, under the
+        # cure in citeline/service.py where
+        # _append_failure_record returns without storing
+        # on a LIMIT_EXCEEDED refusal. The refusal and its
+        # token stand at full strength; the record limb
+        # now pins that the count stands unchanged.
         page = self.page(block_with(nest_record(100000)))
         before = failure_record_count(self.home)
         self.audit_refuses_limit(page)
         self.assertEqual(
-            failure_record_count(self.home), before + 1)
+            failure_record_count(self.home), before)
 
     def test_audit_list_at_20000_refuses_limit(self):
         self.audit_refuses_limit(

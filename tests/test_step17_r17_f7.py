@@ -8,8 +8,10 @@ iterative string aware bracket depth helper
 _front_matter_block_depth at _front_matter_key_count in
 citeline/service.py refusing LIMIT_EXCEEDED ahead of the
 parse where depth stands past 100, the parse catching
-RecursionError beside ValueError, and exactly one failure
-record standing appended for a refusal on the audit route, at
+RecursionError beside ValueError, and no failure
+record standing appended for a refusal on the audit route
+(restated for Step 19 register item R19-041: a cap refusal
+stores nothing on every route), at
 the boundary forms the round 17 service seat ran, depth 99 of
 the nesting passing in list shape and in record shape, depths
 100 to 100000 refusing, mixed nesting standing exact at
@@ -136,14 +138,21 @@ class SeededBase(unittest.TestCase):
             home=str(self.home), page_file=str(page),
             audit_date=AUDIT_DATE)
 
-    def audit_refuses_limit_one_record(self, page):
+    def audit_refuses_limit_no_record(self, page):
+        # Restated for Step 19 register item R19-041: a cap
+        # refusal stores nothing on every route, under the
+        # cure in citeline/service.py where
+        # _append_failure_record returns without storing
+        # on a LIMIT_EXCEEDED refusal. The refusal and its
+        # token stand at full strength; the record limb
+        # now pins that the count stands unchanged.
         before = failure_record_count(self.home)
         with self.assertRaises(errors.CitelineError) as caught:
             self.audit(page)
         self.assertEqual(
             token_of(caught.exception), "LIMIT_EXCEEDED")
         self.assertEqual(
-            failure_record_count(self.home), before + 1)
+            failure_record_count(self.home), before)
 
 
 # ----------------------------------------------------------------
@@ -241,9 +250,12 @@ class TestCounterRound17Forms(unittest.TestCase):
 # ----------------------------------------------------------------
 # Entry at the preflight and through service.audit whole on the
 # round 17 forms: the mixed form at the limit standing passed and
-# running whole, the forms past the limit refusing with exactly
-# one failure record each, and repeated refusals standing at one
-# record each with no compounding.
+# running whole, the forms past the limit refusing with no
+# failure record each, and repeated refusals standing at no
+# added record each with no compounding. Restated for Step 19
+# register item R19-041: a cap refusal stores nothing on
+# every route, so the record count stands unchanged beside
+# each refusal.
 # ----------------------------------------------------------------
 
 class TestPreflightAndRouteRound17Forms(SeededBase):
@@ -271,21 +283,21 @@ class TestPreflightAndRouteRound17Forms(SeededBase):
         self.assertIsInstance(result, dict)
 
     def test_audit_mixed_past_the_limit_one_failure_record(self):
-        self.audit_refuses_limit_one_record(
+        self.audit_refuses_limit_no_record(
             self.page(block_with(nest_mixed(100))))
 
     def test_audit_list_at_depth_100000_one_failure_record(self):
-        self.audit_refuses_limit_one_record(
+        self.audit_refuses_limit_no_record(
             self.page(block_with(nest_list(100000))))
 
     def test_audit_record_at_depth_100_one_failure_record(self):
-        self.audit_refuses_limit_one_record(
+        self.audit_refuses_limit_no_record(
             self.page(block_with(nest_record(100))))
 
     def test_audit_repeated_refusals_each_add_one_failure_record(self):
         page = self.page(block_with(nest_list(100)))
-        self.audit_refuses_limit_one_record(page)
-        self.audit_refuses_limit_one_record(page)
+        self.audit_refuses_limit_no_record(page)
+        self.audit_refuses_limit_no_record(page)
 
 
 # ----------------------------------------------------------------
