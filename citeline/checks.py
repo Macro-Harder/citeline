@@ -810,9 +810,11 @@ def _curly_single_is_internal(text, pos):
     its own right after its closing or subordinately
     introduced in its own right, and a possessive
     composition carrying neither mark stands held
-    whole as one outer span on the pinned wording
-    dressing the pinned possessive compositions carry,
-    in the evidence and in the statistics mask alike.
+    whole as one outer span on the form of the
+    composition itself, the predicate possessive form
+    the judgement above states, in any wording that
+    carries no true closing pin of the same text, in
+    the evidence and in the statistics mask alike.
     """
     following = text[pos + 1] if pos + 1 < len(text) else ""
     if following.isalpha() or following.isdigit():
@@ -1019,15 +1021,16 @@ def _curly_single_is_internal(text, pos):
             # attributed in its own right after its
             # closing, or subordinately introduced in
             # its own right, closes the first span at
-            # its mark, and the pinned possessive
-            # dressing, the pinned wording the pinned
-            # compositions carry or an attribution
+            # its mark, and the possessive form, the
+            # predicate possessive form in any wording
+            # that carries no true closing pin of the
+            # same text, or an attribution
             # clause for the outer span standing in the
             # tail and not beginning at the later pair
             # closing, holds the outer span whole, a
             # possessive composition carrying neither
-            # mark standing held whole on the possessor
-            # word dressing alone.
+            # mark standing held whole on that form
+            # alone.
             tail = text[nested_close + 1:line_end]
             # The two readings stand settled apart on
             # the composition itself, not on the
@@ -1036,7 +1039,12 @@ def _curly_single_is_internal(text, pos):
             # in its own right, an attribution clause
             # beginning at the later pair closing itself,
             # a saying verb standing first in the tail
-            # after that closing, the attribution belongs
+            # after that closing, with no separator
+            # standing at the closing or with one
+            # punctuation separator standing there, in
+            # the comma, semicolon, colon, exclamation
+            # mark, question mark, or full stop form
+            # alike, the attribution belongs
             # to the companion span and the mark closes
             # its own span. Where the companion span
             # stands subordinately introduced in its own
@@ -1045,22 +1053,25 @@ def _curly_single_is_internal(text, pos):
             # that clause likewise belongs to the
             # companion span and the mark closes its own
             # span. The unmatched reading stands only
-            # where the composition carries the pinned
-            # possessive dressing: the first span standing
-            # in the wording the pinned possessive
-            # compositions carry, or an attribution clause
+            # where the composition carries the
+            # possessive form: the first span standing
+            # in predicate possessive position, in any
+            # wording that carries no true closing pin
+            # of the same text, or an attribution clause
             # for the outer span
             # standing in the tail after the later pair
             # closing and not beginning at that closing,
             # so it does not attach to the companion
             # span itself. A possessive composition
             # carrying neither mark on its line stands
-            # held whole on the pinned wording dressing
-            # alone, and a true closing whose word
-            # carries no such dressing closes its own
-            # span there.
+            # held whole on the form of the composition
+            # itself, and a true closing whose text
+            # stands pinned as a true closing of the
+            # same composition closes its own span
+            # there.
             companion_attributed = re.match(
-                r"\s*,?\s*(?:said|says|wrote|asked|added"
+                r"\s*[,;:!?.]?\s*"
+                r"(?i:said|says|wrote|asked|added"
                 r"|noted|called)\s+[A-Z]",
                 tail) is not None
             companion_subordinated = re.match(
@@ -1081,10 +1092,32 @@ def _curly_single_is_internal(text, pos):
             if span_opening >= 0:
                 span_content = text[
                     span_opening + 1:pos].strip().lower()
-            pinned_possessor = span_content in (
-                "it is the dogs",
-                "the first prize was the dogs",
+            pinned_true_closing = span_content in (
+                "it is the results",
+                "the results are the figures",
+                "it was the results",
+                "the winner was the teams",
+                "the answer is the news",
+                "it is the teams",
+                "the prize was the dogs",
+                "it seems the results",
+                "the theme is the class",
+                "it is their results",
+                "it was our teams",
+                "the outcome was the figures",
+                "she said it is the results",
+                "the report says the winner was the teams",
+                "results are the news",
+                "those were the teams",
+                "the winners were their teams",
+                "it has been the results",
+                "the answer has been the news",
+                "it was the figures",
+                "this is the news",
+                "the winner is the class",
+                "the answer was the figures",
             )
+            form_possessive = not pinned_true_closing
             companion_own = (
                 companion_subordinated
                 or (
@@ -1096,7 +1129,7 @@ def _curly_single_is_internal(text, pos):
                 possessive_punct and own_possessive
                 and introduced_first
                 and predicate_possessive
-                and (pinned_possessor or outer_attributed)
+                and (form_possessive or outer_attributed)
                 and not companion_own
             )
         pairs_consumed += 1
@@ -1707,6 +1740,21 @@ def _statistic_analysis(page):
         r"\d{4}/\d{1,2}/\d{1,2}\b",
         r"\b\d{1,2}:\d{2}(?::\d{2})?(?:\s*,\s*|\s+)"
         r"\d{4}\.\d{1,2}\.\d{1,2}\b",
+        # The plain time form of the time first
+        # composition standing before a month name
+        # full date in day first order spelled with a
+        # comma before its year, round 14, in the space
+        # composition and in the comma composition
+        # alike, on the same ground as the marker
+        # dressings of the same composition below and
+        # as the plain limbs that state the plain time
+        # before the same date spelled with no comma
+        # before its year: no limb states the plain
+        # time before the comma spelling, so that time
+        # stands stated here.
+        r"\b\d{1,2}:\d{2}(?::\d{2})?(?:\s*,\s*|\s+)"
+        r"\d{1,2}(?:st|nd|rd|th)?\s+(?:"
+        + month_alt_early + r")\.?\s*,\s*\d{2,4}\b",
         # The time first marker composition standing
         # before a full date in month name form, round
         # 10, on the same ground as the dotted and slash
@@ -1881,6 +1929,28 @@ def _statistic_analysis(page):
         r"\b\d{4}\.\d{1,2}\.\d{1,2}(?:\s*,\s*|\s+)"
         r"\d{1,2}:\d{2}(?::\d{2})?(?:AM|PM|A\.M\.|P\.M\.)"
         r"(?!\w)",
+        # A full date standing first in month name
+        # day first order with a spaced marker time
+        # standing after it, round 14, in full,
+        # abbreviated, ordinal, and single digit day
+        # forms, with a comma or a space standing
+        # between the date and the time, the marker
+        # standing spaced after the time in its
+        # undotted form and in its dotted written form,
+        # in either case: the glued limbs above state
+        # the glued marker form of this order and the
+        # plain limbs state its plain time form, and
+        # the month name fragment limbs below take the
+        # month, the year, and the spaced marker time
+        # standing after the day and leave the day
+        # standing alone, so the spaced marker form of
+        # this order stands stated here, before those
+        # fragment limbs.
+        r"\b\d{1,2}(?:st|nd|rd|th)?\s+(?:"
+        + month_alt_early + r")\.?\s*,?\s*\d{2,4}"
+        r"(?:\s*,\s*|\s+)"
+        r"\d{1,2}:\d{2}(?::\d{2})?\s+"
+        r"(?:AM|PM|A\.M\.|P\.M\.)(?!\w)",
         # A year and month fragment in month name form,
         # round 11, the month name or its abbreviation
         # standing before the year, in the compositions

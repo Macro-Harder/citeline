@@ -354,10 +354,13 @@ if __name__ == "__main__":
 # cures of this wave, entries S17-R12-001,
 # S17-R12-006, and S17-R12-008: the two readings agree
 # on the twelve widened openings and on the six
-# further openings, and stand in the charged form on
-# the combining mark opening, the import reading
-# judging it by general category alone while the page
-# side set stands in its landed range form.
+# further openings, and stand in the cured form on
+# the combining mark opening, a mark outside the
+# landed range refusing at the page reading as at the
+# import reading since the union cure at entry
+# S17-R13-001 landed, the pin at that opening standing
+# corrected in place to its cured form in fix round
+# 14 under ruling (f) of the round 14 disposition.
 # ----------------------------------------------------------------
 
 WIDENED_OPENINGS = (
@@ -430,13 +433,14 @@ class TestFollowerReadingsAfterThisWave(unittest.TestCase):
                 self.assertEqual(
                     import_outcome(block), "IMPORT_VALIDATION_FAILED")
 
-    def test_combining_mark_outside_the_range_stands_charged_form(self):
+    def test_combining_mark_outside_the_range_refuses_at_both_readings(self):
         for mark in ("҃", "⃐", "︠", "゙"):
             with self.subTest(mark=repr(mark)):
                 block = "title: x.&" + mark + "a"
                 self.assertEqual(
                     import_outcome(block), "IMPORT_VALIDATION_FAILED")
-                self.assertEqual(page_outcome(block), "pass")
+                self.assertEqual(
+                    page_outcome(block), "PAGE_EXTRACTION_FAILED")
 
     def test_colon_on_an_indented_continuation_line_stands_seam_form(self):
         block = "title: first\n  cont x.&:a more"

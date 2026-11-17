@@ -1165,6 +1165,24 @@ class _WrittenNumber(str):
     """
 
 
+def _remove_interior_head_except_marks(text):
+    """The text with head material removed at any position
+    except a mark of the union of general category Mn,
+    Mc, or Me, which stands as written: the reading the
+    follower judgement of _holds_tag_construct stands
+    on before the interior head reading, so a mark of
+    the union standing after a construct character
+    stands judged as the follower it stands as in the
+    written text even where the interior head reading
+    would remove it, whitespace standing as written as
+    on that reading (entry S17-R14-001).
+    """
+    return "".join(
+        char for char in text
+        if not _is_head_char(char) or char.isspace()
+        or unicodedata.category(char) in ("Mn", "Mc", "Me"))
+
+
 def _holds_tag_construct(text):
     """True where a key or value text holds a tag construct.
 
@@ -1188,6 +1206,26 @@ def _holds_tag_construct(text):
     # character, stands removed before the positions stand
     # judged, so such a character moves no construct off
     # its judged position (entry S17-R10-013).
+    # The follower judgement stands reached on a sole
+    # follower mark of the union even where the interior
+    # head reading would remove that mark: the helper
+    # first judges the follower on the text with head
+    # material removed at any position except a mark of
+    # the union, which stands as written, so a construct
+    # whose name opens on one of the union marks that
+    # also stand as head material, standing as sole
+    # follower with nothing judged standing after it, at
+    # the end of the judged text or before only
+    # whitespace or head material, stands judged on that
+    # reading, the interior head reading then standing
+    # as it stood for every other judgement of the
+    # helper (entry S17-R14-001).
+    for match in re.finditer(
+            r"(?:^|[\s!\"#\$%&'\(\)\*\+,\-\./:;<=>\?@\[\\\]\^_`{|}~])"
+            r"[&*%!](.)", _remove_interior_head_except_marks(text)):
+        if unicodedata.category(match.group(1)) in (
+                "Mn", "Mc", "Me"):
+            return True
     text = _remove_interior_head(text)
     if text.startswith(("!", "&", "*", "%")):
         return True
@@ -1631,7 +1669,20 @@ def extract_front_matter(text):
             # judgement stands on the key as on the value
             # (entry S17-R5-032).
             judged_value = _strip_head(value)
-            if _holds_tag_construct(judged_key):
+            if _holds_tag_construct(judged_key) \
+                    or _holds_tag_construct(_strip_head(key)):
+                # The key construct judgement stands on the
+                # key with head material standing in front of
+                # it removed beside the judged key the
+                # duplicate judgement reads, in the form the
+                # page side reading states for its key
+                # position: the judged key stands on the
+                # interior head reading whole, so a union
+                # mark standing as sole follower in a key
+                # stands removed in that text before the
+                # follower judgement runs, and the judgement
+                # stands reached on it in the key as written
+                # past its head (entry S17-R14-001).
                 # The line form checks stand on the key
                 # position as on the value side (entry
                 # S17-R4-032).

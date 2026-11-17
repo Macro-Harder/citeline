@@ -1517,6 +1517,24 @@ def _fm_remove_interior_head(text):
         if not _fm_is_head_char(char) or char.isspace())
 
 
+def _fm_remove_interior_head_except_marks(text):
+    """The text with head material removed at any position
+    except a mark of the union of general category Mn,
+    Mc, or Me, which stands as written: the reading the
+    follower judgement of _fm_holds_tag_construct stands
+    on before the interior head reading, so a mark of
+    the union standing after a construct character
+    stands judged as the follower it stands as in the
+    written text even where the interior head reading
+    would remove it, whitespace standing as written as
+    on that reading (Step 17 round 14 entry
+    S17-R14-001)."""
+    return "".join(
+        char for char in text
+        if not _fm_is_head_char(char) or char.isspace()
+        or unicodedata.category(char) in ("Mn", "Mc", "Me"))
+
+
 def _fm_judged_key(key):
     """One front matter key as the duplicate judgement
     reads it: head material removed at both edges and at
@@ -1610,7 +1628,28 @@ def _fm_holds_tag_construct(text):
     the word character set, each of which the reading
     above already refuses, the page side limb of round
     13 entry S17-R13-004 standing inside the same
-    completion on the category Mc and Me marks)."""
+    completion on the category Mc and Me marks, and
+    completed at round 14 entry S17-R14-001 on the sole
+    follower reading: the follower judgement stands
+    reached on a sole follower mark of the union even
+    where the interior head reading would remove that
+    mark, the helper first judging the follower on the
+    text with head material removed at any position
+    except a mark of the union, which stands as
+    written, so a construct whose name opens on one of
+    the union marks that also stand as head material,
+    standing as sole follower with nothing judged
+    standing after it, at the end of the judged text
+    or before only whitespace or head material, stands
+    judged on that reading, the interior head reading
+    then standing as it stood for every other
+    judgement of the helper)."""
+    for match in re.finditer(
+            r"(?:^|[\s!\"#\$%&'\(\)\*\+,\-\./:;<=>\?@\[\\\]\^_`{|}~])"
+            r"[&*%!](.)", _fm_remove_interior_head_except_marks(text)):
+        if unicodedata.category(match.group(1)) in (
+                "Mn", "Mc", "Me"):
+            return True
     text = _fm_remove_interior_head(text)
     if text.startswith(("!", "&", "*", "%")):
         return True

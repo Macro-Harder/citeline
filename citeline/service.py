@@ -3175,6 +3175,30 @@ def _import_preflight(home, answer_file, extra_entries):
         pass
 
 
+_SERVICE_JSON_DEPTH_LIMIT = 100
+
+
+def _service_json_depth(value):
+    """The nesting depth of one parsed JSON value, counted
+    iteratively so a deep value stands judged without
+    recursion, in the form the component readings state:
+    the page reading and the import reading each count
+    the depth in this form ahead of their measures and
+    refuse past the JSON nesting depth limit of 100
+    (Step 17 round 14 entry S17-R14-004)."""
+    depth = 0
+    stack = [(value, 1)]
+    while stack:
+        current, level = stack.pop()
+        if isinstance(current, (dict, list)):
+            depth = max(depth, level)
+            children = current.values() if isinstance(
+                current, dict) else current
+            for child in children:
+                stack.append((child, level + 1))
+    return depth
+
+
 def _service_container_value_measure(value):
     """The container measure in this module's own form.
 
@@ -3286,6 +3310,23 @@ def _import_front_matter_limits(home, answer_file):
             return
         if not isinstance(parsed, dict):
             return
+        # The nesting depth of the parsed value stands
+        # judged at this seam ahead of either container
+        # measure, the import measure and the fallback
+        # measure alike, on the iterative count above, so
+        # a block nesting past the JSON nesting depth
+        # limit of 100 refuses here in the recorded
+        # vocabulary and no nesting form reaches a
+        # recursive measure past the platform recursion
+        # standing (Step 17 round 14 entry S17-R14-004,
+        # on the discipline of entry S17-R1-033).
+        if _service_json_depth(parsed) \
+                > _SERVICE_JSON_DEPTH_LIMIT:
+            _fail(
+                "LIMIT_EXCEEDED",
+                "JSON nesting depth limit is 100 in force "
+                "for this home, with rejection and no "
+                "partial record")
         if key_limit is not None \
                 and _flow_key_count(parsed) > key_limit:
             _fail(
