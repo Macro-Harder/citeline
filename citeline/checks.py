@@ -19,10 +19,11 @@ Seams honoured here, as the design plan states them:
    earned value.
 2. SEAM-LISTS. The list dependent limbs that the plan
    stops at this seam are not built: the comparison
-   criterion word component earns nothing here, the fluff
-   filler booster deduction is not applied, and the
-   unproven superlatives hit limb is not applied, so that
-   check earns full credit in its list independent form.
+   criterion word component earns nothing here, and the
+   fluff filler booster deduction is not applied. The
+   unproven superlatives hit limb is built: hits from the
+   printed lexicon deduct 0.34 each, floored at 0, and
+   each unproven span is reported as evidence.
 3. SEAM-SCORE-EMPTY. For an empty extraction every check
    stands not applicable, and compute_score returns the
    stated absence form for value and band rather than a
@@ -2968,6 +2969,119 @@ def _word_set(text_value):
     return set(re.findall(r"[^\W_]+", (text_value or "").casefold()))
 
 
+_SUPERLATIVE_LEXICON = (
+    "best", "leading", "top", "number one", "no. 1", "fastest",
+    "easiest", "most powerful", "industry leading",
+    "best in class", "unrivalled", "unmatched", "ultimate",
+)
+
+_FILLER_BOOSTERS = (
+    "revolutionary", "game changing", "cutting edge",
+    "world class", "seamless", "robust solution",
+)
+
+_CRITERION_WORDS = (
+    "price", "speed", "cost", "support", "features",
+    "setup", "quality", "limit", "free", "open",
+)
+
+
+def _token_stream(text_value):
+    return [
+        (match.group(0), match.start(), match.end())
+        for match in re.finditer(r"[^\W_]+", (text_value or "").casefold())
+    ]
+
+
+def _list_hits(text_value, entries):
+    """Hits of the printed list entries in a text.
+
+    Matching is case insensitive over word tokens, multi
+    word entries match as consecutive token sequences, at
+    each position the longest entry that matches is taken
+    first, and a span consumed by a match is not matched
+    again, as brief Section 5.7 states for every printed
+    list. Returns (start, end) character spans.
+    """
+    tokens = _token_stream(text_value)
+    entry_tokens = []
+    for entry in entries:
+        words = tuple(word for word, _, _ in _token_stream(entry))
+        if words:
+            entry_tokens.append(words)
+    entry_tokens.sort(key=len, reverse=True)
+    hits = []
+    index = 0
+    while index < len(tokens):
+        matched = 0
+        for words in entry_tokens:
+            size = len(words)
+            if tuple(
+                token for token, _, _ in tokens[index:index + size]
+            ) == words:
+                matched = size
+                break
+        if matched:
+            hits.append((tokens[index][1], tokens[index + matched - 1][2]))
+            index += matched
+        else:
+            index += 1
+    return hits
+
+
+def _sentence_evidence_flags(page, analyses):
+    """One flag per sentence: the sentence holds evidence.
+
+    Evidence spans are the counted citation, statistic,
+    and quotation spans the shared analyses report; a
+    sentence holds evidence where one of those spans
+    starts inside it.
+    """
+    text = _page_text(page)
+    sentences = _page_sentences(page)
+    offsets = _sentence_offsets(text, sentences)
+    starts = []
+    for analysis in analyses:
+        for span in analysis["evidence_spans"]:
+            starts.append(_get(span, "start"))
+    flags = []
+    for index, sentence in enumerate(sentences):
+        start = offsets[index]
+        end = start + len(sentence)
+        flags.append(any(
+            value is not None and start <= value < end for value in starts
+        ))
+    return flags
+
+
+def _unproven_superlatives(page, citations, statistics, quotations):
+    text = _page_text(page)
+    sentences = _page_sentences(page)
+    offsets = _sentence_offsets(text, sentences)
+    flags = _sentence_evidence_flags(
+        page, (citations, statistics, quotations))
+    spans = []
+    for start, end in _list_hits(text, _SUPERLATIVE_LEXICON):
+        sentence_index = None
+        for index, sentence in enumerate(sentences):
+            if offsets[index] <= start < offsets[index] + len(sentence):
+                sentence_index = index
+                break
+        proven = False
+        if sentence_index is not None:
+            for neighbour in (
+                sentence_index - 1, sentence_index, sentence_index + 1
+            ):
+                if 0 <= neighbour < len(flags) and flags[neighbour]:
+                    proven = True
+        if not proven:
+            spans.append(_span(text, start, end))
+    if not spans:
+        return 1.0, "SUP_OK", []
+    earned = _round3(max(0.0, 1.0 - 0.34 * len(spans)))
+    return earned, "SUP_UNPROVEN", spans
+
+
 def _description_consistency(page, facts):
     text = _page_text(page)
     canonical = facts.get("canonical_line")
@@ -3136,10 +3250,10 @@ def run_checks(page, facts=None, audit_date=None, **_ignored):
         {},
     )
     outcomes["fluff"] = (*_fluff(page, context), [], {})
-    # The superlative hit limb stands at SEAM-LISTS and is
-    # not built here, so the list independent form of the
-    # check earns full credit with no hit counted.
-    outcomes["unproven_superlatives"] = (1.0, "SUP_OK", [], {})
+    outcomes["unproven_superlatives"] = (
+        *_unproven_superlatives(page, citations, statistics, quotations),
+        {},
+    )
 
     results = []
     for check_id, weight, evidence_class in CHECK_REGISTRY:
