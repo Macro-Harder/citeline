@@ -359,5 +359,42 @@ class TestR19042HelpAndErrors(InstallCase):
         self.assertIn("did not complete", err)
 
 
+class TestR19016ExclusiveCreate(InstallCase):
+    """R19-016: installer file creation uses exclusive
+    create, so a link planted between the existence checks
+    and the write is refused and never followed, matching
+    the journal code discipline."""
+
+    def test_exclusive_create_refuses_a_planted_link(self):
+        outside = self.tmp / "outside.txt"
+        outside.write_text("outside\n", encoding="utf-8")
+        target = self.tmp / "citeline.py"
+        os.symlink(outside, target)
+        with self.assertRaises(OSError):
+            install_module._create_file_exclusive(
+                str(target), "launcher text\n")
+        self.assertEqual(
+            outside.read_text(encoding="utf-8"), "outside\n")
+
+    def test_exclusive_create_refuses_an_existing_file(self):
+        target = self.tmp / "config.txt"
+        target.write_text("standing\n", encoding="utf-8")
+        with self.assertRaises(OSError):
+            install_module._create_file_exclusive(
+                str(target), "new text\n")
+        self.assertEqual(
+            target.read_text(encoding="utf-8"), "standing\n")
+
+    def test_install_refuses_link_at_product_file_path(self):
+        self.location.mkdir(parents=True)
+        outside = self.tmp / "outside2.txt"
+        outside.write_text("outside\n", encoding="utf-8")
+        os.symlink(outside, self.location / "citeline.py")
+        with self.assertRaises(Exception):
+            self.install()
+        self.assertEqual(
+            outside.read_text(encoding="utf-8"), "outside\n")
+
+
 if __name__ == "__main__":
     unittest.main()

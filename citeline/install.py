@@ -202,6 +202,21 @@ def _restrict(path, mode):
         pass
 
 
+def _create_file_exclusive(path, text):
+    """Create one installer file with exclusive create.
+
+    The descriptor is opened with O_CREAT and O_EXCL, so a
+    link or file planted at the path after the existence
+    checks and before this create is refused by the open
+    itself and never followed, matching the discipline the
+    journal code already uses for its own files.
+    """
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                 0o644)
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        handle.write(text)
+
+
 def _config_text(home):
     return "home = %s\n%s\n" % (home, _CONFIG_MARKER)
 
@@ -438,8 +453,7 @@ def _install_impl(location=None, home=None):
                 "file stands at the product file path and "
                 "stands never overwritten: %s" % product_file)
     else:
-        with open(product_file, "w", encoding="utf-8") as handle:
-            handle.write(product_text)
+        _create_file_exclusive(product_file, product_text)
         created_items.append(product_file)
     package_dir = os.path.join(location, PACKAGE_DIR_NAME)
     source_dir = os.path.join(_PRODUCT_DIR, PACKAGE_DIR_NAME)
@@ -470,8 +484,8 @@ def _install_impl(location=None, home=None):
         else:
             config_state = "pre-existing config left untouched"
     else:
-        with open(config_file, "w", encoding="utf-8") as handle:
-            handle.write(_config_text(home))
+        _create_file_exclusive(
+            config_file, _config_text(home))
         config_state = "config created by the installer"
         created_items.append(config_file)
     if not os.path.lexists(home):
