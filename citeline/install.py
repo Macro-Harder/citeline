@@ -22,11 +22,12 @@ stands never removed by uninstall.
 Removal stands lstat driven: no removal runs through a
 link. A created item path that stands as a link loses the
 link itself only, and the file the link names stands
-untouched. What uninstall does about the contents of a
-home beyond the created items list stands undecided in
-the plan, and this module decides nothing there: the home
-directory itself stands removed only where it stands
-empty, and its contents stand never removed here.
+untouched. The home the installer created stands removed
+with everything in it, journal contents included, as the
+brief and the README promise: uninstall removes
+everything the installer created, so no imported answer
+survives undisclosed and no reinstall resurrects the old
+history.
 """
 
 import os
@@ -425,8 +426,9 @@ def uninstall(location=None, home=None, **_ignored):
     a link loses itself only, a regular product file stands
     removed, an installer created config stands removed,
     and a config the installer did not create stands left.
-    The location and the home directories stand removed
-    only where they stand empty after those removals.
+    The home stands removed with everything in it, journal
+    contents included, and the location directory stands
+    removed where it stands empty after those removals.
     A repeat call over a part removed state completes the
     list and reports completion. A filesystem failure on
     the route stands reported as a governed recorded
@@ -440,6 +442,34 @@ def uninstall(location=None, home=None, **_ignored):
             "DESTINATION_EXISTS",
             "the uninstall filesystem operation failed: %s"
             % (exc,))
+
+
+def _remove_home_tree(home, removed):
+    """Remove a product home and everything in it.
+
+    The walk never follows a link: a link inside the home
+    loses the link itself only, and the file the link names
+    stands untouched, as at every other created item path.
+    """
+    for dirpath, dirnames, filenames in os.walk(
+            home, topdown=False):
+        for name in filenames:
+            path = os.path.join(dirpath, name)
+            os.unlink(path)
+            removed.append(path)
+        for name in dirnames:
+            path = os.path.join(dirpath, name)
+            if os.path.islink(path):
+                os.unlink(path)
+                removed.append(path)
+            else:
+                try:
+                    os.rmdir(path)
+                    removed.append(path)
+                except OSError:
+                    pass
+    os.rmdir(home)
+    removed.append(home)
 
 
 def _uninstall_impl(location=None, home=None):
@@ -470,17 +500,22 @@ def _uninstall_impl(location=None, home=None):
                 continue
             os.unlink(path)
             removed.append(path)
-    for directory in (location, home):
-        if not os.path.lexists(directory):
-            continue
-        info = os.lstat(directory)
+    if os.path.lexists(home):
+        info = os.lstat(home)
         if stat.S_ISLNK(info.st_mode):
-            os.unlink(directory)
-            removed.append(directory)
+            os.unlink(home)
+            removed.append(home)
+        elif stat.S_ISDIR(info.st_mode):
+            _remove_home_tree(home, removed)
+    if os.path.lexists(location):
+        info = os.lstat(location)
+        if stat.S_ISLNK(info.st_mode):
+            os.unlink(location)
+            removed.append(location)
         elif stat.S_ISDIR(info.st_mode):
             try:
-                os.rmdir(directory)
-                removed.append(directory)
+                os.rmdir(location)
+                removed.append(location)
             except OSError:
                 pass
     return {
