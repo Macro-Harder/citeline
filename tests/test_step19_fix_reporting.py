@@ -190,3 +190,33 @@ class TestR19057SimpleAuditWordsDefined(unittest.TestCase):
         self.assertIn("tool_defined", text)
         self.assertIn("not_applicable", text)
         self.assertIn("does not apply", text)
+
+
+class TestR19058EarnedFigureWording(unittest.TestCase):
+    """R19-058: the earned figure in Simple audit lines states
+    a fraction of the weight and the points it is worth, so it
+    cannot read as points out of the weight, and the head
+    lines name the not applicable check whose weight was
+    redistributed."""
+
+    def test_earned_line_and_na_head_line(self):
+        body = audit_body([
+            {"check_id": "statistics", "earned": 0.5,
+             "weight": 13, "status": None,
+             "reason_code": "STAT_COUNT",
+             "evidence_class": "paper_tested"},
+            {"check_id": "description_consistency",
+             "earned": 1.0, "weight": 8,
+             "status": "not_applicable",
+             "reason_code": "DESC_PRESENT",
+             "evidence_class": "post_asserted"},
+        ])
+        body["score"]["applicable_basis"] = {
+            "applicable_checks": ["statistics"],
+            "applicable_weight": 92}
+        text = reporting.render(body, "simple")
+        self.assertNotIn("earned 0.5 of weight 13", text)
+        self.assertIn("fraction 0.5 of its weight of 13", text)
+        self.assertIn("worth 6.5 points", text)
+        self.assertIn("description_consistency does not apply",
+                      text)

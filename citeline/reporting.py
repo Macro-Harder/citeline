@@ -2226,6 +2226,19 @@ def _render_audit_simple(body):
                     "The score rests on %d checks, with a total "
                     "weight of %s."
                     % (len(checks_named), _figure_text(weight)))
+            # A check standing not applicable is named here,
+            # beside the total its weight was redistributed
+            # into, so the head lines and the check list
+            # below state the same set of checks.
+            for check in body.get("checks") or []:
+                if isinstance(check, dict) and \
+                        check.get("status") == "not_applicable":
+                    lines.append(
+                        "The check %s does not apply to this "
+                        "page, and its weight of %s is shared "
+                        "over the checks that do apply."
+                        % (_scalar_text(check.get("check_id")),
+                           _figure_text(check.get("weight"))))
         if score.get("cap_status"):
             lines.append(
                 "The evidence cap holds the score at 39 for "
@@ -2298,12 +2311,32 @@ def _render_audit_simple(body):
     for check in checks:
         if not isinstance(check, dict):
             continue
+        # The earned figure is a fraction of the check
+        # weight, never points out of the weight: the line
+        # states the fraction, the weight it is a fraction
+        # of, and the points the fraction is worth toward
+        # the score, so the arithmetic a reader does on the
+        # line is the arithmetic the score rests on.
+        earned = check.get("earned")
+        weight = check.get("weight")
+        if isinstance(earned, (int, float)) and \
+                not isinstance(earned, bool) and \
+                isinstance(weight, (int, float)) and \
+                not isinstance(weight, bool):
+            points = _figure_text(round(earned * weight, 3))
+            earned_text = (
+                "earned a fraction %s of its weight of %s, "
+                "worth %s points toward the score"
+                % (_figure_text(earned), _figure_text(weight),
+                   points))
+        else:
+            earned_text = (
+                "earned %s of weight %s"
+                % (_figure_text(earned), _figure_text(weight)))
         lines.append(
-            "  %s: earned %s of weight %s, status %s, reason "
-            "%s, evidence class %s."
+            "  %s: %s, status %s, reason %s, evidence class %s."
             % (_scalar_text(check.get("check_id")),
-               _figure_text(check.get("earned")),
-               _figure_text(check.get("weight")),
+               earned_text,
                _scalar_text(check.get("status")),
                _scalar_text(check.get("reason_code")),
                _scalar_text(check.get("evidence_class"))))
