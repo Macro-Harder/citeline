@@ -258,3 +258,48 @@ class ConfigRelationTests(HomeCase):
         self.assertEqual(values["evidence_spans_per_check"], 10)
 
 
+class ScaleLogicTests(HomeCase):
+    """R19-039 and R19-040 logic pins at scale: a chain
+    built to a stated size verifies, reports its count,
+    and accepts one more append whose chain still
+    verifies. The cost of these operations at the journal
+    cap stands measured in the seat paper, not asserted
+    here, under the cost bound carve out."""
+
+    def build_chain(self, count):
+        lines = []
+        previous = None
+        for index in range(1, count + 1):
+            entry = {"sequence": index,
+                     "entry_kind": "round_named",
+                     "form_version": 1,
+                     "payload": {"product_id": "p-a",
+                                 "round_id": "p-a:r%d" % index,
+                                 "round_label": "r%d" % index},
+                     "previous_hash": previous}
+            line = journal.canonical_bytes(entry)
+            lines.append(line)
+            previous = hashlib.sha256(line).hexdigest()
+        with open(journal.journal_path(self.home), "wb") as handle:
+            for line in lines:
+                handle.write(line + b"\n")
+        journal._scan_cache.clear()
+
+    def test_chain_at_scale_verifies_and_appends(self):
+        self.build_chain(3000)
+        result = journal.verify_chain(self.home)
+        self.assertTrue(result["passed"])
+        self.assertEqual(result["entry_count"], 3000)
+        state = journal.status_snapshot(self.home)
+        self.assertEqual(state["entry_count"], 3000)
+        entry = journal.append_entry(
+            self.home, "round_named",
+            {"product_id": "p-a", "round_id": "p-a:r3001",
+             "round_label": "r3001"}, audit_date=HOME_DATE)
+        self.assertEqual(entry["sequence"], 3001)
+        journal._scan_cache.clear()
+        self.assertTrue(journal.verify_chain(self.home)["passed"])
+
+
+if __name__ == "__main__":
+    unittest.main()

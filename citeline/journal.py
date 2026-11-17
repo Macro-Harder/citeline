@@ -219,8 +219,19 @@ _SHORT_ESCAPES = {
     "\t": "\\t",
 }
 
+# The characters the slow rendering path must act on: the
+# quote and the backslash, the control characters below
+# 0x20, and the surrogate range. A string holding none of
+# them renders as itself between quotes, byte for byte as
+# the slow path renders it (Step 19 items R19-039 and
+# R19-040: the per character loop stood at most of the
+# scan cost at the journal cap).
+_STRING_NEEDS_WORK = re.compile(r'["\\\x00-\x1f\ud800-\udfff]')
+
 
 def _render_string(value):
+    if _STRING_NEEDS_WORK.search(value) is None:
+        return '"' + value + '"'
     parts = ['"']
     for char in value:
         if 0xD800 <= ord(char) <= 0xDFFF:
@@ -762,7 +773,8 @@ def _unsafe_home_file_error(path, label):
 
 class _Scan:
     __slots__ = ("lines", "parsed", "failure", "verified",
-                 "head_hash", "entry_count", "partial_ignored")
+                 "head_hash", "entry_count", "partial_ignored",
+                 "line_hashes", "partial_seen")
 
     def __init__(self):
         self.lines = []
@@ -772,6 +784,8 @@ class _Scan:
         self.head_hash = None
         self.entry_count = 0
         self.partial_ignored = False
+        self.line_hashes = []
+        self.partial_seen = False
 
 
 _scan_cache = {}
@@ -1195,6 +1209,7 @@ def _scan(home, partial_mode="probe"):
             partial = segments[-1]
     scan.entry_count = len(scan.lines)
     scan.parsed = [_parse_line(raw) for raw in scan.lines]
+    scan.partial_seen = partial is not None
     seen_raises = []
     if partial is not None:
         if partial_mode == "probe" and _lock_held_by_other(home) \
@@ -1202,7 +1217,7 @@ def _scan(home, partial_mode="probe"):
             scan.partial_ignored = True
         elif partial_mode == "ignore":
             scan.partial_ignored = True
-    previous_raw = None
+    previous_hash = None
     for index, raw in enumerate(scan.lines, start=1):
         parsed = scan.parsed[index - 1]
         reason = None
@@ -1224,7 +1239,7 @@ def _scan(home, partial_mode="probe"):
             elif index == 1 and parsed.get("previous_hash") is not None:
                 reason = "genesis"
             elif index > 1 and parsed.get("previous_hash") != \
-                    hashlib.sha256(previous_raw).hexdigest():
+                    previous_hash:
                 reason = "link"
             else:
                 try:
@@ -1264,7 +1279,17 @@ def _scan(home, partial_mode="probe"):
             break
         scan.verified = index
         scan.head_hash = hashlib.sha256(raw).hexdigest()
-        previous_raw = raw
+        # The hash of each verified line stands recorded
+        # on the scan: for a line that recomputes, the
+        # entry hash is the hash of its raw bytes, since
+        # the canonical rendering comparison above has
+        # already established that the raw bytes are the
+        # canonical form (Step 19 items R19-039 and
+        # R19-040). Readers that need entry hashes read
+        # them from here instead of rendering every entry
+        # a second time.
+        scan.line_hashes.append(scan.head_hash)
+        previous_hash = scan.head_hash
     if scan.failure is None and partial is not None \
             and not scan.partial_ignored:
         scan.failure = {"position": len(scan.lines) + 1,
@@ -1275,7 +1300,7 @@ def _scan(home, partial_mode="probe"):
 
 def _entries_with_hash(scan):
     entries = []
-    for parsed in scan.parsed:
+    for position, parsed in enumerate(scan.parsed, start=1):
         if isinstance(parsed, dict):
             # The whole entry stands copied out of the scan
             # cache, every member it carries and not the
@@ -1285,10 +1310,21 @@ def _entries_with_hash(scan):
             # S17-R3-008, reopened at round 4 entry
             # S17-R4-006).
             entry = copy.deepcopy(parsed)
-            try:
-                entry["entry_hash"] = entry_hash(entry)
-            except (JournalError, ValueError, ArithmeticError):
-                entry["entry_hash"] = None
+            if position <= len(scan.line_hashes):
+                # The scan verified this line: its entry
+                # hash is the recorded hash of its raw
+                # bytes, the canonical rendering comparison
+                # in the scan having established the two
+                # forms are the same bytes, so no second
+                # rendering stands computed here (Step 19
+                # items R19-039 and R19-040).
+                entry["entry_hash"] = scan.line_hashes[
+                    position - 1]
+            else:
+                try:
+                    entry["entry_hash"] = entry_hash(entry)
+                except (JournalError, ValueError, ArithmeticError):
+                    entry["entry_hash"] = None
             entries.append(entry)
     return entries
 
@@ -3543,6 +3579,9 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
         extended.verified = scan.verified + 1
         extended.head_hash = entry["entry_hash"]
         extended.entry_count = scan.entry_count + 1
+        extended.line_hashes = scan.line_hashes + [
+            entry["entry_hash"]]
+        extended.partial_seen = False
         stat = _stat_key(path)
         # The extended scan cache store stands judged
         # before it stands stored: the file standing at
