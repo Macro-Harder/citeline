@@ -94,6 +94,113 @@ class TestR19090WatchBound(unittest.TestCase):
         self.assertNotIn("Runs scheduled watch rounds", text)
 
 
+class TestR19070B4WriteSequence(unittest.TestCase):
+    """R19-070: the pinned B4 write sequence stands at the
+    WatchRun write and the install product file write.
+    Oracle: plan EC-18 subsection 8.1 and decisions
+    D-KF-18-PICK and D-KF-18-TEMP: a complete temporary
+    file in the destination directory, flushed to storage;
+    a hard link from the temporary name to the destination
+    name, failing where the destination exists; the
+    destination directory flushed; the temporary name
+    unlinked. An orphaned temporary, one whose name
+    carries a process number naming no live process, is
+    removed by the next invocation that writes to that
+    directory. A platform that cannot perform a step of
+    the sequence fails the write closed."""
+
+    def dead_pid(self):
+        import subprocess
+        proc = subprocess.Popen(["true"])
+        proc.wait()
+        return proc.pid
+
+    def test_watch_write_leaves_complete_file_and_no_temporary(self):
+        import tempfile
+
+        from citeline import watch
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / "out.txt"
+            watch._write_output({"home_path": tmp}, str(dest),
+                                "simple")
+            self.assertTrue(dest.is_file())
+            self.assertEqual(
+                [p.name for p in Path(tmp).iterdir()],
+                ["out.txt"])
+
+    def test_watch_write_removes_orphaned_temporary(self):
+        import subprocess
+        import tempfile
+
+        from citeline import watch
+        sleeper = subprocess.Popen(["sleep", "30"])
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                dest = Path(tmp) / "out.txt"
+                orphan = Path(tmp) / (
+                    "out.txt.tmp-0-%d" % self.dead_pid())
+                orphan.write_text("partial", encoding="utf-8")
+                live = Path(tmp) / (
+                    "out.txt.tmp-0-%d" % sleeper.pid)
+                live.write_text("live", encoding="utf-8")
+                watch._write_output({"home_path": tmp},
+                                    str(dest), "simple")
+                self.assertFalse(orphan.exists())
+                self.assertTrue(live.exists())
+                self.assertTrue(dest.is_file())
+        finally:
+            sleeper.terminate()
+            sleeper.wait()
+
+    def test_watch_write_fails_closed_where_link_step_fails(self):
+        import tempfile
+        from unittest import mock
+
+        from citeline import watch
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / "out.txt"
+            with mock.patch.object(
+                    os, "link",
+                    side_effect=OSError("no link")):
+                with self.assertRaises(Exception) as caught:
+                    watch._write_output(
+                        {"home_path": tmp}, str(dest), "simple")
+            self.assertEqual(
+                getattr(caught.exception, "token", None),
+                "LOCK_UNAVAILABLE")
+            self.assertFalse(dest.exists())
+
+    def test_install_product_write_fails_closed_where_link_fails(self):
+        import tempfile
+        from unittest import mock
+
+        from citeline import install as install_module
+        with tempfile.TemporaryDirectory() as tmp:
+            location = Path(tmp) / "install"
+            home = Path(tmp) / "home"
+            with mock.patch.object(
+                    os, "link",
+                    side_effect=OSError("no link")):
+                with self.assertRaises(
+                        install_module.InstallError):
+                    install_module.install(
+                        location=str(location), home=str(home))
+            self.assertFalse((location / "citeline.py").exists())
+
+    def test_install_leaves_no_temporary_files(self):
+        import tempfile
+
+        from citeline import install as install_module
+        with tempfile.TemporaryDirectory() as tmp:
+            location = Path(tmp) / "install"
+            home = Path(tmp) / "home"
+            install_module.install(location=str(location),
+                                   home=str(home))
+            leftovers = [p.name for p in location.iterdir()
+                         if ".tmp-" in p.name]
+            self.assertEqual(leftovers, [])
+
+
 if __name__ == "__main__":
     unittest.main()
 

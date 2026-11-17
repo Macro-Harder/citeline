@@ -202,19 +202,148 @@ def _restrict(path, mode):
         pass
 
 
-def _create_file_exclusive(path, text):
-    """Create one installer file with exclusive create.
-
-    The descriptor is opened with O_CREAT and O_EXCL, so a
+def _create_file_exclusive(path, text, home=None):
+    """Create one installer file by the pinned B4 write
+    sequence (plan EC-18 subsection 8.1, decisions
+    D-KF-18-PICK and D-KF-18-TEMP): a complete temporary
+    file in the destination directory, flushed to storage;
+    a hard link from the temporary name to the destination
+    name, which fails where the destination exists, so a
     link or file planted at the path after the existence
-    checks and before this create is refused by the open
-    itself and never followed, matching the discipline the
-    journal code already uses for its own files.
-    """
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL,
-                 0o644)
+    checks and before this create is refused by the link
+    step itself and never followed or replaced; the
+    destination directory flushed; and the temporary name
+    unlinked. An interrupted create leaves no partial file
+    at the named path, and a platform that cannot perform
+    a step of the sequence fails the install closed on
+    row X-12."""
+    directory = os.path.dirname(os.path.abspath(path))
+    destination_name = os.path.basename(path)
+    _remove_orphaned_temporaries(directory, destination_name)
+    temporary_path = os.path.join(
+        directory,
+        "%s.tmp-%d-%d" % (destination_name,
+                          _last_journal_sequence(home),
+                          os.getpid()))
+    fd = os.open(temporary_path,
+                 os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
     with os.fdopen(fd, "w", encoding="utf-8") as handle:
         handle.write(text)
+        handle.flush()
+        os.fsync(handle.fileno())
+    try:
+        os.link(temporary_path, path)
+    except FileExistsError:
+        raise
+    except OSError:
+        raise InstallError(
+            "LOCK_UNAVAILABLE",
+            "the platform cannot perform the hard link "
+            "step of the pinned write sequence, so the "
+            "install fails closed and no file stands at "
+            "the named path: %s" % path)
+    try:
+        _flush_directory(directory)
+    except OSError:
+        for standing in (path, temporary_path):
+            try:
+                os.unlink(standing)
+            except OSError:
+                pass
+        raise InstallError(
+            "LOCK_UNAVAILABLE",
+            "the platform cannot perform the directory "
+            "flush step of the pinned write sequence, so "
+            "the install fails closed and no file stands "
+            "at the named path: %s" % path)
+    try:
+        os.unlink(temporary_path)
+    except OSError:
+        raise InstallError(
+            "LOCK_UNAVAILABLE",
+            "the platform cannot perform the temporary "
+            "unlink step of the pinned write sequence, "
+            "so the install fails closed: %s" % path)
+
+
+def _temporary_process_number(name, destination_name):
+    """The process number a B4 temporary name carries, or
+    None where the name is not a temporary of the
+    destination, on the parse form decision D-KF-18-TEMP
+    states: the destination name, the suffix .tmp-, the
+    journal sequence digit run, a hyphen separator, and
+    the process number digit run at the end of the name."""
+    prefix = destination_name + ".tmp-"
+    if not name.startswith(prefix):
+        return None
+    rest = name[len(prefix):]
+    sequence, separator, process = rest.partition("-")
+    if not separator or not sequence.isdigit() \
+            or not process.isdigit():
+        return None
+    return int(process)
+
+
+def _remove_orphaned_temporaries(directory, destination_name):
+    """Remove the orphaned B4 temporaries of one
+    destination standing in its directory, before this
+    invocation writes (decision D-KF-18-TEMP): an orphan
+    is a file matching the temporary naming pattern that
+    this invocation did not create and whose process
+    number names no live process. A temporary whose
+    process stands live stands left standing, whatever
+    invocation created it."""
+    try:
+        names = os.listdir(directory)
+    except OSError:
+        return
+    for name in names:
+        process = _temporary_process_number(
+            name, destination_name)
+        if process is None:
+            continue
+        try:
+            os.kill(process, 0)
+        except ProcessLookupError:
+            pass
+        except OSError:
+            continue
+        else:
+            continue
+        try:
+            os.unlink(os.path.join(directory, name))
+        except OSError:
+            pass
+
+
+def _flush_directory(directory):
+    """Flush one directory to storage, the directory
+    flush step of the pinned B4 write sequence."""
+    descriptor = os.open(directory, os.O_RDONLY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def _last_journal_sequence(home):
+    """The sequence of the journal's last entry as this
+    invocation reads it, or 0 over a home whose journal
+    stands empty or absent (decision D-KF-18-TEMP, the
+    form for a writing invocation that appends no entry,
+    as the install writes do not)."""
+    if not home:
+        return 0
+    try:
+        path = os.path.join(str(home), "journal.jsonl")
+        count = 0
+        with open(path, "r", encoding="utf-8") as handle:
+            for line in handle:
+                if line.strip():
+                    count += 1
+        return count
+    except Exception:
+        return 0
 
 
 def _config_text(home):
@@ -530,7 +659,8 @@ def _install_impl(location=None, home=None):
                 "file stands at the product file path and "
                 "stands never overwritten: %s" % product_file)
     else:
-        _create_file_exclusive(product_file, product_text)
+        _create_file_exclusive(product_file, product_text,
+                               home=home)
         created_items.append(product_file)
     package_dir = os.path.join(location, PACKAGE_DIR_NAME)
     source_dir = os.path.join(_PRODUCT_DIR, PACKAGE_DIR_NAME)
@@ -562,7 +692,7 @@ def _install_impl(location=None, home=None):
             config_state = "pre-existing config left untouched"
     else:
         _create_file_exclusive(
-            config_file, _config_text(home))
+            config_file, _config_text(home), home=home)
         config_state = "config created by the installer"
         created_items.append(config_file)
     if not os.path.lexists(home):

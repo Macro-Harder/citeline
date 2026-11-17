@@ -1416,16 +1416,34 @@ def _write_output(result, output_path, form):
         rendered = result
     if not isinstance(rendered, str):
         rendered = json.dumps(rendered, sort_keys=True, indent=2)
+    # The write itself stands in the pinned B4 sequence
+    # (plan EC-18 subsection 8.1, decisions D-KF-18-PICK
+    # and D-KF-18-TEMP): a complete temporary file in the
+    # destination directory, flushed to storage; a hard
+    # link from the temporary name to the destination
+    # name, which fails where the destination exists; the
+    # destination directory flushed; and the temporary
+    # name unlinked. An interrupted write therefore leaves
+    # no partial file at the named path, and a platform
+    # that cannot perform a step of the sequence fails
+    # the write closed on row X-12.
+    directory = os.path.dirname(os.path.abspath(output_path))
+    destination_name = os.path.basename(output_path)
+    _remove_orphaned_temporaries(directory, destination_name)
+    temporary_path = os.path.join(
+        directory,
+        "%s.tmp-%d-%d" % (
+            destination_name,
+            _last_journal_sequence(result.get("home_path")),
+            os.getpid()))
     try:
-        with open(output_path, "x", encoding="utf-8") as handle:
+        with open(temporary_path, "x",
+                  encoding="utf-8") as handle:
             handle.write(rendered)
             if not rendered.endswith("\n"):
                 handle.write("\n")
-    except FileExistsError:
-        _fail(
-            "DESTINATION_EXISTS",
-            "the WatchRun output path stands occupied and "
-            "stands never replaced: %s" % output_path)
+            handle.flush()
+            os.fsync(handle.fileno())
     except FileNotFoundError:
         # A write into a directory that does not exist is
         # not a destination that exists: it stands reported
@@ -1438,6 +1456,129 @@ def _write_output(result, output_path, form):
         _fail(
             "DESTINATION_EXISTS",
             "the WatchRun artefact write failed: %s" % (exc,))
+    try:
+        os.link(temporary_path, output_path)
+    except FileExistsError:
+        _fail(
+            "DESTINATION_EXISTS",
+            "the WatchRun output path stands occupied and "
+            "stands never replaced: %s" % output_path)
+    except OSError:
+        _fail(
+            "LOCK_UNAVAILABLE",
+            "the platform cannot perform the hard link "
+            "step of the pinned write sequence, so the "
+            "WatchRun write fails closed and no file "
+            "stands at the named path: %s" % output_path)
+    try:
+        _flush_directory(directory)
+    except OSError:
+        # The link step stands complete but the sequence
+        # cannot finish: the write fails closed and the
+        # file this invocation linked stands removed
+        # again, so no file stands at the named path.
+        for path in (output_path, temporary_path):
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+        _fail(
+            "LOCK_UNAVAILABLE",
+            "the platform cannot perform the directory "
+            "flush step of the pinned write sequence, so "
+            "the WatchRun write fails closed and no file "
+            "stands at the named path: %s" % output_path)
+    try:
+        os.unlink(temporary_path)
+    except OSError:
+        _fail(
+            "LOCK_UNAVAILABLE",
+            "the platform cannot perform the temporary "
+            "unlink step of the pinned write sequence, so "
+            "the WatchRun write fails closed: %s"
+            % output_path)
+
+
+def _temporary_process_number(name, destination_name):
+    """The process number a B4 temporary name carries, or
+    None where the name is not a temporary of the
+    destination, on the parse form decision D-KF-18-TEMP
+    states: the destination name, the suffix .tmp-, the
+    journal sequence digit run, a hyphen separator, and
+    the process number digit run at the end of the name."""
+    prefix = destination_name + ".tmp-"
+    if not name.startswith(prefix):
+        return None
+    rest = name[len(prefix):]
+    sequence, separator, process = rest.partition("-")
+    if not separator or not sequence.isdigit() \
+            or not process.isdigit():
+        return None
+    return int(process)
+
+
+def _remove_orphaned_temporaries(directory, destination_name):
+    """Remove the orphaned B4 temporaries of one
+    destination standing in its directory, before this
+    invocation writes (decision D-KF-18-TEMP): an orphan
+    is a file matching the temporary naming pattern that
+    this invocation did not create and whose process
+    number names no live process. A temporary whose
+    process stands live stands left standing, whatever
+    invocation created it, and an orphan is never treated
+    as an output or as the protected pre-existing file."""
+    try:
+        names = os.listdir(directory)
+    except OSError:
+        return
+    for name in names:
+        process = _temporary_process_number(
+            name, destination_name)
+        if process is None:
+            continue
+        try:
+            os.kill(process, 0)
+        except ProcessLookupError:
+            pass
+        except OSError:
+            continue
+        else:
+            continue
+        try:
+            os.unlink(os.path.join(directory, name))
+        except OSError:
+            pass
+
+
+def _flush_directory(directory):
+    """Flush one directory to storage, the directory
+    flush step of the pinned B4 write sequence."""
+    descriptor = os.open(directory, os.O_RDONLY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def _last_journal_sequence(home):
+    """The sequence of the journal's last entry as this
+    invocation reads it, or 0 over a home whose journal
+    stands empty or absent (decision D-KF-18-TEMP, the
+    form for a writing invocation that appends no entry,
+    as the WatchRun write does not)."""
+    if not home:
+        return 0
+    try:
+        from citeline import journal as journal_module
+        path = journal_module.journal_path(str(home))
+        count = 0
+        with open(path, "r", encoding="utf-8") as handle:
+            for line in handle:
+                if line.strip():
+                    count += 1
+        return count
+    except Exception:
+        return 0
 
 
 __all__ = [
