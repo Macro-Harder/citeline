@@ -2444,6 +2444,11 @@ def _render_audit_simple(body):
     return lines
 
 
+def _is_status_body(body):
+    return isinstance(body, dict) and "chain_result" in body \
+        and "home_size" in body and "entry_count" in body
+
+
 def _is_staleness_view(body):
     return isinstance(body, dict) and "records" in body \
         and "record_count" in body and "home_path" in body \
@@ -2773,6 +2778,58 @@ def _render_simple(body):
                 "in this round contradicts its asserted "
                 "kind. The notice stands in its own form, "
                 "beside the round figures.")
+        if _is_status_body(body):
+            # The status figures carry their units, the
+            # head hash stands once in one vocabulary, and
+            # the answer average states what it averages
+            # and in what unit (Step 19 register entry
+            # R19-061).
+            top_suppress.update(
+                ("head", "head_hash", "home_size",
+                 "entry_count", "capacity_outlook"))
+            head_hash = body.get("head_hash") or body.get("head")
+            if head_hash:
+                lines.append(
+                    "The journal head hash (head_hash) is %s."
+                    % _scalar_text(head_hash))
+            else:
+                lines.append(
+                    "No head hash stands (head_hash): the "
+                    "journal holds no entries.")
+            lines.append(
+                "entry_count: %s entries stand in the "
+                "journal."
+                % _figure_text(body.get("entry_count")))
+            lines.append(
+                "The product home size (home_size) is %s "
+                "bytes on disk."
+                % _figure_text(body.get("home_size")))
+            outlook = body.get("capacity_outlook")
+            if isinstance(outlook, dict):
+                if outlook.get("entries_remaining") is not None:
+                    lines.append(
+                        "Entries remaining before the "
+                        "journal length limit: %s."
+                        % _figure_text(
+                            outlook.get("entries_remaining")))
+                if outlook.get(
+                        "total_home_size_remaining") is not None:
+                    lines.append(
+                        "Home size remaining before the "
+                        "total home size limit: %s bytes."
+                        % _figure_text(outlook.get(
+                            "total_home_size_remaining")))
+                average = outlook.get("answer_average")
+                if isinstance(average, dict) and \
+                        average.get("value") is not None:
+                    lines.append(
+                        "The average imported answer size "
+                        "is %s characters, an estimate over "
+                        "the imported answers whose sizes "
+                        "stand recorded."
+                        % _figure_text(average.get("value")))
+                elif isinstance(average, str):
+                    lines.append("Answer average: %s." % average)
         if "evaluated_page_path" in body:
             lines.append(
                 "evaluated_page_path: %s"

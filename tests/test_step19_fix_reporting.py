@@ -361,3 +361,44 @@ class TestR19097AnchorSentenceClosingBlock(unittest.TestCase):
             tail = "\n".join(text.splitlines()[-3:])
             self.assertIn(self.NEEDLE, tail, kind)
 
+
+class TestR19061StatusUnitsAndSingleFacts(unittest.TestCase):
+    """R19-061: status Simple figures carry their units,
+    answer_average states what it averages and in what unit,
+    and each fact stands once in one vocabulary."""
+
+    def _status(self, **overrides):
+        body = {
+            "head": "abc123", "head_hash": "abc123",
+            "entry_count": 5, "home_path": "/tmp/home",
+            "home_size": 2308, "chain_result": "chain verifies",
+            "capacity_outlook": {
+                "journal_length_remaining": 99995,
+                "total_home_size_remaining": 1073739516,
+                "entries_remaining": 99995,
+                "bytes_remaining": 1073739516,
+                "answer_average": {"value": 812.5,
+                                   "label": "estimate"},
+            },
+        }
+        body.update(overrides)
+        return body
+
+    def test_units_and_single_hash(self):
+        text = reporting.render(self._status(), "simple")
+        self.assertIn("2308 bytes", text)
+        self.assertIn("1073739516 bytes", text)
+        self.assertIn("characters", text)
+        self.assertIn("average imported answer size", text)
+        self.assertEqual(text.count("abc123"), 1)
+        self.assertNotIn("\nhead:", text)
+
+    def test_empty_home_absence_stated_once(self):
+        body = self._status(head=None, head_hash=None,
+                            entry_count=0)
+        body["capacity_outlook"]["answer_average"] = (
+            "no average stands: no imported answer stands "
+            "in this home")
+        text = reporting.render(body, "simple")
+        self.assertNotIn("head: none", text)
+        self.assertNotIn("head_hash: none", text)
