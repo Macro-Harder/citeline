@@ -2046,7 +2046,7 @@ def _render_guide_simple(body):
                "standing_action", "refusal_sentence",
                "honesty_sentence", "bounds",
                "control_failure_notice", "cap_status",
-               "empty_round_notice"}
+               "empty_round_notice", "anchor_limit"}
     remainder = {k: v for k, v in body.items() if k not in handled}
     _emit_dict(lines, remainder, 0)
     return lines
@@ -2066,7 +2066,8 @@ def _render_query_set_simple(body):
     lines.append(_OVERLAP_STATEMENT)
     lines.append(_COVERAGE_STATEMENT)
     handled = {key for _label, key in labels}
-    handled |= {"overlap_statement", "coverage_statement"}
+    handled |= {"overlap_statement", "coverage_statement",
+                "anchor_limit"}
     remainder = {k: v for k, v in body.items() if k not in handled}
     _emit_dict(lines, remainder, 0)
     return lines
@@ -2744,6 +2745,11 @@ def _render_simple(body):
     else:
         lines = _simple_opening_summary(body)
         top_suppress = set()
+        if _is_probe_like(body):
+            # The probe report carries the anchor limit
+            # sentence in its closing block, not as a field
+            # line (Step 19 register entry R19-097).
+            top_suppress.add("anchor_limit")
         suppress_anchor_bare = False
         if _is_invocation_computed(body):
             top_suppress.add("honesty_sentence")
@@ -2811,6 +2817,15 @@ def _render_simple(body):
         lines.append(TIER_CLAUSES_LINE)
     if _carries_score_band(body):
         lines.append(SCORE_BAND_SCALE_LINE)
+    # The anchor limit sentence stands in the closing
+    # block of every Simple report artefact, the audit,
+    # guide, probe report, and query set report included,
+    # so the limit travels with the artefact when it is
+    # copied on its own (brief Section 5.5 commitment (c);
+    # Step 19 register entry R19-097).
+    if _is_audit_record(body) or _is_guide(body) or \
+            _is_probe_like(body) or _is_query_set_report(body):
+        lines.append(ANCHOR_LIMIT_SENTENCE)
     # The honesty sentence speaks of this score, so it
     # closes only the surfaces that carry a score or a
     # report of one: the audit, the guide, the probe report

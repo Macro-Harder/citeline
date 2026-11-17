@@ -328,3 +328,38 @@ class TestR19096AdvancedCommonFields(unittest.TestCase):
         audit_body = shipped.payload(
             reporting.render(record, "advanced"))
         self.assertIn("anchor_limit", audit_body)
+
+
+class TestR19097AnchorSentenceClosingBlock(unittest.TestCase):
+    """R19-097: the anchor limit sentence stands in the
+    closing block of every Simple report artefact, the
+    audit, guide, probe report, and query set report
+    included, standing once as a closing line."""
+
+    NEEDLE = "Verify proves internal consistency only"
+
+    def test_sentence_in_closing_block(self):
+        import test_s09_reporting as shipped
+        from citeline import service
+
+        root, home = shipped.make_home(self)
+        shipped.seed_product(home)
+        record = shipped.audit_page(home, shipped.PAGE_STRONG)
+        label = "round-1"
+        shipped.name_round(home, label)
+        shipped.import_answer(home, label,
+                              shipped.ANSWER_NAMED_CITED)
+        texts = {}
+        texts["audit"] = shipped.render(record, "simple")
+        texts["probe"] = shipped.probe_report(
+            home, label, "simple")
+        draft = service.guide(home=str(home),
+                              run_id=record["run_id"])
+        texts["guide"] = shipped.render(draft, "simple")
+        texts["queryset"] = service.query_set_report(
+            home=str(home), product=shipped.PRODUCT,
+            form="simple", audit_date=shipped.AUDIT_DATE)
+        for kind, text in texts.items():
+            self.assertEqual(text.count(self.NEEDLE), 1, kind)
+            tail = "\n".join(text.splitlines()[-3:])
+            self.assertIn(self.NEEDLE, tail, kind)
