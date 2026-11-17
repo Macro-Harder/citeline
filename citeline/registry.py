@@ -1318,7 +1318,9 @@ def register_page(home, product=None, snapshot=None, audit_date=None,
     This operation is sole writer of that field after
     creation, and registration is per snapshot. It appends
     a snapshot_registered entry carrying the snapshot record
-    as changed, with is_product_page true.
+    as changed, with is_product_page true. A repeat call on
+    a snapshot already marked writes nothing and returns
+    the standing record, on the add-product no change rule.
 
     The snapshot input names a standing snapshot of this
     product by its snapshot_id, on brief Section 5.12. An
@@ -1379,6 +1381,13 @@ def register_page(home, product=None, snapshot=None, audit_date=None,
                     "unknown snapshot %r for product %s; allowed "
                     "values: %s"
                     % (snapshot_id, record.get("name"), allowed))
+            if standing.get("is_product_page"):
+                # A repeat call on a snapshot already marked
+                # stands as the add-product no change rule
+                # stands: it writes nothing and returns the
+                # standing record (register item R19-008,
+                # brief CL19-177).
+                return copy.deepcopy(standing)
             base = copy.deepcopy(standing)
             base["snapshot_id"] = snapshot_id
             base["product_id"] = record["product_id"]
