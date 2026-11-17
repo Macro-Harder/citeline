@@ -446,18 +446,38 @@ class TestClustering(unittest.TestCase):
         self.assertEqual(len(set(ids[200:])), 1)
 
 
-class TestTimingBoundAtStatedScale(unittest.TestCase):
-    def test_detection_and_clustering_within_bound_at_stated_scale(self):
-        """Plan Section 1.5 timing bounds, S6 row. Oracle: plan Section 1.5, detection and clustering over one stated round at reportable size, 20 seconds, on the decided limbs only, conditional on the test scale stated on the record at scales-w5.md before the bound is applied. The scale stated there: one round of 50 answers, each of 60 words, against one product with two competitors."""
-        texts = []
-        for i in range(50):
-            texts.append("Northbeam " + " ".join("s%dw%d" % (i, j) for j in range(59)))
+class TestItem157TimingBound(unittest.TestCase):
+    def test_near_miss_input_within_five_second_bar(self):
+        """Item 157 timing test, stated in full at plan
+        EC-17 subsection 7.1 point 4 and decision
+        D-KF-17-LENGTH. Oracle: a detector pattern that
+        cannot pass the timing test does not ship; the
+        near miss input length is 100,000 characters; the
+        pass bar is 5 seconds on the reference machine
+        class of this estate; the matching invocation is
+        the search invocation, a search for a match at any
+        starting position in the matching copy, which is
+        the invocation the product itself uses in
+        detection. A test run exceeding the pass bar,
+        including one cut off at the bar, is a failed
+        pattern and not an inconclusive test. The near
+        miss stands built of the product name and the
+        product domain, each with its final character
+        missing, repeated to the stated length, so a
+        match almost stands at every starting position
+        of the matching copy and completes at none.
+        This test is a timing measurement: its result
+        is read as a load measurement, not as a logic
+        verdict."""
+        unit = "Northbea northbeam.example.co "
+        near_miss = (unit * (100000 // len(unit) + 1))[:100000]
+        self.assertEqual(len(near_miss), 100000)
         start = time.perf_counter()
-        for text in texts:
-            detection.detect_answer(text, PRODUCT, [RIVAL, NODOMAIN])
-        detection.cluster_answers(texts)
+        outcome = detection.detect_answer(
+            near_miss, PRODUCT, [RIVAL, NODOMAIN])
         elapsed = time.perf_counter() - start
-        self.assertLess(elapsed, 20.0)
+        self.assertFalse(field(outcome, "named"))
+        self.assertLess(elapsed, 5.0)
 
 
 if __name__ == "__main__":
