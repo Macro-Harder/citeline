@@ -2830,6 +2830,44 @@ def _render_simple(body):
                         % _figure_text(average.get("value")))
                 elif isinstance(average, str):
                     lines.append("Answer average: %s." % average)
+        findings = body.get("findings")
+        if isinstance(findings, list) and findings:
+            # The robots result for the evaluated path
+            # stands in plain words at the head, and the
+            # labels the findings carry stand defined on
+            # the surface (Step 19 register entry R19-062).
+            allowed = sum(
+                1 for finding in findings
+                if isinstance(finding, dict)
+                and finding.get("outcome") == "allowed")
+            barred = sum(
+                1 for finding in findings
+                if isinstance(finding, dict)
+                and finding.get("outcome") == "disallowed")
+            lines.append(
+                "For the evaluated page path %s, the robots "
+                "file lets %d of the %d listed crawlers "
+                "reach it and bars %d."
+                % (_scalar_text(body.get("evaluated_page_path")),
+                   allowed, len(findings), barred))
+            lines.append(
+                "evidence_label: the label stating how the "
+                "crawler purpose in a finding stands "
+                "evidenced, directly verified where the "
+                "purpose stands verified against its source, "
+                "secondary transcription where it stands "
+                "transcribed from a secondary source.")
+            lines.append(
+                "purpose_prose_evidence_label: the same "
+                "evidence label carried in the prose form "
+                "of the finding.")
+            if body.get("next_refresh_due_date") is not None:
+                lines.append(
+                    "next_refresh_due_date: the date by "
+                    "which the shipped crawler table stands "
+                    "due for its next refresh, here %s."
+                    % _scalar_text(
+                        body.get("next_refresh_due_date")))
         if "evaluated_page_path" in body:
             lines.append(
                 "evaluated_page_path: %s"

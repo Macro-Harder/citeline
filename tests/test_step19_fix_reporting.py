@@ -402,3 +402,40 @@ class TestR19061StatusUnitsAndSingleFacts(unittest.TestCase):
         text = reporting.render(body, "simple")
         self.assertNotIn("head: none", text)
         self.assertNotIn("head_hash: none", text)
+
+
+class TestR19062RobotsSummaryAndLabels(unittest.TestCase):
+    """R19-062: robots Simple output opens with a plain
+    summary of the result for the evaluated path, and
+    evidence_label, purpose_prose_evidence_label, and
+    next_refresh_due_date stand defined on the surface."""
+
+    def test_summary_and_definitions(self):
+        body = {
+            "evaluated_page_path": "/page",
+            "path_defaulted": False,
+            "next_refresh_due_date": "2027-02-10",
+            "findings": [
+                {"token": "A", "outcome": "allowed",
+                 "evidence_label": "directly verified",
+                 "purpose_prose_evidence_label":
+                     "directly verified"},
+                {"token": "B", "outcome": "disallowed",
+                 "evidence_label": "secondary transcription",
+                 "purpose_prose_evidence_label":
+                     "secondary transcription"},
+                {"token": "C", "outcome": "allowed",
+                 "evidence_label": "directly verified",
+                 "purpose_prose_evidence_label":
+                     "directly verified"},
+            ],
+        }
+        text = reporting.render(body, "simple")
+        head = "\n".join(text.splitlines()[:4])
+        self.assertIn("/page", head)
+        self.assertIn("2 of the 3", text)
+        self.assertIn("bars 1", text)
+        self.assertIn("evidence_label:", text)
+        self.assertIn("purpose_prose_evidence_label:", text)
+        self.assertIn("next_refresh_due_date:", text)
+        self.assertIn("refresh", text)
