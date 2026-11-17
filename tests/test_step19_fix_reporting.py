@@ -469,3 +469,15 @@ class TestR19063QuerySetPlainTail(unittest.TestCase):
         counts_at = next(i for i, line in enumerate(lines)
                          if line.startswith("asks a question"))
         self.assertLess(total_at, counts_at)
+
+
+class TestR19064ReportableClauseBound(unittest.TestCase):
+    """R19-064: the reportable tier clause never says a rate
+    may be relied on; it states the presence only bound."""
+
+    def test_clause_bound(self):
+        self.assertNotIn("relied on", reporting.TIER_CLAUSES_LINE)
+        self.assertNotIn("relied on",
+                         reporting.TIER_CLAUSES["reportable"])
+        self.assertIn("presence",
+                      reporting.TIER_CLAUSES["reportable"])

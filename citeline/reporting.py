@@ -215,8 +215,9 @@ TIER_CLAUSES = {
         "added"),
     "reportable": (
         "reportable means a rate is shown as a figure that "
-        "may be relied on and reported as the round's "
-        "result"),
+        "may be reported as the round's result, a statement "
+        "of the presence found in the sampled answers and "
+        "nothing more"),
 }
 
 TIER_CLAUSES_LINE = (
@@ -226,7 +227,8 @@ TIER_CLAUSES_LINE = (
     "provisional means a rate is shown as a working figure "
     "that may still change as more answers are added; "
     "reportable means a rate is shown as a figure that may "
-    "be relied on and reported as the round's result."
+    "be reported as the round's result, a statement of the "
+    "presence found in the sampled answers and nothing more."
 )
 
 DEFINITIONS_LINE = (
