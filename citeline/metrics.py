@@ -2487,8 +2487,8 @@ def round_metrics_from_journal(entries, fold_point=None, detector_version=None,
             "kind": None,
             "source_kind": None,
             "kinds": list(kinds),
-            "per_kind": per_kind,
             "answer_metrics": metrics_rows,
+            "per_kind": per_kind,
             "imported_count": sum(
                 per_kind[each_kind]["imported_count"]
                 for each_kind in kinds),
@@ -2540,6 +2540,19 @@ def round_metrics_from_journal(entries, fold_point=None, detector_version=None,
     # report beside the round figures, as plan Section 5.2
     # states for the Advanced probe report: effective n and
     # cluster membership recompute from the per answer
-    # fields themselves (Step 19 queue addition U-02).
-    result["answer_metrics"] = metrics_rows
-    return result
+    # fields themselves (Step 19 queue addition U-02). The
+    # rows stand in the record ahead of the capture context,
+    # so the round capture context object, the one object
+    # carrying the distinct engine, date, and method counts
+    # beside the round metrics, stands as the closing
+    # engine and method bearing object of the record, after
+    # the per answer rows and the sampling frame (Step 19
+    # Phase 6 class (f) item F-1).
+    ordered_result = {}
+    for key, value in result.items():
+        if key == "capture_context":
+            ordered_result["answer_metrics"] = metrics_rows
+        ordered_result[key] = value
+    if "answer_metrics" not in ordered_result:
+        ordered_result["answer_metrics"] = metrics_rows
+    return ordered_result
