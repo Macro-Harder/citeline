@@ -3916,10 +3916,24 @@ def _surface_failure_records(record, home):
     return record
 
 
+# The cap refusal tokens of the shipped vocabulary: a
+# refusal carrying any one of them stores nothing on
+# every route (Step 19 item R19-041, completed by the
+# Phase 7 items P7A1-01 and P7A1-02 for the two tokens
+# the first cure did not name).
+_CAP_REFUSAL_TOKENS = frozenset([
+    "LIMIT_EXCEEDED",
+    "JOURNAL_CAP_EXCEEDED",
+    "CONTROL_CAP_EXCEEDED",
+])
+
+
 def _append_failure_record(home, operation, exc, subject, audit_date):
     if is_contention(exc):
         return
-    if getattr(exc, "token", None) == "LIMIT_EXCEEDED":
+    refusal_token = (getattr(exc, "token", None)
+                     or getattr(exc, "error_value", None))
+    if refusal_token in _CAP_REFUSAL_TOKENS:
         # A cap refusal stores nothing on every route
         # (Step 19 item R19-041): the add product route
         # stores nothing at its cap, through its _fail
@@ -3927,7 +3941,11 @@ def _append_failure_record(home, operation, exc, subject, audit_date):
         # record beside a refusal store nothing at a cap
         # either, so refusal traffic alone cannot spend
         # journal entries on one route and store nothing
-        # on another.
+        # on another. The rule covers the whole cap
+        # refusal class: a journal cap preflight refusal
+        # and a control cap refusal store nothing either,
+        # so a refusal can never spend the last journal
+        # entry on a record of work that never ran.
         return
     # No state stands created by a read: where no home
     # stands, no failure record stands appended, because
