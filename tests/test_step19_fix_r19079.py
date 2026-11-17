@@ -61,7 +61,16 @@ class TestProbeRoundLabelAlias(unittest.TestCase):
 
     def test_probe_import_round_label_accepted(self):
         root, home = make_home(self)
-        seed(self, home)
+        service.add_product(
+            home=str(home), name="Example Product",
+            canonical_line="Example Product answers questions.",
+            domain="example.com",
+            query_set=["What is Example Product?"],
+            audit_date=AUDIT_DATE)
+        service.name_round(
+            home=str(home), product="Example Product",
+            round_label="round-1", importer_declaration="operator",
+            supplier_relation="first party", audit_date=AUDIT_DATE)
         answer = root / "answer.txt"
         answer.write_text(
             "Example Product is a citation auditing tool.\n",
