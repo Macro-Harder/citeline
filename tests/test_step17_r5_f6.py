@@ -175,7 +175,17 @@ class TestControlNotice043(unittest.TestCase):
             "control_notice", agentic["report"])
         simple = render(record, form="simple")
         self.assertNotIn("SPOOF", simple)
-        self.assertIn(reporting.CONTROL_FAILURE_NOTICE, simple)
+        # Restated in its Simple limb only, for Step 19 queue
+        # addition U-07: the Simple form now stands the notice
+        # in its own words, as a line of its own beside the
+        # round figures, not as the fixed constant text. The
+        # Advanced assertion above stands unrestated at full
+        # strength, as does the spoof exclusion.
+        self.assertIn(
+            "Control failure notice: a control outcome in "
+            "this round contradicts its asserted kind. The "
+            "notice stands in its own form, beside the round "
+            "figures.", simple)
 
     def test_list_record(self):
         record = [{
