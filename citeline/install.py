@@ -784,6 +784,15 @@ def main(argv=None):
             print("home: %s" % report["home"])
             for removed in report.get("removed") or []:
                 print("removed: %s" % removed)
+            for remaining in report.get("remaining") or []:
+                print("remaining: %s" % remaining)
+            if not report.get("removed"):
+                print("nothing was removed")
+                if not report.get("remaining"):
+                    print(
+                        "nothing was found: no installation "
+                        "stood at the location or the home "
+                        "named")
         else:
             report = install(location=location, home=home)
             print("installed")

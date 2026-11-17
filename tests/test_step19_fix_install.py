@@ -270,5 +270,51 @@ class TestR19029Upgrade(InstallCase):
             planted.read_text(encoding="utf-8"), "planted\n")
 
 
+class TestR19030UninstallRemaining(InstallCase):
+    """R19-030: uninstall output names everything that
+    remains after the call, and states plainly where nothing
+    was found or nothing was removed. Brief CL19-165,
+    CL19-226."""
+
+    def run_main(self, argv):
+        import contextlib
+        import io
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = install_module.main(argv)
+        return code, out.getvalue()
+
+    def test_leftover_config_is_named_in_output(self):
+        self.location.mkdir(parents=True)
+        config = self.location / "config.txt"
+        config.write_text("home = %s\n" % self.home,
+                          encoding="utf-8")
+        self.install()
+        code, out = self.run_main(
+            ["uninstall", str(self.location),
+             "--home", str(self.home)])
+        self.assertEqual(code, 0)
+        self.assertIn("remaining: %s" % config, out)
+
+    def test_nothing_found_is_stated_plainly(self):
+        code, out = self.run_main(
+            ["uninstall", str(self.location),
+             "--home", str(self.home)])
+        self.assertEqual(code, 0)
+        self.assertIn("nothing was found", out)
+        self.assertIn("nothing was removed", out)
+
+    def test_unlinked_home_is_named_as_remaining(self):
+        self.location.mkdir(parents=True)
+        self.home.mkdir()
+        (self.home / "unrelated.txt").write_text(
+            "x\n", encoding="utf-8")
+        code, out = self.run_main(
+            ["uninstall", str(self.location),
+             "--home", str(self.home)])
+        self.assertEqual(code, 0)
+        self.assertIn("remaining: %s" % self.home, out)
+
+
 if __name__ == "__main__":
     unittest.main()
