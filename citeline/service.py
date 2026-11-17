@@ -4265,20 +4265,15 @@ def probe_report(*, home, product, round, form=None,
             product_record = _require_product(home, product)
             round_record = _require_round(
                 home, product_record, round)
-            try:
-                surface_payloads = _failure_record_payloads(home)
-            except errors.CitelineError:
-                raise
-            except Exception:
-                surface_payloads = None
             result = _probe_report_record(
                 home, product_record, round_record,
                 audit_date=audit_date)
             _check_run_backstop(home, run_started)
-            if surface_payloads is None:
-                _surface_failure_records(result, home)
-            elif surface_payloads:
-                result["failure_records"] = surface_payloads
+            # Standing failure record payloads stay out of
+            # the probe report record (Step 19 entry
+            # R19-018): the determinism contract at CL19-146
+            # and CL19-181 binds this report, and state left
+            # behind by other calls is no input of it.
             from citeline import reporting
             return reporting.render(result, form=form or "advanced")
         finally:
