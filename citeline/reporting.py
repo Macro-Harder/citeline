@@ -799,30 +799,47 @@ def _apply_control_failure_notice(body):
     # failure state of those rows stands stated once in
     # the record's control_failed field, so a control_flag
     # inside an answer_metrics row states no failed control
-    # in this pass (Step 19 Phase 6 class (f) item F-2).
+    # in this pass (Step 19 Phase 6 class (f) item F-2). The
+    # exception binds the row's own field in a list of
+    # rows, in the shape the metrics component writes: a
+    # flag nested below a row's own fields, or standing on
+    # a bare object under the key where no list of rows
+    # stands, is no row field and stands judged as a flag
+    # anywhere else (Step 19 Phase 7 item P7A3-F2-2).
     flag_components = (
         ("control", "failed"), ("control", "failure"),
         ("control", "flag"))
     flagged = False
 
-    def flag_walk(node, in_answer_metrics=False):
+    def flag_walk(node, in_row=False):
+        # in_row stands true only for a dict standing as a
+        # direct item of an answer_metrics list, a per
+        # answer row: only that row's own control_flag
+        # stands excepted. A flag nested inside a row, and
+        # a flag on a bare object under the key, which is
+        # no list of rows, stand judged as a flag anywhere
+        # else stands judged (Step 19 Phase 7 item
+        # P7A3-F2-2).
         nonlocal flagged
         if isinstance(node, dict):
             for key in node:
                 components = tuple(_key_components(key))
                 if components in flag_components and node.get(key):
-                    if in_answer_metrics and components == \
+                    if in_row and components == \
                             ("control", "flag"):
                         continue
                     flagged = True
             for key, value in node.items():
-                flag_walk(
-                    value,
-                    in_answer_metrics or tuple(
-                        _key_components(key)) == ("answer", "metrics"))
+                if tuple(_key_components(key)) == \
+                        ("answer", "metrics") \
+                        and isinstance(value, list):
+                    for item in value:
+                        flag_walk(item, isinstance(item, dict))
+                else:
+                    flag_walk(value)
         elif isinstance(node, list):
             for item in node:
-                flag_walk(item, in_answer_metrics)
+                flag_walk(item)
 
     flag_walk(body)
     # The three notice keys stand judged as the same
