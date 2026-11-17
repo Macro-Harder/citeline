@@ -167,5 +167,21 @@ class TestR19026ConfigGovernedSizeLimit(unittest.TestCase):
         self.assertIn("2 MiB", str(caught.exception))
 
 
+class TestR19027PageFrontMatter(unittest.TestCase):
+    """R19-027: the front matter tag construct rule fires at the
+    page intake as it fires at the import intake."""
+
+    BLOCK = "---\nkey: &a value\n---\nBody text about the product."
+
+    def test_import_intake_refuses_the_block(self):
+        with self.assertRaises(Exception):
+            probe_import.extract_front_matter(self.BLOCK)
+
+    def test_page_intake_refuses_the_identical_block(self):
+        notes = []
+        with self.assertRaises(Exception):
+            acquisition._front_matter(self.BLOCK, "text", notes)
+
+
 if __name__ == "__main__":
     unittest.main()

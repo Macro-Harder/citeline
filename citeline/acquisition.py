@@ -1935,6 +1935,37 @@ def _front_matter(text, fmt, notes, block_limit_bytes=None,
     if not isinstance(value_limit, (int, float)):
         value_limit = _FRONT_MATTER_VALUE_LIMIT
     if fmt != "markdown":
+        # The one front matter tag construct rule stands at
+        # both intakes: a page in a non markdown form carrying
+        # a head front matter block stands judged on that
+        # block exactly as an answer file carrying the
+        # identical block stands judged at the import intake,
+        # so the identical block cannot pass here while it
+        # refuses there. A page with no head block returns
+        # unchanged, as before.
+        working_other = _fm_strip_head(text)
+        other_lines = working_other.splitlines()
+        if other_lines and _fm_judged_fence(other_lines[0]) == "---":
+            for other_index in range(1, len(other_lines)):
+                if _fm_judged_fence(other_lines[other_index]) in (
+                        "---", "..."):
+                    for block_line in other_lines[1:other_index]:
+                        if not block_line.strip() or block_line.lstrip() \
+                                .startswith("#"):
+                            continue
+                        pair = _front_matter_key_value(block_line)
+                        judged = []
+                        if pair is not None:
+                            judged = [pair[0], pair[1]]
+                        else:
+                            judged = [block_line.strip()]
+                        for piece in judged:
+                            if _fm_holds_tag_construct(
+                                    _fm_strip_head(piece)):
+                                _fail("PAGE_EXTRACTION_FAILED",
+                                      "front matter fails the "
+                                      "D17 control set")
+                    break
         return text
     # The fence judgement stands on the completed head
     # predicate at both fences, not on whitespace
