@@ -2101,7 +2101,8 @@ def _render_guide_simple(body):
                "standing_action", "refusal_sentence",
                "honesty_sentence", "bounds",
                "control_failure_notice", "cap_status",
-               "empty_round_notice", "anchor_limit"}
+               "empty_round_notice", "anchor_limit",
+               "failure_records"}
     remainder = {k: v for k, v in body.items() if k not in handled}
     _emit_dict(lines, remainder, 0)
     return lines
@@ -3013,6 +3014,19 @@ def _render_simple(body):
     failure_records = body.get("failure_records")
     if isinstance(failure_records, list) and failure_records:
         lines.append("Failure records.")
+        if _is_guide(body):
+            # The guide carries the failure records of
+            # this home once, in this prose form only:
+            # a call that failed while the round was
+            # built can name work the guide reader still
+            # has to do, and the guide does not hide it
+            # (Phase 8 finding P8O-05).
+            lines.append(
+                "The guide carries these records because "
+                "a call that failed while this home was "
+                "built can name work the guide reader "
+                "still has to do, and the guide does not "
+                "hide a failed call.")
         for failure in failure_records:
             if not isinstance(failure, dict):
                 continue
