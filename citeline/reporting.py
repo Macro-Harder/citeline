@@ -2140,10 +2140,28 @@ def _render_query_set_simple(body):
             % _scalar_text(body.get("naming_none_count")))
     if "marker_list_version" in body:
         marker = body.get("marker_list_version")
+        if isinstance(marker, dict):
+            # The stored marker version travels as a
+            # record: its recorded state and, where one
+            # stands, its version value. The Simple form
+            # states that state in plain words and never
+            # renders the raw record (Phase 8 finding
+            # P8O-04).
+            if not marker.get("recorded") or \
+                    marker.get("state") == "not_recorded":
+                marker = None
+            elif marker.get("version") is not None:
+                marker = marker.get("version")
+            else:
+                marker = "recorded"
         if marker is None:
             lines.append(
                 "marker list version: no marker list "
                 "version stands recorded for this set.")
+        elif marker == "recorded":
+            lines.append(
+                "marker list version: the counts were read "
+                "against a recorded marker list.")
         else:
             lines.append(
                 "marker list version: the counts were read "
