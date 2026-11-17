@@ -2084,7 +2084,44 @@ def _host_matches(host, domain):
         "." + domain_value)
 
 
+def _canonical_name_member(product):
+    """The product name as the canonical line states it, or None.
+
+    A canonical line opens with the product name in a plain
+    statement of what the product is. Where the registered
+    name and the name the canonical line states differ, an
+    answer that names the product in the canonical line's
+    own words names the product, so that stated name stands
+    as a name member for detection in the recomputation
+    path (Step 19 queue addition U-02). A leading article
+    word stands outside the name, and a line that opens
+    with no capitalised word states no name this way.
+    """
+    line = _get(product, "canonical_line", None) or ""
+    words = []
+    for word in str(line).split():
+        cleaned = word.strip(".,;:!?")
+        if not cleaned or not cleaned[0].isupper():
+            break
+        words.append(cleaned)
+    while words and words[0].casefold() in ("the", "a", "an"):
+        words.pop(0)
+    if not words:
+        return None
+    member = " ".join(words)
+    if member == (_get(product, "name", "") or ""):
+        return None
+    return member
+
+
 def _fallback_detect(text, product, competitors):
+    member = _canonical_name_member(product or {})
+    if member:
+        product = dict(product or {})
+        aliases = list(_get(product, "aliases", None) or [])
+        if member not in aliases:
+            aliases.append(member)
+        product["aliases"] = aliases
     try:
         from citeline import detection as detection_module
         result = detection_module.detect_answer(text, product, competitors)
@@ -2316,6 +2353,7 @@ def answer_metrics_from_journal(entries, fold_point=None, detector_version=None)
         "name": product.get("name", ""),
         "aliases": list(product.get("aliases") or []),
         "domain": product.get("domain", ""),
+        "canonical_line": product.get("canonical_line", ""),
     }
     results = []
     for index, payload in enumerate(selected):
@@ -2450,6 +2488,7 @@ def round_metrics_from_journal(entries, fold_point=None, detector_version=None,
             "source_kind": None,
             "kinds": list(kinds),
             "per_kind": per_kind,
+            "answer_metrics": metrics_rows,
             "imported_count": sum(
                 per_kind[each_kind]["imported_count"]
                 for each_kind in kinds),
@@ -2493,7 +2532,14 @@ def round_metrics_from_journal(entries, fold_point=None, detector_version=None,
     if declaration is not None:
         frame["importer_declaration"] = declaration
         stamps.setdefault("importer_declaration", declaration)
-    return round_metrics(
+    result = round_metrics(
         metrics_rows, kind, frame=frame, datum=stamps,
         aliases=seed_aliases, competitors=seed_competitors,
     )
+    # The per answer AnswerMetrics stand carried in the
+    # report beside the round figures, as plan Section 5.2
+    # states for the Advanced probe report: effective n and
+    # cluster membership recompute from the per answer
+    # fields themselves (Step 19 queue addition U-02).
+    result["answer_metrics"] = metrics_rows
+    return result
