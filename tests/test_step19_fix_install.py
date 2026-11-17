@@ -421,5 +421,48 @@ class TestR19032AbsoluteLocation(InstallCase):
             "created: %s" % (self.tmp / "reloc"), text)
 
 
+class TestR19046ConfigInvalidDetail(InstallCase):
+    """R19-046: the install CONFIG_INVALID message names
+    the cause, the rule broken, and the line at fault,
+    distinguishing the parse, wrong form value, and
+    duplicate key causes. Brief CL19-164."""
+
+    def install_with_config(self, text):
+        self.location.mkdir(parents=True)
+        (self.location / "config.txt").write_text(
+            text, encoding="utf-8")
+        with self.assertRaises(
+                install_module.InstallError) as caught:
+            self.install()
+        self.assertEqual(
+            caught.exception.token, "CONFIG_INVALID")
+        return str(caught.exception)
+
+    def test_parse_cause_names_line(self):
+        message = self.install_with_config(
+            "home = %s\na line with no equals\n" % self.home)
+        self.assertIn("parse", message)
+        self.assertIn("line 2", message)
+
+    def test_duplicate_cause_names_line(self):
+        message = self.install_with_config(
+            "page_file_size = 10\npage_file_size = 20\n")
+        self.assertIn("duplicate", message)
+        self.assertIn("line 2", message)
+
+    def test_wrong_form_cause_names_line(self):
+        message = self.install_with_config(
+            "page_file_size = abc\n")
+        self.assertIn("wrong form", message)
+        self.assertIn("line 1", message)
+
+    def test_causes_produce_different_messages(self):
+        first = self.install_with_config("no equals here\n")
+        self.location = self.tmp / "loc2"
+        second = self.install_with_config(
+            "page_file_size = 1\npage_file_size = 2\n")
+        self.assertNotEqual(first, second)
+
+
 if __name__ == "__main__":
     unittest.main()

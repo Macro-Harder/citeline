@@ -329,6 +329,67 @@ def _config_valid(path, home):
     return valid
 
 
+def _config_fault_detail(path):
+    """The cause, the rule broken, and the line at fault
+    for a config file that does not parse, in the three
+    causes the brief distinguishes at CL19-164: a line
+    that cannot be parsed, a value of the wrong form, and
+    a duplicate key. Returns a short statement naming all
+    three, or a general statement where no line fault of
+    those forms stands found."""
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            text = handle.read()
+    except OSError:
+        return "cause: the file cannot be read"
+    limit_keys = ()
+    try:
+        if _PRODUCT_DIR not in sys.path:
+            sys.path.insert(0, _PRODUCT_DIR)
+        from citeline import journal as journal_module
+        limit_keys = tuple(
+            getattr(journal_module, "_LIMIT_DEFAULT", {}) or {})
+    except Exception:
+        limit_keys = ()
+    if text.startswith("\ufeff"):
+        text = text[1:]
+    lines = text.split("\n")
+    if lines and lines[-1] == "":
+        lines = lines[:-1]
+    seen = set()
+    for number, line in enumerate(lines, 1):
+        if line == "" or line.startswith("#"):
+            continue
+        if line != line.strip() or "\t" in line or "\r" in line:
+            return (
+                "cause: the line cannot be parsed (rule: "
+                "one key, one space, an equals sign, one "
+                "space, and the value per line), at line %d"
+                % number)
+        parts = line.split(" = ")
+        if len(parts) != 2 or not parts[0] or not parts[1] \
+                or " " in parts[0] or "=" in parts[0]:
+            return (
+                "cause: the line cannot be parsed (rule: "
+                "one key, one space, an equals sign, one "
+                "space, and the value per line), at line %d"
+                % number)
+        key, raw_value = parts
+        if key in seen:
+            return (
+                "cause: a duplicate key (rule: each config "
+                "key stands once), at line %d" % number)
+        seen.add(key)
+        if key in limit_keys and not raw_value.isdigit():
+            return (
+                "cause: a value of the wrong form for its "
+                "key (rule: the value stands in the form "
+                "its key states), at line %d" % number)
+    return (
+        "cause: the file does not stand valid under the "
+        "config rules the brief states at CL19-164")
+
+
 def install(location=None, home=None, **_ignored):
     """Install over the created items list, resumably.
 
@@ -416,7 +477,9 @@ def _install_impl(location=None, home=None):
                 "CONFIG_INVALID",
                 "an existing config file that is itself "
                 "invalid fails the install, with the file "
-                "still left untouched: %s" % config_file)
+                "still left untouched: %s (%s)"
+                % (config_file,
+                   _config_fault_detail(config_file)))
     if not os.path.lexists(location):
         os.makedirs(location)
         created_items.append(location)
