@@ -4236,16 +4236,12 @@ def probe_report(*, home, product, round, form=None,
     Simple form and the record object or its envelope in
     the structured forms, never the raw assembly.
 
-    A failed report over a healthy chain far below cap
-    appends exactly one failure record (Step 17 entry
-    S17-R1-085), as the audit route states.
+    Probe report is a non appending operation (brief
+    CL19-177): a failed report appends no failure record
+    (Step 19 entry R19-017). The recorded error stands as
+    the caller response only.
     """
-    try:
-        audit_date = _validate_audit_date(audit_date)
-    except errors.CitelineError as exc:
-        _append_failure_record(
-            home, "probe report", exc, round, audit_date)
-        raise
+    audit_date = _validate_audit_date(audit_date)
     run_started = _clock()
     try:
         _require_home(home)
@@ -4287,10 +4283,7 @@ def probe_report(*, home, product, round, form=None,
             return reporting.render(result, form=form or "advanced")
         finally:
             _FOLD_SNAPSHOT.reset(fold_token)
-    except errors.CitelineError as exc:
-        if getattr(exc, "token", None) != "MALFORMED_CALL":
-            _append_failure_record(
-                home, "probe report", exc, round, audit_date)
+    except errors.CitelineError:
         raise
 
 
@@ -4341,13 +4334,12 @@ def probe_trend(*, home, product, round_a, round_b, form=None,
     The home returns the reporting pipeline rendering of
     the assembled trend in the requested form, as the
     probe report home does.
+
+    Probe trend is a non appending operation (brief
+    CL19-177): a failed trend appends no failure record
+    (Step 19 entry R19-017).
     """
-    try:
-        audit_date = _validate_audit_date(audit_date)
-    except errors.CitelineError as exc:
-        _append_failure_record(
-            home, "probe trend", exc, round_a, audit_date)
-        raise
+    audit_date = _validate_audit_date(audit_date)
     run_started = _clock()
     try:
         _require_home(home)
@@ -4391,13 +4383,7 @@ def probe_trend(*, home, product, round_a, round_b, form=None,
         _surface_failure_records(result, home)
         from citeline import reporting
         return reporting.render(result, form=form or "advanced")
-    except errors.CitelineError as exc:
-        # A failed trend appends exactly one failure
-        # record, the repeated round refusal included
-        # (Step 17 entry S17-R1-085).
-        if getattr(exc, "token", None) != "MALFORMED_CALL":
-            _append_failure_record(
-                home, "probe trend", exc, round_a, audit_date)
+    except errors.CitelineError:
         raise
 
 
@@ -4406,28 +4392,20 @@ def query_set_report(*, home, product, form=None, audit_date=None):
 
     The home returns the reporting pipeline rendering of
     the derived report in the requested form.
+
+    Query-set-report is a non appending operation (brief
+    CL19-177): a failed report appends no failure record
+    (Step 19 entry R19-017).
     """
-    try:
-        audit_date = _validate_audit_date(audit_date)
-    except errors.CitelineError as exc:
-        _append_failure_record(
-            home, "query set report", exc, product, audit_date)
-        raise
-    try:
-        _require_home(home)
-        _recover_interrupted_batch(home)
-        _barred_check(home)
-        product_record = _require_product(home, product)
-        _validate_product_record(product_record)
-        from citeline import reporting
-        return reporting.query_set_report(
-            product_record, form=form or "advanced")
-    except errors.CitelineError as exc:
-        if getattr(exc, "token", None) != "MALFORMED_CALL":
-            _append_failure_record(
-                home, "query set report", exc, product,
-                audit_date)
-        raise
+    audit_date = _validate_audit_date(audit_date)
+    _require_home(home)
+    _recover_interrupted_batch(home)
+    _barred_check(home)
+    product_record = _require_product(home, product)
+    _validate_product_record(product_record)
+    from citeline import reporting
+    return reporting.query_set_report(
+        product_record, form=form or "advanced")
 
 
 def export_capture_worksheet(*, home, product, round, queries=None,
