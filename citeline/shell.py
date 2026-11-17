@@ -126,6 +126,9 @@ _RETIRED_SPELLINGS = {
 _FLAG_ALIASES = {
     "name_round": {"round": "round_label"},
     "guide": {"round": "round_label"},
+    "probe_import": {"round_label": "round"},
+    "probe_report": {"round_label": "round"},
+    "probe_trend": {"round": "round_a", "round_label": "round_a"},
 }
 
 # Markers of a report artefact record, whose Agentic form
