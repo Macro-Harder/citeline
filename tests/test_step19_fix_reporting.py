@@ -509,3 +509,36 @@ class TestR19086RoundGuideControlOnlyRound(unittest.TestCase):
         text = reporting.render(draft, "simple")
         self.assertNotIn("This round holds no answers", text)
         self.assertNotIn("0 of 0 answers in the round", text)
+
+
+class TestR19003CitedFiguresDefined(unittest.TestCase):
+    """R19-003: gross, net, and self citation share stand
+    named and defined distinctly in every form of the probe
+    report, and the cited rate stands distinguished from
+    them."""
+
+    def test_definitions_in_every_form(self):
+        import test_s09_reporting as shipped
+
+        root, home = shipped.make_home(self)
+        shipped.seed_product(home)
+        label = "round-1"
+        shipped.name_round(home, label)
+        shipped.import_answer(home, label,
+                              shipped.ANSWER_NAMED_CITED)
+        advanced = shipped.payload(shipped.probe_report(
+            home, label, "advanced"))
+        definitions = advanced.get("rate_definitions") or {}
+        self.assertIn("cited_rate_gross", definitions)
+        self.assertIn("any kind", definitions["cited_rate_gross"])
+        self.assertIn("cited_rate_net", definitions)
+        self.assertIn("not a self citation",
+                      definitions["cited_rate_net"])
+        self.assertIn("self_citation_share", definitions)
+        self.assertIn("citation instances",
+                      definitions["self_citation_share"])
+        simple = shipped.probe_report(home, label, "simple")
+        self.assertIn("at least one citation instance of "
+                      "any kind", simple)
+        self.assertIn("share of all citation instances",
+                      simple)

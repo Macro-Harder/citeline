@@ -1758,6 +1758,29 @@ def round_metrics(answers, kind, frame=None, datum=None,
         "self_citation_share": self_citation_share,
         "cited_rate_gross": cited_rate_gross,
         "cited_rate_net": cited_rate_net,
+        # The cited figures stand named and defined
+        # distinctly beside the figures themselves, so no
+        # two figures in the report share the one word
+        # cited without their distinction stated (Step 19
+        # register entry R19-003).
+        "rate_definitions": {
+            "cited": "the share of the round answers whose "
+                     "citations point at the product own "
+                     "domain",
+            "cited_rate_gross": "the share of the round "
+                                "answers holding at least "
+                                "one citation instance of "
+                                "any kind, self citations "
+                                "included",
+            "cited_rate_net": "the share of the round "
+                              "answers holding at least one "
+                              "citation instance that is "
+                              "not a self citation",
+            "self_citation_share": "the share of all "
+                                   "citation instances in "
+                                   "the round that point at "
+                                   "the product own domain",
+        },
         "no_name_count": no_name_count,
         "owner_level_cited_count": sum(
             max(0, int(_get(item, "owner_level_cited_count", 0) or 0))

@@ -231,6 +231,18 @@ TIER_CLAUSES_LINE = (
     "presence found in the sampled answers and nothing more."
 )
 
+CITED_RATE_DEFINITIONS_LINE = (
+    "Cited figures: the cited rate counts the share of "
+    "answers whose citations point at the product own "
+    "domain; cited_rate_gross is the share of answers "
+    "holding at least one citation instance of any kind, "
+    "self citations included; cited_rate_net is the share "
+    "holding at least one citation instance that is not a "
+    "self citation; self_citation_share is the share of "
+    "all citation instances in the round that point at "
+    "the product own domain."
+)
+
 DEFINITIONS_LINE = (
     "Definitions: a tier is the label that states how much "
     "weight a rate can carry, set by effective n; an "
@@ -2788,6 +2800,10 @@ def _render_simple(body):
             # sentence in its closing block, not as a field
             # line (Step 19 register entry R19-097).
             top_suppress.add("anchor_limit")
+            # The cited figure definitions stand in the
+            # closing block in plain words, not as a raw
+            # nested field (Step 19 register entry R19-003).
+            top_suppress.add("rate_definitions")
         suppress_anchor_bare = False
         if _is_invocation_computed(body):
             top_suppress.add("honesty_sentence")
@@ -2942,6 +2958,7 @@ def _render_simple(body):
             lines.append("  %s" % _scalar_text(item))
     if _carries_rate_terms(body):
         lines.append(DEFINITIONS_LINE)
+        lines.append(CITED_RATE_DEFINITIONS_LINE)
         lines.append(TIER_CLAUSES_LINE)
     if _carries_score_band(body):
         lines.append(SCORE_BAND_SCALE_LINE)
