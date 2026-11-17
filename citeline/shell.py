@@ -30,7 +30,7 @@ FORMS = ("simple", "advanced", "agentic")
 # plain single value stands as a one item list. No value
 # stands split into its characters.
 _LIST_INPUTS = ("competitors", "aliases", "query_set",
-                "category_terms", "category")
+                "category_terms")
 
 _USAGE = 2
 
@@ -58,7 +58,7 @@ _SURFACE = {
         ("home", "product", "query_set", "audit_date", "form")),
     "set-category": (
         "set_category",
-        ("home", "product", "category_terms", "category",
+        ("home", "product", "category_terms",
          "audit_date", "form")),
     "register-page": (
         "register_page",
@@ -596,8 +596,6 @@ def _missing_required(operation, inputs):
     except Exception:
         return []
     present = set(inputs)
-    if operation == "set_category" and "category" in present:
-        present.add("category_terms")
     missing = []
     for name, parameter in signature.parameters.items():
         if parameter.default is not inspect.Parameter.empty:
