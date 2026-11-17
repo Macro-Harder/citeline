@@ -50,13 +50,37 @@ class Test004MarkCategoriesPastMn(ImportBase):
             with self.subTest(mark=hex(ord(mark))):
                 self.assertEqual(unicodedata.category(mark), "Me")
 
+    # The category counts below pin a Unicode data
+    # version, stated in the open beside the counts, as
+    # Step 19 entry U-12 directs: the product helper
+    # judges by unicodedata.category at run time, so its
+    # refusal set follows the runtime Unicode data, and a
+    # count pin stands read against the version it names.
+    # On a runtime whose version stands in neither row
+    # the pin does not stand read and the test skips,
+    # naming the version, in the sibling runtime form
+    # test form.
+    CATEGORY_COUNTS_BY_UNIDATA_VERSION = {
+        "15.0.0": {"Mn": 1985, "Mc": 452, "Me": 13},
+        "16.0.0": {"Mn": 2020, "Mc": 468, "Me": 13},
+    }
+
     def test_mark_category_counts_stand_as_stated(self):
+        expected = self.CATEGORY_COUNTS_BY_UNIDATA_VERSION.get(
+            unicodedata.unidata_version)
+        if expected is None:
+            self.skipTest(
+                "category counts pinned for Unicode "
+                + " and ".join(sorted(
+                    self.CATEGORY_COUNTS_BY_UNIDATA_VERSION))
+                + " only; this runtime carries "
+                + unicodedata.unidata_version)
         counts = {"Mn": 0, "Mc": 0, "Me": 0}
         for point in range(0x110000):
             category = unicodedata.category(chr(point))
             if category in counts:
                 counts[category] += 1
-        self.assertEqual(counts, {"Mn": 1985, "Mc": 452, "Me": 13})
+        self.assertEqual(counts, expected)
 
     def test_line_form_value_ampersand_marks_refused(self):
         for mark in ALL_NEW_MARKS:
@@ -118,8 +142,17 @@ class Test004MarkCategoriesPastMn(ImportBase):
             total += 1
             if import_module._holds_tag_construct("x.&" + mark + "a"):
                 refused += 1
-        self.assertEqual(total, 465)
-        self.assertEqual(refused, 465)
+        # The total is the runtime own Mc plus Me count,
+        # derived from the runtime unicodedata at run time
+        # and cross read against the version pin in the
+        # counts test above, per Step 19 entry U-12; the
+        # refusal pin itself stands unchanged: every Mc
+        # and Me mark the runtime holds stands refused.
+        pinned = self.CATEGORY_COUNTS_BY_UNIDATA_VERSION.get(
+            unicodedata.unidata_version)
+        if pinned is not None:
+            self.assertEqual(total, pinned["Mc"] + pinned["Me"])
+        self.assertEqual(refused, total)
 
     def test_controls_hold(self):
         for mark in MN_MARKS:
