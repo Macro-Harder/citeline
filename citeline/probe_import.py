@@ -962,54 +962,82 @@ def _pdf_header_at_line_start(variant):
     return False
 
 
-_HTML_FRAGMENT_TAGS = (
-    "div", "p", "svg", "body", "head", "title", "table", "ul",
-    "ol", "li", "section", "article", "header", "footer", "main",
-    "span", "a", "img", "br", "hr", "h1", "h2", "h3", "h4", "h5",
-    "h6", "blockquote", "pre", "figure", "figcaption", "nav",
-    "aside", "form", "button", "iframe", "video", "audio",
-    "canvas", "details", "summary")
-
-
-def _is_html_text(first):
-    """True where the head text stands as an HTML capture.
-
-    The two openings the form test names stand judged in the
-    caller. This reading covers the remaining spellings a real
-    capture takes: a document standing behind an XML prolog, a
-    processing instruction, or one or more comment lines (a
-    browser save opens with a saved from comment), and a
-    fragment opening with a common HTML element. Markup in any
-    of these spellings is HTML, not answer text.
-    """
-    text = first.strip()
-    lowered = text.casefold()
-    while lowered:
-        if lowered.startswith("<?"):
-            end = lowered.find("?>")
-            if end < 0:
-                break
-            text = text[end + 2:].lstrip()
-            lowered = text.casefold()
-            continue
-        if lowered.startswith("<!--"):
-            end = lowered.find("-->")
-            if end < 0:
-                break
-            text = text[end + 3:].lstrip()
-            lowered = text.casefold()
-            continue
-        break
+def _is_html_opening(lowered):
+    """True where a casefolded text opens a complete HTML
+    document, by its doctype or by its html element."""
     if lowered.startswith("<!doctype") and (
             len(lowered) == 9 or lowered[9] in " \t\n\r\f"):
         return True
     if lowered.startswith("<html") and (
             len(lowered) == 5 or lowered[5] in " \t\n\r\f/>"):
         return True
-    match = re.match(r"<([a-z][a-z0-9]*)", lowered)
-    if match and match.group(1) in _HTML_FRAGMENT_TAGS:
+    return False
+
+
+def _is_markup_unit(lowered):
+    """True where a casefolded text opens with a markup unit:
+    a markup declaration, an element opening, or an element
+    closing. The unit stands judged by its shape alone, an
+    angle bracket, an element name of letters, digits, and
+    hyphens (a custom element name carries a hyphen), and a
+    name boundary, never by which element the name states."""
+    if lowered.startswith("<!") and len(lowered) > 2 \
+            and lowered[2].isalpha():
+        return True
+    match = re.match(r"</?([a-z][a-z0-9-]*)", lowered)
+    if match:
         rest = lowered[match.end():]
         if rest == "" or rest[0] in " \t\n\r\f/>":
+            return True
+    return False
+
+
+def _is_html_text(first):
+    """True where the head text stands as an HTML capture.
+
+    The judgement stands on the kind of the document, not on
+    a list of element names. A capture is a markup document
+    or a markup fragment: its first content unit, past any
+    XML prolog, processing instruction, comment, or CDATA
+    wrapper standing in front of it, is a markup unit, a
+    doctype, an element opening, an element closing, or a
+    markup declaration. A file whose first content unit
+    stands as one of those is HTML in every spelling, the
+    head and raw text elements (script, style, meta, link,
+    base, template, noscript, textarea among them) and any
+    element a later spelling opens with alike, where a
+    fragment list named on one day falls to the spelling of
+    the next. Plain answer text opens with prose, not with
+    a markup unit, so prose stands untouched by this
+    reading. A complete document standing behind one
+    framing line, as an export header line stands in front
+    of a document, stands judged on the document opening
+    standing on a line just behind the head as well.
+    """
+    text = first.strip()
+    while True:
+        lowered = text.casefold()
+        if lowered.startswith("<?"):
+            end = lowered.find("?>")
+            if end < 0:
+                break
+            text = text[end + 2:].lstrip()
+            continue
+        if lowered.startswith("<!--"):
+            end = lowered.find("-->")
+            if end < 0:
+                break
+            text = text[end + 3:].lstrip()
+            continue
+        if lowered.startswith("<![cdata["):
+            text = text[9:].lstrip()
+            continue
+        break
+    lowered = text.casefold()
+    if _is_html_opening(lowered) or _is_markup_unit(lowered):
+        return True
+    for line in lowered.splitlines()[1:4]:
+        if _is_html_opening(line.strip()):
             return True
     return False
 
