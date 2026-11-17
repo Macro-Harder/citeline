@@ -481,3 +481,31 @@ class TestR19064ReportableClauseBound(unittest.TestCase):
                          reporting.TIER_CLAUSES["reportable"])
         self.assertIn("presence",
                       reporting.TIER_CLAUSES["reportable"])
+
+
+class TestR19086RoundGuideControlOnlyRound(unittest.TestCase):
+    """R19-086: the round guide states the round contents
+    from the stored record, counting control answers as
+    answers, so a round holding only controls never prints
+    that it holds no answers."""
+
+    def test_controls_only_round_states_its_contents(self):
+        from citeline import guide as guide_module
+
+        answers = [{
+            "answer_id": "ans-6", "control": True,
+            "control_kind": "positive", "named": True,
+            "cited": True, "named_early": True,
+            "citation_instances": [{"target": "example.com"}],
+        }]
+        draft = guide_module.draft_from_round(
+            {"round_id": "p-x:round-1", "product_id": "p-x"},
+            canonical_line="Example Product answers "
+                           "questions.",
+            audit_date="2026-11-13", answers=answers)
+        notice = draft.get("empty_round_notice") or ""
+        self.assertNotIn("holds no answers", notice)
+        self.assertIn("control", notice)
+        text = reporting.render(draft, "simple")
+        self.assertNotIn("This round holds no answers", text)
+        self.assertNotIn("0 of 0 answers in the round", text)

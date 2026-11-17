@@ -1050,6 +1050,24 @@ def draft_from_round(round_record=None, canonical_line=None, audit_date=None,
     if answers is not None:
         active = [item for item in (answers or []) if not is_control(item)]
         total = len(active)
+        # The round contents stand stated from the stored
+        # record, control answers counted as answers: where
+        # the round holds control answers beside its sampled
+        # answers, or instead of them, the evidence phrases
+        # say so, and no phrase states the round as empty
+        # while controls stand in it (Step 19 register
+        # entry R19-086).
+        control_total = len(answers or []) - total
+        if control_total:
+            control_clause = (
+                "; the round holds %d control answer%s "
+                "beside them, counted as answers in the "
+                "round and consumed as controls, not as "
+                "evidence"
+                % (control_total,
+                   "" if control_total == 1 else "s"))
+        else:
+            control_clause = ""
 
         def stands_cited(item):
             if field_value(item, "cited"):
@@ -1058,17 +1076,19 @@ def draft_from_round(round_record=None, canonical_line=None, audit_date=None,
             if instances is None:
                 instances = field_value(item, "citation_instance_count")
             return bool(instances)
+        noun = "sampled answers" if control_total else "answers"
         round_evidence = {
-            "NOT_NAMED": "%d of %d answers in the round name the product"
+            "NOT_NAMED": "%d of %d %s in the round name the product%s"
             % (sum(1 for item in active if field_value(item, "named")),
-               total),
+               total, noun, control_clause),
             "NOT_NAMED_EARLY": (
-                "%d of %d answers in the round name the product early"
+                "%d of %d %s in the round name the product early%s"
                 % (sum(1 for item in active
-                       if field_value(item, "named_early")), total)),
-            "NOT_CITED": "%d of %d answers in the round cite the product"
+                       if field_value(item, "named_early")), total,
+                   noun, control_clause)),
+            "NOT_CITED": "%d of %d %s in the round cite the product%s"
             % (sum(1 for item in active if stands_cited(item)),
-               total),
+               total, noun, control_clause),
         }
     elif round_metrics is not None:
         rates = _get(round_metrics, "rates", None) or {}
@@ -1115,11 +1135,18 @@ def draft_from_round(round_record=None, canonical_line=None, audit_date=None,
             "stands produced from this round"
         )
     empty_basis = False
+    controls_only = 0
     if answers is not None:
         non_control = [
             item for item in (answers or [])
             if not is_control(item)]
-        empty_basis = not non_control
+        empty_basis = not (answers or [])
+        if not non_control and (answers or []):
+            # The round holds answers, every one a control
+            # answer: the notice states those contents, and
+            # never states the round holds no answers
+            # (Step 19 register entry R19-086).
+            controls_only = len(answers or [])
     elif round_metrics is not None:
         # A round supplied as metrics alone states its
         # basis in the rates the triggers computed on:
@@ -1135,7 +1162,13 @@ def draft_from_round(round_record=None, canonical_line=None, audit_date=None,
                     totals.append(total)
         empty_basis = bool(totals) and all(
             total == 0 for total in totals)
-    if empty_basis:
+    if controls_only:
+        draft["empty_round_notice"] = (
+            "This round holds %d answers, every one a "
+            "control answer, so the actions in this "
+            "draft rest on no sampled answer in the "
+            "round." % controls_only)
+    elif empty_basis:
         # The round holds no answers: the draft states
         # that empty basis in plain words on its own
         # face, so no action in it reads as a finding
