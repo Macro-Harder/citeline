@@ -94,5 +94,52 @@ class TestR19026ServiceForwarding(unittest.TestCase):
         self.assertIn("2 MiB", str(caught.exception))
 
 
+class TestR19041CapRefusalConsistency(unittest.TestCase):
+    """R19-041: a cap refusal stores nothing on every route, so
+    refusal traffic alone cannot spend journal entries on one
+    route and store nothing on another."""
+
+    def test_add_product_cap_refusal_stores_nothing(self):
+        root, home = make_home(self)
+        journal.write_config(home, "products_per_home = 1\n")
+        service.add_product(
+            home=str(home), name="p-one", canonical_line="p-one line.",
+            domain="example.com", audit_date=AUDIT_DATE)
+        before = entry_count(home)
+        with self.assertRaises(Exception) as caught:
+            service.add_product(
+                home=str(home), name="p-two",
+                canonical_line="p-two line.", domain="example.com",
+                audit_date=AUDIT_DATE)
+        self.assertEqual(getattr(caught.exception, "token", None),
+                         "LIMIT_EXCEEDED")
+        self.assertEqual(entry_count(home), before)
+
+    def test_import_cap_refusal_stores_nothing(self):
+        root, home = make_home(self)
+        journal.write_config(home, "answers_per_round = 1\n")
+        seed_product_and_round(self, home)
+        service.probe_import(
+            home=str(home), answer_file=str(ANSWER), product="p-alpha",
+            round="round-1", engine_label="engine-a", query=QUERY,
+            kind="real_sample", captured_on="2026-11-10",
+            capture_method="manual copy", audit_date=AUDIT_DATE)
+        other = Path(root) / "other-answer.txt"
+        other.write_text(
+            "A different answer about the product, with its own "
+            "words and its own sentence.\n", encoding="utf-8")
+        before = entry_count(home)
+        with self.assertRaises(Exception) as caught:
+            service.probe_import(
+                home=str(home), answer_file=str(other),
+                product="p-alpha", round="round-1",
+                engine_label="engine-b", query=QUERY,
+                kind="real_sample", captured_on="2026-11-11",
+                capture_method="manual copy", audit_date=AUDIT_DATE)
+        self.assertEqual(getattr(caught.exception, "token", None),
+                         "LIMIT_EXCEEDED")
+        self.assertEqual(entry_count(home), before)
+
+
 if __name__ == "__main__":
     unittest.main()

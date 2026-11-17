@@ -3866,6 +3866,16 @@ def _surface_failure_records(record, home):
 def _append_failure_record(home, operation, exc, subject, audit_date):
     if is_contention(exc):
         return
+    if getattr(exc, "token", None) == "LIMIT_EXCEEDED":
+        # A cap refusal stores nothing on every route
+        # (Step 19 item R19-041): the add product route
+        # stores nothing at its cap, through its _fail
+        # path, and the routes that append a failure
+        # record beside a refusal store nothing at a cap
+        # either, so refusal traffic alone cannot spend
+        # journal entries on one route and store nothing
+        # on another.
+        return
     # No state stands created by a read: where no home
     # stands, no failure record stands appended, because
     # the journal append itself would create the home and
