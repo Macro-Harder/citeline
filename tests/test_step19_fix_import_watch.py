@@ -183,5 +183,28 @@ class TestR19027PageFrontMatter(unittest.TestCase):
             acquisition._front_matter(self.BLOCK, "text", notes)
 
 
+class TestR19020Projection(unittest.TestCase):
+    """R19-020: the WatchRun projection prices what the round
+    will actually append, failure records included."""
+
+    def test_failing_probe_target_is_priced_at_its_failure_record(self):
+        _, home = seed_home(self)
+        _, path = plan_file(self, base_plan(home, "picked", targets=[
+            {"product": "p-alpha", "round": "no-such-round"}]))
+        result = watch.run_watch(plan_file=str(path))
+        self.assertEqual(result["entries"][0]["outcome"], "failed")
+        self.assertEqual(
+            result["capacity_projection"]["projected_entries"], 1)
+
+    def test_failing_audit_target_is_priced_at_its_success_cost(self):
+        _, home = seed_home(self)
+        _, path = plan_file(self, base_plan(home, "picked", targets=[
+            {"product": "p-alpha", "page_file": "/no/such/page.md"}]))
+        result = watch.run_watch(plan_file=str(path))
+        self.assertEqual(result["entries"][0]["outcome"], "failed")
+        self.assertEqual(
+            result["capacity_projection"]["projected_entries"], 2)
+
+
 if __name__ == "__main__":
     unittest.main()
