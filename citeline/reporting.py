@@ -1020,6 +1020,18 @@ def _advanced_body(record):
     if _is_query_set_report(body):
         body.setdefault("overlap_statement", _OVERLAP_STATEMENT)
         body.setdefault("coverage_statement", _COVERAGE_STATEMENT)
+    # Every Advanced report object carries the anchor
+    # limit field at its top level, not only beside a head
+    # hash, and the report objects the brief names carry
+    # the honesty sentence field among them: the probe
+    # report, the guide, the query set report, and the
+    # staleness view stand named in Step 19 register entry
+    # R19-096 beside the audit object itself.
+    if _is_audit_record(body) or _is_guide(body) or \
+            _is_probe_like(body) or _is_query_set_report(body) \
+            or _is_staleness_view(body):
+        body["anchor_limit"] = ANCHOR_LIMIT_SENTENCE
+        body["honesty_sentence"] = HONESTY_SENTENCE
     # The presence only scope discipline stands in every
     # form, the Simple form included, so the scope pass
     # runs on the body every rendering form derives from.

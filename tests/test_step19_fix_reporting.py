@@ -285,3 +285,46 @@ class TestR19060SelfCitationReason(unittest.TestCase):
         self.assertIn("distinct cited target count stands "
                       "at 0", joined)
         self.assertIn("own domain", joined)
+
+
+class TestR19096AdvancedCommonFields(unittest.TestCase):
+    """R19-096: every Advanced report object carries the
+    anchor limit field, and the probe report, guide,
+    query-set-report, and staleness-view objects carry the
+    honesty sentence field."""
+
+    def test_fields_stand_on_each_report_object(self):
+        import test_s09_reporting as shipped
+        from citeline import service
+
+        root, home = shipped.make_home(self)
+        shipped.seed_product(home)
+        record = shipped.audit_page(home, shipped.PAGE_STRONG)
+        label = "round-1"
+        shipped.name_round(home, label)
+        shipped.import_answer(home, label,
+                              shipped.ANSWER_NAMED_CITED)
+        probe = shipped.payload(shipped.probe_report(
+            home, label, "advanced"))
+        self.assertIn("anchor_limit", probe)
+        self.assertIn("honesty_sentence", probe)
+        draft = service.guide(home=str(home),
+                              run_id=record["run_id"])
+        guide_body = shipped.payload(
+            reporting.render(draft, "advanced"))
+        self.assertIn("anchor_limit", guide_body)
+        self.assertIn("honesty_sentence", guide_body)
+        qs = service.query_set_report(
+            home=str(home), product=shipped.PRODUCT,
+            form="advanced", audit_date=shipped.AUDIT_DATE)
+        qs = shipped.payload(qs)
+        self.assertIn("anchor_limit", qs)
+        self.assertIn("honesty_sentence", qs)
+        stale = service.staleness_view(home=str(home))
+        stale = shipped.payload(
+            reporting.render(stale, "advanced"))
+        self.assertIn("anchor_limit", stale)
+        self.assertIn("honesty_sentence", stale)
+        audit_body = shipped.payload(
+            reporting.render(record, "advanced"))
+        self.assertIn("anchor_limit", audit_body)
