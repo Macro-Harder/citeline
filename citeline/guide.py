@@ -609,6 +609,31 @@ def draft_from_audit_record(record, canonical_line=None, audit_date=None,
     for code in recorded_triggers or []:
         if code in TRIGGER_CODES and code not in triggers:
             triggers.append(code)
+    if not triggers:
+        # A check that earned nothing stands failed in
+        # plain words: its FAIL_ trigger fires from the
+        # stored check result itself, so the draft
+        # selection rule of item 137 can run on a page
+        # whose checks earned nothing on a named check.
+        # No threshold for partial earnings stands
+        # derived here: the earned value to status
+        # mapping for a partial earning stands unruled
+        # (CL-16), and a not applicable check fires
+        # nothing (Step 19 queue addition U-05).
+        for result in _get(record, "checks", None) or []:
+            earned = _get(result, "earned", None)
+            if earned is None or isinstance(earned, bool):
+                continue
+            if _get(result, "status", None) == "not_applicable":
+                continue
+            if earned != 0:
+                continue
+            stem = _STEM_BY_CHECK_ID.get(
+                str(_get(result, "check_id", "") or ""))
+            if stem is not None:
+                code = "FAIL_" + stem
+                if code not in triggers:
+                    triggers.append(code)
 
     if cap_operates is None:
         score = _get(record, "score", None)
