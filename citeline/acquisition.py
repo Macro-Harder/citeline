@@ -1878,39 +1878,21 @@ def _front_matter(text, fmt, notes, block_limit_bytes=None,
         block_limit_bytes = _FRONT_MATTER_BLOCK_LIMIT
     if not isinstance(value_limit, (int, float)):
         value_limit = _FRONT_MATTER_VALUE_LIMIT
-    if fmt != "markdown":
-        # The one front matter tag construct rule stands at
-        # both intakes: a page in a non markdown form carrying
-        # a head front matter block stands judged on that
-        # block exactly as an answer file carrying the
-        # identical block stands judged at the import intake,
-        # so the identical block cannot pass here while it
-        # refuses there. A page with no head block returns
-        # unchanged, as before.
-        working_other = _fm_strip_head(text)
-        other_lines = working_other.splitlines()
-        if other_lines and _fm_judged_fence(other_lines[0]) == "---":
-            for other_index in range(1, len(other_lines)):
-                if _fm_judged_fence(other_lines[other_index]) in (
-                        "---", "..."):
-                    for block_line in other_lines[1:other_index]:
-                        if not block_line.strip() or block_line.lstrip() \
-                                .startswith("#"):
-                            continue
-                        pair = _front_matter_key_value(block_line)
-                        judged = []
-                        if pair is not None:
-                            judged = [pair[0], pair[1]]
-                        else:
-                            judged = [block_line.strip()]
-                        for piece in judged:
-                            if _fm_holds_tag_construct(
-                                    _fm_strip_head(piece)):
-                                _fail("PAGE_EXTRACTION_FAILED",
-                                      "front matter fails the "
-                                      "D17 control set")
-                    break
-        return text
+    # The whole control set stands at every page form, not
+    # at the markdown form alone: a page in a non markdown
+    # form carrying a head front matter block stands judged
+    # on that block by the one reading below, whole, exactly
+    # as a markdown page and as an answer file carrying the
+    # identical block stands judged at the import intake, so
+    # no limb of the set (the tag construct judgement in the
+    # line form and in the JSON form alike, the duplicate
+    # key judgement, the key count limit, the block size and
+    # value length limits, and the bracket judgement) can
+    # pass at one intake while it refuses at another. A
+    # non markdown page keeps its text whole where its block
+    # stands clean, as before; only the markdown form stands
+    # split from its block, at the returns below. A page
+    # with no head block returns unchanged, as before.
     # The fence judgement stands on the completed head
     # predicate at both fences, not on whitespace
     # stripping alone: head material standing before the
@@ -2031,8 +2013,10 @@ def _front_matter(text, fmt, notes, block_limit_bytes=None,
                     _fail("PAGE_EXTRACTION_FAILED",
                           "front matter fails the D17 "
                           "control set")
-                notes.append("front_matter")
-                return "\n".join(lines[index + 1:])
+                if fmt == "markdown":
+                    notes.append("front_matter")
+                    return "\n".join(lines[index + 1:])
+                return text
             current_value_length = None
             seen_keys = set()
             key_count = 0
@@ -2139,8 +2123,10 @@ def _front_matter(text, fmt, notes, block_limit_bytes=None,
                           "limit is %s characters, with "
                           "rejection and no partial record"
                           % ("%g" % (value_limit,),))
-            notes.append("front_matter")
-            return "\n".join(lines[index + 1:])
+            if fmt == "markdown":
+                notes.append("front_matter")
+                return "\n".join(lines[index + 1:])
+            return text
     return text
 
 
