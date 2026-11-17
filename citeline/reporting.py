@@ -2487,6 +2487,65 @@ def _failure_record_line(failure):
     return "  failure record: %s." % ", ".join(parts)
 
 
+def _simple_opening_summary(body):
+    """The prose opening of a Simple artefact on the generic
+    surfaces (Step 19 item R19-055).
+
+    The Simple form is a prose artefact: it opens with a
+    summary in plain words stating what the record is and
+    what it shows, before any field by field detail stands.
+    The summary states only what the record itself carries.
+    """
+    if "passed" in body and "chain_result" in body:
+        if body.get("passed"):
+            return [
+                "Verification of the journal in this product "
+                "home: the chain verifies, so the journal "
+                "stands internally consistent as stored."
+            ]
+        return [
+            "Verification of the journal in this product "
+            "home: the chain does not verify, so the journal "
+            "as stored does not stand internally consistent."
+        ]
+    if "head_hash" in body or "entry_count" in body:
+        count = body.get("entry_count")
+        if count == 0:
+            return [
+                "Status of the journal in this product home: "
+                "the journal holds no entries yet."
+            ]
+        return [
+            "Status of the journal in this product home: "
+            "the journal holds %s entries, and the figures "
+            "below state its size and what room stands "
+            "before its limits." % _scalar_text(count)
+        ]
+    if "rates" in body or "round_metrics" in body:
+        return [
+            "Probe report for this round: the figures below "
+            "state how often the product was named, named "
+            "early, and cited in the sampled answers of the "
+            "round, with the counts those figures rest on."
+        ]
+    if "findings" in body or "robots_file" in body:
+        return [
+            "Robots report: the findings below state, for "
+            "each crawler purpose, whether the robots file "
+            "lets it reach the evaluated page path."
+        ]
+    if "delta" in body or "series_break" in body:
+        return [
+            "Probe trend: the figures below compare two "
+            "rounds of sampled answers and state how the "
+            "named and cited figures moved between them."
+        ]
+    return [
+        "The record of this call stands below, stated in "
+        "plain words field by field."
+    ]
+
+
 def _render_simple(body):
     if not isinstance(body, dict):
         return _scalar_text(body)
@@ -2501,7 +2560,7 @@ def _render_simple(body):
     elif _is_audit_record(body):
         lines = _render_audit_simple(body)
     else:
-        lines = []
+        lines = _simple_opening_summary(body)
         top_suppress = set()
         suppress_anchor_bare = False
         if _is_invocation_computed(body):
