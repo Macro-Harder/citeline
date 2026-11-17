@@ -1049,7 +1049,12 @@ def status(*, home):
     read only invocation, and row U-6 excepts no subcommand.
     The Section 4.2 status behaviour above runs over homes
     that stand, including barred and broken chain homes.
+
+    Status reads the clock (Step 19 entry R19-010): limit
+    41, the per run wall clock backstop, aborts the call
+    before its record stands returned.
     """
+    run_started = _clock()
     _require_home(home)
     _recover_interrupted_batch(home)
     journal = _journal()
@@ -1103,6 +1108,7 @@ def status(*, home):
     result["anchor_limit_sentence"] = _anchor_limit_sentence()
     result["honesty_sentence"] = _honesty_sentence()
     result["bounds"] = _bounds_computed()
+    _check_run_backstop(home, run_started)
     _surface_failure_records(result, home)
     return result
 
@@ -1115,7 +1121,12 @@ def verify(*, home):
     the record itself, on row I-2, with its failing
     position, and no record from that journal stands
     claimed as verified.
+
+    Verify reads the clock (Step 19 entry R19-010): limit
+    41, the per run wall clock backstop, aborts the call
+    before its record stands returned.
     """
+    run_started = _clock()
     _require_home(home)
     _recover_interrupted_batch(home)
     journal = _journal()
@@ -1141,6 +1152,7 @@ def verify(*, home):
     result["anchor_limit_sentence"] = _anchor_limit_sentence()
     result["honesty_sentence"] = _honesty_sentence()
     result["bounds"] = _bounds_computed()
+    _check_run_backstop(home, run_started)
     _surface_failure_records(result, home)
     return result
 
@@ -1464,7 +1476,12 @@ def staleness_view(*, home):
     the view carries the absence form in the status manner:
     the words no entries beside the anchor limit sentence,
     not an error and not an empty graph reading as current.
+
+    The view reads the clock (Step 19 entry R19-010):
+    limit 41, the per run wall clock backstop, aborts the
+    call before its record stands returned.
     """
+    run_started = _clock()
     _require_home(home)
     _recover_interrupted_batch(home)
     _barred_check(home)
@@ -1550,6 +1567,7 @@ def staleness_view(*, home):
     }
     if not records:
         result["absence"] = "no entries"
+    _check_run_backstop(home, run_started)
     _surface_failure_records(result, home)
     return result
 
@@ -1979,8 +1997,14 @@ def robots(*, home, robots_file, evaluated_page_path=None,
     reporting pipeline rendering of that evaluation in the
     requested form, as every report home of this layer
     does.
+
+    The route reads the clock (Step 19 entry R19-010):
+    limit 42, the per file parse time backstop, guards
+    the robots file parse, and limit 41, the per run wall
+    clock backstop, aborts the call as a whole.
     """
     audit_date = _validate_audit_date(audit_date)
+    run_started = _clock()
     _require_home(home)
     # A killed batch standing on the home stands recovered
     # before this route runs, so no successful robots call
@@ -1993,6 +2017,8 @@ def robots(*, home, robots_file, evaluated_page_path=None,
         home=home, robots_file=robots_file,
         evaluated_page_path=evaluated_page_path,
         audit_date=audit_date)
+    _check_parse_backstop(home, run_started)
+    _check_run_backstop(home, run_started)
     from citeline import reporting
     return reporting.render(evaluation, form=form or "advanced")
 
@@ -2091,6 +2117,7 @@ def robots_preview(*, home, first_robots_file, second_robots_file,
     reporting pipeline rendering of the assembly in the
     requested form.
     """
+    run_started = _clock()
     try:
         audit_date = _validate_audit_date(audit_date)
     except errors.CitelineError as exc:
@@ -2124,10 +2151,15 @@ def robots_preview(*, home, first_robots_file, second_robots_file,
             home=home, robots_file=first_robots_file,
             evaluated_page_path=evaluated_page_path,
             audit_date=audit_date)
+        # Limit 42 guards each file parse and limit 41
+        # the call as a whole (Step 19 entry R19-010).
+        _check_parse_backstop(home, run_started)
         second = _robots_evaluation(
             home=home, robots_file=second_robots_file,
             evaluated_page_path=evaluated_page_path,
             audit_date=audit_date)
+        _check_parse_backstop(home, run_started)
+        _check_run_backstop(home, run_started)
         first = _with_group_rules(first, first_robots_file)
         second = _with_group_rules(second, second_robots_file)
     except Exception as exc:
@@ -4199,6 +4231,23 @@ def _check_run_backstop(home, started):
             % (limit,))
 
 
+def _check_parse_backstop(home, started):
+    """The per file parse time backstop, limit 42, at this
+    seam, on a robots reading run (Step 19 entry R19-010).
+
+    At the backstop the run aborts with the recorded
+    error LIMIT_EXCEEDED and produces no report.
+    """
+    limit = _limit_value(home, "per_file_parse_time")
+    if isinstance(limit, (int, float)) and \
+            _clock() - started > limit:
+        _fail(
+            "LIMIT_EXCEEDED",
+            "per file parse time backstop is %s seconds in "
+            "force for this run, and the parse of this "
+            "robots file passed it" % (limit,))
+
+
 def _probe_report_record(home, product_record, round_record,
                          audit_date=None, metrics_record=None):
     """The assembled probe report record of one round.
@@ -4398,13 +4447,19 @@ def query_set_report(*, home, product, form=None, audit_date=None):
     Query-set-report is a non appending operation (brief
     CL19-177): a failed report appends no failure record
     (Step 19 entry R19-017).
+
+    The report reads the clock (Step 19 entry R19-010):
+    limit 41, the per run wall clock backstop, aborts the
+    call before its record stands returned.
     """
     audit_date = _validate_audit_date(audit_date)
+    run_started = _clock()
     _require_home(home)
     _recover_interrupted_batch(home)
     _barred_check(home)
     product_record = _require_product(home, product)
     _validate_product_record(product_record)
+    _check_run_backstop(home, run_started)
     from citeline import reporting
     return reporting.query_set_report(
         product_record, form=form or "advanced")
