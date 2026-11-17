@@ -273,7 +273,7 @@ def _normalise_host(raw_host, _decoded=False):
     text = unicodedata.normalize("NFC", text).strip()
     if text.endswith("."):
         text = text[:-1]
-    text = text.casefold().lower()
+    text = text.casefold()
     if not text:
         return None
     labels = []
@@ -566,7 +566,7 @@ def _citation_analysis(page, facts):
         if host is None:
             # An anchor link or a relative link is internal.
             continue
-        scheme = target.split(":", 1)[0].lower()
+        scheme = target.split(":", 1)[0].casefold()
         if scheme not in ("http", "https"):
             continue
         if domain and (host == domain or host.endswith("." + domain)):
@@ -1018,7 +1018,7 @@ def _curly_single_is_internal(text, pos):
             ):
                 cursor -= 1
             if word_end > cursor:
-                words.append(text[cursor:word_end].lower())
+                words.append(text[cursor:word_end].casefold())
         determiners = (
             "the", "their", "our", "your", "his",
             "her", "its", "those", "these", "this",
@@ -2801,7 +2801,7 @@ def _comparison(page, facts):
     offsets = _sentence_offsets(text, sentences)
     signal_offset = None
     for sentence, offset in zip(sentences, offsets):
-        tokens = re.findall(r"[A-Za-z]+", sentence.lower())
+        tokens = re.findall(r"[A-Za-z]+", sentence.casefold())
         hit = any(token in _SIGNAL_WORDS for token in tokens)
         if not hit and "best" in tokens and "for" in tokens:
             if tokens.index("best") < len(tokens) - 1 - tokens[::-1].index(

@@ -333,7 +333,7 @@ def normalise_host(host):
     text = text.strip()
     if text.endswith("."):
         text = text[:-1]
-    text = text.casefold().lower()
+    text = text.casefold()
     labels = []
     for label in text.split("."):
         if not label:
