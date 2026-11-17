@@ -1629,6 +1629,16 @@ def parse_config(text, home=None):
     and a line whose first character is the hash character
     is a comment and is ignored. No inline comment form
     exists. An unknown key is a warning, not a failure.
+    Two relations stand between the keys, stated here
+    where the keys stand specified: the resolved
+    front_matter_size_after_alias_expansion value stands
+    at or above the resolved front_matter_block_size
+    value, and the resolved evidence_spans_per_report
+    value stands at or above the resolved
+    evidence_spans_per_check value; a combination in
+    breach of either relation fails as CONFIG_INVALID
+    with the refusal naming the relation (Step 19 item
+    R19-105).
     Returns a pair of the values found and the warnings.
     """
     values = {}
@@ -1708,17 +1718,37 @@ def parse_config(text, home=None):
     for name, number in values.items():
         if name in resolved:
             resolved[name] = number
+    # The two stated config key relations, stated here
+    # where the config keys stand specified in this
+    # module and named in each refusal, so no individually
+    # valid combination fails on an unstated relation
+    # (Step 19 item R19-105; the relations themselves
+    # stand stated in the design plan at decision
+    # D-KF-15-RANGE as forced dependencies under row X-1):
+    # front_matter_size_after_alias_expansion stands at
+    # or above front_matter_block_size, and
+    # evidence_spans_per_report stands at or above
+    # evidence_spans_per_check.
     if resolved["front_matter_size_after_alias_expansion"] \
             < resolved["front_matter_block_size"]:
         raise ConfigError(
-            "front_matter_size_after_alias_expansion stands below "
-            "front_matter_block_size",
+            "a stated config key relation stands breached: "
+            "front_matter_size_after_alias_expansion must "
+            "stand at or above front_matter_block_size, "
+            "and the resolved values stand %d below %d"
+            % (resolved[
+                "front_matter_size_after_alias_expansion"],
+               resolved["front_matter_block_size"]),
             row="X-1", token="CONFIG_INVALID")
     if resolved["evidence_spans_per_report"] \
             < resolved["evidence_spans_per_check"]:
         raise ConfigError(
-            "evidence_spans_per_report stands below "
-            "evidence_spans_per_check",
+            "a stated config key relation stands breached: "
+            "evidence_spans_per_report must stand at or "
+            "above evidence_spans_per_check, and the "
+            "resolved values stand %d below %d"
+            % (resolved["evidence_spans_per_report"],
+               resolved["evidence_spans_per_check"]),
             row="X-1", token="CONFIG_INVALID")
     if home is not None and "anchor_path" in values:
         candidate = _resolve_anchor_path(home, values["anchor_path"])

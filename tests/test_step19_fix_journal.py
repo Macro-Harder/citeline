@@ -224,3 +224,37 @@ class HomeSizeCapScopeTests(HomeCase):
         self.assertEqual(entry["sequence"], 2)
 
 
+class ConfigRelationTests(HomeCase):
+    """R19-105: the two config key relations stand stated
+    where the config keys are specified, and the
+    CONFIG_INVALID refusal names the relation."""
+
+    def test_front_matter_relation_named_in_refusal(self):
+        with self.assertRaises(journal.ConfigError) as caught:
+            journal.parse_config("front_matter_block_size = 100\n")
+        message = str(caught.exception)
+        self.assertIn("relation", message)
+        self.assertIn("front_matter_size_after_alias_expansion",
+                      message)
+        self.assertIn("front_matter_block_size", message)
+        self.assertEqual(caught.exception.token, "CONFIG_INVALID")
+
+    def test_evidence_spans_relation_named_in_refusal(self):
+        with self.assertRaises(journal.ConfigError) as caught:
+            journal.parse_config(
+                "evidence_spans_per_report = 100\n"
+                "evidence_spans_per_check = 150\n")
+        message = str(caught.exception)
+        self.assertIn("relation", message)
+        self.assertIn("evidence_spans_per_report", message)
+        self.assertIn("evidence_spans_per_check", message)
+        self.assertEqual(caught.exception.token, "CONFIG_INVALID")
+
+    def test_config_inside_the_relations_still_parses(self):
+        values, _warnings = journal.parse_config(
+            "front_matter_block_size = 10\n"
+            "evidence_spans_per_check = 10\n")
+        self.assertEqual(values["front_matter_block_size"], 10)
+        self.assertEqual(values["evidence_spans_per_check"], 10)
+
+
