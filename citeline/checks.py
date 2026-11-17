@@ -17,13 +17,13 @@ Seams honoured here, as the design plan states them:
    and None where the unruled mapping would be needed.
    An applicability outcome is not a derivation from an
    earned value.
-2. SEAM-LISTS. The list dependent limbs that the plan
-   stops at this seam are not built: the comparison
-   criterion word component earns nothing here, and the
-   fluff filler booster deduction is not applied. The
-   unproven superlatives hit limb is built: hits from the
-   printed lexicon deduct 0.34 each, floored at 0, and
-   each unproven span is reported as evidence.
+2. SEAM-LISTS. One list dependent limb that the plan
+   stops at this seam is not built: the fluff filler
+   booster deduction is not applied. The comparison
+   criterion word component is built, and the unproven
+   superlatives hit limb is built: hits from the printed
+   lexicon deduct 0.34 each, floored at 0, and each
+   unproven span is reported as evidence.
 3. SEAM-SCORE-EMPTY. For an empty extraction every check
    stands not applicable, and compute_score returns the
    stated absence form for value and band rather than a
@@ -2857,9 +2857,21 @@ def _comparison(page, facts):
                 structured = True
         if structured:
             earned += 0.2
-        # The criterion word component is a list dependent
-        # limb. It stands at SEAM-LISTS and is not built
-        # here, so it earns nothing in this form.
+        # The criterion word component: at least 3 distinct
+        # criterion words from the printed list near the
+        # comparison, where near means inside the section or
+        # within 100 words after its end, counted in word
+        # tokens from the section last word.
+        near_words = {
+            word for word, _, _ in _token_stream(
+                text[section_span[0]:section_span[1]])
+        }
+        near_words |= {
+            word for word, _, _ in _token_stream(
+                text[section_span[1]:])[:100]
+        }
+        if len(near_words & set(_CRITERION_WORDS)) >= 3:
+            earned += 0.2
 
     earned = _round3(earned)
     if earned <= 0:
