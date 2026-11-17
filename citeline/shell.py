@@ -80,8 +80,7 @@ _SURFACE = {
         "robots_preview",
         ("home", "first_robots_file", "second_robots_file",
          "evaluated_page_path", "first_capture_date",
-         "second_capture_date", "first_captured_on",
-         "second_captured_on", "form", "audit_date")),
+         "second_capture_date", "form", "audit_date")),
     "probe import": (
         "probe_import",
         ("home", "answer_file", "product", "round",
@@ -108,11 +107,28 @@ _SURFACE = {
         "staleness_view", ("home", "form")),
 }
 
+# Spellings that once stood accepted beside the documented
+# input of one operation and stand refused now: the refusal
+# names the documented spelling, so a call carrying the old
+# spelling, or both spellings of one input, stands refused
+# in the open and never silently discards one value
+# (register item R19-101).
+_RETIRED_SPELLINGS = {
+    "set_category": {"category": "category_terms"},
+    "robots_preview": {
+        "first_captured_on": "first_capture_date",
+        "second_captured_on": "second_capture_date",
+    },
+}
+
 # Flag spellings that name a differently named input of
 # the operation they call.
 _FLAG_ALIASES = {
     "name_round": {"round": "round_label"},
     "guide": {"round": "round_label"},
+    "probe_import": {"round_label": "round"},
+    "probe_report": {"round_label": "round"},
+    "probe_trend": {"round": "round_a", "round_label": "round_a"},
 }
 
 # Markers of a report artefact record, whose Agentic form
@@ -362,13 +378,36 @@ def _parse_flags_detailed(tokens, allowed, operation):
     while index < len(tokens):
         token = tokens[index]
         if not token.startswith("--"):
-            return None, None
+            return None, (
+                "the call carries %r standing alone; every "
+                "input stands as a named flag with a value "
+                "each" % token)
+        if "=" in token:
+            flag = token.split("=", 1)[0]
+            return None, (
+                "the flag %s stands joined to its value with "
+                "an equals sign; name the flag and its value "
+                "as two separate inputs, %s then its value"
+                % (flag, flag))
         raw = token[2:].replace("-", "_")
         name = aliases.get(raw, raw)
         if name not in allowed:
-            return None, None
+            retired = _RETIRED_SPELLINGS.get(operation, {})
+            if raw in retired:
+                return None, (
+                    "the flag --%s stands as no input the "
+                    "subcommand accepts; the documented "
+                    "spelling of that input is --%s, and a "
+                    "call carrying the undocumented spelling "
+                    "stands refused in the open"
+                    % (raw, retired[raw]))
+            return None, (
+                "the flag --%s stands as no input the "
+                "subcommand accepts" % raw)
         if index + 1 >= len(tokens):
-            return None, None
+            return None, (
+                "the flag --%s stands with no value; every "
+                "flag names its value after it" % raw)
         value = tokens[index + 1]
         if name in _LIST_INPUTS and name in inputs:
             standing = inputs[name]
@@ -566,16 +605,17 @@ def _usage_error(detail, home=None, operation="citeline",
     """The governed malformed call outcome, at the shell layer.
 
     Prints the MALFORMED_CALL value with its message to
-    standard error, reproduces the subcommand list in full
-    on standard output, appends the failure record where the
-    named home chain accepts appends, and returns the usage
-    exit code 2.
+    standard error and nothing to standard output, so the
+    one line cause stands alone and no full help text floods
+    the output (register item R19-043). Appends the failure
+    record where the named home chain accepts appends, and
+    returns the usage exit code 2. The full help text stands
+    printed by the help subcommand alone.
     """
     from citeline import errors
     exc = errors.CitelineError(detail, token="MALFORMED_CALL")
     _append_malformed_record(home, operation, audit_date)
     _print_error(exc)
-    print(help_text(), end="")
     return _USAGE
 
 
@@ -755,7 +795,7 @@ def _run_watch(tokens):
             operation="watch")
     from citeline import watch
     try:
-        result = watch.run_watch(plan_file=inputs["plan"], form=form)
+        result = watch.run_watch(plan_file=inputs["plan"])
     except TypeError:
         return _usage_error(
             "the watch call stands malformed against the "
