@@ -28,12 +28,12 @@ Seams honoured here, as the design plan states them:
    stands not applicable, and compute_score returns the
    stated absence form for value and band rather than a
    number, because that case stands unruled.
-4. The description consistency whitespace normalisation
-   operation is a referred stop and is not invented here.
-   The rule precedence builds now (verbatim, then drift,
-   then absence) on cases that need no normalisation
-   judgement: verbatim means the canonical line stands in
-   the running text character for character.
+4. The description consistency rule precedence stands
+   as verbatim, then drift, then absence, with verbatim
+   judged after whitespace normalisation: the canonical
+   line and the running text both stand with every
+   whitespace run folded to one space before the
+   comparison.
 """
 
 import datetime
@@ -3082,24 +3082,32 @@ def _unproven_superlatives(page, citations, statistics, quotations):
     return earned, "SUP_UNPROVEN", spans
 
 
+def _normalise_whitespace(text_value):
+    return re.sub(r"\s+", " ", str(text_value or "")).strip()
+
+
 def _description_consistency(page, facts):
     text = _page_text(page)
     canonical = facts.get("canonical_line")
     if not canonical:
         return 0, "DESC_MISSING"
-    # Verbatim means the line stands in word form: the
-    # string must stand with a word boundary at each end,
-    # so a line glued inside longer words earns nothing.
+    # Verbatim is judged after whitespace normalisation:
+    # the canonical line and the page text both stand with
+    # every whitespace run folded to one space, and the
+    # line must stand with a word boundary at each end, so
+    # a line glued inside longer words earns nothing.
+    normalised_text = _normalise_whitespace(text)
+    normalised_canonical = _normalise_whitespace(canonical)
     verbatim = re.search(
-        r"(?<![^\W_])" + re.escape(canonical) + r"(?![^\W_])",
-        text,
+        r"(?<![^\W_])" + re.escape(normalised_canonical) + r"(?![^\W_])",
+        normalised_text,
     )
     if verbatim is not None:
         return 1.0, "DESC_PRESENT"
     canonical_words = _word_set(canonical)
     if canonical_words:
         for sentence in _page_sentences(page):
-            if sentence.strip() == canonical.strip():
+            if _normalise_whitespace(sentence) == normalised_canonical:
                 continue
             words = _word_set(sentence)
             if not words:
