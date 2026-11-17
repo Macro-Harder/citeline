@@ -122,7 +122,13 @@ def _contains_term(sentence, term):
     # lists: case insensitive over word tokens, words as
     # alphanumeric tokens, a hyphenated form counting as
     # its parts, and a multi word entry matching as a
-    # consecutive token sequence.
+    # consecutive token sequence. A term standing in no
+    # string form stands as no term, in the guard form
+    # the module states for its other collections, so no
+    # raw error reaches the caller (Step 17 round 15
+    # entry S17-R15-008).
+    if not isinstance(term, str):
+        return False
     sentence_tokens = _word_tokens(sentence)
     term_tokens = _word_tokens(term)
     if not sentence_tokens or not term_tokens:
@@ -144,8 +150,8 @@ def passes_naming_test(sentence, product_name=None, aliases=(), category_terms=(
     terms = []
     if product_name:
         terms.append(product_name)
-    terms.extend(aliases or [])
-    terms.extend(category_terms or [])
+    terms.extend(_term_collection(aliases))
+    terms.extend(_term_collection(category_terms))
     return any(_contains_term(sentence, term) for term in terms)
 
 
@@ -256,7 +262,14 @@ def _term_collection(value):
     if isinstance(value, str):
         return [value]
     if isinstance(value, (list, tuple)):
-        return list(value)
+        # The items inside a term list stand under the
+        # same form guard as the collection whole: a non
+        # string item stands skipped, as a non string
+        # sentence item stands skipped at the choosing
+        # reading, so no raw error reaches the caller of
+        # the naming test or of the draft (Step 17 round
+        # 15 entry S17-R15-008).
+        return [item for item in value if isinstance(item, str)]
     return []
 
 
@@ -775,6 +788,48 @@ def compute_round_triggers(answers=None, round_metrics=None):
     return triggers
 
 
+_FAILED_CONTROL_COMPONENTS = (
+    ("control", "failed"), ("control", "failure"),
+    ("control", "flag"))
+
+
+def _record_states_failed_control(record):
+    # The draft suppression reading stands on the same
+    # terms the rendering pass judges, as the reporting
+    # module states the shared reading in its own text:
+    # the flag stands judged by truthiness, and the three
+    # flag names stand judged as the same failed control
+    # under the component reading that module states for
+    # field names, so a case shifted, camel, separator, or
+    # doubled separator form of one of those names states
+    # the failed control as the exact name does, at the
+    # top level and at any depth, over the walked objects
+    # (Step 17 round 5 entry S17-R5-043, round 6 entry
+    # S17-R6-037, round 7 entry S17-R7-039, and round 15
+    # entry S17-R15-007). The component reading itself
+    # stands read from the reporting module, so the two
+    # readings stand as one reading and not as two copies.
+    from citeline import reporting
+
+    def walk(node):
+        if isinstance(node, dict):
+            yield node
+            for item in node.values():
+                yield from walk(item)
+        elif isinstance(node, (list, tuple)):
+            for item in node:
+                yield from walk(item)
+        elif hasattr(node, "__dict__"):
+            yield from walk(vars(node))
+
+    for obj in walk(record):
+        for key, value in obj.items():
+            if tuple(reporting._key_components(key)) in \
+                    _FAILED_CONTROL_COMPONENTS and value:
+                return True
+    return False
+
+
 def draft_from_round(round_record=None, canonical_line=None, audit_date=None,
                      answers=None, round_metrics=None, trigger_codes=None,
                      control_failed=False, source_round_id=None,
@@ -809,8 +864,8 @@ def draft_from_round(round_record=None, canonical_line=None, audit_date=None,
         product_id = _get(record, "product_id", None)
     if audit_date is None:
         audit_date = _get(record, "audit_date", None)
-    if control_failed is False:
-        control_failed = bool(_get(record, "control_failed", False))
+    control_failed = bool(control_failed) or \
+        _record_states_failed_control(record)
 
     if control_failed:
         triggers = []

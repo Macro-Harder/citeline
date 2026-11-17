@@ -2250,6 +2250,43 @@ def _fence_form(line):
     return line.strip()
 
 
+def _front_matter_block_depth(block):
+    """The bracket nesting depth of one JSON front matter
+    block, counted iteratively over its text.
+
+    The count stands on the bracket characters standing
+    outside string literals, escapes inside a string
+    standing skipped, so a deep block stands judged
+    without a parse and without recursion, in the form
+    the depth judgement of the cured seam at entry
+    S17-R14-004 states for a parsed value (Step 17 round
+    15 entry S17-R15-009).
+    """
+    depth = 0
+    deepest = 0
+    in_string = False
+    escaped = False
+    for char in block:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+        if char == '"':
+            in_string = True
+        elif char in "[{":
+            depth += 1
+            if depth > deepest:
+                deepest = depth
+        elif char in "]}":
+            if depth > 0:
+                depth -= 1
+    return deepest
+
+
 def _front_matter_key_count(page_file):
     """The top level key count of one page's front matter block.
 
@@ -2307,12 +2344,36 @@ def _front_matter_key_count(page_file):
         return None
     block = "\n".join(block_lines).strip()
     if block.startswith("{"):
+        # The block stands judged on its nesting depth
+        # ahead of its parse, on the iterative count
+        # above, under the same depth discipline as the
+        # cured seam at entry S17-R14-004: a block nesting
+        # past the JSON nesting depth limit of 100 refuses
+        # here in the recorded vocabulary, and a parse
+        # that still meets the platform recursion standing
+        # converts to the same refusal on the catch below,
+        # so no nesting form escapes the audit route as a
+        # raw RecursionError at any depth (Step 17 round
+        # 15 entry S17-R15-009, on the discipline of entry
+        # S17-R1-033).
+        if _front_matter_block_depth(block) > 100:
+            _fail(
+                "LIMIT_EXCEEDED",
+                "JSON nesting depth limit is 100 in force "
+                "for this run, with rejection and no "
+                "partial record")
         import json
         try:
             parsed = json.loads(
                 block, object_pairs_hook=_flow_pairs_hook)
         except ValueError:
             parsed = None
+        except RecursionError:
+            _fail(
+                "LIMIT_EXCEEDED",
+                "JSON nesting depth limit is 100 in force "
+                "for this run, with rejection and no "
+                "partial record")
         if isinstance(parsed, dict):
             return _flow_key_count(parsed)
     from citeline import acquisition as acquisition_module

@@ -851,16 +851,36 @@ def _curly_single_is_internal(text, pos):
         # head noun standing in the clause for the mark
         # to possess, and the mark stands as no
         # possessive in the unmatched reading below.
-        # The reading reads the last three words standing
-        # before the mark alone, scanning back from the
-        # mark until three words stand read or the line
-        # start stands reached, so its cost stands on
-        # those words and not on the length of the line
-        # standing before the mark.
+        # The reading scans back from the mark over a
+        # bounded window of words standing before it, so
+        # its cost stands on those words and not on the
+        # length of the line standing before the mark.
+        # The possessive noun stands first in that
+        # window. A determiner stands before it, with
+        # modifier words standing between the determiner
+        # and the noun in ordinary wordings, as in it is
+        # the winning cats and it is the very best cats.
+        # A copula stands before the determiner, with
+        # adverb or negation words standing between the
+        # copula and the determiner in ordinary
+        # wordings, as in it is really the cats, it is
+        # not the dogs, and the prize was really the
+        # dogs, and with an auxiliary standing after a
+        # copula form in the same way, as in it has
+        # become the cats, the copula form itself
+        # standing directly after the determiner there.
+        # The determiner set and the copula set stand
+        # widened past the first lists on the same
+        # ground: demonstrative and possessive
+        # determiners stand in the determiner place, as
+        # in it is those cats and it is my cats, and the
+        # copular verbs remains and became and their
+        # forms stand in the copula place, as in it
+        # remains the cats and it became the cats.
         line_start = text.rfind("\n", 0, mark) + 1
         words = []
         cursor = mark
-        while cursor > line_start and len(words) < 3:
+        while cursor > line_start and len(words) < 8:
             while cursor > line_start and not (
                 "a" <= text[cursor - 1] <= "z"
                 or "A" <= text[cursor - 1] <= "Z"
@@ -873,19 +893,38 @@ def _curly_single_is_internal(text, pos):
             ):
                 cursor -= 1
             if word_end > cursor:
-                words.append(text[cursor:word_end])
+                words.append(text[cursor:word_end].lower())
+        determiners = (
+            "the", "their", "our", "your", "his",
+            "her", "its", "those", "these", "this",
+            "that", "my",
+        )
+        copulas = (
+            "is", "are", "was", "were", "be", "been",
+            "being", "seems", "seem", "seemed",
+            "remains", "remain", "remained", "became",
+            "become", "becomes",
+        )
+        adverbs = (
+            "really", "still", "also", "just", "not",
+            "never", "always", "now", "then", "very",
+            "even", "only",
+        )
         if len(words) < 3:
             return False
-        return (
-            words[1].lower() in (
-                "the", "their", "our", "your", "his",
-                "her", "its",
-            )
-            and words[2].lower() in (
-                "is", "are", "was", "were", "be", "been",
-                "being", "seems", "seem", "seemed",
-            )
-        )
+        det_index = None
+        for index in range(1, len(words)):
+            if words[index] in determiners:
+                det_index = index
+                break
+        if det_index is None:
+            return False
+        index = det_index + 1
+        while index < len(words) and words[index] in adverbs:
+            index += 1
+        if index >= len(words):
+            return False
+        return words[index] in copulas
 
     own_possessive = mark_is_possessive(pos)
     predicate_possessive = mark_is_predicate_possessive(pos)
@@ -925,6 +964,9 @@ def _curly_single_is_internal(text, pos):
             "in", "on", "at", "to", "and", "or", "but", "as",
             "by", "for", "with", "from", "said", "says",
             "wrote", "asked", "added", "noted", "called",
+            "replied", "remarked", "observed", "stated",
+            "declared", "explained", "continued", "insisted",
+            "reported", "whispered",
             "after", "before", "during", "over", "under",
             "into", "upon", "per", "via", "the", "a", "an",
         )
@@ -1069,10 +1111,29 @@ def _curly_single_is_internal(text, pos):
             # stands pinned as a true closing of the
             # same composition closes its own span
             # there.
+            # The saying verb set of the attribution
+            # judgement stands widened past its first
+            # six verbs on the same ground, and the
+            # subject standing after the verb stands
+            # judged in any of its ordinary forms, a
+            # capitalised name, a pronoun, or a common
+            # noun phrase alike, as in replied Priya
+            # Nair, said she, and said the chair, the
+            # charge stating no verb limit and no name
+            # form limit.
+            saying_verbs = (
+                r"said|says|say|wrote|writes|asked|asks"
+                r"|added|adds|noted|notes|called|calls"
+                r"|replied|replies|remarked|remarks"
+                r"|observed|observes|stated|states"
+                r"|declared|declares|explained|explains"
+                r"|continued|continues|insisted|insists"
+                r"|reported|reports|whispered|whispers"
+            )
             companion_attributed = re.match(
                 r"\s*[,;:!?.]?\s*"
-                r"(?i:said|says|wrote|asked|added"
-                r"|noted|called)\s+[A-Z]",
+                r"(?i:" + saying_verbs + r")"
+                r"\s+[A-Za-z]+",
                 tail) is not None
             companion_subordinated = re.match(
                 r"\s*as\s+(?:she|he|they|we|it)\s+"
@@ -1081,9 +1142,9 @@ def _curly_single_is_internal(text, pos):
                 between_first.lower()) is not None
             outer_attributed = (
                 re.search(
-                    r"\b(?:said|says|wrote|asked|added"
-                    r"|noted|called)\s+[A-Z]",
-                    tail) is not None
+                    r"\b(?:" + saying_verbs + r")"
+                    r"\s+[A-Za-z]+",
+                    tail, re.IGNORECASE) is not None
                 and not companion_attributed
             )
             span_opening = text.rfind(
@@ -1646,6 +1707,38 @@ def _statistic_analysis(page):
     month_alt_early = (
         month_names_early + "|" + _MONTH_ABBREVIATIONS)
     for date_pattern in (
+        # The joiner forms past the comma and space
+        # compositions, round 15, standing first on the
+        # same ground: a full date standing first with
+        # a spaced marker time standing after it, where
+        # a joiner stands between the date and the time,
+        # a joiner word at or on, a comma standing
+        # before such a word, a semicolon, a colon, a
+        # pipe, or a hyphen standing between spaces; and
+        # a plain time standing first before a full
+        # date in day first month name order spelled
+        # with a comma before its year, where a joiner
+        # word on or at, a comma standing before such a
+        # word, a semicolon, or a hyphen standing
+        # between spaces stands between the time and
+        # the date.
+        r"\b\d{1,2}(?:st|nd|rd|th)?\s+(?:"
+        + month_alt_early + r")\.?\s*,?\s*\d{2,4}"
+        r"(?:\s*,\s*(?:at|on)\s+|\s+(?:at|on)\s+"
+        r"|\s*;\s*|\s*:\s*|\s*\|\s*|\s+-\s+)"
+        r"\d{1,2}:\d{2}(?::\d{2})?\s+"
+        r"(?:AM|PM|A\.M\.|P\.M\.)(?!\w)",
+        r"\b(?:" + month_alt_early + r")\.?\s+"
+        r"\d{1,2}(?:st|nd|rd|th)?\s*,?\s*\d{2,4}"
+        r"(?:\s*,\s*(?:at|on)\s+|\s+(?:at|on)\s+"
+        r"|\s*;\s*|\s*:\s*|\s*\|\s*|\s+-\s+)"
+        r"\d{1,2}:\d{2}(?::\d{2})?\s+"
+        r"(?:AM|PM|A\.M\.|P\.M\.)(?!\w)",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?"
+        r"(?:\s*,\s*(?:on|at)\s+|\s+(?:on|at)\s+"
+        r"|\s*;\s*|\s+-\s+)"
+        r"\d{1,2}(?:st|nd|rd|th)?\s+(?:"
+        + month_alt_early + r")\.?\s*,\s*\d{2,4}\b",
         # The orders the sets below still omit, round 7,
         # standing first because the plainer composites
         # below would otherwise take the date part and

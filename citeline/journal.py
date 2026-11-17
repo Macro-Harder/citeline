@@ -466,9 +466,13 @@ def _open_home_file_descriptor(path, mode, create=None,
     judged before anything is written or truncated: a
     non regular file and a hard link count above one
     each stand refused on the handle that stands open,
-    in the form of the supplied file discipline (Step
-    17 round 5 entries S17-R5-001, S17-R5-061, and
-    S17-R5-062). Mode "a" appends, mode "w" writes and
+    and the path stands judged as still naming that
+    handle beside them, so a file moved away from its
+    path before the open, or a replacement standing at
+    its path, stands refused at the open in the same
+    form (Step 17 round 5 entries S17-R5-001, S17-R5-061,
+    and S17-R5-062, completed at round 15 entry
+    S17-R15-001). Mode "a" appends, mode "w" writes and
     truncates only after the judgement stands, mode
     "r+" reads and writes without truncating, and mode
     "r" reads only. Where defer_truncate stands at a
@@ -535,6 +539,7 @@ def _open_home_file_descriptor(path, mode, create=None,
         info = os.fstat(descriptor)
         if not stat.S_ISREG(info.st_mode) or info.st_nlink > 1:
             raise _UnsafeHomeFile(path)
+        _judge_path_still_names_handle(info, path)
         if mode == "w" and not defer_truncate:
             os.ftruncate(descriptor, 0)
     except BaseException:
@@ -550,17 +555,48 @@ def _open_home_file_descriptor(path, mode, create=None,
     return descriptor
 
 
+def _judge_path_still_names_handle(info, path):
+    """Judge that the path still names the opened handle:
+    the file standing at the path stands compared against
+    the handle by its inode and its device, so a file
+    moved away from its path, and a replacement or a link
+    standing at its path in its place, stands refused in
+    the form of the judgement that calls this one. A
+    rename plant holds its inode and its link count of
+    one whole, so the handle facts alone judge nothing
+    about it: the path identity stands judged beside them
+    at the open judgement and at every rejudgement of
+    every journal write site (Step 17 round 15 entry
+    S17-R15-001). No anchor on any parent directory
+    stands stated by this judgement, and no home identity
+    apart from the home path stands stated by it."""
+    try:
+        path_info = os.lstat(path)
+    except OSError:
+        raise _UnsafeHomeFile(path)
+    if stat.S_ISLNK(path_info.st_mode) \
+            or not stat.S_ISREG(path_info.st_mode) \
+            or path_info.st_ino != info.st_ino \
+            or path_info.st_dev != info.st_dev:
+        raise _UnsafeHomeFile(path)
+
+
 def _rejudge_open_descriptor(descriptor, path):
     """Judge an opened home file handle again, between
     the judgement at its open and the write that follows
     it: a hard link planted against the path in that
     window names the same inode the descriptor holds, so
     the link count stands read again on the handle before
-    anything is written or truncated through it (Step 17
-    round 6 entry S17-R6-006)."""
+    anything is written or truncated through it, and the
+    path stands judged as still naming that handle beside
+    it, so a rename plant in the same window stands
+    refused in the same form (Step 17 round 6 entry
+    S17-R6-006, completed at round 15 entry
+    S17-R15-001)."""
     info = os.fstat(descriptor)
     if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
         raise _UnsafeHomeFile(path)
+    _judge_path_still_names_handle(info, path)
 
 
 def _open_home_file_read_descriptor(path):

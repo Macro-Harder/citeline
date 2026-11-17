@@ -1553,6 +1553,56 @@ def _fm_judged_fence(line):
     return _fm_remove_interior_head(_fm_strip_head_edges(line))
 
 
+_FM_JUDGED_POSITION_CHARS = set(
+    "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~")
+
+_FM_WIDENED_FOLLOWER_CHARS = set("-.+$~;/=@^`?\\()<:") | {
+    "\u203f"}
+
+
+def _fm_position_scan_holds(text):
+    """True where a construct stands held on the position
+    scan the round 15 cure lands, judged on the text as
+    written, one construct position at a time, so no
+    match pass consumes a position a later construct
+    needs. A construct position stands judged where,
+    reading back from the construct over head material
+    that is not whitespace, the scan reaches the start
+    of the text, a whitespace character, or a character
+    of the judged position punctuation set. The follower
+    at such a position stands judged where the character
+    standing immediately after the construct character
+    is a mark of the union of general category Mn, Mc,
+    or Me, or stands as head material and stands in the
+    follower set through a word character or through
+    one of the widened follower characters (Step 17
+    round 15 entries S17-R15-002, S17-R15-003, and
+    S17-R15-010)."""
+    for index, char in enumerate(text):
+        if char not in "&*%!":
+            continue
+        if index + 1 >= len(text):
+            continue
+        follower = text[index + 1]
+        if unicodedata.category(follower) in (
+                "Mn", "Mc", "Me"):
+            pass
+        elif _fm_is_head_char(follower) and (
+                follower.isalnum() or follower == "_"
+                or follower in _FM_WIDENED_FOLLOWER_CHARS):
+            pass
+        else:
+            continue
+        back = index - 1
+        while back >= 0 and _fm_is_head_char(text[back]) \
+                and not text[back].isspace():
+            back -= 1
+        if back < 0 or text[back].isspace() \
+                or text[back] in _FM_JUDGED_POSITION_CHARS:
+            return True
+    return False
+
+
 def _fm_holds_tag_construct(text):
     """True where a key or value text holds a tag
     construct, on the terms the import side reading
@@ -1643,7 +1693,21 @@ def _fm_holds_tag_construct(text):
     or before only whitespace or head material, stands
     judged on that reading, the interior head reading
     then standing as it stood for every other
-    judgement of the helper)."""
+    judgement of the helper, and completed at round
+    15 entries S17-R15-002, S17-R15-003, and
+    S17-R15-010 on the position scan at
+    _fm_position_scan_holds: the follower judgement
+    stands reached on the text as written at every
+    construct position in turn, a construct standing
+    behind head material at a judged position standing
+    judged as the scan reads back over that material,
+    a second construct standing after a first standing
+    judged at its own position, and a sole follower
+    character of the follower set that also stands as
+    head material standing judged in the word
+    character form as in the mark form)."""
+    if _fm_position_scan_holds(text):
+        return True
     for match in re.finditer(
             r"(?:^|[\s!\"#\$%&'\(\)\*\+,\-\./:;<=>\?@\[\\\]\^_`{|}~])"
             r"[&*%!](.)", _fm_remove_interior_head_except_marks(text)):
