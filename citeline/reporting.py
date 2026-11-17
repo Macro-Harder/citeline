@@ -2234,6 +2234,25 @@ def _render_audit_simple(body):
     lines.append(
         "  The guide artefact for this run carries the actions "
         "for this run in plain words, from the run_id above.")
+    # The page text the run read stands in the artefact as
+    # plain text characters, headings first, then the page
+    # sentences in their stored order: hostile page material
+    # renders as text here, at the one escaping point the
+    # body already passed through, and stands as evidence
+    # the reader can see rather than a figure alone.
+    page_headings = []
+    for check in body.get("checks") or []:
+        for section in check.get("section_breakdown") or []:
+            heading = section.get("heading_text")
+            if heading and heading not in page_headings:
+                page_headings.append(heading)
+    page_sentences = body.get("sentences") or []
+    if page_headings or page_sentences:
+        lines.append("The page text this run read:")
+        for heading in page_headings:
+            lines.append("  %s" % heading)
+        for sentence in page_sentences:
+            lines.append("  %s" % sentence)
     lines.append(
         "The full record for this run stands in the Advanced "
         "artefact for the same run.")
