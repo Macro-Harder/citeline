@@ -3296,6 +3296,11 @@ def run_checks(page, facts=None, audit_date=None, **_ignored):
             "is_product_page", True
         ):
             applicable = False
+            # A not applicable check carries no earned
+            # fraction and no presence reason: the record
+            # stands with status not_applicable alone.
+            earned = None
+            reason = None
         if check_id == "comparison" and (
             not facts.get("competitors")
             or not facts.get("category_terms")
@@ -3310,7 +3315,7 @@ def run_checks(page, facts=None, audit_date=None, **_ignored):
         result = {
             "check_id": check_id,
             "weight": weight,
-            "earned": _round3(earned),
+            "earned": _round3(earned) if earned is not None else None,
             "status": assign_status(
                 check_id, applicable=applicable, empty=empty
             ),
