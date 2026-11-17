@@ -123,9 +123,33 @@ class TestD01CountOnlyHeadline(unittest.TestCase):
             "cited": rate_block(1, 3, low=0.0615, high=0.7923),
         }}
         text = reporting.render(record, form="simple")
-        self.assertIn("named: 2 answers", text)
-        self.assertIn("named_early: 2 answers", text)
-        self.assertIn("cited: 1 answers", text)
+        # Restated for Step 19 register item R19-056: the
+        # count only line now carries the interval the stored
+        # record holds and the small sample warning beside
+        # it, states in the count only clause that no rate
+        # stands as a finding instead of saying no rate is
+        # given while showing one, and counts one answer in
+        # the singular. The stored count per outcome stands
+        # pinned in each line in full.
+        self.assertIn(
+            "named: 2 answers, interval 21 to 94 percent, "
+            "tier count only: count only means the round "
+            "rests on the count of answers alone and no rate "
+            "stands as a finding. Small sample warning: this "
+            "rate may change as more answers are added.", text)
+        self.assertIn(
+            "named_early: 2 answers, interval 21 to 94 "
+            "percent, tier count only: count only means the "
+            "round rests on the count of answers alone and "
+            "no rate stands as a finding. Small sample "
+            "warning: this rate may change as more answers "
+            "are added.", text)
+        self.assertIn(
+            "cited: 1 answer, interval 6 to 79 percent, "
+            "tier count only: count only means the round "
+            "rests on the count of answers alone and no rate "
+            "stands as a finding. Small sample warning: this "
+            "rate may change as more answers are added.", text)
         self.assertNotIn("named: 3 answers", text)
         self.assertNotIn("cited: 3 answers", text)
 
