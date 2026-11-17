@@ -17,13 +17,12 @@ Seams honoured here, as the design plan states them:
    and None where the unruled mapping would be needed.
    An applicability outcome is not a derivation from an
    earned value.
-2. SEAM-LISTS. One list dependent limb that the plan
-   stops at this seam is not built: the fluff filler
-   booster deduction is not applied. The comparison
-   criterion word component is built, and the unproven
-   superlatives hit limb is built: hits from the printed
-   lexicon deduct 0.34 each, floored at 0, and each
-   unproven span is reported as evidence.
+2. SEAM-LISTS. The list dependent limbs stand built:
+   the comparison criterion word component earns its
+   share, the fluff filler booster deduction is applied,
+   and the unproven superlatives hit limb is built: hits
+   from the printed lexicon deduct 0.34 each, floored at
+   0, and each unproven span is reported as evidence.
 3. SEAM-SCORE-EMPTY. For an empty extraction every check
    stands not applicable, and compute_score returns the
    stated absence form for value and band rather than a
@@ -3166,7 +3165,7 @@ def _keyword_stuffing(page, facts):
     return earned, reason
 
 
-def _fluff(page, context):
+def _fluff(page, context, analyses=()):
     word_count = _get(page, "word_count", 0) or 0
     if word_count:
         evidence = (
@@ -3181,8 +3180,18 @@ def _fluff(page, context):
         return 0, "FLF_LONG_LOW_EVIDENCE"
     if 400 <= word_count <= 799 and density < 0.5:
         return 0.4, "FLF_LONG_LOW_EVIDENCE"
-    # The filler booster deduction is a list dependent
-    # limb at SEAM-LISTS and is not built here.
+    # The filler booster deduction: the otherwise outcome
+    # loses 0.3 where the stated filler boosters appear at
+    # least 3 times with no evidence in their sentences.
+    if analyses:
+        flags = _sentence_evidence_flags(page, analyses)
+        booster_hits = 0
+        for index, sentence in enumerate(_page_sentences(page)):
+            if index < len(flags) and flags[index]:
+                continue
+            booster_hits += len(_list_hits(sentence, _FILLER_BOOSTERS))
+        if booster_hits >= 3:
+            return 0.7, "FLF_BOOSTERS"
     return 1.0, "FLF_OK"
 
 
@@ -3269,7 +3278,11 @@ def run_checks(page, facts=None, audit_date=None, **_ignored):
         [],
         {},
     )
-    outcomes["fluff"] = (*_fluff(page, context), [], {})
+    outcomes["fluff"] = (
+        *_fluff(page, context, (citations, statistics, quotations)),
+        [],
+        {},
+    )
     outcomes["unproven_superlatives"] = (
         *_unproven_superlatives(page, citations, statistics, quotations),
         {},
