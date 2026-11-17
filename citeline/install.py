@@ -444,6 +444,60 @@ def uninstall(location=None, home=None, **_ignored):
             % (exc,))
 
 
+_LAUNCHER_MARKER = "Citeline launcher for one local installation"
+
+
+def _is_product_file(path):
+    """True where the file at the product file path is this
+    product file: the exact launcher text for this location,
+    or a launcher carrying the Citeline launcher marker, as
+    a launcher installed from another tree path does. A file
+    of any other content is a foreign file the installer
+    never created, however it is named."""
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            text = handle.read()
+    except OSError:
+        return False
+    if _LAUNCHER_MARKER in text and "_PACKAGE_PARENT" in text:
+        return True
+    return False
+
+
+def _config_home_value(path):
+    """The home value a config file at the install location
+    names, or None where it names none."""
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            for line in handle:
+                line = line.strip()
+                if line.startswith("home") and "=" in line:
+                    return line.split("=", 1)[1].strip()
+    except OSError:
+        return None
+    return None
+
+
+def _home_is_product_home(home):
+    """True where the home holds the files the product
+    itself creates there: the journal or its write lock."""
+    for name in ("journal.jsonl", ".citeline-write.lock"):
+        if os.path.lexists(os.path.join(home, name)):
+            return True
+    return False
+
+
+def _home_linked(location, home):
+    """True where the installation at the location names
+    this home: the config file at the location, installer
+    created or standing, carries a home line for it."""
+    named = _config_home_value(
+        os.path.join(location, CONFIG_FILE_NAME))
+    if named is None:
+        return False
+    return os.path.abspath(named) == os.path.abspath(home)
+
+
 def _remove_home_tree(home, removed):
     """Remove a product home and everything in it.
 
@@ -485,6 +539,8 @@ def _uninstall_impl(location=None, home=None):
     location = str(location)
     home = str(home)
     removed = []
+    remaining = []
+    evidence = False
     product_file = os.path.join(location, PRODUCT_FILE_NAME)
     config_file = os.path.join(location, CONFIG_FILE_NAME)
     for path in (product_file, config_file):
@@ -494,34 +550,57 @@ def _uninstall_impl(location=None, home=None):
         if stat.S_ISLNK(info.st_mode):
             os.unlink(path)
             removed.append(path)
+            evidence = True
         elif stat.S_ISREG(info.st_mode):
             if path == config_file and not _is_installer_config(
                     path):
+                remaining.append(path)
+                continue
+            if path == product_file and not _is_product_file(
+                    path):
+                remaining.append(path)
                 continue
             os.unlink(path)
             removed.append(path)
+            evidence = True
+        else:
+            remaining.append(path)
     if os.path.lexists(home):
         info = os.lstat(home)
         if stat.S_ISLNK(info.st_mode):
             os.unlink(home)
             removed.append(home)
         elif stat.S_ISDIR(info.st_mode):
-            _remove_home_tree(home, removed)
+            linked = _home_linked(location, home) or \
+                _home_is_product_home(home) or (
+                    evidence and not os.listdir(home))
+            if linked:
+                _remove_home_tree(home, removed)
+            else:
+                remaining.append(home)
+        else:
+            remaining.append(home)
     if os.path.lexists(location):
         info = os.lstat(location)
         if stat.S_ISLNK(info.st_mode):
             os.unlink(location)
             removed.append(location)
         elif stat.S_ISDIR(info.st_mode):
-            try:
-                os.rmdir(location)
-                removed.append(location)
-            except OSError:
-                pass
+            if evidence:
+                try:
+                    os.rmdir(location)
+                    removed.append(location)
+                except OSError:
+                    remaining.append(location)
+            else:
+                remaining.append(location)
+        else:
+            remaining.append(location)
     return {
         "location": location,
         "home": home,
         "removed": removed,
+        "remaining": remaining,
         "complete": True,
     }
 

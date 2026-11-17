@@ -695,13 +695,16 @@ class TestInstallUninstall(unittest.TestCase):
         """Pins interrupted install then uninstall, created items list
         limb only. Oracle: plan Section 1.3 S10 status: the case pins
         in its created items list limb. Its home contents limb stands
-        blocked on L-MA-6 and is not asserted here."""
+        blocked on L-MA-6 and is not asserted here. Amended at Step 19
+        item R19-014: a file at the product file path whose content
+        is not the product file is a foreign file the installer never
+        created, and uninstall leaves it standing."""
         self.location.mkdir(parents=True)
         partial = self.location / "citeline.py"
         partial.write_text("partial\n", encoding="utf-8")
         result = self.uninstall()
         self.assertIsNotNone(result)
-        self.assertFalse(partial.exists())
+        self.assertTrue(partial.exists())
 
 
 class TestStatusCapacity(unittest.TestCase):

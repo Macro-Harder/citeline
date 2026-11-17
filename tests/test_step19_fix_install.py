@@ -65,5 +65,48 @@ class TestR19012UsedHomeRemoval(InstallCase):
         self.assertFalse((self.home / "journal.jsonl").exists())
 
 
+class TestR19014Provenance(InstallCase):
+    """R19-014: uninstall checks provenance before every
+    removal, as the config file marker check already does,
+    per README CL19-030 and brief CL19-162."""
+
+    def test_foreign_product_file_survives_uninstall(self):
+        self.location.mkdir(parents=True)
+        victim = self.location / "citeline.py"
+        victim.write_text("keep me\n", encoding="utf-8")
+        other = self.location / "other.txt"
+        other.write_text("keep me too\n", encoding="utf-8")
+        self.home.mkdir()
+        self.uninstall()
+        self.assertEqual(
+            victim.read_text(encoding="utf-8"), "keep me\n")
+        self.assertTrue(other.exists())
+        self.assertTrue(self.location.exists())
+        self.assertTrue(self.home.exists())
+
+    def test_never_installed_empty_directories_survive(self):
+        self.location.mkdir(parents=True)
+        self.home.mkdir()
+        self.uninstall()
+        self.assertTrue(self.location.exists())
+        self.assertTrue(self.home.exists())
+
+    def test_unlinked_home_with_foreign_content_survives(self):
+        self.location.mkdir(parents=True)
+        self.home.mkdir()
+        kept = self.home / "unrelated.txt"
+        kept.write_text("not product data\n", encoding="utf-8")
+        self.uninstall()
+        self.assertTrue(kept.exists())
+        self.assertTrue(self.home.exists())
+
+    def test_installer_product_file_still_removed(self):
+        self.install()
+        self.uninstall()
+        self.assertFalse((self.location / "citeline.py").exists())
+        self.assertFalse(self.location.exists())
+        self.assertFalse(self.home.exists())
+
+
 if __name__ == "__main__":
     unittest.main()
