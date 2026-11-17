@@ -351,7 +351,13 @@ class TestE06AuditDateDefault(unittest.TestCase):
         self.assertEqual(code, 0, err)
         body = json.loads(out)
         self.assertEqual(body["audit_date"], today_utc())
-        self.assertIs(body["audit_date_defaulted"], True)
+        # The artefact limb of this pin stood restated by the
+        # Step 19 U-11 cure: the Advanced audit artefact carries
+        # only the traced field set, so the defaulted flag is
+        # read on the stored record the shell run wrote, which
+        # is the surface brief Section 6.2 M1 governs.
+        stored = self.stored_payload(body["run_id"])
+        self.assertIs(stored["audit_date_defaulted"], True)
 
     def test_shell_simple_form_names_the_defaulted_date(self):
         code, out, err = run_shell(
