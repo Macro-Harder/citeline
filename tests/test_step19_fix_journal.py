@@ -174,6 +174,36 @@ class RecoveryRecordVocabularyTests(HomeCase):
         self.assertEqual(payload["exit_code"], 5)
 
 
+class ReplaySizeCapTests(HomeCase):
+    """R19-021: the replay path enforces the home size cap
+    as append_entry enforces it, not the journal length
+    cap alone."""
+
+    def test_replay_refuses_chain_over_home_size_cap(self):
+        big_text = "x" * 600_000_000
+        first = {"sequence": 1, "entry_kind": "product_registered",
+                 "form_version": 1,
+                 "payload": {"name": big_text,
+                             "product_id": "p-big"},
+                 "previous_hash": None}
+        first_line = journal.canonical_bytes(first)
+        second = {"sequence": 2,
+                  "entry_kind": "product_registered",
+                  "form_version": 1,
+                  "payload": {"name": big_text,
+                              "product_id": "p-big-2"},
+                  "previous_hash":
+                      hashlib.sha256(first_line).hexdigest()}
+        second_line = journal.canonical_bytes(second)
+        with self.assertRaises(journal.JournalError) as caught:
+            journal.replay(self.home, [first_line, second_line])
+        self.assertEqual(caught.exception.token,
+                         "JOURNAL_CAP_EXCEEDED")
+        self.assertEqual(caught.exception.limit_number, 40)
+        self.assertFalse(
+            os.path.exists(journal.journal_path(self.home)))
+
+
 class HomeSizeCapScopeTests(HomeCase):
     """R19-022: the home size cap counts only files the
     product created, so a foreign file in the home cannot

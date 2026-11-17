@@ -3995,7 +3995,28 @@ def replay(home, entries, resume=False):
                 "the journal length cap stands reached",
                 row="I-1", token="JOURNAL_CAP_EXCEEDED",
                 refusal_context="append_cap", limit_number=39)
+        # The home size cap stands enforced here as
+        # append_entry enforces it, not the journal length
+        # cap alone (Step 19 item R19-021): the projected
+        # home size with the candidate journal standing in
+        # place of the standing journal must fit the cap
+        # before anything is written.
+        size_limit = limits["total_home_size"]
+        size_cap = size_limit["value"] * _SIZE_MULTIPLIERS[
+            size_limit["unit"]]
         path = journal_path(home)
+        try:
+            standing_journal_size = os.path.getsize(path)
+        except OSError:
+            standing_journal_size = 0
+        candidate_size = sum(len(raw) + 1 for raw in candidate)
+        projected_size = _home_size(home) - standing_journal_size \
+            + candidate_size
+        if projected_size > size_cap:
+            raise JournalError(
+                "the total home size cap stands reached",
+                row="I-1", token="JOURNAL_CAP_EXCEEDED",
+                refusal_context="append_cap", limit_number=40)
         content = b"".join(raw + b"\n" for raw in candidate)
         try:
             original_size = os.path.getsize(path)
