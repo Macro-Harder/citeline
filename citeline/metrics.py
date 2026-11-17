@@ -1453,6 +1453,25 @@ def round_metrics(answers, kind, frame=None, datum=None,
                 if _get(item, "control", None)
                 or _get(item, "control_flag", None)]
     control_count = len(controls)
+    # A control whose outcome contradicts its asserted
+    # kind stands failed on the round record, so the
+    # rendering pass can stand the control failure notice
+    # in its own form in every form of the round report:
+    # a positive control passes where the answer stands
+    # named and cited, and a negative control passes
+    # where it stands not named and not cited, under the
+    # IM7-ANA-2 landing (Step 19 queue addition U-07).
+    control_failed = False
+    for item in controls:
+        control_kind = _get(item, "control_kind", None)
+        named = bool(_get(item, "named", False))
+        cited = bool(_get(item, "cited", False)) or bool(
+            _get(item, "citation_instances", None)
+            or _get(item, "citation_instance_count", None))
+        if control_kind == "positive" and not (named and cited):
+            control_failed = True
+        elif control_kind == "negative" and (named or cited):
+            control_failed = True
     active = [item for item in by_kind if item not in controls] if controls else list(by_kind)
     # The membership test above relies on equality. Dicts that
     # compare equal but stand as distinct control rows are
@@ -1733,6 +1752,7 @@ def round_metrics(answers, kind, frame=None, datum=None,
         "empty_answer_count": empty_answer_count,
         "imported_count": imported_count,
         "control_count": control_count,
+        "control_failed": control_failed,
         "citing_answer_count": citing_answer_count,
         "citation_instance_count": citation_instance_count,
         "self_citation_share": self_citation_share,

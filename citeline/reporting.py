@@ -2573,6 +2573,18 @@ def _render_simple(body):
             if "anchor_limit" in body or \
                     "anchor_limit_sentence" in body:
                 suppress_anchor_bare = True
+        if body.get("control_failure_notice"):
+            # The notice stands in Simple in its own words,
+            # as a line of its own, never as a field line
+            # and never in a warning list (Step 19 queue
+            # addition U-07).
+            top_suppress.add("control_failure_notice")
+            top_suppress.add("control_failed")
+            lines.append(
+                "Control failure notice: a control outcome "
+                "in this round contradicts its asserted "
+                "kind. The notice stands in its own form, "
+                "beside the round figures.")
         if "evaluated_page_path" in body:
             lines.append(
                 "evaluated_page_path: %s"
