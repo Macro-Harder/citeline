@@ -2718,8 +2718,10 @@ def _render_simple(body):
     if not isinstance(body, dict):
         return _scalar_text(body)
     if _is_staleness_view(body):
+        # The staleness view carries no score, so the honesty
+        # sentence, which speaks of this score, does not
+        # close it (Step 19 register entry R19-059).
         lines = _render_staleness_simple(body)
-        lines.append(HONESTY_SENTENCE)
         return "\n".join(lines) + "\n"
     if _is_guide(body):
         lines = _render_guide_simple(body)
@@ -2797,7 +2799,18 @@ def _render_simple(body):
         lines.append(TIER_CLAUSES_LINE)
     if _carries_score_band(body):
         lines.append(SCORE_BAND_SCALE_LINE)
-    lines.append(HONESTY_SENTENCE)
+    # The honesty sentence speaks of this score, so it
+    # closes only the surfaces that carry a score or a
+    # report of one: the audit, the guide, the probe report
+    # and trend, and the robots report. An operation result
+    # that produces no score, a product registration, a
+    # round naming, an import, a status, a verify, does not
+    # close with it (Step 19 register entry R19-059).
+    if _is_audit_record(body) or _is_guide(body) or \
+            _is_probe_like(body) or "findings" in body or \
+            "robots_file" in body or "delta" in body or \
+            "series_break" in body:
+        lines.append(HONESTY_SENTENCE)
     return "\n".join(lines) + "\n"
 
 

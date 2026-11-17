@@ -220,3 +220,33 @@ class TestR19058EarnedFigureWording(unittest.TestCase):
         self.assertIn("worth 6.5 points", text)
         self.assertIn("description_consistency does not apply",
                       text)
+
+
+class TestR19059HonestySentencePlacement(unittest.TestCase):
+    """R19-059: the honesty sentence, which speaks of this
+    score, stands only on surfaces that carry a score or a
+    report of one; operation results that produce no score do
+    not close with it."""
+
+    def test_operation_results_carry_no_honesty_sentence(self):
+        status = {"head_hash": "abc123", "entry_count": 3,
+                  "home_size": 1200, "home_path": "/tmp/home",
+                  "chain_result": "chain verifies"}
+        self.assertNotIn("signal index",
+                         reporting.render(status, "simple"))
+        verify = {"passed": True, "entry_count": 2,
+                  "chain_result": "chain verifies"}
+        self.assertNotIn("signal index",
+                         reporting.render(verify, "simple"))
+        added = {"product_id": "p-x", "name": "X"}
+        self.assertNotIn("signal index",
+                         reporting.render(added, "simple"))
+
+    def test_audit_still_carries_it(self):
+        body = audit_body([
+            {"check_id": "citations", "earned": 0.0,
+             "weight": 16, "status": None,
+             "reason_code": "CIT_COUNT",
+             "evidence_class": "paper_tested"}])
+        self.assertIn("signal index",
+                      reporting.render(body, "simple"))
