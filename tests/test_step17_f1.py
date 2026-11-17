@@ -250,14 +250,18 @@ class ReplayTests(HomeCase):
 
 
 class AnchorTests(HomeCase):
-    def test_x001_sequenceless_anchor_is_divergent_and_bars(self):
+    def test_x001_sequenceless_anchor_is_torn_and_bars(self):
+        # Step 19 item R19-035 supersedes the divergent
+        # reading of this case: a part record that does not
+        # parse as a head hash with its sequence stands
+        # reported as torn. The bar stands as it stood.
         anchor = self.anchored_home(3)
         head1 = hashlib.sha256(self.journal_lines()[0]).hexdigest()
         self.truncate_journal(1)
         with open(anchor, "w") as handle:
             handle.write(head1 + "\n")
         state = journal.status_snapshot(self.home)
-        self.assertEqual(state["anchor"]["agreement"], "divergent")
+        self.assertEqual(state["anchor"]["agreement"], "torn")
         with self.assertRaises(journal.JournalError):
             self.append_product("Product 9", "p-9")
 
@@ -278,7 +282,7 @@ class AnchorTests(HomeCase):
                 handle.write("%s %s\n" % (head, suffix))
             journal._scan_cache.clear()
             state = journal.status_snapshot(home)
-            self.assertEqual(state["anchor"]["agreement"], "divergent",
+            self.assertEqual(state["anchor"]["agreement"], "torn",
                              msg=suffix)
             with self.assertRaises(journal.JournalError, msg=suffix):
                 journal.append_entry(home, "product_registered",
@@ -428,7 +432,7 @@ class ConfigTests(HomeCase):
             handle.write(b"\xff\xfe and text")
         journal._scan_cache.clear()
         state = journal.status_snapshot(self.home)
-        self.assertEqual(state["anchor"]["agreement"], "divergent")
+        self.assertEqual(state["anchor"]["agreement"], "torn")
 
     def test_076_bom_does_not_disable_first_config_line(self):
         self.write_raw_config(b"\xef\xbb\xbfjournal_length = 5\n")

@@ -282,7 +282,11 @@ class AnchorReaderTests(HomeCase):
             handle.write("%s %s\n" % (self.head_hash(2), "9" * 5000))
         journal._scan_cache.clear()
         state = journal.status_snapshot(self.home)
-        self.assertEqual(state["anchor"]["agreement"], "divergent")
+        # A recording whose sequence does not parse stands
+        # malformed, and a malformed anchor reports the torn
+        # form: Step 19 item R19-035 supersedes the divergent
+        # form this assertion pinned before that cure.
+        self.assertEqual(state["anchor"]["agreement"], "torn")
         with self.assertRaises(journal.JournalError):
             self.append_product("Product 9", "p-9")
 
@@ -304,7 +308,12 @@ class AnchorReaderTests(HomeCase):
                 handle.write("%s %s\n" % (head2, token))
             journal._scan_cache.clear()
             state = journal.status_snapshot(home)
-            self.assertEqual(state["anchor"]["agreement"], "divergent",
+            # A sequence in a signed or padded form does not
+            # parse as a recording, so the anchor stands
+            # malformed and reports the torn form: Step 19
+            # item R19-035 supersedes the divergent form this
+            # assertion pinned before that cure.
+            self.assertEqual(state["anchor"]["agreement"], "torn",
                              msg=token)
             with self.assertRaises(journal.JournalError, msg=token):
                 journal.append_entry(

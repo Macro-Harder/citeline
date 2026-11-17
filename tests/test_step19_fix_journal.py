@@ -112,6 +112,22 @@ class AnchorReadGuardTests(HomeCase):
         self.assertEqual(state["anchor"]["agreement"], "matching")
 
 
+class AnchorTornFormTests(HomeCase):
+    """R19-035: a malformed anchor stands reported in the
+    torn form, and no unparsed first token stands printed
+    as a recorded head."""
+
+    def test_malformed_anchor_reports_torn(self):
+        anchor = self.anchored_home(2)
+        with open(anchor, "w", encoding="utf-8") as handle:
+            handle.write("garbage partial")
+        journal._scan_cache.clear()
+        state = journal.status_snapshot(self.home)
+        self.assertEqual(state["anchor"]["agreement"], "torn")
+        self.assertIsNone(state["anchor"]["recorded_head"])
+        self.assertIsNone(state["anchor"]["recorded_sequence"])
+
+
 class VerifyErrorValueTests(HomeCase):
     """R19-094: the verify error_value field carries the
     vocabulary token, not the integer exit code."""

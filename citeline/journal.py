@@ -1475,9 +1475,15 @@ def _anchor_status(home, scan):
         return {"agreement": "absent", "recorded_head": None,
                 "recorded_sequence": None, "anchor_path": anchor_path}
     if state == "malformed":
-        return {"agreement": "divergent",
-                "recorded_head": recorded["head_hash"] if recorded
-                else None,
+        # A malformed anchor holds a part record that does
+        # not parse as a head hash with its sequence: the
+        # design states that position as torn, with no
+        # agreement claimed, and no unparsed first token
+        # stands printed as a recorded head (Step 19 item
+        # R19-035). Divergent stands for a recording that
+        # parses whole and stands nowhere in the chain.
+        return {"agreement": "torn",
+                "recorded_head": None,
                 "recorded_sequence": None,
                 "anchor_path": anchor_path}
     return {
