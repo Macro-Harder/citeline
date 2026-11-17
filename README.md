@@ -202,7 +202,13 @@ target audit evaluates; and guide, a guide flag
 stating whether a guide draft stands produced for
 the target. A plan may also name a second round
 per product for trend, under the key
-second_round.
+second_round. A plan may also name second_rounds,
+a list of round labels or a record of round
+labels by product, naming the extra rounds a
+picked target trend runs over beside the rounds
+its targets name. On an estate plan second_rounds
+stands disregarded, and the round warns that it
+stands disregarded.
 
 Score bands: strong at a score of 80 or more,
 developing at 60 or more, thin at 40 or more, and

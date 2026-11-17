@@ -289,7 +289,14 @@ def help_text():
         "output is the path the WatchRun artefact is "
         "written to; cadence states the operator cadence in "
         "words. A plan may also name a second round per "
-        "product for trend, under the key second_round.",
+        "product for trend, under the key second_round. "
+        "A plan may also name second_rounds, a list of "
+        "round labels or a record of round labels by "
+        "product, naming the extra rounds a picked "
+        "target trend runs over beside the rounds its "
+        "targets name; on an estate plan second_rounds "
+        "stands disregarded, and the round warns that "
+        "it stands disregarded.",
         "Score bands: strong at a score of 80 or more, "
         "developing at 60 or more, thin at 40 or more, and "
         "poor below 40, on a scale of 0 to 100, in that "
