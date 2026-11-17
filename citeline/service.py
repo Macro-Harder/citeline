@@ -2746,7 +2746,7 @@ def _audit_body(*, home, page_file=None, robots_file=None,
             cap = ((start_limits.get("by_limit") or {}).get(
                 "journal_length") or {}).get("value")
             if cap is not None and _entry_count(home) + 2 > cap:
-                raise _preflight_refusal(39)
+                raise _preflight_refusal(39, operation="audit")
         except errors.CitelineError:
             raise
         except Exception:
@@ -3188,7 +3188,20 @@ def _import_judgement_lock(home):
 # Probe import, report, and trend: calls over their components.
 # ----------------------------------------------------------------
 
-def _preflight_refusal(limit_number):
+def _preflight_refusal(limit_number, operation="import"):
+    # The refusal context and message name the operation
+    # refused (Step 19 entry R19-011): an audit refused at
+    # the cap carries the audit context, not an import
+    # preflight refusal about an import that never
+    # happened.
+    if operation == "audit":
+        return errors.CitelineError(
+            "the journal holds no room for the entries "
+            "this audit would append, so the audit stands "
+            "refused before any part of it is attempted",
+            row="I-1", token="JOURNAL_CAP_EXCEEDED",
+            refusal_context="audit_preflight",
+            limit_number=limit_number)
     return errors.CitelineError(
         "the journal holds no room for the entries this "
         "import would append, so the import stands refused "
