@@ -742,13 +742,41 @@ def _snapshots(home):
 # Competitor and list forms.
 # ----------------------------------------------------------------
 
-# Section 5.11 limits that bind registry lists.
+# Section 5.11 limits that bind registry lists. The
+# constants state the brief defaults; the limit that binds
+# a call is the limit in force for its home, read from the
+# config in force through the journal limits record, so a
+# config that lowers or raises one of these limits governs
+# the registry as it governs every other reader (register
+# item R19-019).
 _LIMIT_COMPETITORS = 100
 _LIMIT_ALIASES = 100
 _LIMIT_QUERIES = 1000
 
 
-def _normalise_competitor(value, index=0):
+def _limit_in_force(home, key, default):
+    """One registry list limit in force for a home.
+
+    Reads the journal limits in force, which carry the
+    config value where the config states one and the brief
+    default where it does not. A home whose limits cannot
+    be read stands judged at the brief default here; the
+    operation's own home and chain checks govern that
+    home's standing separately.
+    """
+    if home is None:
+        return default
+    try:
+        limits = _journal().effective_limits(str(home))
+        value = limits[key]["value"]
+        if type(value) is int:
+            return value
+    except Exception:
+        pass
+    return default
+
+
+def _normalise_competitor(value, index=0, home=None):
     if isinstance(value, dict):
         name = value.get("name")
         domain = value.get("domain", "")
@@ -767,7 +795,9 @@ def _normalise_competitor(value, index=0):
               "competitor identity: a slug begins and ends "
               "with a letter or a digit")
     domain = validate_domain(domain, allow_empty=True)
-    aliases = _validate_aliases(aliases)
+    aliases = _validate_aliases(
+        aliases, limit=_limit_in_force(
+            home, "aliases_per_competitor", _LIMIT_ALIASES))
     base = competitor_id_for_name(name)
     if not competitor_id:
         competitor_id = base
@@ -839,7 +869,7 @@ def _require_list(value, what):
     return value
 
 
-def _validate_aliases(aliases):
+def _validate_aliases(aliases, limit=_LIMIT_ALIASES):
     if aliases is None:
         return []
     _require_list(aliases, "aliases")
@@ -847,13 +877,14 @@ def _validate_aliases(aliases):
     for alias in aliases:
         validate_alias(alias)
         out.append(alias)
-    if len(out) > _LIMIT_ALIASES:
+    if len(out) > limit:
         _fail("LIMIT_EXCEEDED",
-              "aliases per product or per competitor limit is 100")
+              "aliases per product or per competitor limit "
+              "is %d" % limit)
     return out
 
 
-def _validate_query_set(query_set):
+def _validate_query_set(query_set, limit=_LIMIT_QUERIES):
     if query_set is None:
         return []
     _require_list(query_set, "query_set")
@@ -867,8 +898,9 @@ def _validate_query_set(query_set):
         if len(query) > 2000:
             _fail("LIMIT_EXCEEDED", "query text length limit is 2000")
         out.append(query)
-    if len(out) > _LIMIT_QUERIES:
-        _fail("LIMIT_EXCEEDED", "queries per product limit is 1000")
+    if len(out) > limit:
+        _fail("LIMIT_EXCEEDED",
+              "queries per product limit is %d" % limit)
     return out
 
 
@@ -988,12 +1020,20 @@ def add_product(home, name=None, canonical_line=None, domain=None,
     if competitors is not None:
         _require_list(competitors, "competitors")
     competitor_records = _assign_competitor_identities([
-        _normalise_competitor(competitor, index)
+        _normalise_competitor(competitor, index, home=home)
         for index, competitor in enumerate(competitors or [])])
-    if len(competitor_records) > _LIMIT_COMPETITORS:
-        _fail("LIMIT_EXCEEDED", "competitors per product limit is 100")
-    alias_list = _validate_aliases(aliases)
-    query_list = _validate_query_set(query_set)
+    competitors_limit = _limit_in_force(
+        home, "competitors_per_product", _LIMIT_COMPETITORS)
+    if len(competitor_records) > competitors_limit:
+        _fail("LIMIT_EXCEEDED",
+              "competitors per product limit is %d"
+              % competitors_limit)
+    alias_list = _validate_aliases(
+        aliases, limit=_limit_in_force(
+            home, "aliases_per_product", _LIMIT_ALIASES))
+    query_list = _validate_query_set(
+        query_set, limit=_limit_in_force(
+            home, "queries_per_product", _LIMIT_QUERIES))
     category_list = _validate_category(category)
 
     candidate = _base_product(
@@ -1130,10 +1170,14 @@ def set_competitors(home, product=None, competitors=None,
         competitors = kwargs.get("competitor_change", [])
     _require_list(competitors, "competitors")
     records = _assign_competitor_identities([
-        _normalise_competitor(competitor, index)
+        _normalise_competitor(competitor, index, home=home)
         for index, competitor in enumerate(competitors or [])])
-    if len(records) > _LIMIT_COMPETITORS:
-        _fail("LIMIT_EXCEEDED", "competitors per product limit is 100")
+    competitors_limit = _limit_in_force(
+        home, "competitors_per_product", _LIMIT_COMPETITORS)
+    if len(records) > competitors_limit:
+        _fail("LIMIT_EXCEEDED",
+              "competitors per product limit is %d"
+              % competitors_limit)
     _require_product(home, product)
     with _registry_lock(home):
         for _attempt in range(5):
@@ -1158,7 +1202,9 @@ def set_aliases(home, product=None, aliases=None, audit_date=None,
                 **kwargs):
     if aliases is None:
         aliases = kwargs.get("alias_change", [])
-    alias_list = _validate_aliases(aliases)
+    alias_list = _validate_aliases(
+        aliases, limit=_limit_in_force(
+            home, "aliases_per_product", _LIMIT_ALIASES))
     _require_product(home, product)
     with _registry_lock(home):
         for _attempt in range(5):
@@ -1181,7 +1227,9 @@ def set_aliases(home, product=None, aliases=None, audit_date=None,
 
 def set_query_set(home, product=None, query_set=None, audit_date=None,
                   **kwargs):
-    query_list = _validate_query_set(query_set)
+    query_list = _validate_query_set(
+        query_set, limit=_limit_in_force(
+            home, "queries_per_product", _LIMIT_QUERIES))
     _require_product(home, product)
     with _registry_lock(home):
         for _attempt in range(5):
