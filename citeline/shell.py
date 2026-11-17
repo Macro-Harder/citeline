@@ -845,7 +845,7 @@ def _run_watch(tokens):
             operation="watch")
     from citeline import watch
     try:
-        result = watch.run_watch(plan_file=inputs["plan"])
+        result = watch.run_watch(plan_file=inputs["plan"], form=form)
     except TypeError:
         return _usage_error(
             "the watch call stands malformed against the "
