@@ -1725,13 +1725,13 @@ def parse_config(text, home=None):
             values[key] = number
         elif key in ("home_path", "anchor_path"):
             values[key] = raw_value
-            if key == "home_path":
-                # The home is fixed by the call that names
-                # it; this key governs nothing, and the parse
-                # says so instead of accepting it silently .
-                warnings.append(
-                    "home_path has no effect: the home is the "
-                    "directory the call names")
+            # home_path carries its specified effect at
+            # home selection (plan Section 3 EC-15 row 43;
+            # Step 19 item R19-106): selected_home below
+            # reads this value, and the shell defaulting
+            # and the service home handling resolve the
+            # home a call governs through it. The parse
+            # therefore accepts the value with no warning.
         else:
             warnings.append("unknown key: %s" % (key,))
     resolved = dict(_LIMIT_DEFAULT)
@@ -1932,6 +1932,32 @@ def _read_config_values(home):
     merged = dict(install_values)
     merged.update(values)
     return merged, install_warnings + warnings, True
+
+
+def selected_home(home):
+    """The home in force for a call naming home.
+
+    The home_path config key names the product home
+    where it differs from the home the call names
+    (plan Section 3 EC-15 row 43): where the config
+    standing at the named home sets home_path to
+    another directory, that directory stands selected.
+    Where the key stands absent, or names the home
+    itself, the named home stands. A config that
+    cannot be read selects nothing, and the named
+    home stands, so the caller's own config handling
+    reports the failure as before.
+    """
+    try:
+        values, _warnings, _present = _read_config_values(home)
+    except Exception:
+        return str(home)
+    named = values.get("home_path")
+    if isinstance(named, str) and named:
+        resolved = os.path.expanduser(named)
+        if resolved != str(home):
+            return resolved
+    return str(home)
 
 
 def write_config(home, text):

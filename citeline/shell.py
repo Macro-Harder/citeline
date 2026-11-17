@@ -872,7 +872,13 @@ def main(argv=None):
                 operation=subcommand,
                 audit_date=inputs.get("audit_date"))
     if "home" not in inputs:
-        inputs["home"] = _default_home()
+        # The default home stands first, and the
+        # home_path config key standing there names the
+        # product home where it differs from the default
+        # (plan Section 3 EC-15 row 43; Step 19 item
+        # R19-106).
+        from citeline import journal
+        inputs["home"] = journal.selected_home(_default_home())
     call = dict(inputs)
     call.pop("form", None)
     try:

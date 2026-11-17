@@ -141,5 +141,78 @@ class TestR19041CapRefusalConsistency(unittest.TestCase):
         self.assertEqual(entry_count(home), before)
 
 
+class TestR19106HomePathEffect(unittest.TestCase):
+    """R19-106: the home_path config key has its specified
+    effect under plan Section 3 EC-15 row 43: it names the
+    product home where it differs from the default."""
+
+    def test_parse_config_no_longer_disowns_the_key(self):
+        values, warnings = journal.parse_config(
+            "home_path = /tmp/elsewhere\n")
+        self.assertEqual(values.get("home_path"), "/tmp/elsewhere")
+        self.assertFalse(
+            any("has no effect" in warning for warning in warnings))
+
+    def test_service_resolves_the_named_home(self):
+        root = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        loc_a, home_a = root / "install-a", root / "home-a"
+        loc_b, home_b = root / "install-b", root / "home-b"
+        install_module.install(location=str(loc_a), home=str(home_a))
+        install_module.install(location=str(loc_b), home=str(home_b))
+        journal.write_config(
+            home_a, "home_path = %s\n" % (home_b,))
+        service.add_product(
+            home=str(home_a), name="p-selected",
+            canonical_line="p-selected line.", domain="example.com",
+            audit_date=AUDIT_DATE)
+        names_b = [item.get("name") for item in
+                   service.list_products(home=str(home_b))]
+        names_a = [item.get("name") for item in
+                   service.list_products(home=str(home_a))]
+        self.assertIn("p-selected", names_b)
+        self.assertNotIn("p-selected", names_a)
+
+    def test_shell_defaulting_selects_the_named_home(self):
+        root = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        operator = root / "operator"
+        default_home = operator / ".citeline"
+        default_home.mkdir(parents=True)
+        loc_b, home_b = root / "install-b", root / "home-b"
+        install_module.install(location=str(loc_b), home=str(home_b))
+        (default_home / "config.txt").write_text(
+            "home_path = %s\n" % (home_b,), encoding="utf-8")
+        out = io.StringIO()
+        with mock.patch.dict(os.environ, {"HOME": str(operator)}):
+            with redirect_stdout(out):
+                code = shell.main(["status"])
+        self.assertEqual(code, 0)
+        self.assertIn(str(home_b), out.getvalue())
+
+
+class TestW1WatchFormParameter(unittest.TestCase):
+    """W-1: run_watch carries the form parameter of the
+    R19-103 unit, merged with the R19-010 round level clock
+    cure, so the shell watch call binds."""
+
+    def test_run_watch_signature_carries_form(self):
+        params = inspect.signature(watch.run_watch).parameters
+        self.assertIn("form", params)
+
+    def test_run_watch_accepts_a_form_value(self):
+        root, home = make_home(self)
+        seed_product_and_round(self, home)
+        service.probe_import(
+            home=str(home), answer_file=str(ANSWER), product="p-alpha",
+            round="round-1", engine_label="engine-a", query=QUERY,
+            kind="real_sample", captured_on="2026-11-10",
+            capture_method="manual copy", audit_date=AUDIT_DATE)
+        plan = {"home": str(home), "scope": "estate",
+                "audit_date": AUDIT_DATE, "form": "simple"}
+        path = Path(root) / "plan.json"
+        path.write_text(json.dumps(plan), encoding="utf-8")
+        result = watch.run_watch(plan_file=str(path), form="advanced")
+        self.assertIsInstance(result, dict)
+
+
 if __name__ == "__main__":
     unittest.main()

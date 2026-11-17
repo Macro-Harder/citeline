@@ -218,10 +218,30 @@ def _barred_check(home):
 
 
 def _require_home(home):
+    home = _resolve_home(home)
     if not os.path.isdir(str(home)):
         _fail(
             "HOME_MISSING",
             "the home stands missing: %s" % (home,))
+    return home
+
+
+def _resolve_home(home):
+    """The home in force for a call naming home.
+
+    The home_path config key names the product home
+    where it differs from the home the call names
+    (plan Section 3 EC-15 row 43; Step 19 item
+    R19-106): where the config standing at the named
+    home sets home_path to another directory, that
+    directory is the home this call governs. Where it
+    sets nothing, or names the home itself, the named
+    home governs as before.
+    """
+    try:
+        return _journal().selected_home(home)
+    except Exception:
+        return home
 
 
 def _recover_interrupted_batch(home):
@@ -1021,7 +1041,7 @@ def status(*, home):
     before its record stands returned.
     """
     run_started = _clock()
-    _require_home(home)
+    home = _require_home(home)
     _recover_interrupted_batch(home)
     journal = _journal()
     snapshot = journal.status_snapshot(str(home))
@@ -1092,7 +1112,7 @@ def verify(*, home):
     before its record stands returned.
     """
     run_started = _clock()
-    _require_home(home)
+    home = _require_home(home)
     _recover_interrupted_batch(home)
     journal = _journal()
     chain = journal.verify_chain(str(home))
@@ -1446,7 +1466,7 @@ def staleness_view(*, home):
     call before its record stands returned.
     """
     run_started = _clock()
-    _require_home(home)
+    home = _require_home(home)
     _recover_interrupted_batch(home)
     _barred_check(home)
     # The staleness assembly reads corrections as the
@@ -1543,7 +1563,7 @@ def add_product(*, home, name, canonical_line, domain,
                 competitors=None, aliases=None, query_set=None,
                 audit_date=None):
     audit_date = _validate_audit_date(audit_date)
-    _require_home(home)
+    home = _require_home(home)
     # Limit 23, products per home, enforced at this seam
     # against the value in force.
     limit = _limit_value(home, "products_per_home")
@@ -1561,7 +1581,7 @@ def add_product(*, home, name, canonical_line, domain,
 
 def set_canonical_line(*, home, product, line, audit_date=None):
     audit_date = _validate_audit_date(audit_date)
-    _require_home(home)
+    home = _require_home(home)
     # The judgement of this route reads the fold before
     # its own append runs any recovery, so the recovery
     # stands run here first, as register_page judges on
@@ -1575,7 +1595,7 @@ def set_canonical_line(*, home, product, line, audit_date=None):
 
 def set_competitors(*, home, product, competitors, audit_date=None):
     audit_date = _validate_audit_date(audit_date)
-    _require_home(home)
+    home = _require_home(home)
     # The judgement of this route reads the fold before
     # its own append runs any recovery, so the recovery
     # stands run here first, as register_page judges on
@@ -1589,7 +1609,7 @@ def set_competitors(*, home, product, competitors, audit_date=None):
 
 def set_aliases(*, home, product, aliases, audit_date=None):
     audit_date = _validate_audit_date(audit_date)
-    _require_home(home)
+    home = _require_home(home)
     # The judgement of this route reads the fold before
     # its own append runs any recovery, so the recovery
     # stands run here first, as register_page judges on
@@ -1603,7 +1623,7 @@ def set_aliases(*, home, product, aliases, audit_date=None):
 
 def set_query_set(*, home, product, query_set, audit_date=None):
     audit_date = _validate_audit_date(audit_date)
-    _require_home(home)
+    home = _require_home(home)
     # The judgement of this route reads the fold before
     # its own append runs any recovery, so the recovery
     # stands run here first, as register_page judges on
@@ -1633,7 +1653,7 @@ def set_category(*, home, product, category_terms=None, category=None,
     """
     terms = category_terms if category_terms is not None else category
     audit_date = _validate_audit_date(audit_date)
-    _require_home(home)
+    home = _require_home(home)
     # The judgement of this route reads the fold before
     # its own append runs any recovery, so the recovery
     # stands run here first, as register_page judges on
@@ -1656,7 +1676,7 @@ set_category.__signature__ = inspect.Signature(parameters=[
 
 def register_page(*, home, product, snapshot, audit_date=None):
     audit_date = _validate_audit_date(audit_date)
-    _require_home(home)
+    home = _require_home(home)
     # The registration judgement reads the fold before its
     # own append runs any recovery, so the recovery stands
     # run here first: an orphan snapshot of a killed batch
@@ -1691,7 +1711,7 @@ def name_round(*, home, product, round_label,
                importer_declaration, supplier_relation,
                audit_date=None):
     audit_date = _validate_audit_date(audit_date)
-    _require_home(home)
+    home = _require_home(home)
     # The judgement of this route reads the fold before
     # its own append runs any recovery, so the recovery
     # stands run here first, as register_page judges on
@@ -1735,7 +1755,7 @@ def list_products(*, home):
     # it: a home path no filesystem call can state answers
     # HOME_MISSING at row U-6, never a bare ValueError from
     # the fold below.
-    _require_home(home)
+    home = _require_home(home)
     _recover_interrupted_batch(home)
     journal = _journal()
     # A journal that does not parse stands signalled in
@@ -1807,7 +1827,7 @@ def estate_grounds(*, home, product):
     # filesystem call can state, answers HOME_MISSING at
     # row U-6, never an empty grounds record in silence
     # and never a raw error.
-    _require_home(home)
+    home = _require_home(home)
     _recover_interrupted_batch(home)
     _validate_stored_entries(_fold(home, apply_corrections=True))
     record = _find_product(home, product)
@@ -1961,7 +1981,7 @@ def robots(*, home, robots_file, evaluated_page_path=None,
     """
     audit_date = _validate_audit_date(audit_date)
     run_started = _clock()
-    _require_home(home)
+    home = _require_home(home)
     # A killed batch standing on the home stands recovered
     # before this route runs, so no successful robots call
     # leaves a partial batch standing as ordinary state.
@@ -2088,7 +2108,7 @@ def robots_preview(*, home, first_robots_file, second_robots_file,
         first_capture_date = first_captured_on
     if second_capture_date is None:
         second_capture_date = second_captured_on
-    _require_home(home)
+    home = _require_home(home)
     # A killed batch standing on the home stands recovered
     # before this route runs, as at the standalone robots
     # route.
@@ -2547,7 +2567,7 @@ def _audit_impl(*, home, page_file=None, robots_file=None,
     lock, so no append and no recovery truncation inside
     the invocation moves the snapshot or the run the
     record names."""
-    _require_home(home)
+    home = _require_home(home)
     _recover_interrupted_batch(home)
     if run_id is None and page_file is not None:
         with _audit_assembly_lock(home):
@@ -2653,7 +2673,7 @@ def _audit_body(*, home, page_file=None, robots_file=None,
     home stands as the record product, as before."""
     audit_date = _validate_audit_date(audit_date)
     _barred_check(home)
-    _require_home(home)
+    home = _require_home(home)
     _guard_supplied_path(page_file)
     _guard_supplied_path(robots_file)
     # The evaluated page path stands under the same guard:
@@ -3519,7 +3539,7 @@ def probe_import(*, home, answer_file=None, product=None,
     standing record, and no control count, so no round
     level check fires ahead of the lookup that owns it.
     """
-    _require_home(home)
+    home = _require_home(home)
     try:
         # The audit date stands under the service
         # validator's stated discipline and token, as on
@@ -4196,7 +4216,7 @@ def probe_report(*, home, product, round, form=None,
     audit_date = _validate_audit_date(audit_date)
     run_started = _clock()
     try:
-        _require_home(home)
+        home = _require_home(home)
         _recover_interrupted_batch(home)
         _barred_check(home)
         # The whole artefact stands on one fold instant:
@@ -4288,7 +4308,7 @@ def probe_trend(*, home, product, round_a, round_b, form=None,
     audit_date = _validate_audit_date(audit_date)
     run_started = _clock()
     try:
-        _require_home(home)
+        home = _require_home(home)
         _recover_interrupted_batch(home)
         _barred_check(home)
         product_record = _require_product(home, product)
@@ -4349,7 +4369,7 @@ def query_set_report(*, home, product, form=None, audit_date=None):
     """
     audit_date = _validate_audit_date(audit_date)
     run_started = _clock()
-    _require_home(home)
+    home = _require_home(home)
     _recover_interrupted_batch(home)
     _barred_check(home)
     product_record = _require_product(home, product)
@@ -4380,7 +4400,7 @@ def export_capture_worksheet(*, home, product, round, queries=None,
     # of the layer, so the worksheet stands judged on
     # recovered state and no artefact stands handed out
     # on a killed batch's partial state.
-    _require_home(home)
+    home = _require_home(home)
     _recover_interrupted_batch(home)
     product_record = _require_product(home, product)
     _validate_product_record(product_record)
@@ -4578,7 +4598,7 @@ def _guide_impl(*, home, run_id=None, product=None,
     # before its barred check and its lookups, so a guide
     # over a missing home answers HOME_MISSING and creates
     # nothing.
-    _require_home(home)
+    home = _require_home(home)
     _recover_interrupted_batch(home)
     _barred_check(home)
     if run_id is not None and (
