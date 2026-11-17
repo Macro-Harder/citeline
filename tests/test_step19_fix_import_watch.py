@@ -206,5 +206,28 @@ class TestR19020Projection(unittest.TestCase):
             result["capacity_projection"]["projected_entries"], 2)
 
 
+class TestR19053OccupiedOutputFirst(unittest.TestCase):
+    """R19-053: an occupied output path refuses before the round
+    work runs, so no round is spent producing no artefact."""
+
+    def test_occupied_output_spends_no_round(self):
+        root, home = seed_home(self)
+        out_path = root / "watchrun.txt"
+        out_path.write_text("earlier round\n", encoding="utf-8")
+        _, path = plan_file(self, base_plan(
+            home, "picked", output=str(out_path), targets=[
+                {"product": "p-alpha", "page_file": str(PAGE)}]))
+        before = service.status(home=str(home))["entry_count"]
+        with self.assertRaises(Exception) as caught:
+            watch.run_watch(plan_file=str(path))
+        self.assertEqual(
+            getattr(caught.exception, "error_value", None),
+            "DESTINATION_EXISTS")
+        after = service.status(home=str(home))["entry_count"]
+        self.assertEqual(before, after)
+        self.assertEqual(out_path.read_text(encoding="utf-8"),
+                         "earlier round\n")
+
+
 if __name__ == "__main__":
     unittest.main()
