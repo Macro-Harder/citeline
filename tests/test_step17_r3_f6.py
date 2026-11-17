@@ -357,8 +357,14 @@ class TestStalenessRoundCount066(unittest.TestCase):
             str(home), "round_named", dict(payload),
             audit_date=AUDIT_DATE)
         view = service.staleness_view(home=str(home))
-        self.assertEqual(view["record_count"], 2)
-        self.assertEqual(len(view["records"]), 2)
+        # Restated for Step 19 register item R19-007: the
+        # staleness view now builds one row per standing round,
+        # taking the last round_named payload as the standing
+        # record as every other round reader does, so the two
+        # journal entries sharing one round identity count
+        # once in this view and record_count stands exact.
+        self.assertEqual(view["record_count"], 1)
+        self.assertEqual(len(view["records"]), 1)
 
 
 if __name__ == "__main__":
