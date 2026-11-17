@@ -117,6 +117,7 @@ subcommand per call, every input a named flag:
     set-query-set --home --product --query_set --audit_date --form
     set-category --home --product --category_terms --audit_date --form
     register-page --home --product --snapshot --audit_date --form
+    export-capture-worksheet --home --product --round --queries --engine_labels --planned_answers --output_path --audit_date --form
     name-round --home --product --round_label --importer_declaration --supplier_relation --audit_date --form
     audit --home --page_file --robots_file --evaluated_page_path --audit_date --form
     robots --home --robots_file --evaluated_page_path --form --audit_date
