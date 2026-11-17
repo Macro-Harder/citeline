@@ -66,6 +66,12 @@ clock in that case alone. Truth verification is
 deferred to a later version. Version 1 is
 English only.
 
+A supplied file with a hard link count above 1
+is rejected. This check rests on the filesystem
+maintaining a truthful link count. Where a
+platform cannot give that count, no link count
+check is claimed for that platform, and the
+limit is stated instead of the check.
 
 ## Requirements
 
