@@ -51,6 +51,67 @@ class HomeCase(unittest.TestCase):
         return anchor
 
 
+class AnchorReadGuardTests(HomeCase):
+    """R19-034: the anchor read stands guarded by a regular
+    file check and a size bound, so status and verify can
+    neither hang on a FIFO nor be killed on a swapped
+    anchor file, while a standing recording, a recording
+    behind a link to a regular file included, still reads
+    as it read."""
+
+    def test_anchor_fifo_does_not_hang_status(self):
+        self.append_product("P0", "p-0")
+        anchor = os.path.join(self.tmp.name, "anchor_fifo")
+        os.mkfifo(anchor)
+        journal.write_config(
+            self.home, "anchor_path = %s\n" % anchor)
+        journal._scan_cache.clear()
+        outcome = {}
+
+        def run_status():
+            outcome["state"] = journal.status_snapshot(self.home)
+
+        worker = threading.Thread(target=run_status, daemon=True)
+        worker.start()
+        worker.join(15)
+        self.assertFalse(worker.is_alive())
+        self.assertIn("state", outcome)
+        self.assertNotEqual(
+            outcome["state"]["anchor"]["agreement"], "matching")
+
+    def test_anchor_oversize_file_reads_bounded(self):
+        self.append_product("P0", "p-0")
+        anchor = os.path.join(self.tmp.name, "anchor_big")
+        with open(anchor, "wb") as handle:
+            handle.truncate(5 * 1024 * 1024)
+        journal.write_config(
+            self.home, "anchor_path = %s\n" % anchor)
+        journal._scan_cache.clear()
+        state = journal.status_snapshot(self.home)
+        self.assertIsNone(state["anchor"]["recorded_head"])
+        result = journal.verify_chain(self.home)
+        self.assertTrue(result["passed"])
+
+    def test_anchor_recording_still_reads_as_matching(self):
+        anchor = self.anchored_home(1)
+        state = journal.status_snapshot(self.home)
+        self.assertEqual(state["anchor"]["agreement"], "matching")
+        self.assertIsNotNone(state["anchor"]["recorded_head"])
+
+    def test_anchor_link_to_regular_file_still_reads(self):
+        anchor = self.anchored_home(1)
+        with open(anchor, "r", encoding="utf-8") as handle:
+            standing = handle.read()
+        holder = os.path.join(self.tmp.name, "holder.txt")
+        with open(holder, "w", encoding="utf-8") as handle:
+            handle.write(standing)
+        os.unlink(anchor)
+        os.symlink(holder, anchor)
+        journal._scan_cache.clear()
+        state = journal.status_snapshot(self.home)
+        self.assertEqual(state["anchor"]["agreement"], "matching")
+
+
 class VerifyErrorValueTests(HomeCase):
     """R19-094: the verify error_value field carries the
     vocabulary token, not the integer exit code."""

@@ -1346,6 +1346,9 @@ def _resolve_anchor_path(home, value):
     return os.path.normpath(os.path.join(str(home), value))
 
 
+_ANCHOR_READ_LIMIT = 1024
+
+
 def _read_anchor(path):
     """Read one anchor recording, strictly.
 
@@ -1359,16 +1362,53 @@ def _read_anchor(path):
     reports "malformed", and no part of it is silently
     dropped (Step 17 entries S17-R1X-001, S17-R1X-002, and
     S17-R1-073).
+
+    The read itself stands guarded, on the descriptor
+    discipline the batch intent reader stands under
+    (Step 19 item R19-034): the path stands opened with
+    the non blocking flag, so a FIFO standing at the path
+    never wedges the open; the opened handle stands
+    judged a regular file before any byte is read, so a
+    device or another non regular form stands answered
+    "malformed" unread (a directory stands answered
+    "absent", as the plain open answered it); and the
+    read stands bounded at _ANCHOR_READ_LIMIT bytes, far
+    past the longest recording the writer writes, so an
+    endless or oversize file is never read whole into
+    memory. A link to a regular file stands read through,
+    as it stood read: the guard judges the file the
+    handle names, not the path form. The states this
+    reader returns, and what each state bars or reports,
+    stand unchanged: the guard changes only how the bytes
+    are reached, never what they mean.
     """
+    flags = os.O_RDONLY
+    if hasattr(os, "O_NONBLOCK"):
+        flags |= os.O_NONBLOCK
     try:
-        with open(path, "rb") as handle:
-            raw = handle.read()
+        descriptor = os.open(path, flags)
     except FileNotFoundError:
-        return "absent", None
-    except IsADirectoryError:
         return "absent", None
     except OSError:
         return "malformed", None
+    try:
+        info = os.fstat(descriptor)
+        if not stat.S_ISREG(info.st_mode):
+            if stat.S_ISDIR(info.st_mode):
+                return "absent", None
+            return "malformed", None
+        if info.st_size > _ANCHOR_READ_LIMIT:
+            return "malformed", None
+        with os.fdopen(descriptor, "rb") as handle:
+            descriptor = None
+            raw = handle.read(_ANCHOR_READ_LIMIT + 1)
+        if len(raw) > _ANCHOR_READ_LIMIT:
+            return "malformed", None
+    except OSError:
+        return "malformed", None
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
     try:
         text = raw.decode("utf-8")
     except UnicodeDecodeError:
