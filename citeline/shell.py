@@ -107,6 +107,20 @@ _SURFACE = {
         "staleness_view", ("home", "form")),
 }
 
+# Spellings that once stood accepted beside the documented
+# input of one operation and stand refused now: the refusal
+# names the documented spelling, so a call carrying the old
+# spelling, or both spellings of one input, stands refused
+# in the open and never silently discards one value
+# (register item R19-101).
+_RETIRED_SPELLINGS = {
+    "set_category": {"category": "category_terms"},
+    "robots_preview": {
+        "first_captured_on": "first_capture_date",
+        "second_captured_on": "second_capture_date",
+    },
+}
+
 # Flag spellings that name a differently named input of
 # the operation they call.
 _FLAG_ALIASES = {
@@ -365,6 +379,15 @@ def _parse_flags_detailed(tokens, allowed, operation):
         raw = token[2:].replace("-", "_")
         name = aliases.get(raw, raw)
         if name not in allowed:
+            retired = _RETIRED_SPELLINGS.get(operation, {})
+            if raw in retired:
+                return None, (
+                    "the flag --%s stands as no input the "
+                    "subcommand accepts; the documented "
+                    "spelling of that input is --%s, and a "
+                    "call carrying the undocumented spelling "
+                    "stands refused in the open"
+                    % (raw, retired[raw]))
             return None, None
         if index + 1 >= len(tokens):
             return None, None
