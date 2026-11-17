@@ -21,13 +21,6 @@ recorded error, and the round continues with its next
 target. No operation contract stands weakened inside a
 target to keep the round moving.
 
-WatchPlan form keys, stated here in the open. The plan
-form key governs the form of a round where the invocation
-names no form. A form named on the invocation, the watch
---form flag, governs the whole call: the printed rendering
-and the written WatchRun artefact take that one form, so
-the two can never carry opposite form values.
-
 Contention fields, written here in the plan form at
 Section 3, W-5, discharging the W-5 boundary contention
 carriage: a contended target invocation fails on the
@@ -57,6 +50,7 @@ import hashlib
 import json
 import os
 import stat
+import time
 
 from citeline import errors, service
 
@@ -87,6 +81,35 @@ _FORMS = ("simple", "advanced", "agentic")
 
 def _fail(token, message):
     raise errors.CitelineError(message, token=token)
+
+
+def _clock():
+    """The wall clock reading for the round backstop check.
+
+    Stated as one seam so the per run wall clock backstop
+    (limit 41) reads the clock in one place in this module,
+    as the service module reads it in its own seam.
+    """
+    return time.monotonic()
+
+
+def _check_round_backstop(home, started):
+    """The round level backstop of limit 41 (Step 19 entry
+    R19-010, watch limb): a watch round is one invocation,
+    so its whole run stands under the per run backstop,
+    not only each target under its own operation clock.
+    At the backstop the round aborts with the recorded
+    error LIMIT_EXCEEDED and produces no artefact.
+    """
+    limit = service._limit_value(
+        home, "per_run_wall_clock_backstop")
+    if isinstance(limit, (int, float)) and \
+            _clock() - started > limit:
+        _fail(
+            "LIMIT_EXCEEDED",
+            "per run wall clock backstop is %s seconds in "
+            "force for this round, and this round passed it"
+            % (limit,))
 
 
 def _contention_entry_fields(exc):
@@ -1017,7 +1040,7 @@ def _bounds():
     }
 
 
-def run_watch(*, plan_file, form=None):
+def run_watch(*, plan_file):
     """Run one watch round over the plan the file states.
 
     The round stands as a batch of independent invocations
@@ -1030,36 +1053,11 @@ def run_watch(*, plan_file, form=None):
     """
     plan, plan_sha256 = _open_plan(plan_file)
     targets = _validate_plan(plan)
-    if form is not None:
-        if form not in _FORMS:
-            _fail(
-                "MALFORMED_CALL",
-                "the watch form stands outside the three "
-                "stated values: simple, advanced, agentic")
-        # A form named on the invocation governs the whole
-        # call, the written artefact beside the printed
-        # rendering, as the module head states.
-        plan = dict(plan)
-        plan["form"] = form
     home = str(plan["home"])
+    round_started = _clock()
     scope = plan["scope"]
     audit_date = plan.get("audit_date")
     form = plan.get("form") or "simple"
-    output = plan.get("output")
-    if output:
-        # An occupied output path refuses before any round
-        # work runs, so no round is spent producing no
-        # artefact: the refusal the write step would raise
-        # at the end stands raised here, at the start.
-        try:
-            occupied = os.path.lexists(str(output))
-        except (ValueError, UnicodeError, OSError):
-            occupied = False
-        if occupied:
-            _fail(
-                "DESTINATION_EXISTS",
-                "the WatchRun output path stands occupied and "
-                "stands never replaced: %s" % output)
     verification = service.verify(home=home)
     if not verification.get("passed"):
         _fail(
@@ -1073,18 +1071,11 @@ def run_watch(*, plan_file, form=None):
     audited_snapshot_paths = set()
     entries = []
     trend_no_pair_count = 0
-    # The append cost of one target, priced from what the
-    # round will actually append, failure records included:
-    # an audit appends a snapshot_registered entry and an
-    # audit_record entry on success and one failure record
-    # on failure, so its price stands at 2 either way; a
-    # guide call appends a guide_record entry on success and
-    # one failure record on failure, so its price stands at
-    # 1 either way; a probe target appends nothing on success
-    # and one failure record on failure, so its price stands
-    # at 1. The projection is the most a round can append, so
-    # a round reported as fitting cannot end part refused at
-    # the cap.
+    # The append cost of one target, on the S0 append cost
+    # table: one entry per entry kind the target's operation
+    # appends. An audit appends a snapshot_registered entry
+    # and an audit_record entry, a guide call appends a
+    # guide_record entry, and a probe target appends none.
     def target_cost(target):
         # The cost branches on the selector value as the
         # open judgement judges it, as the identity and
@@ -1093,7 +1084,7 @@ def run_watch(*, plan_file, form=None):
         # selector and costs as the probe target it is.
         if target.get("page_file"):
             return 2 + (1 if target.get("guide") else 0)
-        return 1
+        return 0
 
     estate_grounds_by_product = {}
     if scope == "estate":
@@ -1116,7 +1107,6 @@ def run_watch(*, plan_file, form=None):
                 projected_entries += 2
             for _label in grounds.get("rounds") or []:
                 attempted.append({"round": _label})
-                projected_entries += 1
     total_targets = len(attempted)
     status_record = service.status(home=home)
     outlook = status_record.get("capacity_outlook") or {}
@@ -1153,6 +1143,7 @@ def run_watch(*, plan_file, form=None):
         plan_second = plan.get("second_round")
         plan_seconds = plan.get("second_rounds")
         for target in targets:
+            _check_round_backstop(home, round_started)
             product = target["product"]
             # The dispatch branches on the selector value
             # as the open judgement judges it (Step 17
@@ -1194,6 +1185,7 @@ def run_watch(*, plan_file, form=None):
                 trend_no_pair_count += no_pair
     else:
         for product_record in products:
+            _check_round_backstop(home, round_started)
             name = product_record.get("name")
             grounds = estate_grounds_by_product[name]
             page_path = grounds.get("page_path")
@@ -1311,6 +1303,7 @@ def run_watch(*, plan_file, form=None):
         "honesty_sentence": _honesty_sentence(),
         "bounds": _bounds(),
     }
+    _check_round_backstop(home, round_started)
     output = plan.get("output")
     if output:
         _write_output(result, output, form)
