@@ -10,8 +10,10 @@ reports: 0 where the call carries no error value, the code
 of the class of the one error value reported where it
 fails, and no code outside that table. Code 4 stands for
 the gate check and stands returned by no version 1
-invocation here, and code 1 stands unassigned as a product
-outcome and stands returned by no invocation here.
+invocation here. Code 1 stands unassigned as a product
+outcome; it stands returned only where a call dies on an
+exception carrying no reported error value, the death
+the item 126 table reserves code 1 for in practice.
 """
 
 import inspect
@@ -352,7 +354,14 @@ def _exit_code_for(exc):
                 return entry["exit_code"]
         except Exception:
             pass
-    return 3
+    # No reported error value stands on the exception, so
+    # no class code stands assigned to it under the per
+    # operation rule (plan EC-126 subsection 4.2): the call
+    # died carrying no error value, and code 1, the code
+    # the EC-126 table reserves in practice for that death,
+    # stands returned, never the domain code 3 (register
+    # item R19-074).
+    return 1
 
 
 def _parse_flags(tokens, allowed, operation):
