@@ -31,11 +31,13 @@ history.
 """
 
 import os
+import shutil
 import stat
 import sys
 
 PRODUCT_FILE_NAME = "citeline.py"
 CONFIG_FILE_NAME = "config.txt"
+PACKAGE_DIR_NAME = "citeline"
 
 # The directory holding the citeline package of this
 # shipped tree: the parent of this file's directory. The
@@ -49,14 +51,18 @@ _PRODUCT_DIR = os.path.dirname(
 def _product_file_text():
     """The installed product file text for this tree.
 
-    The launcher carries no rule of its own. It takes its
-    own directory off the module search path, because a
-    file named citeline.py standing in that directory
-    shadows the citeline package it must import, and it
-    puts the shipped product directory that installed it
-    on the path, so the package stands found from any
-    working directory. It then hands its arguments to the
-    package shell and returns the code that shell returns.
+    The launcher carries no rule of its own. The install
+    stands self contained: the installer copies the citeline
+    package into the install location beside this file, and
+    the launcher puts its own directory on the module search
+    path, so the package copy in the install location stands
+    found from any working directory, independent of the
+    tree that built the install. It then hands its arguments
+    to the package shell and returns the code that shell
+    returns. Where that package copy cannot be loaded, the
+    installation stands broken: the launcher reports a
+    recorded Citeline error at a designed exit code, never
+    a raw traceback at exit 1.
     """
     return '''"""Citeline launcher for one local installation.
 
@@ -69,18 +75,11 @@ code that shell returns.
 import os
 import sys
 
-_PACKAGE_PARENT = %r
 _OWN_DIR = os.path.dirname(os.path.abspath(__file__))
+_PACKAGE_PARENT = _OWN_DIR
 
 
 def _prepare_path():
-    kept = []
-    for entry in sys.path:
-        resolved = os.path.abspath(entry) if entry else None
-        if resolved is not None and resolved == _OWN_DIR:
-            continue
-        kept.append(entry)
-    sys.path[:] = kept
     if _PACKAGE_PARENT not in sys.path:
         sys.path.insert(0, _PACKAGE_PARENT)
 
@@ -88,15 +87,24 @@ def _prepare_path():
 def main(argv=None):
     _prepare_path()
     import importlib
-    shell_module = importlib.import_module("citeline." + "shell")
-
+    try:
+        shell_module = importlib.import_module(
+            "citeline." + "shell")
+    except Exception as exc:
+        print(
+            "citeline: DESTINATION_EXISTS: the installed "
+            "product package cannot be loaded from this "
+            "install location, so the installation stands "
+            "broken and nothing was run: %s"
+            % type(exc).__name__, file=sys.stderr)
+        return 3
     return shell_module.main(
         sys.argv[1:] if argv is None else argv)
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-''' % (_PRODUCT_DIR,)
+'''
 
 
 _CONFIG_MARKER = "created_by = citeline installer"
@@ -395,6 +403,28 @@ def _install_impl(location=None, home=None):
         with open(product_file, "w", encoding="utf-8") as handle:
             handle.write(product_text)
         created_items.append(product_file)
+    package_dir = os.path.join(location, PACKAGE_DIR_NAME)
+    source_dir = os.path.join(_PRODUCT_DIR, PACKAGE_DIR_NAME)
+    package_stood = os.path.lexists(package_dir)
+    if package_stood:
+        info = os.lstat(package_dir)
+        if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(
+                info.st_mode):
+            _fail(
+                "a pre existing item that is not the product "
+                "package stands at the package path: %s"
+                % package_dir)
+    else:
+        os.makedirs(package_dir)
+        created_items.append(package_dir)
+    for name in sorted(os.listdir(source_dir)):
+        if name == "__pycache__" or name.endswith(".pyc"):
+            continue
+        source_file = os.path.join(source_dir, name)
+        if not os.path.isfile(source_file):
+            continue
+        shutil.copyfile(
+            source_file, os.path.join(package_dir, name))
     if os.path.lexists(config_file):
         if os.path.isfile(config_file) and _is_installer_config(
                 config_file):
@@ -565,6 +595,19 @@ def _uninstall_impl(location=None, home=None):
             evidence = True
         else:
             remaining.append(path)
+    package_dir = os.path.join(location, PACKAGE_DIR_NAME)
+    if os.path.lexists(package_dir):
+        info = os.lstat(package_dir)
+        if stat.S_ISLNK(info.st_mode):
+            os.unlink(package_dir)
+            removed.append(package_dir)
+            evidence = True
+        elif stat.S_ISDIR(info.st_mode) and os.path.isfile(
+                os.path.join(package_dir, "__init__.py")):
+            _remove_home_tree(package_dir, removed)
+            evidence = True
+        else:
+            remaining.append(package_dir)
     if os.path.lexists(home):
         info = os.lstat(home)
         if stat.S_ISLNK(info.st_mode):

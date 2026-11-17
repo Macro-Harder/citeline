@@ -108,5 +108,71 @@ class TestR19014Provenance(InstallCase):
         self.assertFalse(self.home.exists())
 
 
+class TestR19013RealInstall(InstallCase):
+    """R19-013: a real install stands independent of the
+    building tree path, and a broken installation fails with
+    a recorded Citeline error at a designed exit code, never
+    a raw traceback at exit 1. Locus CL19-160, CL19-161,
+    CL19-200."""
+
+    def copy_tree(self):
+        import shutil
+        copy_root = self.tmp / "copy" / "product"
+        shutil.copytree(
+            PRODUCT_ROOT, copy_root,
+            ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+        return copy_root
+
+    def clean_env(self):
+        env = dict(os.environ)
+        env["HOME"] = str(self.tmp)
+        env.pop("PYTHONPATH", None)
+        return env
+
+    def run_installer(self, copy_root, args):
+        return subprocess.run(
+            [sys.executable, str(copy_root / "install.py")] + args,
+            capture_output=True, text=True, env=self.clean_env(),
+            timeout=60)
+
+    def test_install_stands_after_source_tree_moves(self):
+        copy_root = self.copy_tree()
+        done = self.run_installer(
+            copy_root, ["--location", str(self.location),
+                        "--home", str(self.home)])
+        self.assertEqual(done.returncode, 0, done.stderr)
+        moved = self.tmp / "copy" / "product-moved"
+        os.rename(copy_root, moved)
+        result = subprocess.run(
+            [sys.executable, str(self.location / "citeline.py"),
+             "status", "--home", str(self.home),
+             "--form", "simple"],
+            capture_output=True, text=True, env=self.clean_env(),
+            timeout=60)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("head", result.stdout)
+
+    def test_broken_installation_fails_with_recorded_error(self):
+        self.install()
+        package = self.location / "citeline"
+        if package.is_dir():
+            import shutil
+            shutil.rmtree(package)
+        else:
+            launcher = self.location / "citeline.py"
+            launcher.write_text(
+                launcher.read_text(encoding="utf-8").replace(
+                    str(PRODUCT_ROOT), str(self.tmp / "gone")),
+                encoding="utf-8")
+        result = subprocess.run(
+            [sys.executable, str(self.location / "citeline.py"),
+             "status", "--home", str(self.home)],
+            capture_output=True, text=True, env=self.clean_env(),
+            timeout=60)
+        self.assertNotEqual(result.returncode, 1)
+        self.assertNotIn("Traceback", result.stderr)
+        self.assertIn("DESTINATION_EXISTS", result.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()
