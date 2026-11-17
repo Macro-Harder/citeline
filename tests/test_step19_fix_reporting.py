@@ -542,3 +542,28 @@ class TestR19003CitedFiguresDefined(unittest.TestCase):
                       "any kind", simple)
         self.assertIn("share of all citation instances",
                       simple)
+
+
+class TestR19088EmptyDomainCompetitor(unittest.TestCase):
+    """R19-088: a competitor registered with an empty domain
+    is reported with cited_not_applicable true, a null cited
+    rate, and the empty domain reason stated."""
+
+    def test_empty_domain_competitor(self):
+        from citeline import metrics
+
+        answers = [{
+            "kind": "real_sample", "named": True,
+            "named_early": True, "cited": True,
+            "citation_instance_count": 1,
+            "per_competitor": [{
+                "name": "Rival", "named": False,
+                "cited": False}],
+        }]
+        result = metrics.round_metrics(
+            answers, "real_sample",
+            competitors=[{"name": "Rival", "domain": ""}])
+        entry = result["per_competitor"]["Rival"]
+        self.assertTrue(entry["cited_not_applicable"])
+        self.assertIsNone(entry["cited_rate"])
+        self.assertIn("empty", entry["cited_reason"])

@@ -1541,11 +1541,19 @@ def round_metrics(answers, kind, frame=None, datum=None,
         }
 
     competitor_names = []
+    competitor_domains = {}
     if competitors:
         for comp in competitors:
             name = comp if isinstance(comp, str) else _get(comp, "name")
             if name and name not in competitor_names:
                 competitor_names.append(name)
+            if name and not isinstance(comp, str):
+                competitor_domains[name] = _get(comp, "domain")
+    # A competitor whose registered domain stands empty
+    # holds no domain a citation could point at, so its
+    # cited rate stands not applicable with the reason
+    # stated, and no pooled rate is ever formed from it
+    # (CL19-147; Step 19 register entry R19-088).
     for item in active:
         for entry in _competitor_entries(item):
             name = _get(entry, "name")
@@ -1556,6 +1564,10 @@ def round_metrics(answers, kind, frame=None, datum=None,
         named_count = 0
         cited_outcomes = []
         cited_reason = None
+        if name in competitor_domains:
+            domain = competitor_domains[name]
+            if domain is None or not str(domain).strip():
+                cited_reason = "competitor domain stands empty"
         for item in active:
             outcome = _competitor_outcome(item, name)
             if outcome is None:
