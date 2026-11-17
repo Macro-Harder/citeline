@@ -21,6 +21,13 @@ recorded error, and the round continues with its next
 target. No operation contract stands weakened inside a
 target to keep the round moving.
 
+WatchPlan form keys, stated here in the open. The plan
+form key governs the form of a round where the invocation
+names no form. A form named on the invocation, the watch
+--form flag, governs the whole call: the printed rendering
+and the written WatchRun artefact take that one form, so
+the two can never carry opposite form values.
+
 Contention fields, written here in the plan form at
 Section 3, W-5, discharging the W-5 boundary contention
 carriage: a contended target invocation fails on the
@@ -1040,7 +1047,7 @@ def _bounds():
     }
 
 
-def run_watch(*, plan_file):
+def run_watch(*, plan_file, form=None):
     """Run one watch round over the plan the file states.
 
     The round stands as a batch of independent invocations
@@ -1053,6 +1060,17 @@ def run_watch(*, plan_file):
     """
     plan, plan_sha256 = _open_plan(plan_file)
     targets = _validate_plan(plan)
+    if form is not None:
+        if form not in _FORMS:
+            _fail(
+                "MALFORMED_CALL",
+                "the watch form stands outside the three "
+                "stated values: simple, advanced, agentic")
+        # A form named on the invocation governs the whole
+        # call, the written artefact beside the printed
+        # rendering, as the module head states.
+        plan = dict(plan)
+        plan["form"] = form
     home = str(plan["home"])
     round_started = _clock()
     scope = plan["scope"]
