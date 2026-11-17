@@ -931,6 +931,36 @@ def _uninstall_impl(location=None, home=None):
     }
 
 
+def _uninstall_warning(location, home):
+    """The warning an uninstall prints before it removes
+    a used home, or None where no warning stands owed.
+
+    A warning stands owed where the home named stands as
+    a directory the installation names or the product
+    itself uses, and the home holds standing work: a
+    journal or any other item stored there by use. The
+    line names the home and its journal in plain words,
+    so the operator reads, before anything is removed,
+    that every record stored in the home stands for
+    removal with it.
+    """
+    try:
+        if os.path.islink(home) or not os.path.isdir(home):
+            return None
+        if not os.listdir(home):
+            return None
+        if not (_home_linked(location, home)
+                or _home_is_product_home(home)):
+            return None
+    except OSError:
+        return None
+    return (
+        "warning: uninstall will remove the product "
+        "home at %s and its journal, including every "
+        "record stored there and the records created "
+        "by using the product" % os.path.abspath(home))
+
+
 def _default_location():
     """The stated default install location.
 
@@ -973,8 +1003,9 @@ def _print_help():
         "location, and the product home where none stands")
     print(
         "uninstall removes only what the installer "
-        "created, the used home and its journal contents "
-        "included, and names everything that remains")
+        "created, the used home and every record in its "
+        "journal included, and names everything that "
+        "remains")
     print(
         "running the installer of a newer tree over a "
         "standing installation upgrades it in place")
@@ -1083,6 +1114,9 @@ def main(argv=None):
         home = _default_home()
     try:
         if mode == "uninstall":
+            warning = _uninstall_warning(location, home)
+            if warning is not None:
+                print(warning)
             report = uninstall(location=location, home=home)
             print("uninstalled")
             print("location: %s" % report["location"])

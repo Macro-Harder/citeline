@@ -96,7 +96,12 @@ the home path. The installer records what it
 created. The matching uninstall, the word uninstall
 as the first argument with the install location as
 its optional second argument, removes only what
-the installer created:
+the installer created, and that includes the used
+home: uninstall removes the used home and every
+record in its journal, including the records
+created by using the product. Before it removes a
+used home, uninstall warns that the home and its
+journal stand for removal:
 
     python install.py uninstall [location]
 
