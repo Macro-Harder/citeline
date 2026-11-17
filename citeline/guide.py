@@ -973,6 +973,38 @@ def draft_from_round(round_record=None, canonical_line=None, audit_date=None,
         audit_date = _get(record, "audit_date", None)
     control_failed = bool(control_failed) or \
         _record_states_failed_control(record)
+    if not control_failed and answers is not None:
+        # The failed control state also stands in the
+        # round's own control answers: a control whose
+        # outcome contradicts its asserted kind, a
+        # positive control standing not named or not
+        # cited, or a negative control standing named or
+        # cited, under the IM7-ANA-2 landing (Step 19
+        # queue addition U-04).
+        for item in answers:
+            if isinstance(item, dict):
+                is_ctl = bool(item.get("control")
+                              or item.get("control_flag"))
+                kind = item.get("control_kind")
+                named = bool(item.get("named"))
+                cited = bool(item.get("cited")) or bool(
+                    item.get("citation_instances")
+                    or item.get("citation_instance_count"))
+            else:
+                is_ctl = bool(getattr(item, "control", False)
+                              or getattr(item, "control_flag", False))
+                kind = getattr(item, "control_kind", None)
+                named = bool(getattr(item, "named", False))
+                cited = bool(getattr(item, "cited", False)) or bool(
+                    getattr(item, "citation_instances", None)
+                    or getattr(item, "citation_instance_count", None))
+            if not is_ctl:
+                continue
+            if kind == "positive" and not (named and cited):
+                control_failed = True
+            elif kind == "negative" and (named or cited):
+                control_failed = True
+
     if control_failed:
         triggers = []
     elif trigger_codes is not None:
