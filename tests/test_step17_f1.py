@@ -450,8 +450,18 @@ class ConfigTests(HomeCase):
         self.assertEqual(caught.exception.token, "CONFIG_INVALID")
 
     def test_x014_home_path_key_carries_a_warning(self):
-        _values, warnings = journal.parse_config("home_path = /tmp/evil\n")
-        self.assertTrue(any("home_path" in item for item in warnings))
+        # Restated for Step 19 register item R19-106: the
+        # home_path key now carries its specified effect at
+        # home selection (plan Section 3 EC-15 row 43), read
+        # by selected_home in citeline/journal.py, and
+        # parse_config accepts the value with no warning.
+        # The value stands accepted in full, no warning
+        # naming home_path stands, and no no effect warning
+        # stands in any form.
+        values, warnings = journal.parse_config("home_path = /tmp/evil\n")
+        self.assertEqual(values["home_path"], "/tmp/evil")
+        self.assertFalse(any("home_path" in item for item in warnings))
+        self.assertFalse(any("no effect" in item for item in warnings))
 
     def test_x015_write_config_applies_the_read_parse(self):
         for text in ("journal_length = 999999999\n",
