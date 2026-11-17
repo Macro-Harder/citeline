@@ -2432,6 +2432,7 @@ def round_metrics_from_journal(entries, fold_point=None, detector_version=None,
     holding one kind.
     """
     entries = list(entries or [])
+    caller_named_kind = kind
     metrics_rows = answer_metrics_from_journal(
         entries, fold_point=fold_point, detector_version=detector_version
     )
@@ -2548,11 +2549,23 @@ def round_metrics_from_journal(entries, fold_point=None, detector_version=None,
     # engine and method bearing object of the record, after
     # the per answer rows and the sampling frame (Step 19
     # Phase 6 class (f) item F-1).
+    # Where the caller named the kind, the record is that
+    # kind's record: RoundMetrics stands computed per
+    # source kind and never pooled across kinds, so the
+    # rows carried beside its figures stand as that kind's
+    # rows only, the rows its figures recompute from
+    # (Step 19 Phase 7 item P7A3-F1-3).
+    if caller_named_kind is not None:
+        carried_rows = [
+            row for row in metrics_rows
+            if row.get("source_kind") == kind]
+    else:
+        carried_rows = metrics_rows
     ordered_result = {}
     for key, value in result.items():
         if key == "capture_context":
-            ordered_result["answer_metrics"] = metrics_rows
+            ordered_result["answer_metrics"] = carried_rows
         ordered_result[key] = value
     if "answer_metrics" not in ordered_result:
-        ordered_result["answer_metrics"] = metrics_rows
+        ordered_result["answer_metrics"] = carried_rows
     return ordered_result
