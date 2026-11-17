@@ -244,5 +244,46 @@ class TestR19037MissingDirectoryToken(unittest.TestCase):
         self.assertIn("does not exist", str(caught.exception))
 
 
+class TestR19103WatchFormSplit(unittest.TestCase):
+    """R19-103: the watch form named on the invocation governs
+    the written artefact as it governs the printed rendering."""
+
+    def test_cli_form_governs_the_written_artefact(self):
+        root, home = seed_home(self)
+        out_path = root / "watchrun.txt"
+        _, path = plan_file(self, base_plan(
+            home, "picked", output=str(out_path), targets=[
+                {"product": "p-alpha", "round": "round-1"}]))
+        code = shell.main(
+            ["watch", "--plan", str(path), "--form", "agentic"])
+        self.assertEqual(code, 0)
+        text = out_path.read_text(encoding="utf-8")
+        self.assertIn("\"form\": \"agentic\"", text)
+
+
+class TestR19104PlanWarnings(unittest.TestCase):
+    """R19-104: unknown plan keys and a missing form key stand
+    warned, not silently accepted."""
+
+    def test_missing_form_key_is_warned(self):
+        _, home = seed_home(self)
+        data = base_plan(home, "estate")
+        del data["form"]
+        _, path = plan_file(self, data)
+        result = watch.run_watch(plan_file=str(path))
+        self.assertTrue(any(
+            "form" in warning
+            for warning in result["plan_warnings"]))
+
+    def test_unknown_key_is_warned(self):
+        _, home = seed_home(self)
+        _, path = plan_file(self, base_plan(
+            home, "estate", bogus_key="x"))
+        result = watch.run_watch(plan_file=str(path))
+        self.assertTrue(any(
+            "bogus_key" in warning
+            for warning in result["plan_warnings"]))
+
+
 if __name__ == "__main__":
     unittest.main()

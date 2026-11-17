@@ -321,6 +321,11 @@ _TARGET_KEYS = ("product", "page_file", "round", "robots_file",
 def _plan_warnings(plan, targets):
     """The warnings a round states for its plan's unknown keys."""
     warnings = []
+    if "form" not in plan:
+        warnings.append(
+            "WatchPlan form key missing; the round runs in "
+            "the default form simple, and a plan that means "
+            "another form must state the form key")
     for key in plan:
         if key not in _PLAN_KEYS:
             warnings.append(
