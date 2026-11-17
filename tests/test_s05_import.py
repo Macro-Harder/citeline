@@ -364,13 +364,26 @@ class TestAdapterContract(ImportBase):
         CONTROL_CAP_EXCEEDED: a control designation past the cap
         of 5 designated controls in one round for one source kind
         is refused as a usage error naming the cap, and the import
-        writes nothing."""
+        writes nothing. Restated in the Step 19 Phase 7 re-pin:
+        the earlier form of this pin asserted the journal count
+        rises by 1 across this refusal, the one record being a
+        failure record for the cap refusal itself. That record
+        is the behaviour the R19-041 rule abolished and the
+        Phase 7 cure for P7A1-02 removed: a cap refusal stores
+        nothing on every route, and CONTROL_CAP_EXCEEDED stands
+        in the cap refusal class beside LIMIT_EXCEEDED and
+        JOURNAL_CAP_EXCEEDED, so this refusal stores no failure
+        record and the journal count stands unchanged. A non cap
+        failure on this appending route still stores exactly one
+        record, per CL19-177, as the neighbouring failure record
+        tests in this file pin."""
         for index in range(5):
             path = self.temp_answer("Control answer %d text.\n" % index,
                                     name="control-%d.txt" % index)
             do_import(self.home, path, control_designation="positive",
                       captured_on="2026-11-0%d" % (index + 1))
         before = entry_count(self.home)
+        failures_before = len(entries_of_kind(self.home, "failure_record"))
         with self.assertRaises(Exception) as caught:
             do_import(self.home,
                       self.temp_answer("Control answer 6 text.\n",
@@ -379,7 +392,9 @@ class TestAdapterContract(ImportBase):
                       captured_on="2026-11-06")
         assert_token(self, caught, "CONTROL_CAP_EXCEEDED")
         self.assertEqual(len(entries_of_kind(self.home, "answer_imported")), 5)
-        self.assertEqual(entry_count(self.home), before + 1)
+        self.assertEqual(entry_count(self.home), before)
+        self.assertEqual(len(entries_of_kind(self.home, "failure_record")),
+                         failures_before)
 
     def test_empty_answer_is_stored_and_stands_in_its_round(self):
         """Pins S5 empty answer end state. Oracle: brief Section
