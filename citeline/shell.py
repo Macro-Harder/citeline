@@ -449,6 +449,40 @@ def _parse_flags_detailed(tokens, allowed, operation):
     return inputs, None
 
 
+# The depth past which a parsed list structure stands as a
+# malformed call at the shell intake: the JSON nesting
+# depth the shipped limit table states (limit 18, default
+# 100 levels). A structure the parser itself accepts can
+# still stand nested past this depth on a runtime whose
+# parser reads deeper, so the intake judges the depth of
+# the parsed structure itself and never passes a deeper
+# structure on to field validation (Step 17 round 2 entry
+# S17-R2-080, completed at Step 19 entry U-13).
+_LIST_INTAKE_DEPTH = 100
+
+
+def _structure_depth(value):
+    """The nesting depth of one parsed JSON structure.
+
+    Counted iteratively over list and dict containers, so
+    the counting itself never recurses: a scalar stands at
+    depth 0 and each container level adds one.
+    """
+    deepest = 0
+    stack = [(value, 0)]
+    while stack:
+        node, depth = stack.pop()
+        if isinstance(node, (list, dict)):
+            depth += 1
+            if depth > deepest:
+                deepest = depth
+            children = node.values() if isinstance(node, dict) \
+                else node
+            for child in children:
+                stack.append((child, depth))
+    return deepest
+
+
 def _coerce_list_inputs(inputs):
     """Carry each list valued input to the list it states.
 
@@ -485,12 +519,18 @@ def _coerce_list_inputs(inputs):
                     return None
                 if not isinstance(parsed, list):
                     return None
+                if _structure_depth(parsed) > _LIST_INTAKE_DEPTH:
+                    return None
                 items.extend(parsed)
             elif text.startswith("{"):
                 try:
-                    items.append(json.loads(text))
+                    parsed_object = json.loads(text)
                 except (ValueError, RecursionError):
                     return None
+                if _structure_depth(parsed_object) \
+                        > _LIST_INTAKE_DEPTH:
+                    return None
+                items.append(parsed_object)
             elif text:
                 items.extend(
                     part.strip() for part in text.split(",")
