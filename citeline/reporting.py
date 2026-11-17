@@ -792,16 +792,39 @@ def _apply_control_failure_notice(body):
     # stands judged at any depth as the other two flags are
     # judged, over the walked objects, so a flag standing
     # in a nested object or in a list item states the
-    # failed control in the same way.
+    # failed control in the same way. One standing exception
+    # binds the per answer rows of an answer_metrics list:
+    # a row's control_flag states only that the answer is
+    # a control answer, passing or failing, and the round
+    # failure state of those rows stands stated once in
+    # the record's control_failed field, so a control_flag
+    # inside an answer_metrics row states no failed control
+    # in this pass (Step 19 Phase 6 class (f) item F-2).
     flag_components = (
         ("control", "failed"), ("control", "failure"),
         ("control", "flag"))
     flagged = False
-    for obj in _walk(body):
-        for key in obj:
-            if tuple(_key_components(key)) in flag_components \
-                    and obj.get(key):
-                flagged = True
+
+    def flag_walk(node, in_answer_metrics=False):
+        nonlocal flagged
+        if isinstance(node, dict):
+            for key in node:
+                components = tuple(_key_components(key))
+                if components in flag_components and node.get(key):
+                    if in_answer_metrics and components == \
+                            ("control", "flag"):
+                        continue
+                    flagged = True
+            for key, value in node.items():
+                flag_walk(
+                    value,
+                    in_answer_metrics or tuple(
+                        _key_components(key)) == ("answer", "metrics"))
+        elif isinstance(node, list):
+            for item in node:
+                flag_walk(item, in_answer_metrics)
+
+    flag_walk(body)
     # The three notice keys stand judged as the same
     # notice name under the same component reading, at the
     # top level and in nested objects alike, so a notice
