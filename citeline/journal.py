@@ -1180,6 +1180,24 @@ def _scan(home, partial_mode="probe"):
     cached = _scan_cache.get(cache_key)
     if cached is not None and cached[0] == stat:
         return cached[1]
+    if partial_mode in ("probe", "torn"):
+        # The probe and torn scans differ only in how a
+        # final partial line stands classified. Where the
+        # standing file holds no partial line, the two
+        # scans are the same scan, so a cached sibling scan
+        # over the same file state stands reused instead of
+        # recomputed (Step 19 item R19-039: a writing
+        # invocation whose readers ran the probe scan no
+        # longer pays for a second full scan under the
+        # torn key). A sibling scan that saw a partial line
+        # is never reused: its classification is its own
+        # mode's.
+        sibling_mode = "torn" if partial_mode == "probe" \
+            else "probe"
+        sibling = _scan_cache.get((path, sibling_mode, None, None))
+        if sibling is not None and sibling[0] == stat \
+                and not sibling[1].partial_seen:
+            return sibling[1]
     scan = _Scan()
     try:
         descriptor = _open_home_file_descriptor(path, "r")
