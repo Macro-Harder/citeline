@@ -1928,19 +1928,23 @@ def validate_adapter_inputs(*, answer_file=None, product=None,
         ("captured_on", captured_on),
         ("capture_method", capture_method),
     )
-    for name, value in required:
-        if value is None or (isinstance(value, str) and value == ""):
-            _fail("IMPORT_VALIDATION_FAILED",
-                  "missing required input: " + name)
+    missing = [
+        name for name, value in required
+        if value is None or (isinstance(value, str) and value == "")]
+    if audit_date is None or (isinstance(audit_date, str)
+                              and audit_date == ""):
+        missing.append("audit_date")
+    if missing:
+        # One refusal names every missing required input, so an
+        # operator fixes the whole call in one run instead of
+        # one input per run.
+        _fail("IMPORT_VALIDATION_FAILED",
+              "missing required inputs: " + ", ".join(missing))
     _require_text_inputs({
         "product": product, "round": round,
         "engine_label": engine_label, "query": query,
         "capture_method": capture_method,
         "control_designation": control_designation, "kind": kind})
-    if audit_date is None or (isinstance(audit_date, str)
-                              and audit_date == ""):
-        _fail("IMPORT_VALIDATION_FAILED",
-              "missing required input: audit_date")
     if not known_round:
         _fail("UNKNOWN_ROUND", "unknown round: " + str(round))
     if query_set is not None and query not in query_set:

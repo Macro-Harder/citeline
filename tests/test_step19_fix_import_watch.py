@@ -117,5 +117,21 @@ class TestR19025JsonLines(unittest.TestCase):
             "json_lines")
 
 
+class TestR19045AllMissingInputs(unittest.TestCase):
+    """R19-045: one refusal reports every missing required input."""
+
+    def test_all_missing_inputs_named_in_one_refusal(self):
+        with self.assertRaises(Exception) as caught:
+            probe_import.validate_adapter_inputs(
+                answer_file="answer.txt", product="p-alpha",
+                round="round-1", engine_label=None, query=None,
+                kind=None, captured_on=None, capture_method=None,
+                audit_date=None)
+        message = str(caught.exception)
+        for name in ("engine_label", "query", "kind", "captured_on",
+                     "capture_method", "audit_date"):
+            self.assertIn(name, message)
+
+
 if __name__ == "__main__":
     unittest.main()
