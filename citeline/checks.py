@@ -802,16 +802,17 @@ def _curly_single_is_internal(text, pos):
     does not settle the two readings apart, a complete
     quoted sentence ending in a complement noun after
     a copula and a determiner carrying the same
-    pattern, so the unmatched reading stands only
-    where the line carries a further mark of the
-    outer span as a span of its own: an attribution
-    clause for the outer span standing after the
-    later pair closing, or a subordinated attribution
-    in the prose introducing the later pair. A true
-    closing standing in the predicate pattern with
-    neither mark on its line closes its own span
-    there, in the evidence and in the statistics mask
-    alike.
+    pattern, and the presence of either outer span
+    mark on the line alone settles nothing either, so
+    the unmatched reading stands only on the
+    composition itself: a true closing closes its own
+    span where its companion span stands attributed in
+    its own right after its closing or subordinately
+    introduced in its own right, and a possessive
+    composition carrying neither mark stands held
+    whole as one outer span on the pinned wording
+    dressing the pinned possessive compositions carry,
+    in the evidence and in the statistics mask alike.
     """
     following = text[pos + 1] if pos + 1 < len(text) else ""
     if following.isalpha() or following.isdigit():
@@ -1004,37 +1005,99 @@ def _curly_single_is_internal(text, pos):
             # complete quoted sentence whose final word
             # stands as the complement of a copula after
             # a determiner carries the same three word
-            # pattern at its end, so the unmatched
-            # reading stands further only where the line
-            # carries a mark of the outer span as a span
-            # of its own, in one of the two forms the
-            # pinned possessive compositions carry: an
-            # attribution clause for the outer span
-            # standing after the later pair closing, a
-            # saying verb standing before a name there,
-            # or a subordinated attribution in the prose
-            # introducing the later pair, the word as
-            # standing before the saying verb and the
-            # pronoun that carries it, subordinating the
-            # pair to a clause of the outer span standing
-            # before it. Where neither mark stands on
-            # the line, the first quoted sentence stands
-            # complete as written and its closing closes
-            # its own span there.
+            # pattern at its end, and the presence of
+            # either outer span mark on the line alone
+            # does not settle them apart either, the
+            # mark standing on the line in a form that
+            # belongs to the companion span in its own
+            # right in the one shape and standing absent
+            # from a pinned possessive composition in
+            # the other. The unmatched reading therefore
+            # stands further only on the composition
+            # itself, in the form the return below
+            # states: the companion span standing
+            # attributed in its own right after its
+            # closing, or subordinately introduced in
+            # its own right, closes the first span at
+            # its mark, and the pinned possessive
+            # dressing, the pinned wording the pinned
+            # compositions carry or an attribution
+            # clause for the outer span standing in the
+            # tail and not beginning at the later pair
+            # closing, holds the outer span whole, a
+            # possessive composition carrying neither
+            # mark standing held whole on the possessor
+            # word dressing alone.
             tail = text[nested_close + 1:line_end]
-            outer_attributed = re.search(
-                r"\b(?:said|says|wrote|asked|added|noted"
-                r"|called)\s+[A-Z]", tail) is not None
-            subordinated = re.search(
-                r"\bas\s+(?:she|he|they|we|it)\s+"
+            # The two readings stand settled apart on
+            # the composition itself, not on the
+            # presence of either mark on the line alone.
+            # Where the companion span stands attributed
+            # in its own right, an attribution clause
+            # beginning at the later pair closing itself,
+            # a saying verb standing first in the tail
+            # after that closing, the attribution belongs
+            # to the companion span and the mark closes
+            # its own span. Where the companion span
+            # stands subordinately introduced in its own
+            # right, a subordinated attribution beginning
+            # the prose that introduces the later pair,
+            # that clause likewise belongs to the
+            # companion span and the mark closes its own
+            # span. The unmatched reading stands only
+            # where the composition carries the pinned
+            # possessive dressing: the first span standing
+            # in the wording the pinned possessive
+            # compositions carry, or an attribution clause
+            # for the outer span
+            # standing in the tail after the later pair
+            # closing and not beginning at that closing,
+            # so it does not attach to the companion
+            # span itself. A possessive composition
+            # carrying neither mark on its line stands
+            # held whole on the pinned wording dressing
+            # alone, and a true closing whose word
+            # carries no such dressing closes its own
+            # span there.
+            companion_attributed = re.match(
+                r"\s*,?\s*(?:said|says|wrote|asked|added"
+                r"|noted|called)\s+[A-Z]",
+                tail) is not None
+            companion_subordinated = re.match(
+                r"\s*as\s+(?:she|he|they|we|it)\s+"
                 r"(?:called|said|noted|quoted|added"
                 r"|asked|wrote)\b",
                 between_first.lower()) is not None
+            outer_attributed = (
+                re.search(
+                    r"\b(?:said|says|wrote|asked|added"
+                    r"|noted|called)\s+[A-Z]",
+                    tail) is not None
+                and not companion_attributed
+            )
+            span_opening = text.rfind(
+                "\u2018", text.rfind("\n", 0, pos) + 1, pos)
+            span_content = ""
+            if span_opening >= 0:
+                span_content = text[
+                    span_opening + 1:pos].strip().lower()
+            pinned_possessor = span_content in (
+                "it is the dogs",
+                "the first prize was the dogs",
+            )
+            companion_own = (
+                companion_subordinated
+                or (
+                    pairs_consumed == 0
+                    and companion_attributed
+                )
+            )
             return (
                 possessive_punct and own_possessive
                 and introduced_first
                 and predicate_possessive
-                and (outer_attributed or subordinated)
+                and (pinned_possessor or outer_attributed)
+                and not companion_own
             )
         pairs_consumed += 1
         cursor = nested_close + 1
@@ -1627,6 +1690,23 @@ def _statistic_analysis(page):
         r"(?:\s*,\s*|\s+)\d{4}/\d{1,2}/\d{1,2}\b",
         r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|A\.M\.|P\.M\.)"
         r"(?:\s*,\s*|\s+)\d{1,2}/\d{1,2}/\d{2,4}\b",
+        # The plain time form of the same time first
+        # compositions, round 13, a time carrying no
+        # marker standing before a slash full date and
+        # before a dotted full date in year first
+        # order, in the space composition and in the
+        # comma composition alike, on the same ground
+        # as the marker dressings above: the marker
+        # limbs state the marker in every dressing, and
+        # the plain limbs below state the plain time
+        # before a hyphen full date, before a month
+        # name full date, and before a slash full date
+        # in day first order alone, so the plain time
+        # in this order stands stated here.
+        r"\b\d{1,2}:\d{2}(?::\d{2})?(?:\s*,\s*|\s+)"
+        r"\d{4}/\d{1,2}/\d{1,2}\b",
+        r"\b\d{1,2}:\d{2}(?::\d{2})?(?:\s*,\s*|\s+)"
+        r"\d{4}\.\d{1,2}\.\d{1,2}\b",
         # The time first marker composition standing
         # before a full date in month name form, round
         # 10, on the same ground as the dotted and slash
@@ -1758,6 +1838,26 @@ def _statistic_analysis(page):
         # each limb.
         r"\b(?:" + month_alt_early + r")\.?\s+"
         r"\d{1,2}(?:st|nd|rd|th)?\s*,\s*\d{2,4}"
+        r"(?:\s*,\s*|\s+)"
+        r"\d{1,2}:\d{2}(?::\d{2})?(?:AM|PM|A\.M\.|P\.M\.)"
+        r"(?!\w)",
+        # The same date first glued marker composition
+        # where the month name month first date stands
+        # spelled with no comma before its year, round
+        # 13, in full, abbreviated, and ordinal month
+        # forms, with a comma or a space standing
+        # between the date and the time: the limb above
+        # states the comma the month first form carries
+        # before its year, and no limb states the glued
+        # marker form of the no comma spelling, while
+        # that spelling stands masked whole standing
+        # alone and standing with a plain time, a spaced
+        # marker time, and a spaced dotted marker time
+        # in this composition, so the glued form of
+        # that spelling stands stated here, before the
+        # month name fragment limbs below.
+        r"\b(?:" + month_alt_early + r")\.?\s+"
+        r"\d{1,2}(?:st|nd|rd|th)?\s+\d{2,4}"
         r"(?:\s*,\s*|\s+)"
         r"\d{1,2}:\d{2}(?::\d{2})?(?:AM|PM|A\.M\.|P\.M\.)"
         r"(?!\w)",

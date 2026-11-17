@@ -393,13 +393,34 @@ class TestR12F5ConstructionCostPins(unittest.TestCase):
     def test_pair_construction_metrics_inside_bound(self):
         self._run_inside_bound(metrics, _pair_family(500), 15.0)
 
-    def test_fourth_construction_detection_inside_bound(self):
-        self._run_inside_bound(
-            detection, _band_family(1200, 4000, 2250, 200000), 40.0)
+    # The two fourth construction pins below stand
+    # re-pinned under the ruling of Captain JP of
+    # 2026-11-16 on entry S17-R11-012, in her words:
+    # "Just remove the two minute limit." The two minute
+    # limit stands removed for this family, so these pins
+    # assert the correctness standing of the family at
+    # this scale, the singleton result judged, and no
+    # time bound assertion on this family stands in
+    # their place. Their old form, the same construction
+    # at this scale against a bound of 40.0 seconds of
+    # process CPU time, stands recorded in the fix
+    # papers of rounds 10 to 13 in its standing as a pin
+    # form derived from the backstop judgement on this
+    # family.
 
-    def test_fourth_construction_metrics_inside_bound(self):
-        self._run_inside_bound(
-            metrics, _band_family(1200, 4000, 2250, 200000), 40.0)
+    def _run_correct_at_scale(self, module, type_sets):
+        components = module._similar_components(type_sets)
+        self.assertEqual(len(components), len(type_sets))
+        self.assertTrue(all(len(component) == 1
+                            for component in components))
+
+    def test_fourth_construction_detection_correct_at_scale(self):
+        self._run_correct_at_scale(
+            detection, _band_family(1200, 4000, 2250, 200000))
+
+    def test_fourth_construction_metrics_correct_at_scale(self):
+        self._run_correct_at_scale(
+            metrics, _band_family(1200, 4000, 2250, 200000))
 
     def test_mixed_size_control_inside_bound(self):
         for module in (detection, metrics):

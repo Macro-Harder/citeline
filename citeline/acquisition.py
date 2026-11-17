@@ -1599,7 +1599,18 @@ def _fm_holds_tag_construct(text):
     S17-R12-008 on the six further openings that entry
     names: a question mark, a backslash, an opening
     parenthesis, a closing parenthesis, a less than
-    sign, and a colon)."""
+    sign, and a colon, completed at round 13 entry
+    S17-R13-001 on the combining mark opening in the
+    generic form the cure at round 11 entry S17-R11-010
+    names: the character standing after the construct
+    character stands judged as that opening where it
+    stands as a combining mark as such, a mark of
+    general category Mn, Mc, or Me at any code point,
+    beside the range the earlier cure landed and beside
+    the word character set, each of which the reading
+    above already refuses, the page side limb of round
+    13 entry S17-R13-004 standing inside the same
+    completion on the category Mc and Me marks)."""
     text = _fm_remove_interior_head(text)
     if text.startswith(("!", "&", "*", "%")):
         return True
@@ -1610,6 +1621,12 @@ def _fm_holds_tag_construct(text):
             r"(?:^|[\s!\"#\$%&'\(\)\*\+,\-\./:;<=>\?@\[\\\]\^_`{|}~])"
             r"[&*%!][\w\-\.\+\$~;/=@\^`\u0300-\u036f\u203f\?\\\(\)<:]", text):
         return True
+    for match in re.finditer(
+            r"(?:^|[\s!\"#\$%&'\(\)\*\+,\-\./:;<=>\?@\[\\\]\^_`{|}~])"
+            r"[&*%!](.)", text):
+        if unicodedata.category(match.group(1)) in (
+                "Mn", "Mc", "Me"):
+            return True
     if re.match(r"^[|>](?:[+-]?[0-9]?|[0-9][+-])?(?:\s|$)", text):
         return True
     return False

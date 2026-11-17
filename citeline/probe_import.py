@@ -1263,8 +1263,15 @@ def _holds_tag_construct(text):
         # code point, beside the range the earlier cure
         # landed and beside the word character set, each
         # of which the reading above already refuses
-        # (entry S17-R12-006).
-        if unicodedata.category(match.group(1)) == "Mn":
+        # (entry S17-R12-006). The generic term stands as
+        # the union of the mark categories, so a character
+        # of general category Mc or of general category Me
+        # standing at the same position stands as that
+        # opening in the same form, at any code point
+        # (entry S17-R13-004, on ruling (c) of the round
+        # 13 disposition).
+        if unicodedata.category(match.group(1)) in (
+                "Mn", "Mc", "Me"):
             return True
     if re.match(r"^[|>](?:[+-]?[0-9]?|[0-9][+-])?(?:\s|$)", text):
         # A block scalar header admits both indicator
