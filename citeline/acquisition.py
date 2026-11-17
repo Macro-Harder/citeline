@@ -1577,20 +1577,50 @@ def _fm_position_scan_holds(text):
     follower set through a word character or through
     one of the widened follower characters (Step 17
     round 15 entries S17-R15-002, S17-R15-003, and
-    S17-R15-010)."""
+    S17-R15-010). The follower judgement stands
+    reached past head gap material standing between
+    the construct character and its follower: where
+    the character standing immediately after the
+    construct character stands as head material that
+    is not whitespace and stands judged on no limb
+    of the follower judgement, the scan reads forward
+    over head material characters that are not
+    whitespace and that stand judged on no such limb,
+    and judges the construct on the first character
+    standing past that run where that character
+    stands judged as a follower on the standing
+    limbs; where no such character stands past the
+    run, the construct stands unjudged on that
+    follower ground (Step 17 round 16 entries
+    S17-R16-009 and S17-R16-010)."""
+    def follower_judged(char):
+        return unicodedata.category(char) in (
+            "Mn", "Mc", "Me") or (
+                _fm_is_head_char(char) and (
+                    char.isalnum() or char == "_"
+                    or char in _FM_WIDENED_FOLLOWER_CHARS))
+
     for index, char in enumerate(text):
         if char not in "&*%!":
             continue
         if index + 1 >= len(text):
             continue
         follower = text[index + 1]
-        if unicodedata.category(follower) in (
-                "Mn", "Mc", "Me"):
+        if follower_judged(follower):
             pass
-        elif _fm_is_head_char(follower) and (
-                follower.isalnum() or follower == "_"
-                or follower in _FM_WIDENED_FOLLOWER_CHARS):
-            pass
+        elif _fm_is_head_char(follower) \
+                and not follower.isspace():
+            ahead = index + 2
+            while ahead < len(text) \
+                    and _fm_is_head_char(text[ahead]) \
+                    and not text[ahead].isspace() \
+                    and not follower_judged(text[ahead]):
+                ahead += 1
+            if ahead < len(text) \
+                    and follower_judged(text[ahead]):
+                pass
+            else:
+                continue
         else:
             continue
         back = index - 1
@@ -1705,7 +1735,12 @@ def _fm_holds_tag_construct(text):
     judged at its own position, and a sole follower
     character of the follower set that also stands as
     head material standing judged in the word
-    character form as in the mark form)."""
+    character form as in the mark form, and completed
+    at round 16 entries S17-R16-009 and S17-R16-010 on
+    the gap reach of that scan: the follower judgement
+    stands reached past head gap material standing
+    between the construct character and its follower,
+    in the form the scan states)."""
     if _fm_position_scan_holds(text):
         return True
     for match in re.finditer(
@@ -2112,10 +2147,20 @@ def _front_matter(text, fmt, notes, block_limit_bytes=None,
                     # round 6 entry S17-R6-012), and the
                     # bracket judgement stands on the key
                     # and on the value alike (Step 17
-                    # round 6 entry S17-R6-013).
+                    # round 6 entry S17-R6-013). The key
+                    # construct judgement stands on the
+                    # judged key beside the key standing
+                    # past its head material, in the import
+                    # form, the judged key standing as the
+                    # duplicate judgement above reads it
+                    # (Step 17 round 16 entry
+                    # S17-R16-011).
                     judged_key = _fm_strip_head(pair[0])
                     judged_value = _fm_strip_head(pair[1])
-                    if _fm_holds_tag_construct(judged_key) \
+                    if _fm_holds_tag_construct(
+                            duplicate_key) \
+                            or _fm_holds_tag_construct(
+                                judged_key) \
                             or _fm_holds_tag_construct(
                                 judged_value):
                         _fail("PAGE_EXTRACTION_FAILED",

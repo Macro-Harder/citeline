@@ -2165,6 +2165,30 @@ class _WriteLock:
             handle.truncate()
             handle.write("holder pid %d\n" % os.getpid())
             handle.flush()
+            try:
+                _rejudge_open_descriptor(handle.fileno(), path)
+            except _UnsafeHomeFile:
+                # The holder line write stands judged after
+                # it stands written, in the bounded form of
+                # this site: a rename plant timed at the
+                # return of the helper lstat reading of the
+                # rejudgement before the write stands judged
+                # here, the holder line stands truncated off
+                # the handle, and the acquire stands refused
+                # in the vocabulary of the site, the
+                # exclusion standing on the directory flock
+                # in every form (Step 17 round 16 entry
+                # S17-R16-003).
+                try:
+                    handle.seek(0)
+                    handle.truncate(0)
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                except OSError:
+                    pass
+                handle.close()
+                self._release_dir_lock()
+                raise _unsafe_home_file_error(path, "write lock")
             self.handle = handle
             _HELD_LOCKS[path] = (
                 handle, 1, threading.get_ident(), self._invocation,
@@ -2479,9 +2503,47 @@ def _restore_journal_size(path, size):
         try:
             with os.fdopen(descriptor, "r+b") as handle:
                 _rejudge_open_descriptor(handle.fileno(), path)
+                # The bytes past the restore size stand read
+                # before the truncate, so a judgement that
+                # catches a plant after the truncate can put
+                # them back on the handle in its remedy
+                # below (Step 17 round 16 entry S17-R16-002).
+                handle.seek(size)
+                tail = handle.read()
+                # A second judgement stands after the
+                # rejudgement and before the truncate: a
+                # rename plant timed at the return of the
+                # helper lstat reading of the rejudgement
+                # stands judged here, before any truncate
+                # lands, on the no replacement dressing and
+                # on the replacement dressing alike, so the
+                # truncate stands in no case performed on a
+                # file the home no longer names while the
+                # journal that stands keeps its full size.
+                _rejudge_open_descriptor(handle.fileno(), path)
                 handle.truncate(size)
                 handle.flush()
                 os.fsync(handle.fileno())
+                try:
+                    _rejudge_open_descriptor(
+                        handle.fileno(), path)
+                except _UnsafeHomeFile:
+                    # A judgement stands after the truncate
+                    # as well: a plant timed at the return of
+                    # the reading of the judgement before the
+                    # truncate lands the truncate on the file
+                    # under the outside name, and the remedy
+                    # of the site puts the preserved tail back
+                    # on the handle, so that file stands whole
+                    # at its full size again and the restore
+                    # stands not performed in its silent best
+                    # effort form.
+                    handle.seek(size)
+                    handle.write(tail)
+                    handle.truncate(size + len(tail))
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                    raise
         except (OSError, _UnsafeHomeFile):
             pass
     for cache_key in [key for key in _scan_cache if key[0] == path]:
@@ -3782,6 +3844,29 @@ def replay(home, entries, resume=False):
                         raw + b"\n" for raw in lines))
                     handle.flush()
                     os.fsync(handle.fileno())
+                    try:
+                        _rejudge_open_descriptor(
+                            handle.fileno(), path)
+                    except _UnsafeHomeFile:
+                        # The resume branch stands under
+                        # the same post write judgement
+                        # discipline as the append road: a
+                        # rename plant timed at the return
+                        # of the helper lstat reading of its
+                        # pre write rejudgement stands
+                        # judged after the write, the
+                        # replayed lines stand truncated off
+                        # the handle back to the size the
+                        # journal stood at, and no replayed
+                        # content stands readable under the
+                        # outside name (Step 17 round 16
+                        # entry S17-R16-001).
+                        handle.truncate(original_size)
+                        handle.flush()
+                        os.fsync(handle.fileno())
+                        raise
+            except _UnsafeHomeFile:
+                raise _unsafe_home_file_error(path, "journal")
             except OSError:
                 _restore_journal_size(path, original_size)
                 raise JournalError(

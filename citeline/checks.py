@@ -721,6 +721,77 @@ _QUOTE_OPENINGS = {
 }
 
 
+def _saying_verb_pattern():
+    """The saying verb forms of the attribution
+    judgements, built from their stems.
+
+    The charge states no verb limit, so the forms stand
+    built from the saying verb stems in every form a
+    stem carries: its plain form, its present form, its
+    past form, and its participle form, with the
+    spelling changes those forms carry, a consonant
+    and y ending standing in its ies and ied forms, a
+    final e standing dropped before ing and standing
+    with a d alone in the past, and a doubled final
+    consonant standing admitted beside the undoubled
+    form, beside the irregular past forms the stems
+    carry. The two word form pointed out stands in the
+    set in its forms in the same way.
+    """
+    stems = (
+        "say", "write", "ask", "add", "note", "call",
+        "reply", "remark", "observe", "state", "declare",
+        "explain", "continue", "insist", "report",
+        "whisper", "answer", "respond", "comment",
+        "mention", "claim", "announce", "conclude",
+        "suggest", "admit", "warn", "shout", "murmur",
+        "agree", "quote", "argue", "contend", "tell",
+        "confirm", "predict", "think", "cry", "demand",
+        "deny", "exclaim", "groan", "laugh", "mutter",
+        "object", "offer", "promise", "protest",
+        "repeat", "scream", "urge", "yell", "beg",
+        "describe", "propose", "speak", "read",
+    )
+    forms = {
+        "said", "wrote", "told", "thought", "spoke",
+        "point out", "points out", "pointed out",
+        "pointing out",
+    }
+    for stem in stems:
+        forms.add(stem)
+        if stem.endswith(("s", "x", "z", "ch", "sh")):
+            forms.add(stem + "es")
+        elif (
+            len(stem) > 1 and stem.endswith("y")
+            and stem[-2] not in "aeiou"
+        ):
+            forms.add(stem[:-1] + "ies")
+        else:
+            forms.add(stem + "s")
+        if stem.endswith("e"):
+            forms.add(stem + "d")
+            forms.add(stem[:-1] + "ing")
+        elif (
+            len(stem) > 1 and stem.endswith("y")
+            and stem[-2] not in "aeiou"
+        ):
+            forms.add(stem[:-1] + "ied")
+            forms.add(stem + "ing")
+        else:
+            forms.add(stem + "ed")
+            forms.add(stem + stem[-1] + "ed")
+            forms.add(stem + "ing")
+            forms.add(stem + stem[-1] + "ing")
+        if stem.endswith("ee"):
+            forms.add(stem + "ing")
+    return "|".join(sorted(
+        (re.escape(form) for form in forms),
+        key=len, reverse=True))
+
+
+_SAYING_VERB_PATTERN = _saying_verb_pattern()
+
+
 def _curly_single_is_internal(text, pos):
     """Whether the typographic apostrophe at pos stands
     inside a curly single span rather than closing it.
@@ -851,41 +922,68 @@ def _curly_single_is_internal(text, pos):
         # head noun standing in the clause for the mark
         # to possess, and the mark stands as no
         # possessive in the unmatched reading below.
-        # The reading scans back from the mark over a
-        # bounded window of words standing before it, so
-        # its cost stands on those words and not on the
-        # length of the line standing before the mark.
-        # The possessive noun stands first in that
-        # window. A determiner stands before it, with
-        # modifier words standing between the determiner
-        # and the noun in ordinary wordings, as in it is
-        # the winning cats and it is the very best cats.
-        # A copula stands before the determiner, with
+        # The reading scans back from the mark over the
+        # words of its clause standing before it, with
+        # no word count bound on the scan, so a wording
+        # built only from the word classes this judgement
+        # reads stands judged whole however many
+        # modifier or adverb words stand in it. The
+        # possessive noun stands first in that scan. A
+        # determiner stands before it, with modifier
+        # words standing between the determiner and the
+        # noun in ordinary wordings, as in it is the
+        # winning cats and it is the very best cats. A
+        # copula stands before the determiner, with
         # adverb or negation words standing between the
         # copula and the determiner in ordinary
         # wordings, as in it is really the cats, it is
         # not the dogs, and the prize was really the
-        # dogs, and with an auxiliary standing after a
-        # copula form in the same way, as in it has
-        # become the cats, the copula form itself
+        # dogs, with a predeterminer standing between
+        # the copula and the determiner in the same
+        # place, as in it is all the cats and they are
+        # both the dogs, and with an auxiliary standing
+        # after a copula form in the same way, as in it
+        # has become the cats, the copula form itself
         # standing directly after the determiner there.
-        # The determiner set and the copula set stand
-        # widened past the first lists on the same
-        # ground: demonstrative and possessive
-        # determiners stand in the determiner place, as
-        # in it is those cats and it is my cats, and the
-        # copular verbs remains and became and their
-        # forms stand in the copula place, as in it
-        # remains the cats and it became the cats.
+        # The places stand judged on the composition
+        # itself past the first word lists: the
+        # determiner place reads the quantifier
+        # determiners in the same place as the
+        # demonstrative and possessive forms, as in it
+        # is some cats and it is no cats; the adverb
+        # place reads any adverb in its ly form in the
+        # same place as the listed adverbs, as in it is
+        # certainly the cats and it is probably the
+        # dogs; and the copula place reads any form of
+        # a copular verb, its present, past, and
+        # participle forms alike, as in it is becoming
+        # the cats, it stays the cats, and it appears
+        # the cats.
         line_start = text.rfind("\n", 0, mark) + 1
         words = []
         cursor = mark
-        while cursor > line_start and len(words) < 8:
+        while cursor > line_start:
+            # The scan stands on the words of the one
+            # clause segment the mark stands in: a
+            # punctuation mark or a span mark standing
+            # before a word ends the segment, as the
+            # composition itself carries no punctuation
+            # inside it, so the cost of the scan stands
+            # on the segment and not on the length of
+            # the line standing before the mark.
+            hit_boundary = False
             while cursor > line_start and not (
                 "a" <= text[cursor - 1] <= "z"
                 or "A" <= text[cursor - 1] <= "Z"
             ):
+                if text[cursor - 1] in (
+                    "\u2018\u2019'\",;:!?.()"
+                ):
+                    hit_boundary = True
+                    break
                 cursor -= 1
+            if hit_boundary:
+                break
             word_end = cursor
             while cursor > line_start and (
                 "a" <= text[cursor - 1] <= "z"
@@ -897,19 +995,56 @@ def _curly_single_is_internal(text, pos):
         determiners = (
             "the", "their", "our", "your", "his",
             "her", "its", "those", "these", "this",
-            "that", "my",
+            "that", "my", "a", "an", "some", "any",
+            "no", "every", "each", "either", "neither",
+            "another",
         )
-        copulas = (
-            "is", "are", "was", "were", "be", "been",
-            "being", "seems", "seem", "seemed",
-            "remains", "remain", "remained", "became",
-            "become", "becomes",
+        predeterminers = (
+            "all", "both", "half", "double", "twice",
+            "such",
         )
+        copula_stems = (
+            "be", "seem", "appear", "remain", "become",
+            "stay", "look", "feel", "grow", "turn",
+            "prove", "get", "go", "come",
+        )
+        copula_irregular = (
+            "am", "is", "are", "was", "were", "been",
+            "became", "felt", "grew", "grown", "got",
+            "went", "gone", "came",
+        )
+
+        def is_copula(word):
+            if word in copula_irregular:
+                return True
+            for stem in copula_stems:
+                if word == stem:
+                    return True
+                if word == stem + "s" or word == stem + "es":
+                    return True
+                if word == stem + "d" or word == stem + "ed":
+                    return True
+                if stem.endswith("e") and (
+                    word == stem[:-1] + "ing"
+                ):
+                    return True
+                if word == stem + "ing":
+                    return True
+            return False
+
         adverbs = (
             "really", "still", "also", "just", "not",
             "never", "always", "now", "then", "very",
-            "even", "only",
+            "even", "only", "indeed", "quite", "rather",
+            "fairly", "somewhat", "almost", "nearly",
+            "too", "so",
         )
+
+        def is_adverb(word):
+            if word in adverbs:
+                return True
+            return len(word) > 3 and word.endswith("ly")
+
         if len(words) < 3:
             return False
         det_index = None
@@ -920,11 +1055,14 @@ def _curly_single_is_internal(text, pos):
         if det_index is None:
             return False
         index = det_index + 1
-        while index < len(words) and words[index] in adverbs:
+        while index < len(words) and (
+            is_adverb(words[index])
+            or words[index] in predeterminers
+        ):
             index += 1
         if index >= len(words):
             return False
-        return words[index] in copulas
+        return is_copula(words[index])
 
     own_possessive = mark_is_possessive(pos)
     predicate_possessive = mark_is_predicate_possessive(pos)
@@ -1112,24 +1250,17 @@ def _curly_single_is_internal(text, pos):
             # same composition closes its own span
             # there.
             # The saying verb set of the attribution
-            # judgement stands widened past its first
-            # six verbs on the same ground, and the
-            # subject standing after the verb stands
-            # judged in any of its ordinary forms, a
-            # capitalised name, a pronoun, or a common
-            # noun phrase alike, as in replied Priya
-            # Nair, said she, and said the chair, the
-            # charge stating no verb limit and no name
-            # form limit.
-            saying_verbs = (
-                r"said|says|say|wrote|writes|asked|asks"
-                r"|added|adds|noted|notes|called|calls"
-                r"|replied|replies|remarked|remarks"
-                r"|observed|observes|stated|states"
-                r"|declared|declares|explained|explains"
-                r"|continued|continues|insisted|insists"
-                r"|reported|reports|whispered|whispers"
-            )
+            # judgement stands read in any saying verb
+            # form on the same ground, the forms standing
+            # built from their stems at _SAYING_VERB_
+            # PATTERN, and the subject standing after the
+            # verb stands judged in any of its ordinary
+            # forms, a capitalised name, a pronoun, or a
+            # common noun phrase alike, as in replied
+            # Priya Nair, said she, and said the chair,
+            # the charge stating no verb limit and no
+            # name form limit.
+            saying_verbs = _SAYING_VERB_PATTERN
             companion_attributed = re.match(
                 r"\s*[,;:!?.]?\s*"
                 r"(?i:" + saying_verbs + r")"
@@ -1706,38 +1837,52 @@ def _statistic_analysis(page):
     month_names_early = "|".join(name.capitalize() for name in _MONTHS)
     month_alt_early = (
         month_names_early + "|" + _MONTH_ABBREVIATIONS)
+    # The joiner standing between a date and its time,
+    # in either order, round 16, in any written form of
+    # the composition: a joiner word at, on, and, by, or
+    # before, the word by standing inside the cure in
+    # the form the round 16 disposition states, a comma
+    # standing before such a word, a semicolon, a
+    # colon, a pipe, a slash, an ampersand, an opening
+    # parenthesis, or a hyphen in any spacing, one
+    # hyphen or more standing between spaces, standing
+    # against the date with no space, or standing
+    # against the time with no space. The time first
+    # limb states the same joiner set as the date first
+    # limbs of the same composition, the colon and the
+    # pipe standing in both sets alike.
+    joiner_early = (
+        r"(?:\s*,\s*(?:at|on|and|by|before)\s+"
+        r"|\s+(?:at|on|and|by|before)\s+"
+        r"|\s*(?:;|:|\||/|&|\(|-+)\s*)")
     for date_pattern in (
         # The joiner forms past the comma and space
         # compositions, round 15, standing first on the
-        # same ground: a full date standing first with
-        # a spaced marker time standing after it, where
-        # a joiner stands between the date and the time,
-        # a joiner word at or on, a comma standing
-        # before such a word, a semicolon, a colon, a
-        # pipe, or a hyphen standing between spaces; and
-        # a plain time standing first before a full
-        # date in day first month name order spelled
-        # with a comma before its year, where a joiner
-        # word on or at, a comma standing before such a
-        # word, a semicolon, or a hyphen standing
-        # between spaces stands between the time and
-        # the date.
+        # same ground, and standing in any joiner form
+        # in round 16 in the form the joiner set above
+        # states: a full date standing first with a
+        # spaced marker time standing after it, the
+        # marker standing spaced after the time or
+        # standing glued against it in the same
+        # composition, where a joiner stands between
+        # the date and the time; and a plain time
+        # standing first before a full date in day
+        # first month name order spelled with a comma
+        # before its year, where a joiner stands
+        # between the time and the date.
         r"\b\d{1,2}(?:st|nd|rd|th)?\s+(?:"
         + month_alt_early + r")\.?\s*,?\s*\d{2,4}"
-        r"(?:\s*,\s*(?:at|on)\s+|\s+(?:at|on)\s+"
-        r"|\s*;\s*|\s*:\s*|\s*\|\s*|\s+-\s+)"
-        r"\d{1,2}:\d{2}(?::\d{2})?\s+"
+        + joiner_early
+        + r"\d{1,2}:\d{2}(?::\d{2})?\s*"
         r"(?:AM|PM|A\.M\.|P\.M\.)(?!\w)",
         r"\b(?:" + month_alt_early + r")\.?\s+"
         r"\d{1,2}(?:st|nd|rd|th)?\s*,?\s*\d{2,4}"
-        r"(?:\s*,\s*(?:at|on)\s+|\s+(?:at|on)\s+"
-        r"|\s*;\s*|\s*:\s*|\s*\|\s*|\s+-\s+)"
-        r"\d{1,2}:\d{2}(?::\d{2})?\s+"
+        + joiner_early
+        + r"\d{1,2}:\d{2}(?::\d{2})?\s*"
         r"(?:AM|PM|A\.M\.|P\.M\.)(?!\w)",
         r"\b\d{1,2}:\d{2}(?::\d{2})?"
-        r"(?:\s*,\s*(?:on|at)\s+|\s+(?:on|at)\s+"
-        r"|\s*;\s*|\s+-\s+)"
-        r"\d{1,2}(?:st|nd|rd|th)?\s+(?:"
+        + joiner_early
+        + r"\d{1,2}(?:st|nd|rd|th)?\s+(?:"
         + month_alt_early + r")\.?\s*,\s*\d{2,4}\b",
         # The orders the sets below still omit, round 7,
         # standing first because the plainer composites

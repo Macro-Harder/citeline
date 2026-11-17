@@ -126,8 +126,15 @@ def _contains_term(sentence, term):
     # string form stands as no term, in the guard form
     # the module states for its other collections, so no
     # raw error reaches the caller (Step 17 round 15
-    # entry S17-R15-008).
+    # entry S17-R15-008). The sentence argument of the
+    # same call stands under the same guard in the same
+    # form: a sentence standing in no string form stands
+    # as no sentence, so no raw error reaches the caller
+    # of the naming test on that argument either (Step
+    # 17 round 16 entry S17-R16-014).
     if not isinstance(term, str):
+        return False
+    if not isinstance(sentence, str):
         return False
     sentence_tokens = _word_tokens(sentence)
     term_tokens = _word_tokens(term)
@@ -809,6 +816,21 @@ def _record_states_failed_control(record):
     # entry S17-R15-007). The component reading itself
     # stands read from the reporting module, so the two
     # readings stand as one reading and not as two copies.
+    # The field set the walk judges on an attribute
+    # carrying record stands on the rendering conversion
+    # terms of that module, in its own order: a record
+    # carrying an _asdict form stands judged on the
+    # fields that form states, in place of its object
+    # dict, and an object dict stands judged on its
+    # public attribute names only, a private attribute
+    # name and everything held under it standing dropped
+    # as the conversion drops them, so a record states a
+    # failed control at the draft exactly where it states
+    # one at the rendering (Step 17 round 16 entries
+    # S17-R16-012 and S17-R16-013). A plain record stands
+    # judged on its member names as written, in the
+    # standing form: the conversion drops private names
+    # on object records only.
     from citeline import reporting
 
     def walk(node):
@@ -819,8 +841,12 @@ def _record_states_failed_control(record):
         elif isinstance(node, (list, tuple)):
             for item in node:
                 yield from walk(item)
+        elif hasattr(node, "_asdict"):
+            yield from walk(node._asdict())
         elif hasattr(node, "__dict__"):
-            yield from walk(vars(node))
+            yield from walk({
+                key: item for key, item in vars(node).items()
+                if not key.startswith("_")})
 
     for obj in walk(record):
         for key, value in obj.items():

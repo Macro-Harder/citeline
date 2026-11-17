@@ -1206,21 +1206,51 @@ def _position_scan_holds(text):
     or Me, or stands as head material and stands in the
     follower set through a word character or through
     one of the widened follower characters (entries
-    S17-R15-002, S17-R15-003, and S17-R15-010).
+    S17-R15-002, S17-R15-003, and S17-R15-010). The
+    follower judgement stands reached past head gap
+    material standing between the construct character
+    and its follower: where the character standing
+    immediately after the construct character stands as
+    head material that is not whitespace and stands
+    judged on no limb of the follower judgement, the
+    scan reads forward over head material characters
+    that are not whitespace and that stand judged on no
+    such limb, and judges the construct on the first
+    character standing past that run where that
+    character stands judged as a follower on the
+    standing limbs; where no such character stands past
+    the run, the construct stands unjudged on that
+    follower ground (entries S17-R16-009 and
+    S17-R16-010).
     """
+    def follower_judged(char):
+        return unicodedata.category(char) in (
+            "Mn", "Mc", "Me") or (
+                _is_head_char(char) and (
+                    char.isalnum() or char == "_"
+                    or char in _WIDENED_FOLLOWER_CHARS))
+
     for index, char in enumerate(text):
         if char not in "&*%!":
             continue
         if index + 1 >= len(text):
             continue
         follower = text[index + 1]
-        if unicodedata.category(follower) in (
-                "Mn", "Mc", "Me"):
+        if follower_judged(follower):
             pass
-        elif _is_head_char(follower) and (
-                follower.isalnum() or follower == "_"
-                or follower in _WIDENED_FOLLOWER_CHARS):
-            pass
+        elif _is_head_char(follower) \
+                and not follower.isspace():
+            ahead = index + 2
+            while ahead < len(text) \
+                    and _is_head_char(text[ahead]) \
+                    and not text[ahead].isspace() \
+                    and not follower_judged(text[ahead]):
+                ahead += 1
+            if ahead < len(text) \
+                    and follower_judged(text[ahead]):
+                pass
+            else:
+                continue
         else:
             continue
         back = index - 1
@@ -1280,7 +1310,11 @@ def _holds_tag_construct(text):
     # follower character of the follower set that also
     # stands as head material stands judged in the word
     # character form as in the mark form (entries
-    # S17-R15-002, S17-R15-003, and S17-R15-010).
+    # S17-R15-002, S17-R15-003, and S17-R15-010), the
+    # follower judgement of the scan standing reached
+    # past head gap material standing between the
+    # construct character and its follower (entries
+    # S17-R16-009 and S17-R16-010).
     if _position_scan_holds(text):
         return True
     for match in re.finditer(
