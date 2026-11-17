@@ -3272,7 +3272,7 @@ def _import_front_matter_limits(home, answer_file):
     try:
         from citeline import probe_import as import_module
         _raw, text, _hash = import_module.read_answer_file(
-            str(answer_file))
+            str(answer_file), home=home)
     except Exception:
         return
     strip = getattr(import_module, "_strip_head", None)
@@ -3459,7 +3459,7 @@ def _import_front_matter_limits(home, answer_file):
             "record" % ("%g" % (key_limit,),))
 
 
-def _worksheet_record_count(answer_file):
+def _worksheet_record_count(answer_file, home=None):
     """The records one worksheet import would append.
 
     The count stands read from the sheet itself: one
@@ -3471,7 +3471,7 @@ def _worksheet_record_count(answer_file):
     try:
         from citeline import probe_import as import_module
         _raw, text, _hash = import_module.read_answer_file(
-            str(answer_file))
+            str(answer_file), home=home)
         sheet = import_module.parse_worksheet(text)
     except Exception:
         return None
@@ -3570,7 +3570,7 @@ def probe_import(*, home, answer_file=None, product=None,
         # holds.
         preflight_extra = _first_import_extra(home, product, round)
         if worksheet:
-            record_count = _worksheet_record_count(answer_file)
+            record_count = _worksheet_record_count(answer_file, home)
             if record_count:
                 preflight_extra += record_count - 1
         _import_preflight(home, answer_file, preflight_extra)
@@ -3634,7 +3634,7 @@ def probe_import(*, home, answer_file=None, product=None,
                 query_set=None, standing_records=(), control_count=0,
                 product_id=None, round_id=None, answer_id=None,
                 registry_version_at_import=None,
-                detector_version_at_import=None)
+                detector_version_at_import=None, home=home)
         except Exception as exc:
             _append_failure_record(
                 home, "probe import", exc, answer_file, audit_date)
@@ -3672,7 +3672,7 @@ def probe_import(*, home, answer_file=None, product=None,
                     registry_version_at_import=product_record.get(
                         "registry_version", 1),
                     detector_version_at_import=_detector_version(),
-                    answer_sequence_base=sequence)
+                    answer_sequence_base=sequence, home=home)
             else:
                 control_count = sum(
                     1 for item in standing
@@ -3692,7 +3692,8 @@ def probe_import(*, home, answer_file=None, product=None,
                     answer_id="ans-{sequence}",
                     registry_version_at_import=product_record.get(
                         "registry_version", 1),
-                    detector_version_at_import=_detector_version())]
+                    detector_version_at_import=_detector_version(),
+                    home=home)]
         except Exception as exc:
             _append_failure_record(
                 home, "probe import", exc, answer_file, audit_date)
