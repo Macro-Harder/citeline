@@ -786,24 +786,22 @@ def main(argv=None):
         # A run identity stands alone in an audit call: any
         # fresh audit input named beside it stands refused
         # here, in the standing shell outcome, before the
-        # service call can disregard it. A named audit date
-        # that is not a date stands left to the service
-        # call, whose non date refusal governs that value.
+        # service call can disregard it. The refusal stands
+        # under the one error name MALFORMED_CALL regardless
+        # of whether the audit_date value parses, so the one
+        # combination never reports under two error names
+        # from two layers (register item R19-102). Which
+        # calls stand refused does not change: a call naming
+        # no fresh input beside the run identity stands
+        # admitted here as before, and an audit date that is
+        # not a date, named with no run identity, stands
+        # left to the service call as before.
         fresh_named = [
             name for name in ("page_file", "robots_file",
                               "evaluated_page_path",
                               "audit_date")
             if name in inputs]
-        date_names_fresh = "audit_date" not in fresh_named
-        if "audit_date" in fresh_named:
-            import datetime
-            try:
-                datetime.date.fromisoformat(
-                    str(inputs["audit_date"]))
-                date_names_fresh = True
-            except ValueError:
-                date_names_fresh = False
-        if fresh_named and date_names_fresh:
+        if fresh_named:
             return _usage_error(
                 "an audit call naming a run identity names "
                 "no fresh audit input beside it; the call "
