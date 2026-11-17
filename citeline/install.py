@@ -419,6 +419,18 @@ def install(location=None, home=None, **_ignored):
 
 
 def _install_impl(location=None, home=None):
+    # The Python floor stands enforced before any file
+    # is placed: Citeline requires Python 3.11 or later,
+    # and an older interpreter meets a recorded install
+    # error naming the floor (Step 19 register entry
+    # R19-068).
+    if tuple(sys.version_info[:2]) < (3, 11):
+        raise InstallError(
+            "PYTHON_FLOOR",
+            "Citeline requires Python 3.11 or later; "
+            "this interpreter is Python %d.%d, so no "
+            "files stand placed"
+            % tuple(sys.version_info[:2]))
     if location is None or home is None:
         raise InstallError(
             "MALFORMED_CALL",

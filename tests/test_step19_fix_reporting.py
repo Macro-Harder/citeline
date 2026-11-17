@@ -659,3 +659,40 @@ class TestR19091DocstringBound(unittest.TestCase):
 
         self.assertNotIn("attested", package_doc)
         self.assertIn("internal consistency", package_doc)
+
+
+class TestR19068PythonFloor(unittest.TestCase):
+    """R19-068: the Python 3.11 or later floor is enforced
+    at run and at install, with a recorded Citeline error
+    naming the floor, before files are placed."""
+
+    def test_run_floor_check(self):
+        import citeline
+
+        with self.assertRaises(Exception) as caught:
+            citeline.enforce_python_floor((3, 10, 0))
+        self.assertIn("Python 3.11 or later",
+                      str(caught.exception))
+        citeline.enforce_python_floor((3, 11, 0))
+        citeline.enforce_python_floor((3, 14, 4))
+
+    def test_install_floor_check_places_no_files(self):
+        import sys
+        import tempfile
+        from pathlib import Path
+        from unittest import mock
+
+        from citeline import install as install_module
+
+        root = Path(tempfile.mkdtemp(prefix="r68-"))
+        location = root / "install"
+        home = root / "home"
+        with mock.patch.object(
+                sys, "version_info", (3, 10, 0)):
+            with self.assertRaises(
+                    install_module.InstallError) as caught:
+                install_module.install(
+                    location=str(location), home=str(home))
+        self.assertIn("Python 3.11 or later",
+                      str(caught.exception))
+        self.assertFalse(location.exists())
