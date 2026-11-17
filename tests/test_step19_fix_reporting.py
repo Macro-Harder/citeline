@@ -5,6 +5,7 @@ stand written before the cures they pin.
 """
 import os
 import unittest
+from pathlib import Path
 
 from citeline import reporting
 
@@ -95,3 +96,51 @@ class TestR19090WatchBound(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestU08SelectionStatementsEveryForm(unittest.TestCase):
+    """U-08: where a selection basis stands recorded, the fixed
+    selection statement for that basis stands verbatim in every
+    form of the guide artefact, the Simple form included."""
+
+    def _draft_and_forms(self, page_name):
+        import json
+
+        import test_s09_reporting as shipped
+
+        root, home = shipped.make_home(self)
+        shipped.seed_product(home)
+        page = Path(ROOT) / "tests" / "fixtures" / page_name
+        record = shipped.audit_page(home, page)
+        draft = service_guide(home, record["run_id"])
+        if draft["selection_basis"] == "fallback":
+            statement = reporting.FALLBACK_STATEMENT
+        else:
+            statement = reporting.PREFERENCE_STATEMENT
+        forms = {}
+        for form in ("simple", "advanced", "agentic"):
+            rendered = reporting.render(draft, form)
+            if isinstance(rendered, dict):
+                rendered = rendered.get("report", rendered)
+                forms[form] = json.dumps(rendered)
+            else:
+                forms[form] = rendered
+        return statement, forms
+
+    def test_preference_statement_verbatim_everywhere(self):
+        statement, forms = self._draft_and_forms(
+            "w6-page-preference.md")
+        for form, text in forms.items():
+            self.assertIn(statement, text, form)
+
+    def test_fallback_statement_verbatim_everywhere(self):
+        statement, forms = self._draft_and_forms(
+            "w6-page-fallback.md")
+        for form, text in forms.items():
+            self.assertIn(statement, text, form)
+
+
+def service_guide(home, run_id):
+    from citeline import service
+
+    return service.guide(home=str(home), run_id=run_id)
