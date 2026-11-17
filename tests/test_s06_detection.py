@@ -480,5 +480,48 @@ class TestItem157TimingBound(unittest.TestCase):
         self.assertLess(elapsed, 5.0)
 
 
+class TestRefusedPatternClass(unittest.TestCase):
+    def test_named_refused_pattern_not_admitted(self):
+        """Plan EC-17 subsection 7.1 point 4, the pattern
+        safety rule stated against the measured dangerous
+        class. Oracle: no detection pattern stands
+        admitted where it contains an ambiguous
+        partitionable alternation, an alternation under a
+        quantifier whose branches can consume the same
+        text in different partitions; the pattern
+        (a|aa)+$ stands named as a test case of the
+        refused class. This test pins the class on the
+        shipped detection module: the named pattern
+        stands nowhere in it, and no pattern it compiles
+        carries an alternation group under a quantifier
+        whose branches share a first character, the
+        literal form of branches that can consume the
+        same text in different partitions."""
+        import re as _re
+
+        source = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "..", "citeline", "detection.py")
+        with open(source, encoding="utf-8") as handle:
+            text = handle.read()
+        self.assertNotIn("(a|aa)+$", text)
+        patterns = [
+            value.pattern for value in vars(detection).values()
+            if isinstance(value, _re.Pattern)]
+        self.assertTrue(patterns)
+        for pattern in patterns:
+            for match in _re.finditer(
+                    r"\((?:\?:)?([^()]*)\)[+*]", pattern):
+                branches = match.group(1).split("|")
+                if len(branches) < 2:
+                    continue
+                firsts = [branch[:1] for branch in branches
+                          if branch]
+                self.assertEqual(
+                    len(firsts), len(set(firsts)),
+                    "ambiguous partitionable alternation "
+                    "in pattern %r" % (pattern,))
+
+
 if __name__ == "__main__":
     unittest.main()
