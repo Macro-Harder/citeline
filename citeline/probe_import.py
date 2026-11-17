@@ -962,6 +962,58 @@ def _pdf_header_at_line_start(variant):
     return False
 
 
+_HTML_FRAGMENT_TAGS = (
+    "div", "p", "svg", "body", "head", "title", "table", "ul",
+    "ol", "li", "section", "article", "header", "footer", "main",
+    "span", "a", "img", "br", "hr", "h1", "h2", "h3", "h4", "h5",
+    "h6", "blockquote", "pre", "figure", "figcaption", "nav",
+    "aside", "form", "button", "iframe", "video", "audio",
+    "canvas", "details", "summary")
+
+
+def _is_html_text(first):
+    """True where the head text stands as an HTML capture.
+
+    The two openings the form test names stand judged in the
+    caller. This reading covers the remaining spellings a real
+    capture takes: a document standing behind an XML prolog, a
+    processing instruction, or one or more comment lines (a
+    browser save opens with a saved from comment), and a
+    fragment opening with a common HTML element. Markup in any
+    of these spellings is HTML, not answer text.
+    """
+    text = first.strip()
+    lowered = text.casefold()
+    while lowered:
+        if lowered.startswith("<?"):
+            end = lowered.find("?>")
+            if end < 0:
+                break
+            text = text[end + 2:].lstrip()
+            lowered = text.casefold()
+            continue
+        if lowered.startswith("<!--"):
+            end = lowered.find("-->")
+            if end < 0:
+                break
+            text = text[end + 3:].lstrip()
+            lowered = text.casefold()
+            continue
+        break
+    if lowered.startswith("<!doctype") and (
+            len(lowered) == 9 or lowered[9] in " \t\n\r\f"):
+        return True
+    if lowered.startswith("<html") and (
+            len(lowered) == 5 or lowered[5] in " \t\n\r\f/>"):
+        return True
+    match = re.match(r"<([a-z][a-z0-9]*)", lowered)
+    if match and match.group(1) in _HTML_FRAGMENT_TAGS:
+        rest = lowered[match.end():]
+        if rest == "" or rest[0] in " \t\n\r\f/>":
+            return True
+    return False
+
+
 def check11_form(raw_bytes, text):
     """Run the six tests of validation check 11.
 
@@ -1030,6 +1082,8 @@ def check11_form(raw_bytes, text):
         return "html"
     if lowered.startswith("<html") and (
             len(lowered) == 5 or lowered[5] in " \t\n\r\f/>"):
+        return "html"
+    if _is_html_text(first):
         return "html"
     stripped = first.strip()
     if stripped:
