@@ -793,12 +793,40 @@ def compute_round_triggers(answers=None, round_metrics=None):
                 elif getattr(item, name, False):
                     return True
             return False
+
+        def any_cited():
+            # An answer stands cited for the round trigger
+            # where it holds at least one citation instance,
+            # the gross reading the brief states for a citing
+            # answer, as well as where its cited outcome for
+            # the product domain stands (Step 19 queue
+            # addition U-06).
+            for item in active:
+                if isinstance(item, dict):
+                    if item.get("cited"):
+                        return True
+                    instances = item.get("citation_instances")
+                    if instances is None:
+                        instances = item.get("citation_instance_count")
+                    if instances:
+                        return True
+                else:
+                    if getattr(item, "cited", False):
+                        return True
+                    instances = getattr(
+                        item, "citation_instances", None)
+                    if instances is None:
+                        instances = getattr(
+                            item, "citation_instance_count", None)
+                    if instances:
+                        return True
+            return False
         triggers = []
         if not any_field("named"):
             triggers.append("NOT_NAMED")
         if not any_field("named_early"):
             triggers.append("NOT_NAMED_EARLY")
-        if not any_field("cited"):
+        if not any_cited():
             triggers.append("NOT_CITED")
         return triggers
     rates = _get(round_metrics, "rates", None) or {}
@@ -945,7 +973,6 @@ def draft_from_round(round_record=None, canonical_line=None, audit_date=None,
         audit_date = _get(record, "audit_date", None)
     control_failed = bool(control_failed) or \
         _record_states_failed_control(record)
-
     if control_failed:
         triggers = []
     elif trigger_codes is not None:
@@ -971,6 +998,14 @@ def draft_from_round(round_record=None, canonical_line=None, audit_date=None,
     if answers is not None:
         active = [item for item in (answers or []) if not is_control(item)]
         total = len(active)
+
+        def stands_cited(item):
+            if field_value(item, "cited"):
+                return True
+            instances = field_value(item, "citation_instances")
+            if instances is None:
+                instances = field_value(item, "citation_instance_count")
+            return bool(instances)
         round_evidence = {
             "NOT_NAMED": "%d of %d answers in the round name the product"
             % (sum(1 for item in active if field_value(item, "named")),
@@ -980,7 +1015,7 @@ def draft_from_round(round_record=None, canonical_line=None, audit_date=None,
                 % (sum(1 for item in active
                        if field_value(item, "named_early")), total)),
             "NOT_CITED": "%d of %d answers in the round cite the product"
-            % (sum(1 for item in active if field_value(item, "cited")),
+            % (sum(1 for item in active if stands_cited(item)),
                total),
         }
     elif round_metrics is not None:
