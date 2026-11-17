@@ -323,9 +323,32 @@ class TestD27RobotsPathAtHead(F1Base):
             home=str(self.home), robots_file=str(ROBOTS_A),
             form="simple", audit_date=AUDIT_DATE)
         lines = text.splitlines()
-        self.assertEqual(lines[0], "evaluated_page_path: /")
+        # Restated for Step 19 register items R19-062 beside
+        # R19-055: the Simple form now opens with the prose
+        # summary of the record, and the robots form stands
+        # the path result in plain words at its head with its
+        # labels defined, instead of opening with the field
+        # line. The path line and its defaulted line stand
+        # at the head still, after the summary and the path
+        # result, and before the findings.
         self.assertEqual(
-            lines[1], "The evaluated page path was defaulted.")
+            lines[0],
+            "Robots report: the findings below state, for "
+            "each crawler purpose, whether the robots file "
+            "lets it reach the evaluated page path.")
+        self.assertEqual(
+            lines[1],
+            "For the evaluated page path /, the robots file "
+            "lets 23 of the 25 listed crawlers reach it and "
+            "bars 0.")
+        self.assertIn("evidence_label: the label stating",
+                      lines[2])
+        self.assertIn(
+            "purpose_prose_evidence_label: the same evidence "
+            "label", lines[3])
+        self.assertEqual(lines[5], "evaluated_page_path: /")
+        self.assertEqual(
+            lines[6], "The evaluated page path was defaulted.")
         self.assertLess(text.index("evaluated_page_path:"),
                         text.index("findings:"))
 
