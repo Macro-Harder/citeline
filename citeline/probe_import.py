@@ -1127,16 +1127,24 @@ def check11_form(raw_bytes, text):
                     json_count += 1
             bad = len(nonempty) - json_count
             # A JSON lines export stands judged on the shape of
-            # the whole file, not on unanimity: one framing
-            # header line or one truncated final line does not
-            # return fifty JSON lines to plain answer reading.
-            # Where at least two lines parse as JSON and the
-            # lines that do not are a small minority (one line,
-            # or at most a tenth of the file), the file stands
+            # the whole file, not on unanimity and not on any
+            # fixed share of damaged lines: one framing header
+            # line or one truncated final line does not return
+            # fifty JSON lines to plain answer reading, and
+            # neither do the two framing lines of a small
+            # export, the two fences of a fenced copy, or a
+            # header and a footer, each of which stands past a
+            # tenth of a small file while the file stands as
+            # JSON lines in substance. Where at least two
+            # lines parse as JSON and the JSON lines outnumber
+            # the lines that do not, the substance of the file
+            # is one JSON value per line, and the file stands
             # as JSON lines and fails import on that ground.
-            if json_count == len(nonempty) or (
-                    json_count >= 2
-                    and (bad <= 1 or bad * 10 <= len(nonempty))):
+            # Plain prose, where no line or a lone line parses,
+            # and prose carrying an incidental JSON example
+            # among more prose lines than JSON lines, stands
+            # untouched by this reading.
+            if json_count >= 2 and json_count > bad:
                 return "json_lines"
     delimited = _delimited_test(first)
     if delimited == "parse_failed":
