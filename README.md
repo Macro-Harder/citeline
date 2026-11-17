@@ -58,9 +58,14 @@ Citeline works on files only. It never fetches a
 page, never captures an answer, and never follows
 a link. Every input is a file you supply locally:
 a page file, a robots file, an answer file, a
-watch plan. Dates are inputs to each call, never
-read from a clock. Truth verification is deferred
-to a later version. Version 1 is English only.
+watch plan. Dates are inputs to each call. Where
+a call stands dateless, its audit date defaults
+from the clock, and the record stores
+audit_date_defaulted true; dates are read from a
+clock in that case alone. Truth verification is
+deferred to a later version. Version 1 is
+English only.
+
 
 ## Requirements
 

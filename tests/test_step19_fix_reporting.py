@@ -619,3 +619,43 @@ class TestR19084SurfaceListComplete(unittest.TestCase):
         self.assertIn("guide flag", text)
         self.assertIn("--location", text)
         self.assertIn("--home names a product home", text)
+
+
+class TestR19089ClockSentence(unittest.TestCase):
+    """R19-089: the README clock sentence matches the
+    brief: a dateless audit defaults its audit date from
+    the clock and stores audit_date_defaulted true."""
+
+    def test_clock_sentence(self):
+        text = readme_text()
+        self.assertNotIn("never read from a clock", text)
+        self.assertIn("defaults from the clock", text)
+        self.assertIn("audit_date_defaulted true", text)
+
+
+class TestR19078Ec19Statement(unittest.TestCase):
+    """R19-078: the EC-19 link count limit statement
+    stands verbatim in the shipped README."""
+
+    STATEMENT = (
+        "A supplied file with a hard link count above "
+        "1 is rejected. This check rests on the "
+        "filesystem maintaining a truthful link count. "
+        "Where a platform cannot give that count, no "
+        "link count check is claimed for that platform, "
+        "and the limit is stated instead of the check.")
+
+    def test_statement_verbatim(self):
+        self.assertIn(self.STATEMENT, readme_text())
+
+
+class TestR19091DocstringBound(unittest.TestCase):
+    """R19-091: the package docstring carries no trust
+    word stronger than the verify bound; the word
+    attested does not stand in it."""
+
+    def test_docstring(self):
+        from citeline import __doc__ as package_doc
+
+        self.assertNotIn("attested", package_doc)
+        self.assertIn("internal consistency", package_doc)
