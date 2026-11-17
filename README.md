@@ -109,11 +109,17 @@ subcommand per call, every input a named flag:
     probe report --home --product --round --form --audit_date
     probe trend --home --product --round_a --round_b --form --audit_date
     query-set-report --home --product --form --audit_date
-    guide --home --run_id --product --round_label --audit_date --form
+    guide --home --run_id --audit_date --form
+    guide --home --product --round_label --audit_date --form
     verify --home --form
     status --home --form
     watch --plan --form
     help
+
+guide takes exactly one selector: the run_id
+alone, or the product together with its round
+label. Supplying both forms in one call is a
+malformed call.
 
 ## Your first round, in work order
 

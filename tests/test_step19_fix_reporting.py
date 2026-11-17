@@ -588,3 +588,17 @@ class TestR19006TrendDeltaRounded(unittest.TestCase):
         trend = metrics.compute_trend(round_with(1.0),
                                       round_with(0.8))
         self.assertEqual(trend["delta"], -0.2)
+
+
+class TestR19050GuideSurfaceLine(unittest.TestCase):
+    """R19-050: the README guide surface line states the
+    one selector rule, exactly one of run_id or product
+    with round label."""
+
+    def test_guide_line_states_one_selector(self):
+        text = readme_text()
+        self.assertNotIn(
+            "guide --home --run_id --product --round_label",
+            text)
+        self.assertIn(
+            "guide takes exactly one selector", text)
