@@ -396,5 +396,30 @@ class TestR19016ExclusiveCreate(InstallCase):
             outside.read_text(encoding="utf-8"), "outside\n")
 
 
+class TestR19032AbsoluteLocation(InstallCase):
+    """R19-032: a relative install location is printed as
+    an absolute path in the install output, as the home
+    lines in the same output already print. CL19-028,
+    CL19-226."""
+
+    def test_relative_location_prints_absolute(self):
+        import contextlib
+        import io
+        old_cwd = os.getcwd()
+        os.chdir(self.tmp)
+        self.addCleanup(os.chdir, old_cwd)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = install_module.main(
+                ["reloc", "--home", str(self.home)])
+        self.assertEqual(code, 0)
+        text = out.getvalue()
+        self.assertIn(
+            "location: %s" % (self.tmp / "reloc"), text)
+        self.assertNotIn("location: reloc\n", text)
+        self.assertIn(
+            "created: %s" % (self.tmp / "reloc"), text)
+
+
 if __name__ == "__main__":
     unittest.main()

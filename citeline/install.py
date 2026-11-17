@@ -372,8 +372,8 @@ def _install_impl(location=None, home=None):
             "MALFORMED_CALL",
             "install names a location and a home, and an "
             "empty string names neither")
-    location = str(location)
-    home = str(home)
+    location = os.path.abspath(str(location))
+    home = os.path.abspath(str(home))
     _check_no_overlap(location)
     created_items = []
     if os.path.lexists(location):
@@ -624,8 +624,8 @@ def _uninstall_impl(location=None, home=None):
             "MALFORMED_CALL",
             "uninstall names a location and a home, and an "
             "empty string names neither")
-    location = str(location)
-    home = str(home)
+    location = os.path.abspath(str(location))
+    home = os.path.abspath(str(home))
     removed = []
     remaining = []
     evidence = False
