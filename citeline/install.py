@@ -11,7 +11,12 @@ Both routes stand resumable over part completed states: a
 repeat call completes the created items list, or reports
 each missing created item by name, and a repeat uninstall
 removes what remains and reports completion against the
-list. A pre existing file that is not this product file at
+list. Upgrade stands on the install route: running the
+installer of a newer tree over a standing installation
+upgrades that installation in place, replacing the
+launcher and refreshing the package copy from the
+installing tree, and no manual deletion stands between
+the old installation and the new one. A pre existing file that is not this product file at
 the path of a product file stands refused and never
 overwritten, and the same refusal stands where the install
 location path itself stands as a file. An existing config
@@ -402,6 +407,7 @@ def _install_impl(location=None, home=None):
         created_items.append(location)
     product_file = os.path.join(location, PRODUCT_FILE_NAME)
     product_text = _product_file_text()
+    product_file_state = "created"
     if os.path.lexists(product_file):
         info = os.lstat(product_file)
         if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(
@@ -412,7 +418,21 @@ def _install_impl(location=None, home=None):
                 % product_file)
         with open(product_file, "r", encoding="utf-8") as handle:
             standing = handle.read()
-        if standing != product_text:
+        if standing == product_text:
+            product_file_state = "standing"
+        elif _is_product_file(product_file):
+            # The upgrade path: a standing launcher that is
+            # this product file, from an earlier tree or an
+            # earlier version, is replaced in place with the
+            # launcher of the tree now installing, and the
+            # package copy below is refreshed from the same
+            # tree, so a newer tree installs over a standing
+            # installation by running the installer again.
+            with open(product_file, "w",
+                      encoding="utf-8") as handle:
+                handle.write(product_text)
+            product_file_state = "upgraded"
+        else:
             _fail(
                 "a pre existing file that is not the product "
                 "file stands at the product file path and "
@@ -466,6 +486,7 @@ def _install_impl(location=None, home=None):
         "location": location,
         "home": home,
         "config": config_state,
+        "product_file_state": product_file_state,
         "warnings": config_warnings,
         "created_items": created_items,
         "complete": True,

@@ -237,5 +237,38 @@ class TestR19028UninstallNamesHome(InstallCase):
         self.assertTrue(default_home.exists())
 
 
+class TestR19029Upgrade(InstallCase):
+    """R19-029: an upgrade path stands for a standing
+    installation: reinstalling over a launcher from an
+    earlier tree upgrades it in place, and the route is
+    stated in the shipped installer text. CL19-025,
+    CL19-159, CL19-165."""
+
+    def test_reinstall_upgrades_a_standing_launcher(self):
+        self.install()
+        launcher = self.location / "citeline.py"
+        launcher.write_text(
+            launcher.read_text(encoding="utf-8")
+            + "# previous version marker\n", encoding="utf-8")
+        module = self.location / "citeline" / "shell.py"
+        source_bytes = module.read_bytes()
+        module.write_bytes(source_bytes + b"\n# old bytes\n")
+        result = self.install()
+        self.assertEqual(
+            launcher.read_text(encoding="utf-8"),
+            install_module._product_file_text())
+        self.assertEqual(module.read_bytes(), source_bytes)
+        self.assertEqual(result["product_file_state"], "upgraded")
+
+    def test_foreign_file_still_refused_on_reinstall(self):
+        self.location.mkdir(parents=True)
+        planted = self.location / "citeline.py"
+        planted.write_text("planted\n", encoding="utf-8")
+        with self.assertRaises(Exception):
+            self.install()
+        self.assertEqual(
+            planted.read_text(encoding="utf-8"), "planted\n")
+
+
 if __name__ == "__main__":
     unittest.main()
