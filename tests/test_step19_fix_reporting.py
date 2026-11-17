@@ -144,3 +144,49 @@ def service_guide(home, run_id):
     from citeline import service
 
     return service.guide(home=str(home), run_id=run_id)
+
+
+def audit_body(checks):
+    return {
+        "run_id": "run-1", "snapshot_id": "snap-1",
+        "evaluated_page_path": "/", "path_defaulted": False,
+        "audit_date": "2026-11-13",
+        "score": {"value": 34.6, "band": "poor",
+                  "cap_status": False,
+                  "applicable_basis": {
+                      "applicable_checks": ["citations"],
+                      "applicable_weight": 92},
+                  "secondary_figure": {"value": 31.8,
+                                       "total_weight": 100}},
+        "checks": checks,
+    }
+
+
+class TestR19057SimpleAuditWordsDefined(unittest.TestCase):
+    """R19-057: every reason code, status word, and evidence
+    class used in Simple audit lines stands defined in plain
+    words on the artefact itself."""
+
+    def test_codes_statuses_and_classes_defined(self):
+        body = audit_body([
+            {"check_id": "citations", "earned": 0.0, "weight": 16,
+             "status": None, "reason_code": "CIT_SELF_ONLY",
+             "evidence_class": "paper_tested"},
+            {"check_id": "description_consistency", "earned": 1.0,
+             "weight": 8, "status": "not_applicable",
+             "reason_code": "DESC_PRESENT",
+             "evidence_class": "post_asserted"},
+            {"check_id": "answer_first", "earned": 0.0,
+             "weight": 12, "status": None,
+             "reason_code": "AF_TERM_NOT_DECLARATIVE",
+             "evidence_class": "tool_defined"},
+        ])
+        text = reporting.render(body, "simple")
+        self.assertIn("CIT_SELF_ONLY", text)
+        self.assertIn("point only at the page itself", text)
+        self.assertIn("paper_tested", text)
+        self.assertIn("published paper", text)
+        self.assertIn("post_asserted", text)
+        self.assertIn("tool_defined", text)
+        self.assertIn("not_applicable", text)
+        self.assertIn("does not apply", text)

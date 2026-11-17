@@ -2093,6 +2093,83 @@ _AUDIT_STAMP_KEYS = (
 )
 
 
+_REASON_CODE_WORDS = {
+    "AF_FULL": "the opening window names the product and a "
+               "category term in a plain statement",
+    "AF_MISSING_TERM": "no product name and no category term "
+                       "stands in the opening window",
+    "AF_OUTSIDE_WINDOW": "the naming stands outside the "
+                         "opening window the check reads",
+    "AF_PARTIAL": "the opening window names only part of "
+                  "what this check looks for",
+    "AF_TERM_NOT_DECLARATIVE": "the naming in the opening "
+                               "window is not a plain statement",
+    "CIT_COUNT": "the page citations stand counted by their "
+                 "distinct targets",
+    "CIT_NO_TARGETS": "the page carries no citation target",
+    "CIT_SELF_ONLY": "the citations on the page point only "
+                     "at the page itself, at the product own "
+                     "domain, and at no outside source",
+    "CMP_MISSING": "no comparison with another product "
+                   "stands on the page",
+    "CMP_NA": "the comparison check does not apply to this "
+              "page",
+    "CMP_OK": "a comparison with another product stands on "
+              "the page",
+    "CMP_THIN": "the comparison on the page is thin",
+    "DESC_DRIFT": "the description on the page differs from "
+                  "the registered description",
+    "DESC_MISSING": "no description stands on the page",
+    "DESC_PRESENT": "the description on the page stands as "
+                    "registered",
+    "FLF_BOOSTERS": "the page text carries booster wording "
+                    "with no evidence beside it",
+    "FLF_LONG_LOW_EVIDENCE": "the page is long and carries "
+                             "little evidence on it",
+    "FLF_OK": "no fluff finding stands on the page",
+    "FRESH_FUTURE": "the date on the page stands in the "
+                    "future",
+    "FRESH_NO_DATE": "no date stands on the page",
+    "FRESH_OK": "the date on the page stands inside the "
+                "freshness band",
+    "FRESH_STALE": "the date on the page stands outside the "
+                   "freshness band",
+    "QUOTE_NONE_ATTRIBUTED": "no quotation on the page is "
+                             "attributed to a source",
+    "QUO_COUNT": "the quotations on the page stand counted",
+    "QUO_UNATTRIBUTED": "a quotation on the page carries no "
+                        "attribution",
+    "STAT_COUNT": "the statistics on the page stand counted",
+    "STAT_NONE": "no statistic stands on the page",
+    "STF_DENSE": "the page repeats its terms densely",
+    "STF_OK": "no keyword stuffing finding stands on the "
+              "page",
+    "STF_REPEAT": "the page repeats one term past the "
+                  "stated bound",
+    "SUP_OK": "no unproven superlative stands on the page",
+    "SUP_UNPROVEN": "a superlative on the page stands "
+                    "without proof beside it",
+}
+
+_STATUS_WORDS = {
+    "none": "no status stands recorded for this check",
+    "not_applicable": "the check does not apply to this "
+                      "page, and its weight is shared over "
+                      "the checks that do apply",
+    "fail": "the check failed",
+    "warn": "the check carries a warning",
+}
+
+_EVIDENCE_CLASS_WORDS = {
+    "paper_tested": "the check method was tested in a "
+                    "published paper",
+    "post_asserted": "the check method is asserted in a "
+                     "published post",
+    "tool_defined": "the check method is defined by this "
+                    "tool itself",
+}
+
+
 def _render_audit_simple(body):
     """The Simple audit artefact in its prose form.
 
@@ -2230,6 +2307,45 @@ def _render_audit_simple(body):
                _scalar_text(check.get("status")),
                _scalar_text(check.get("reason_code")),
                _scalar_text(check.get("evidence_class"))))
+    # Every word the check lines use stands defined in plain
+    # words on this artefact: the reason codes that stand in
+    # the lines above, the status words that stand in them,
+    # and the evidence classes that stand in them, each with
+    # its meaning stated beside it.
+    defined = []
+    for check in checks:
+        if not isinstance(check, dict):
+            continue
+        code = check.get("reason_code")
+        if code in _REASON_CODE_WORDS and code not in defined:
+            defined.append(code)
+    if defined or checks:
+        lines.append("What the check words mean:")
+        for code in defined:
+            lines.append(
+                "  %s: %s." % (code, _REASON_CODE_WORDS[code]))
+        statuses = []
+        for check in checks:
+            if isinstance(check, dict):
+                status = check.get("status")
+                word = "none" if status is None else str(status)
+                if word not in statuses:
+                    statuses.append(word)
+        for word in statuses:
+            if word in _STATUS_WORDS:
+                lines.append(
+                    "  status %s: %s." % (word, _STATUS_WORDS[word]))
+        classes = []
+        for check in checks:
+            if isinstance(check, dict):
+                name = check.get("evidence_class")
+                if name in _EVIDENCE_CLASS_WORDS and \
+                        name not in classes:
+                    classes.append(name)
+        for name in classes:
+            lines.append(
+                "  evidence class %s: %s."
+                % (name, _EVIDENCE_CLASS_WORDS[name]))
     lines.append("Next actions:")
     lines.append(
         "  The guide artefact for this run carries the actions "
