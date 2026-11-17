@@ -173,8 +173,15 @@ class TestE05RunIdBesideFreshInputs(G5Base):
              "--run_id", self.run_id] + extra)
         self.assertEqual(code, 2)
         self.assertIn("MALFORMED_CALL", err)
+        # Restated for Step 19 register item R19-043: a usage
+        # error now prints nothing to stdout and no subcommand
+        # list anywhere, instead of flooding stdout with the
+        # full help text. The refusal, token, exit code, and
+        # the failure record assertions below stand as before,
+        # audit being an appending operation.
+        self.assertEqual(out, "")
         for marker in LIST_MARKERS:
-            self.assertIn(marker, out + err)
+            self.assertNotIn(marker, out + err)
         self.assertEqual(len(audit_records(self.home)),
                          audits_before)
         records = failure_records(self.home)

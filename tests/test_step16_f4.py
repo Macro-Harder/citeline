@@ -120,9 +120,23 @@ class TestD07ShellSilence(unittest.TestCase):
                 code, out, err = run_shell(argv)
                 self.assertEqual(code, 2)
                 self.assertIn("MALFORMED_CALL", err)
+                # Restated for Step 19 register item R19-043:
+                # a usage error now prints nothing to stdout
+                # and no subcommand list anywhere, instead of
+                # flooding stdout with the full help text; the
+                # error line on stderr names the fault. The
+                # refusal, token, and exit code stand as before.
+                self.assertEqual(out, "")
                 combined = out + err
                 for marker in LIST_MARKERS:
-                    self.assertIn(marker, combined)
+                    if marker == "watch" and argv \
+                            and argv[0] == "watch":
+                        # The fault line for a watch call names
+                        # the watch call itself and its missing
+                        # plan; what the cure abolishes is the
+                        # subcommand list, not that naming.
+                        continue
+                    self.assertNotIn(marker, combined)
 
     def test_malformed_call_appends_failure_record(self):
         _, _, home = make_home(self)
@@ -182,8 +196,13 @@ class TestD08MissingRequiredInput(unittest.TestCase):
         self.assertNotIn("register_page()", combined)
         for name in missing_names:
             self.assertIn(name, err)
+        # Restated for Step 19 register item R19-043: a usage
+        # error now prints nothing to stdout and no subcommand
+        # list anywhere; the missing input names stand in the
+        # stderr error line, as asserted above.
+        self.assertEqual(out, "")
         for marker in LIST_MARKERS:
-            self.assertIn(marker, combined)
+            self.assertNotIn(marker, combined)
 
     def test_audit_with_no_page_file(self):
         _, _, home = make_home(self)
