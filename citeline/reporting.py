@@ -1594,17 +1594,31 @@ def _rate_line(name, node):
         count = node.get("count")
         if count is None:
             count = node.get("n")
+        count_word = "answer" if count == 1 else "answers"
+        warning = node.get("small_sample_warning")
         if low is None or high is None:
-            return (
-                "%s: %s answers, tier count only: %s."
-                % (name, _scalar_text(count), clause)
+            line = (
+                "%s: %s %s, tier count only: %s."
+                % (name, _scalar_text(count), count_word, clause)
             )
-        return (
-            "%s: %s answers, interval %d to %d percent, tier "
-            "count only: %s."
-            % (name, _scalar_text(count),
-               _percent_int(low), _percent_int(high), clause)
-        )
+        else:
+            # An interval stands on this line, so the line
+            # never states that no rate is given: the count
+            # only clause stands in the form that speaks of
+            # the count alone, and the small sample warning
+            # the stored record holds stands beside the
+            # interval (Step 19 item R19-056).
+            line = (
+                "%s: %s %s, interval %d to %d percent, tier "
+                "count only: count only means the round rests "
+                "on the count of answers alone and no rate "
+                "stands as a finding."
+                % (name, _scalar_text(count), count_word,
+                   _percent_int(low), _percent_int(high))
+            )
+        if warning is True or warning == SMALL_SAMPLE_WARNING:
+            line += " " + SMALL_SAMPLE_WARNING
+        return line
     warning = node.get("small_sample_warning")
 
     def with_warning(line):
