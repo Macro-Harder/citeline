@@ -204,7 +204,16 @@ class TestPrecision046(unittest.TestCase):
         record["checks"][0]["earned"] = 0.3333333333333333
         record["checks"][0]["weight"] = 10.123456789012
         simple = render(record, form="simple")
-        self.assertIn("earned 0.3333 of weight 10.1235", simple)
+        # Restated for Step 19 register item R19-058: the
+        # earned figure now stands stated as a fraction of
+        # the weight with its points, so it cannot read as
+        # points out of the weight. The string carried control
+        # in this class stands unrestated: the string branch
+        # renders in its own form, as before.
+        self.assertIn(
+            "earned a fraction 0.3333 of its weight of "
+            "10.1235, worth 3.374 points toward the score",
+            simple)
 
 
 class TestDesignEffect047(unittest.TestCase):

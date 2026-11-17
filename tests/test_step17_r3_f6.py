@@ -169,7 +169,14 @@ class TestPrecision045(unittest.TestCase):
         simple = render(self.audit(), form="simple")
         self.assertNotIn("0.3333333333333333", simple)
         self.assertNotIn("10.123456789012", simple)
-        self.assertIn("earned 0.3333 of weight 10.1235", simple)
+        # Restated for Step 19 register item R19-058: the
+        # earned figure now stands stated as a fraction of
+        # the weight with its points, so it cannot read as
+        # points out of the weight.
+        self.assertIn(
+            "earned a fraction 0.3333 of its weight of "
+            "10.1235, worth 3.374 points toward the score",
+            simple)
 
     def test_score_basis_line_rounds_weight(self):
         record = self.audit(applicable_basis={
