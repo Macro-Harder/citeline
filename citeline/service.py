@@ -244,6 +244,29 @@ def _resolve_home(home):
         return home
 
 
+def _require_named_home(home):
+    """The named home itself, checked as _require_home
+    checks the home in force, with no home selection.
+
+    One route states its home in the named form: the
+    enumeration in list_products reads the registry of
+    the home it names, as stored there, so what stands
+    in a home stands apart from what the home_path
+    selection governs. Every governing route applies
+    the selection at its own _require_home call before
+    it enumerates, and the watch round takes the home
+    its verify governed, so enumeration through this
+    check reads the governed home at every such caller
+    and the named home at a direct caller (Step 19
+    item R19-106 repair).
+    """
+    if not os.path.isdir(str(home)):
+        _fail(
+            "HOME_MISSING",
+            "the home stands missing: %s" % (home,))
+    return home
+
+
 def _recover_interrupted_batch(home):
     """Roll back a killed batch before a read judges state.
 
@@ -1749,13 +1772,23 @@ def list_products(*, home):
     A reading helper for callers that enumerate a home, as
     the watch does at a round start. The records stand as
     the registry component folds them, in the order their
-    registration entries stand.
+    registration entries stand. The home enumerated is
+    the home named: the home_path selection governs the
+    routes that act on a home, and those routes resolve
+    their home before they enumerate it, while a direct
+    enumeration of a naming home reads that home's own
+    registry and finds nothing the selection stored
+    elsewhere.
     """
-    # The home check stands here as its sibling routes run
-    # it: a home path no filesystem call can state answers
-    # HOME_MISSING at row U-6, never a bare ValueError from
-    # the fold below.
-    home = _require_home(home)
+    # The home check stands here in the named form: a
+    # home path no filesystem call can state answers
+    # HOME_MISSING at row U-6, never a bare ValueError
+    # from the fold below, and the enumeration reads the
+    # named home itself, as _require_named_home states,
+    # never the home its config selects, so a product the
+    # selection stored in the selected home does not
+    # stand reported as standing in the naming home.
+    home = _require_named_home(home)
     _recover_interrupted_batch(home)
     journal = _journal()
     # A journal that does not parse stands signalled in

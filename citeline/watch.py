@@ -1090,6 +1090,13 @@ def run_watch(*, plan_file, form=None):
             "the home journal fails verify; the whole round "
             "stands failed before any target runs, and no "
             "WatchRun artefact stands produced")
+    # The round enumerates the home its verify governed:
+    # where the home_path selection moved the verify call
+    # to the selected home, the enumeration and the
+    # snapshot count read that same home, as the verify
+    # record names it in its home_path field (Step 19
+    # item R19-106 repair).
+    home = str(verification.get("home_path") or home)
     products = service.list_products(home=home)
     standing_snapshot_count, standing_snapshot_paths = \
         _standing_product_page_snapshot_count(home, products)
