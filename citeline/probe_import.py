@@ -1999,7 +1999,28 @@ def validate_adapter_inputs(*, answer_file=None, product=None,
     }
 
 
-def read_answer_file(answer_file):
+def _answer_file_limit_bytes(home):
+    """The answer file size limit in force, in bytes.
+
+    Where a home stands named, the limit the home config
+    publishes governs, read through the journal limits in
+    force. Where no home stands named or its limits cannot
+    be read, the brief value governs, as before. Returns
+    (limit_bytes, limit_value_in_mib).
+    """
+    if home is not None:
+        try:
+            from citeline import journal
+            limits = journal.effective_limits(str(home))
+            value = (limits.get("answer_file_size") or {}).get("value")
+            if isinstance(value, (int, float)) and value > 0:
+                return int(value * 1024 * 1024), value
+        except Exception:
+            pass
+    return ANSWER_FILE_LIMIT, ANSWER_FILE_LIMIT // (1024 * 1024)
+
+
+def read_answer_file(answer_file, home=None):
     """Read one supplied answer file exactly as it stands.
 
     Returns (raw_bytes, text, content_hash). The content hash
@@ -2032,6 +2053,7 @@ def read_answer_file(answer_file):
               "and where a platform cannot give that count the "
               "invocation refuses the supplied file and fails "
               "closed")
+    limit_bytes, limit_value = _answer_file_limit_bytes(home)
     flags = os.O_RDONLY
     if hasattr(os, "O_NOFOLLOW"):
         flags |= os.O_NOFOLLOW
@@ -2063,13 +2085,17 @@ def read_answer_file(answer_file):
                 break
             chunks.append(chunk)
             total += len(chunk)
-            if total > ANSWER_FILE_LIMIT:
-                _fail("LIMIT_EXCEEDED", "answer file limit is 1 MiB")
+            if total > limit_bytes:
+                _fail("LIMIT_EXCEEDED",
+                      "answer file limit is %s MiB in force "
+                      "for this home" % ("%g" % (limit_value,)))
         raw = b"".join(chunks)
     finally:
         os.close(descriptor)
-    if len(raw) > ANSWER_FILE_LIMIT:
-        _fail("LIMIT_EXCEEDED", "answer file limit is 1 MiB")
+    if len(raw) > limit_bytes:
+        _fail("LIMIT_EXCEEDED",
+              "answer file limit is %s MiB in force "
+              "for this home" % ("%g" % (limit_value,)))
     try:
         text = raw.decode("utf-8")
     except UnicodeDecodeError:
@@ -2228,7 +2254,7 @@ def prepare_import(*, answer_file=None, product=None, round=None,
                    standing_records=(), control_count=0,
                    product_id=None, round_id=None, answer_id=None,
                    registry_version_at_import=None,
-                   detector_version_at_import=None):
+                   detector_version_at_import=None, home=None):
     """Validate one import and build its AnswerRecord.
 
     Validation completes before any store write: this function
@@ -2249,7 +2275,7 @@ def prepare_import(*, answer_file=None, product=None, round=None,
         control_designation=control_designation,
         audit_date=audit_date, known_round=known_round,
         query_set=query_set, control_count=control_count)
-    raw, text, content_hash = read_answer_file(answer_file)
+    raw, text, content_hash = read_answer_file(answer_file, home=home)
     if is_worksheet_text(text):
         _fail("IMPORT_VALIDATION_FAILED",
               "the file is a capture worksheet, which holds "
@@ -2672,7 +2698,7 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
                              round_id=None, answer_id_prefix=None,
                              registry_version_at_import=None,
                              detector_version_at_import=None,
-                             answer_sequence_base=None):
+                             answer_sequence_base=None, home=None):
     """Validate one returned worksheet and build its records.
 
     The sheet binds the import: its stated product and
@@ -2689,7 +2715,7 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
     before any record returns, so a refused sheet stores
     nothing at all.
     """
-    _raw, text, _hash = read_answer_file(answer_file)
+    _raw, text, _hash = read_answer_file(answer_file, home=home)
     if not is_worksheet_text(text):
         _fail("IMPORT_VALIDATION_FAILED",
               "the file is not a capture worksheet")
@@ -3149,7 +3175,7 @@ def probe_import(*, answer_file=None, product=None, round=None,
                  standing_records=(), control_count=0,
                  product_id=None, round_id=None, answer_id=None,
                  registry_version_at_import=None,
-                 detector_version_at_import=None):
+                 detector_version_at_import=None, home=None):
     """The service facing adapter for one import.
 
     The nine adapter inputs are the contract inputs, in
@@ -3179,7 +3205,8 @@ def probe_import(*, answer_file=None, product=None, round=None,
             control_count=control_count, product_id=product_id,
             round_id=round_id, answer_id=answer_id,
             registry_version_at_import=registry_version_at_import,
-            detector_version_at_import=detector_version_at_import)
+            detector_version_at_import=detector_version_at_import,
+            home=home)
     except ProbeImportError:
         raise
     except RecursionError:

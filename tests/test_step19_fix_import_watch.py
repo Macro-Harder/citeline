@@ -133,5 +133,39 @@ class TestR19045AllMissingInputs(unittest.TestCase):
             self.assertIn(name, message)
 
 
+class TestR19026ConfigGovernedSizeLimit(unittest.TestCase):
+    """R19-026: the answer file size limit in force governs the
+    import intake and stands named in the refusal."""
+
+    def _home_with_limit(self, value):
+        root, home = seed_home(self)
+        journal.write_config(home, "answer_file_size = %d\n" % value)
+        return root, home
+
+    def test_raised_limit_admits_a_larger_answer_file(self):
+        root, home = self._home_with_limit(2)
+        path = Path(root) / "big-answer.txt"
+        path.write_text(
+            "This is a plain answer sentence about the product.\n"
+            * 30000, encoding="utf-8")
+        self.assertGreater(path.stat().st_size, 1024 * 1024)
+        record = probe_import.probe_import(
+            answer_file=str(path), product="p-alpha", round="round-1",
+            engine_label="engine-a", query="What is Example Product?",
+            kind="real_sample", captured_on="2026-11-10",
+            capture_method="manual copy", audit_date=AUDIT_DATE,
+            home=str(home))
+        self.assertIsNotNone(record)
+
+    def test_refusal_names_the_limit_in_force(self):
+        root, home = self._home_with_limit(2)
+        path = Path(root) / "huge-answer.txt"
+        path.write_text("word " * 500000, encoding="utf-8")
+        self.assertGreater(path.stat().st_size, 2 * 1024 * 1024)
+        with self.assertRaises(Exception) as caught:
+            probe_import.read_answer_file(str(path), home=str(home))
+        self.assertIn("2 MiB", str(caught.exception))
+
+
 if __name__ == "__main__":
     unittest.main()
