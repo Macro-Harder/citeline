@@ -437,6 +437,8 @@ def _install_impl(location=None, home=None):
     home = os.path.abspath(str(home))
     _check_no_overlap(location)
     created_items = []
+    location_stood = os.path.lexists(location)
+    home_stood = os.path.lexists(home)
     if os.path.lexists(location):
         info = os.lstat(location)
         if not stat.S_ISDIR(info.st_mode):
@@ -559,11 +561,25 @@ def _install_impl(location=None, home=None):
     _restrict(os.path.join(home, CONFIG_FILE_NAME), 0o600)
     if config_state != "pre-existing config left untouched":
         _restrict(config_file, 0o600)
+    standing_items = []
+    if location_stood:
+        standing_items.append(location)
+    if product_file_state in ("standing", "upgraded"):
+        standing_items.append(product_file)
+    if package_stood:
+        standing_items.append(package_dir)
+    if config_state in (
+            "installer config standing",
+            "pre-existing config left untouched"):
+        standing_items.append(config_file)
+    if home_stood:
+        standing_items.append(home)
     return {
         "location": location,
         "home": home,
         "config": config_state,
         "product_file_state": product_file_state,
+        "standing_items": standing_items,
         "warnings": config_warnings,
         "created_items": created_items,
         "complete": True,
@@ -947,6 +963,16 @@ def main(argv=None):
                 print("warning: %s" % warning)
             for created in report.get("created_items") or []:
                 print("created: %s" % created)
+            for standing in report.get("standing_items") or []:
+                print("standing: %s" % standing)
+            standing_items = report.get("standing_items") or []
+            if os.path.join(
+                    report["location"], PRODUCT_FILE_NAME) \
+                    in standing_items and report["home"] \
+                    in standing_items:
+                print(
+                    "the product file and the home already "
+                    "stand complete")
     except InstallError as exc:
         print("install: %s" % (exc,), file=sys.stderr)
         _print_error_furniture(mode)

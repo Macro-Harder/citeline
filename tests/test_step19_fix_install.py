@@ -464,5 +464,36 @@ class TestR19046ConfigInvalidDetail(InstallCase):
         self.assertNotEqual(first, second)
 
 
+class TestR19047RepeatInstallState(InstallCase):
+    """R19-047: a repeat install over a complete
+    installation reports per item state, stating that the
+    product file and the home already stand complete where
+    they do. Brief CL19-165."""
+
+    def test_repeat_install_reports_per_item_state(self):
+        import contextlib
+        import io
+        self.install()
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = install_module.main(
+                [str(self.location), "--home", str(self.home)])
+        self.assertEqual(code, 0)
+        text = out.getvalue()
+        self.assertIn(
+            "standing: %s" % (self.location / "citeline.py"),
+            text)
+        self.assertIn("standing: %s" % self.home, text)
+        self.assertIn("already stand complete", text)
+
+    def test_repeat_install_report_carries_standing_items(self):
+        self.install()
+        result = self.install()
+        standing = result.get("standing_items") or []
+        self.assertIn(str(self.location / "citeline.py"),
+                      standing)
+        self.assertIn(str(self.home), standing)
+
+
 if __name__ == "__main__":
     unittest.main()
