@@ -625,15 +625,42 @@ class Test036WorksheetPreparationCost(ImportBase):
         self.assertEqual(len(records), 2000)
         self.assertLess(elapsed, 10.0)
 
-    def test_same_engine_contradiction_still_refused(self):
+    def test_same_engine_distinct_answers_both_prepared(self):
+        """S17-R4-036 cost cure guard, as superseded under R19-048;
+        two slots holding distinct answers for the same round, same
+        normalised engine label, same query, and same captured_on,
+        sharing one preparation bucket, are both prepared, each as
+        its own record holding its own content hash, at the module
+        preparation surface, and neither record replaces the other;
+        no refusal stands for this shape."""
         path = self.temp_answer(sheet_text({
             1: "First worksheet answer text.",
             2: "Second conflicting worksheet answer."},
             dates={1: "2026-11-10", 2: "2026-11-10"}), "sheet.txt")
-        with self.assertRaises(Exception) as caught:
-            self.prepare_sheet(path)
-        self.assertEqual(token_of(caught.exception),
-                         "CONTRADICTORY_IMPORT")
+        records = self.prepare_sheet(path)
+        self.assertEqual(len(records), 2)
+        self.assertEqual(records[0]["answer_text"],
+                         "First worksheet answer text.")
+        self.assertEqual(records[1]["answer_text"],
+                         "Second conflicting worksheet answer.")
+        self.assertEqual(
+            records[0]["content_hash"],
+            hashlib.sha256(
+                "First worksheet answer text.".encode(
+                    "utf-8")).hexdigest())
+        self.assertEqual(
+            records[1]["content_hash"],
+            hashlib.sha256(
+                "Second conflicting worksheet answer.".encode(
+                    "utf-8")).hexdigest())
+        self.assertNotEqual(records[0]["content_hash"],
+                            records[1]["content_hash"])
+        for record in records:
+            self.assertEqual(record["engine_label_normalised"],
+                             "engine a")
+            self.assertEqual(record["query"], Q1)
+            self.assertEqual(record["captured_on"], "2026-11-10")
+            self.assertEqual(record["kind"], "real_sample")
 
     def test_same_engine_duplicate_still_refused(self):
         path = self.temp_answer(sheet_text({
