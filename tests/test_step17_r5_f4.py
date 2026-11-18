@@ -5,6 +5,7 @@ Test first pins for register, 024, 025, 027, 028, 029,
 register and the source papers the register paper and
 the register paper."""
 
+import hashlib
 import io
 import tarfile
 import tempfile
@@ -346,16 +347,50 @@ class Test034ResolverPreparedSet(ImportBase):
         self.assertIn("ans-{sequence}-1", message)
         self.assertNotIn("ans-100-1", message)
 
-    def test_own_batch_identity_still_resolves(self):
+    def test_own_batch_admits_second_distinct_answer(self):
+        """S17-R5-034 own batch control as superseded under
+        R19-048; a second filled slot holding a distinct
+        answer for the same round, same engine label, same
+        query, and same captured_on as an earlier slot this
+        same preparation itself prepared is admitted as a
+        new record under its own identity, and the earlier
+        slot's record stands beside it unchanged. The
+        identities the module surface returns carry the
+        marker form itself, so no resolved identity stands
+        for this shape, and no refusal stands either. This
+        method stood as the own batch control for
+        S17-R5-034, whose refusal and resolved identity
+        pins lapse with the refusal itself under the
+        ruling."""
         path = self.temp_file(sheet_text({
             1: "First worksheet answer text.",
             2: "Second conflicting worksheet answer."},
             dates={1: "2026-11-10", 2: "2026-11-10"}), "own.txt")
-        with self.assertRaises(Exception) as caught:
-            self.prepare_sheet(
-                path, answer_id_prefix="ans-{sequence}",
-                answer_sequence_base=41)
-        self.assertIn("ans-41-1", str(caught.exception))
+        records = self.prepare_sheet(
+            path, answer_id_prefix="ans-{sequence}",
+            answer_sequence_base=41)
+        self.assertIsInstance(records, list)
+        self.assertEqual(len(records), 2)
+        self.assertEqual(records[0]["answer_text"],
+                         "First worksheet answer text.")
+        self.assertEqual(records[1]["answer_text"],
+                         "Second conflicting worksheet answer.")
+        first_hash = hashlib.sha256(
+            "First worksheet answer text.".encode(
+                "utf-8")).hexdigest()
+        second_hash = hashlib.sha256(
+            "Second conflicting worksheet answer.".encode(
+                "utf-8")).hexdigest()
+        self.assertNotEqual(records[0]["content_hash"],
+                            records[1]["content_hash"])
+        self.assertEqual(records[0]["content_hash"], first_hash)
+        self.assertEqual(records[1]["content_hash"], second_hash)
+        self.assertNotEqual(records[0]["answer_id"],
+                            records[1]["answer_id"])
+        self.assertEqual(records[0]["answer_id"],
+                         "ans-{sequence}-1")
+        self.assertEqual(records[1]["answer_id"],
+                         "ans-{sequence}-2")
 
 
 class Test035SingleBucketCost(ImportBase):
