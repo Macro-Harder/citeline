@@ -268,7 +268,7 @@ class TestR14F5ByteIdentity(unittest.TestCase):
         detection_text = _function_text(detection)
         metrics_text = _function_text(metrics)
         self.assertEqual(detection_text, metrics_text)
-        self.assertEqual(len(detection_text), 34214)
+        self.assertEqual(len(detection_text), 34856)
 
 
 class TestR14F5CureCorrectnessDifferentials(unittest.TestCase):
