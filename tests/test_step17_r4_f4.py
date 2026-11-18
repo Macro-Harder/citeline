@@ -518,21 +518,43 @@ class Test035ContradictionIdentitySurfaces(ImportBase):
             self.assertEqual(supplied[field], value, field)
         self.assertEqual(supplied, self.STANDING)
 
-    def test_worksheet_resolver_leaves_supplied_identity_as_supplied(
+    def test_worksheet_supplied_standing_admits_distinct_answer(
             self):
+        """Contract C2 as relaxed under R19-048, on the worksheet
+        preparation surface; a filled slot holding a distinct
+        answer for the same round, same normalised engine label,
+        same query, and same captured_on as a standing record
+        supplied by the caller is admitted as a new record under
+        its own identity, and the supplied record stands as
+        supplied, neither joined, overwritten, nor rewritten.
+        This method stood as the supplied identity half of
+        S17-R4-035, whose refusal message identity pin lapses
+        with the refusal itself under the ruling."""
         path = self.temp_answer(
             sheet_text({1: "First worksheet answer text."}),
             "sheet.txt")
-        with self.assertRaises(Exception) as caught:
-            self.prepare_sheet(
-                path, standing_records=[dict(self.STANDING)],
-                answer_id_prefix="ans-{sequence}",
-                answer_sequence_base=41)
-        self.assertEqual(token_of(caught.exception),
-                         "CONTRADICTORY_IMPORT")
-        message = str(caught.exception)
-        self.assertIn("ans-{sequence}-3", message)
-        self.assertNotIn("ans-43-3", message)
+        standing = dict(self.STANDING)
+        records = self.prepare_sheet(
+            path, standing_records=[standing],
+            answer_id_prefix="ans-{sequence}",
+            answer_sequence_base=41)
+        self.assertEqual(len(records), 1)
+        record = records[0]
+        self.assertEqual(record["answer_text"],
+                         "First worksheet answer text.")
+        self.assertEqual(
+            record["content_hash"],
+            hashlib.sha256(
+                "First worksheet answer text.".encode()).hexdigest())
+        self.assertNotEqual(record["content_hash"],
+                            standing["content_hash"])
+        self.assertNotEqual(record["content_hash"],
+                            self.STANDING["content_hash"])
+        self.assertEqual(standing, dict(self.STANDING))
+        self.assertEqual(standing["answer_id"], "ans-{sequence}-3")
+        self.assertEqual(record["answer_id"], "ans-{sequence}-1")
+        self.assertNotEqual(record["answer_id"], "ans-{sequence}-3")
+        self.assertNotEqual(record["answer_id"], "ans-43-3")
 
     def test_control_worksheet_batch_admits_second_distinct_answer(
             self):
