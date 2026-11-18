@@ -6,6 +6,7 @@ defect named at its register entry on the tree standing after
 fix round 2 and the round 3 F1 and F2 seats, then stands as
 the pin for its cure."""
 
+import hashlib
 import json
 import os
 import re
@@ -321,14 +322,37 @@ class Test028WorksheetContradictionIdentity(ImportBase):
         self.assertNotIn("{sequence}", message)
         self.assertIn("ans-1-1", message)
 
-    def test_control_with_base_names_resolved_identity(self):
+    def test_control_with_base_admits_second_distinct_answer(self):
+        """Contract C2 as relaxed under R19-048, on the worksheet
+        preparation surface; a second filled slot holding a
+        distinct answer for the same round, same normalised
+        engine label, same query, and same captured_on as an
+        earlier slot of the same sheet is admitted as a new
+        record under its own identity, and the earlier slot's
+        record stands beside it unchanged. This method stood
+        as the base supplied control for S17-R3-028, whose
+        refusal message identity pin lapses with the refusal
+        itself under the ruling."""
         path = self.temp_answer(self.conflicting_sheet(), "sheet.txt")
-        with self.assertRaises(Exception) as caught:
-            self.call_sheet(path, answer_sequence_base=41)
-        self.assertEqual(token_of(caught.exception),
-                         "CONTRADICTORY_IMPORT")
-        self.assertIn("ans-41-1", str(caught.exception))
-        self.assertNotIn("{sequence}", str(caught.exception))
+        records = self.call_sheet(path, answer_sequence_base=41)
+        self.assertEqual(len(records), 2)
+        self.assertEqual(records[0]["answer_text"],
+                         "First worksheet answer text.")
+        self.assertEqual(records[1]["answer_text"],
+                         "Second conflicting worksheet answer.")
+        first_hash = hashlib.sha256(
+            "First worksheet answer text.".encode("utf-8")).hexdigest()
+        second_hash = hashlib.sha256(
+            "Second conflicting worksheet answer.".encode(
+                "utf-8")).hexdigest()
+        self.assertNotEqual(records[0]["content_hash"],
+                            records[1]["content_hash"])
+        self.assertEqual(records[0]["content_hash"], first_hash)
+        self.assertEqual(records[1]["content_hash"], second_hash)
+        self.assertNotEqual(records[0]["answer_id"],
+                            records[1]["answer_id"])
+        self.assertEqual(records[0]["answer_id"], "ans-{sequence}-1")
+        self.assertEqual(records[1]["answer_id"], "ans-{sequence}-2")
 
 
 if __name__ == "__main__":
