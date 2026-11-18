@@ -31,9 +31,10 @@ recorded as the target as written.
 """
 
 from bisect import bisect_left, bisect_right
+from html import unescape as _html_unescape
 import re
 import unicodedata
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 DETECTOR_VERSION = 1
 
@@ -154,7 +155,16 @@ _BARE_HOST_RE = re.compile(
 _REF_ENTRY_RE = re.compile(
     r"^\s*(?:[-*+]\s*)?\[?(\d+)\]?\s*[.)]\s+(\S+)(?:\s+.*)?$")
 _BARE_DOMAIN_TOKEN_RE = re.compile(
-    r"(?<![A-Za-z0-9._．。｡-])(?:[A-Za-z0-9-]+[.．。｡])+[A-Za-z]{2,}"
+    # The lookbehind bars a letter, a digit, a dot, or a
+    # hyphen before the token. An underscore stands outside
+    # it: a domain token glued to the word before it by an
+    # underscore is still a domain token for the mention
+    # mask of item 46, so a name standing inside such a
+    # token is judged as part of that host token and not
+    # as a prose mention, while a name flanked by an
+    # underscore in prose counts under item 46 as the
+    # mention scan states.
+    r"(?<![A-Za-z0-9.．。｡-])(?:[A-Za-z0-9-]+[.．。｡])+[A-Za-z]{2,}"
     r"[.．。｡]?(?::[0-9]+)?[.．。｡]?(?:[/?#]\S*)?")
 _REFERENCE_DEFINITION_RE = re.compile(r"^\s{0,3}\[[^\]]+\]:\s*\S+")
 _REF_DEF_START_RE = re.compile(r"^\s{0,3}\[[^\]]+\]:\s*(.*)$")
@@ -167,18 +177,114 @@ _BARE_ENTRY_TARGET_RE = re.compile(
     r"(?::[0-9]+)?[.．。｡]?$")
 
 
+def _decode_link_piece(value):
+    """Decode one link piece exactly once, in the stated
+    order: entities decode once and percent sequences
+    decode once, so a sequence the one decode leaves
+    standing, such as a percent character from a double
+    encoded form, is not decoded again downstream. This is
+    the same decoding the checks module applies at its
+    _decode_link_piece, under items 148 and 159 and
+    decision D22."""
+    return unquote(_html_unescape(value))
+
+
+def _decoded_authority_parts(target):
+    """Split one target on its authority, decoded first.
+
+    Items 148 and 159 state the decode order whole:
+    percent sequences and entities decode exactly once
+    before host parsing. The raw authority piece, the
+    text between the scheme separator and the first
+    literal path, query, or fragment delimiter, is
+    therefore decoded once before any authority cut is
+    made, so a delimiter the decode produces, a slash,
+    a colon, a fragment or query mark, or an at sign,
+    acts as the delimiter it is. Returns the scheme
+    prefix, the decoded authority, the decoded suffix
+    that stood inside the raw authority piece after a
+    decoded delimiter, and the remainder of the target
+    after the raw authority piece, or None where the
+    target carries no scheme separator. The form stands
+    as the checks module states it at its own
+    _decoded_authority_parts.
+    """
+    match = re.match(r"^[A-Za-z][A-Za-z0-9+.-]*://", target or "")
+    if not match:
+        return None
+    rest = target[match.end():]
+    raw_end = len(rest)
+    index = 0
+    while index < len(rest):
+        char = rest[index]
+        if char == "&":
+            entity = re.match(
+                r"&(?:#\d+;?|#[xX][0-9A-Fa-f]+;?"
+                r"|[A-Za-z][A-Za-z0-9]+;)",
+                rest[index:],
+            )
+            if entity:
+                index += entity.end()
+                continue
+        if char in "/?#":
+            raw_end = index
+            break
+        index += 1
+    decoded = _decode_link_piece(rest[:raw_end])
+    split = len(decoded)
+    for index, char in enumerate(decoded):
+        if char in "/?#":
+            split = index
+            break
+    return (
+        match.group(0),
+        decoded[:split],
+        decoded[split:],
+        rest[raw_end:],
+    )
+
+
+def _host_from_authority(authority):
+    host = authority.rsplit("@", 1)[-1]
+    if host.startswith("["):
+        closing = host.find("]")
+        host = host[:closing + 1] if closing >= 0 else host
+    else:
+        host = host.split(":", 1)[0]
+    return host
+
+
+def _decoded_target_text(target):
+    """The target text after the one decoding items 148
+    and 159 state, with the decoded authority standing in
+    place of the raw authority piece. A target with no
+    scheme separator stands as written."""
+    text = str(target).strip()
+    parts = _decoded_authority_parts(text)
+    if parts is None:
+        return text
+    return parts[0] + parts[1] + parts[2] + parts[3]
+
+
 def _target_is_valid(target):
     """A target counts only where it parses with a host and a
     well formed port, plan Section 10.4 primitive P4 and brief
     item 155: a malformed port or a missing host makes the
-    target malformed, and it counts no citation."""
+    target malformed, and it counts no citation. The parse
+    stands on the target after the one decoding items 148
+    and 159 state, and a host that still holds a percent
+    character after that one decode is malformed under
+    item 148 in the same way."""
+    text = _decoded_target_text(target)
     try:
-        parts = urlsplit(str(target).strip())
+        parts = urlsplit(text)
     except ValueError:
         return False
     if (parts.scheme or "").casefold() not in ("http", "https"):
         return False
     if not parts.hostname:
+        return False
+    if "%" in (parts.hostname or ""):
         return False
     try:
         _ = parts.port
@@ -428,8 +534,41 @@ def canonical_form(target):
     The canonical form is a matching key only.
     """
     text = str(target).strip()
-    parts = urlsplit(text)
-    host = normalise_host(parts.hostname or "")
+    decoded_parts = _decoded_authority_parts(text)
+    if decoded_parts is not None:
+        # The key judges the target the stated decode
+        # produces: the decoded authority stands in place
+        # of the raw authority piece, with any suffix a
+        # decoded delimiter produced standing before the
+        # raw remainder, as the checks canonical form
+        # states the same reading.
+        effective = (decoded_parts[0] + decoded_parts[1]
+                     + decoded_parts[2] + decoded_parts[3])
+        authority = decoded_parts[1]
+    else:
+        effective = text
+        authority = ""
+        match = re.match(
+            r"^[A-Za-z][A-Za-z0-9+.-]*://([^/?#]*)", effective)
+        if match:
+            authority = match.group(1)
+    try:
+        parts = urlsplit(effective)
+    except ValueError:
+        return text
+    # The host stands in its authority form, brackets and
+    # all, not in urlsplit's hostname form: the hostname
+    # form strips the brackets of an IPv6 literal, so a
+    # bracketed address at a port and a longer address
+    # whose tail reads as that port built one key for two
+    # distinct targets, against item 33.
+    host = normalise_host(_host_from_authority(authority))
+    if "%" in host:
+        # A host still holding a percent character after
+        # the one decode is malformed under item 148; its
+        # key stands as the target as written, never as
+        # the key of the host it would decode to twice.
+        return text
     scheme = (parts.scheme or "").casefold()
     try:
         port = parts.port
@@ -449,8 +588,13 @@ def canonical_form(target):
 
 
 def _host_of(target):
+    text = str(target).strip()
+    decoded_parts = _decoded_authority_parts(text)
+    if decoded_parts is not None:
+        scheme = decoded_parts[0][:-3].casefold()
+        return scheme, _host_from_authority(decoded_parts[1])
     try:
-        parts = urlsplit(str(target).strip())
+        parts = urlsplit(text)
     except ValueError:
         return "", ""
     return (parts.scheme or "").casefold(), parts.hostname or ""
@@ -553,6 +697,27 @@ def _fold_with_map(text):
     return "".join(folded_parts), mapping
 
 
+_ZERO_WIDTH = frozenset(
+    ("\u200b", "\u200c", "\u200d", "\u2060", "\ufeff"))
+
+
+def _remove_zero_width(text):
+    """Remove the zero width characters of item 152 from a
+    matching copy, keeping a map from each kept position to
+    its position in the supplied text. The zero width class
+    only stands removed here: the wider removal set of item
+    152 stands referred at SEAM-LISTS and no character
+    outside this class is removed by this function."""
+    kept = []
+    mapping = []
+    for index, char in enumerate(text):
+        if char in _ZERO_WIDTH:
+            continue
+        kept.append(char)
+        mapping.append(index)
+    return "".join(kept), mapping
+
+
 def _scan_mentions(masked_text, names):
     """Longest first mention scan over masked text, item 46.
 
@@ -561,14 +726,25 @@ def _scan_mentions(masked_text, names):
     by a letter or a digit on either side does not count. The
     search runs case insensitively for all names. Returns a
     list of (offset, registered name) in file order.
+
+    The matching copy is built under items 151 and 152: NFC
+    first, then the zero width characters of item 152 are
+    removed, then case folding, on the text side and on the
+    name side alike. Offsets are read back through the two
+    position maps to the supplied text, and the flank
+    judgement stands on the matching copy, the text the
+    removal leaves standing.
     """
     supplied_text = unicodedata.normalize("NFC", masked_text)
-    folded_text, fold_map = _fold_with_map(supplied_text)
+    cleaned_text, clean_map = _remove_zero_width(supplied_text)
+    folded_text, fold_map = _fold_with_map(cleaned_text)
     prepared = []
     for position, name in enumerate(names):
         if not name:
             continue
-        folded_name = unicodedata.normalize("NFC", str(name)).casefold()
+        cleaned_name, _ = _remove_zero_width(
+            unicodedata.normalize("NFC", str(name)))
+        folded_name = cleaned_name.casefold()
         if folded_name:
             prepared.append((name, folded_name, position))
     ordered = sorted(
@@ -585,17 +761,18 @@ def _scan_mentions(masked_text, names):
                 continue
             if folded_text[index:end] != folded_name:
                 continue
-            origin = fold_map[index]
-            origin_end = fold_map[end - 1] + 1 if end > index else origin
-            if origin > 0 and (supplied_text[origin - 1].isalpha()
-                               or supplied_text[origin - 1].isdigit()
-                               or supplied_text[origin - 1] == "_"):
+            clean_origin = fold_map[index]
+            clean_end = fold_map[end - 1] + 1 if end > index \
+                else clean_origin
+            if clean_origin > 0 and (
+                    cleaned_text[clean_origin - 1].isalpha()
+                    or cleaned_text[clean_origin - 1].isdigit()):
                 continue
-            if origin_end < len(supplied_text) and (
-                    supplied_text[origin_end].isalpha()
-                    or supplied_text[origin_end].isdigit()
-                    or supplied_text[origin_end] == "_"):
+            if clean_end < len(cleaned_text) and (
+                    cleaned_text[clean_end].isalpha()
+                    or cleaned_text[clean_end].isdigit()):
                 continue
+            origin = clean_map[clean_origin] if clean_map else 0
             matched = (origin, name, end)
             break
         if matched is None:
@@ -844,8 +1021,16 @@ def _resolved_target_cited(target, domain):
         return scheme in ("http", "https") \
             and _target_is_valid(text) \
             and _host_matches_domain(host, domain)
+    # A bare destination stands under the same one
+    # decoding as a destination in URL form, items 148
+    # and 159, applied before its host is cut out, so a
+    # delimiter the decode produces acts as the delimiter
+    # it is in this form as in the URL form.
+    text = _decode_link_piece(text)
     host_part = re.split(r"[/?#]", text, maxsplit=1)[0]
     host_part = host_part.rsplit("@", 1)[-1]
+    if "%" in host_part:
+        return False
     if not _BARE_ENTRY_TARGET_RE.match(host_part):
         return False
     host = host_part.split(":", 1)[0]
@@ -900,6 +1085,49 @@ def _entity_outcome(chunk_masked_source, chunk_text, entity):
     }
 
 
+def _is_hangul_jamo(char):
+    return "\u1100" <= char <= "\u11ff"
+
+
+def _nfc_with_map(text):
+    """NFC normalise a text, keeping a map from each position
+    of the normalised form to the position of its source in
+    the supplied text, with one sentinel entry mapping the
+    end of the normalised form to the end of the supplied
+    text.
+
+    Normalisation is applied cluster by cluster: a cluster
+    is one starter together with the combining characters
+    that follow it, with a Hangul jamo sequence standing as
+    one cluster, and canonical composition and reordering
+    stand inside a cluster and never across one, so the
+    normalised form of the whole text is the join of the
+    normalised forms of its clusters.
+    """
+    clusters = []
+    for char in text:
+        if clusters and (
+                unicodedata.combining(char) != 0
+                or (_is_hangul_jamo(char)
+                    and (_is_hangul_jamo(clusters[-1][-1])
+                         or "\uac00" <= clusters[-1][-1] <= "\ud7a3"))):
+            clusters[-1] += char
+        else:
+            clusters.append(char)
+    parts = []
+    mapping = []
+    supplied_position = 0
+    for cluster in clusters:
+        normalised = unicodedata.normalize("NFC", cluster)
+        parts.append(normalised)
+        for offset in range(len(normalised)):
+            mapping.append(
+                supplied_position + min(offset, len(cluster) - 1))
+        supplied_position += len(cluster)
+    mapping.append(len(text))
+    return "".join(parts), mapping
+
+
 def detect_answer(text, product, competitors):
     """Detect the AnswerMetrics outcomes for one answer.
 
@@ -911,7 +1139,8 @@ def detect_answer(text, product, competitors):
     """
     if text is None:
         text = ""
-    text = unicodedata.normalize("NFC", str(text))
+    supplied_text = str(text)
+    text, nfc_map = _nfc_with_map(supplied_text)
     text = _mask_non_answer_text(text)
     product = product or {}
     competitors = competitors or []
@@ -920,9 +1149,16 @@ def detect_answer(text, product, competitors):
     outcome = _entity_outcome(None, prose_text, product)
     named = outcome["named"]
     first_offset = outcome["first_offset"]
+    if first_offset is not None:
+        # Offsets inside the pipeline stand in the
+        # coordinates of the normalised matching text;
+        # first_offset is reported in the coordinates of
+        # the text as supplied, items 46 and 151, read
+        # back through the normalisation map.
+        first_offset = nfc_map[first_offset]
     named_early = False
     if named and first_offset is not None:
-        word_position = len(text[:first_offset].split()) + 1
+        word_position = len(supplied_text[:first_offset].split()) + 1
         named_early = word_position <= 100
 
     entries = _reference_entries(references_text)
@@ -1463,6 +1699,14 @@ def _similar_components(type_sets):
         # join through a deferred set is ever lost.
         deferred = set()
         deferred_order = []
+        # deferred_listed names the sets standing in
+        # deferred_order. Promotion out of the second queue
+        # discards a set from deferred alone, so a set that
+        # is deferred, promoted without joining, and deferred
+        # again stands named once in the order, as the two
+        # queue statement above states the form: named once,
+        # judged once in one pass.
+        deferred_listed = set()
         deferred_judged = {}
         while True:
             while frontier and remaining:
@@ -1581,7 +1825,9 @@ def _similar_components(type_sets):
                                     candidates[other] = positions
                                 else:
                                     deferred.add(other)
-                                    deferred_order.append(other)
+                                    if other not in deferred_listed:
+                                        deferred_listed.add(other)
+                                        deferred_order.append(other)
                 if not candidates:
                     break
                 new_frontier = []
@@ -1638,6 +1884,7 @@ def _similar_components(type_sets):
                         if other in deferred]
             deferred = set()
             deferred_order = []
+            deferred_listed = set()
             # A deferred set stands judged in this pass
             # against the part of the component that stands
             # new to it, and against no part it already
@@ -1729,6 +1976,7 @@ def _similar_components(type_sets):
             if not joined_list:
                 break
             deferred_order = failures
+            deferred_listed = set(failures)
             deferred = set(failures)
             frontier = joined_list
         components.append(component)

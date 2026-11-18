@@ -615,6 +615,14 @@ def _similar_components(type_sets):
         # join through a deferred set is ever lost.
         deferred = set()
         deferred_order = []
+        # deferred_listed names the sets standing in
+        # deferred_order. Promotion out of the second queue
+        # discards a set from deferred alone, so a set that
+        # is deferred, promoted without joining, and deferred
+        # again stands named once in the order, as the two
+        # queue statement above states the form: named once,
+        # judged once in one pass.
+        deferred_listed = set()
         deferred_judged = {}
         while True:
             while frontier and remaining:
@@ -733,7 +741,9 @@ def _similar_components(type_sets):
                                     candidates[other] = positions
                                 else:
                                     deferred.add(other)
-                                    deferred_order.append(other)
+                                    if other not in deferred_listed:
+                                        deferred_listed.add(other)
+                                        deferred_order.append(other)
                 if not candidates:
                     break
                 new_frontier = []
@@ -790,6 +800,7 @@ def _similar_components(type_sets):
                         if other in deferred]
             deferred = set()
             deferred_order = []
+            deferred_listed = set()
             # A deferred set stands judged in this pass
             # against the part of the component that stands
             # new to it, and against no part it already
@@ -881,6 +892,7 @@ def _similar_components(type_sets):
             if not joined_list:
                 break
             deferred_order = failures
+            deferred_listed = set(failures)
             deferred = set(failures)
             frontier = joined_list
         components.append(component)

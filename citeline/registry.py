@@ -398,6 +398,13 @@ def validate_alias(value):
     (items 47 and 152)."""
     if not isinstance(value, str):
         _fail("VALIDATION_FAILED", "alias must be a string")
+    # Item 151: name text is normalised to Unicode NFC before
+    # it is judged, as validate_name judges its normalised
+    # form, so the minimum length of item 47 and every other
+    # judgement in this function stand on the normalised form,
+    # the form detection matches. The normalised form is the
+    # form returned and stored.
+    value = unicodedata.normalize("NFC", value)
     if len(value) < 3:
         _fail("VALIDATION_FAILED",
               "alias must be 3 characters or more")
@@ -861,8 +868,7 @@ def _validate_aliases(aliases, limit=_LIMIT_ALIASES):
     _require_list(aliases, "aliases")
     out = []
     for alias in aliases:
-        validate_alias(alias)
-        out.append(alias)
+        out.append(validate_alias(alias))
     if len(out) > limit:
         _fail("LIMIT_EXCEEDED",
               "aliases per product or per competitor limit "

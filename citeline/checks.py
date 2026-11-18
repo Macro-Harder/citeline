@@ -287,7 +287,10 @@ def _normalise_host(raw_host, _decoded=False):
             try:
                 labels.append(label.encode("idna").decode("ascii"))
             except (UnicodeError, ValueError):
-                labels.append(label)
+                # Item 42: an IDNA failure is malformed and
+                # counts no citation, as the neighbouring
+                # failure forms in this function already stand.
+                return None
     return ".".join(labels)
 
 
