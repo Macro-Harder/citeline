@@ -132,7 +132,29 @@ _TOKEN_FORMS = {
     "MALFORMED_CALL": ("U-8", 2, "usage"),
     "CONFIG_INVALID": ("X-1", 5, "integrity"),
     "DESTINATION_EXISTS": ("X-9", 3, "domain"),
+    "LOCK_UNAVAILABLE": ("X-12", 5, "integrity"),
 }
+
+
+def _filesystem_error(route, exc):
+    """The governed error for a filesystem failure on one
+    route. A failure that is a destination standing in the
+    way (a FileExistsError) carries row X-9, the one row
+    whose condition that failure is. Every other filesystem
+    failure (a permission refusal, a read only filesystem,
+    a missing parent, and the rest) carries row X-12, the
+    vocabulary row for a platform or filesystem that cannot
+    perform the operation, and never states that a
+    destination exists where none was found."""
+    if isinstance(exc, FileExistsError):
+        return InstallError(
+            "DESTINATION_EXISTS",
+            "the %s filesystem operation failed: %s"
+            % (route, exc))
+    return InstallError(
+        "LOCK_UNAVAILABLE",
+        "the %s filesystem operation failed: %s"
+        % (route, exc))
 
 
 class InstallError(Exception):
@@ -160,6 +182,26 @@ class InstallError(Exception):
 
 def _fail(message):
     raise InstallError("DESTINATION_EXISTS", message)
+
+
+def _not_directory_text(kind, path, info):
+    """The refusal text for a path that must stand as a
+    directory and does not, stating what stands there in
+    its own form: a link to a directory is a link, not a
+    file, and the text states the link and, where the link
+    names a directory, that it names one."""
+    if stat.S_ISLNK(info.st_mode):
+        if os.path.isdir(path):
+            return (
+                "%s stands as a link to a directory, not "
+                "a directory, and no install follows a "
+                "link: %s" % (kind, path))
+        return (
+            "%s stands as a link, not a directory, and "
+            "no install follows a link: %s" % (kind, path))
+    return (
+        "%s stands as a file, not a directory: %s"
+        % (kind, path))
 
 
 def _is_within(path, parent):
@@ -359,9 +401,18 @@ def _config_text(home):
 
 
 def _is_installer_config(path):
+    """True where the file carries the installer marker as
+    its own line, in the exact form the installer writes
+    it. Marker text quoted inside another line, a comment,
+    or a value is not an installer config: the installer
+    forms the marker as one whole line of the file, and
+    only that form stands as provenance."""
     try:
         with open(path, "r", encoding="utf-8") as handle:
-            return _CONFIG_MARKER in handle.read()
+            for line in handle:
+                if line.strip() == _CONFIG_MARKER:
+                    return True
+        return False
     except OSError:
         return False
 
@@ -406,6 +457,125 @@ def _surface_warnings(warnings):
     return surfaced
 
 
+# The limit keys and their brief defaults, carried here
+# so the fallback config floor below can judge a limit
+# value in the same terms the journal parse does, on the
+# occasions the journal module cannot stand imported. The
+# table mirrors the journal limit table in key, default,
+# and order; the ceiling rule is the journal rule (ten
+# times the default for the first forty keys, the default
+# itself after that).
+_FALLBACK_LIMIT_TABLE = [
+    ("page_file_size", 2),
+    ("answer_file_size", 1),
+    ("extracted_text_length_per_page_or_answer", 500000),
+    ("element_or_tag_events_per_page", 100000),
+    ("nesting_depth", 100),
+    ("attributes_per_element", 100),
+    ("attribute_value_length", 10000),
+    ("link_count_per_page", 10000),
+    ("heading_count_per_page", 10000),
+    ("reference_definitions_per_file", 10000),
+    ("front_matter_block_size", 16),
+    ("front_matter_key_count", 100),
+    ("front_matter_anchor_count", 20),
+    ("front_matter_alias_use_count", 100),
+    ("front_matter_nesting_depth_of_anchored_values", 10),
+    ("front_matter_size_after_alias_expansion", 64),
+    ("front_matter_value_length_per_key", 4096),
+    ("json_nesting_depth", 100),
+    ("evidence_excerpt_length", 120),
+    ("evidence_spans_per_check", 20),
+    ("evidence_spans_per_report", 200),
+    ("answers_per_round", 10000),
+    ("products_per_home", 1000),
+    ("competitors_per_product", 100),
+    ("aliases_per_product", 100),
+    ("aliases_per_competitor", 100),
+    ("queries_per_product", 1000),
+    ("product_name_length", 200),
+    ("engine_label_length", 200),
+    ("round_label_length", 200),
+    ("capture_method_text_length", 2000),
+    ("query_text_length", 2000),
+    ("error_message_length", 500),
+    ("robots_file_total_size", 512),
+    ("robots_line_length", 10000),
+    ("robots_group_count", 1000),
+    ("robots_rules_per_group", 10000),
+    ("robots_path_argument_length", 2000),
+    ("journal_length", 100000),
+    ("total_home_size", 1),
+    ("per_run_wall_clock_backstop", 120),
+    ("per_file_parse_time", 30),
+]
+
+_FALLBACK_LIMITS = {
+    key: (index + 1, default)
+    for index, (key, default) in enumerate(
+        _FALLBACK_LIMIT_TABLE)}
+
+
+def _fallback_config_valid(text):
+    """The fallback config floor, in the journal terms.
+
+    Judges the line shape, the duplicate key limb, and the
+    wrong form limb for limit values (a non digit value, a
+    value below 1, or a value past its hard ceiling), and
+    the two stated relations between limit keys, exactly
+    as the journal parse judges them. A key that is not a
+    limit key carries no value judgement here, as in the
+    journal parse, where such a key stands as a warning
+    and never as a failure.
+    """
+    if text.startswith("\ufeff"):
+        text = text[1:]
+    lines = text.split("\n")
+    if lines and lines[-1] == "":
+        lines = lines[:-1]
+    seen = set()
+    values = {}
+    for line in lines:
+        if line == "" or line.startswith("#"):
+            continue
+        if line != line.strip() or "\t" in line \
+                or "\r" in line:
+            return False
+        parts = line.split(" = ")
+        if len(parts) != 2 or not parts[0] or not parts[1] \
+                or " " in parts[0] or "=" in parts[0]:
+            return False
+        key, raw_value = parts
+        if key in seen:
+            return False
+        seen.add(key)
+        if key in _FALLBACK_LIMITS:
+            if not raw_value.isdigit():
+                return False
+            index, default = _FALLBACK_LIMITS[key]
+            try:
+                number = int(raw_value)
+            except ValueError:
+                return False
+            if number < 1:
+                return False
+            ceiling = default * 10 if index <= 40 else default
+            if number > ceiling:
+                return False
+            values[key] = number
+    resolved = {
+        key: default
+        for key, (_index, default) in _FALLBACK_LIMITS.items()}
+    resolved.update(values)
+    if resolved["front_matter_size_after_alias_expansion"] \
+            < resolved["front_matter_block_size"]:
+        return False
+    if resolved["evidence_spans_per_report"] \
+            < resolved["evidence_spans_per_check"]:
+        return False
+    return True
+
+
 def _config_check(path, home):
     """A pair of validity and the warnings the parse formed.
 
@@ -447,17 +617,7 @@ def _config_check(path, home):
             text = handle.read()
     except OSError:
         return False, []
-    seen = set()
-    for line in text.split("\n"):
-        if not line or line.startswith("#"):
-            continue
-        parts = line.split(" = ")
-        if len(parts) != 2 or not parts[0] or not parts[1]:
-            return False, []
-        if parts[0] in seen:
-            return False, []
-        seen.add(parts[0])
-    return _config_parses(path), []
+    return _fallback_config_valid(text), []
 
 
 def _config_valid(path, home):
@@ -548,10 +708,7 @@ def install(location=None, home=None, **_ignored):
     try:
         return _install_impl(location=location, home=home)
     except OSError as exc:
-        raise InstallError(
-            "DESTINATION_EXISTS",
-            "the install filesystem operation failed: %s"
-            % (exc,))
+        raise _filesystem_error("install", exc)
 
 
 def _install_impl(location=None, home=None):
@@ -560,8 +717,16 @@ def _install_impl(location=None, home=None):
     # and an older interpreter meets a recorded install
     # error naming the floor.
     if tuple(sys.version_info[:2]) < (3, 11):
+        # The refusal carries row X-12, the vocabulary row
+        # for a platform that cannot perform the operation:
+        # the shared error vocabulary is a closed set and
+        # holds no interpreter floor value, so no value
+        # outside that set may ship for this refusal, and
+        # the row X-9 destination exists fallback the
+        # constructor would otherwise supply states a
+        # failure this refusal is not.
         raise InstallError(
-            "PYTHON_FLOOR",
+            "LOCK_UNAVAILABLE",
             "Citeline requires Python 3.11 or later; "
             "this interpreter is Python %d.%d, so no "
             "files stand placed"
@@ -588,9 +753,8 @@ def _install_impl(location=None, home=None):
     if os.path.lexists(location):
         info = os.lstat(location)
         if not stat.S_ISDIR(info.st_mode):
-            _fail(
-                "the install location path stands as a file, "
-                "not a directory: %s" % location)
+            _fail(_not_directory_text(
+                "the install location path", location, info))
     if os.path.lexists(home):
         # One created item, the product home, must stand
         # as a directory at the end of a completed
@@ -599,9 +763,8 @@ def _install_impl(location=None, home=None):
         # file is refused.
         info = os.lstat(home)
         if not stat.S_ISDIR(info.st_mode):
-            _fail(
-                "the product home path stands as a file, "
-                "not a directory: %s" % home)
+            _fail(_not_directory_text(
+                "the product home path", home, info))
     config_file = os.path.join(location, CONFIG_FILE_NAME)
     config_warnings = []
     if os.path.lexists(config_file):
@@ -750,10 +913,7 @@ def uninstall(location=None, home=None, **_ignored):
     try:
         return _uninstall_impl(location=location, home=home)
     except OSError as exc:
-        raise InstallError(
-            "DESTINATION_EXISTS",
-            "the uninstall filesystem operation failed: %s"
-            % (exc,))
+        raise _filesystem_error("uninstall", exc)
 
 
 _LAUNCHER_MARKER = "Citeline launcher for one local installation"
@@ -765,15 +925,30 @@ def _is_product_file(path):
     or a launcher carrying the Citeline launcher marker, as
     a launcher installed from another tree path does. A file
     of any other content is a foreign file the installer
-    never created, however it is named."""
+    never created, however it is named.
+
+    The launcher form is judged on the launcher structure,
+    never on quoted text: the file must open with the
+    launcher docstring line, carry the package parent
+    assignment as its own line, and carry a main function.
+    Prose that quotes the marker sentence, or names the
+    package parent in passing, is not a launcher and does
+    not pass."""
     try:
         with open(path, "r", encoding="utf-8") as handle:
             text = handle.read()
     except OSError:
         return False
-    if _LAUNCHER_MARKER in text and "_PACKAGE_PARENT" in text:
+    if text == _product_file_text():
         return True
-    return False
+    lines = text.split("\n")
+    if not lines or lines[0] != '"""' + _LAUNCHER_MARKER + ".":
+        return False
+    if "_PACKAGE_PARENT = _OWN_DIR" not in lines:
+        return False
+    if not any(line.startswith("def main(") for line in lines):
+        return False
+    return True
 
 
 def _config_home_value(path):
@@ -790,9 +965,51 @@ def _config_home_value(path):
     return None
 
 
+# The files the product itself creates directly inside
+# the home, in the home own files form the journal module
+# states: the journal, the home config, the two lock
+# files, and the batch intent record, beside the journal
+# temporaries the writing routes leave under their own
+# prefixes.
+_HOME_PRODUCT_FILE_NAMES = (
+    "journal.jsonl",
+    "config.txt",
+    ".citeline-write.lock",
+    ".citeline-registry.lock",
+    ".citeline-batch-intent.json",
+)
+
+_HOME_PRODUCT_TEMP_PREFIXES = (
+    "journal.jsonl.tmp-",
+    "journal.jsonl.replay-",
+)
+
+
+def _is_home_product_file(name):
+    """True where a name at the home top level is a file
+    the product itself creates there."""
+    if name in _HOME_PRODUCT_FILE_NAMES:
+        return True
+    return any(
+        name.startswith(prefix)
+        for prefix in _HOME_PRODUCT_TEMP_PREFIXES)
+
+
 def _home_is_product_home(home):
-    """True where the home holds the files the product
-    itself creates there: the journal or its write lock."""
+    """True where the home holds any file the product
+    itself creates there: the journal, its write lock,
+    the registry lock, the batch intent record, or the
+    home config the product writes beside them."""
+    for name in _HOME_PRODUCT_FILE_NAMES:
+        if os.path.lexists(os.path.join(home, name)):
+            return True
+    return False
+
+
+def _home_is_used(home):
+    """True where the home holds product work: the journal
+    or its write lock, the records a used home stands
+    removed whole for under the Step 19 cure."""
     for name in ("journal.jsonl", ".citeline-write.lock"):
         if os.path.lexists(os.path.join(home, name)):
             return True
@@ -838,6 +1055,159 @@ def _remove_home_tree(home, removed):
     removed.append(home)
 
 
+def _shipped_package_files():
+    """The shipped package files the installer copies, as
+    a mapping of file name to the file bytes in this tree.
+    The installer copies regular files only and skips
+    bytecode caches, so the copy in an install location
+    holds exactly these names with exactly these bytes."""
+    source_dir = os.path.join(_PRODUCT_DIR, PACKAGE_DIR_NAME)
+    shipped = {}
+    try:
+        names = sorted(os.listdir(source_dir))
+    except OSError:
+        return shipped
+    for name in names:
+        if name == "__pycache__" or name.endswith(".pyc"):
+            continue
+        source_file = os.path.join(source_dir, name)
+        if not os.path.isfile(source_file):
+            continue
+        try:
+            with open(source_file, "rb") as handle:
+                shipped[name] = handle.read()
+        except OSError:
+            continue
+    return shipped
+
+
+def _is_product_package(package_dir):
+    """True where the directory at the package path is the
+    installed package copy: its init file stands as a
+    regular file holding the shipped init bytes, and every
+    file in it that carries a shipped file name holds the
+    shipped bytes for that name. A directory that merely
+    holds a file named __init__.py, of any other content,
+    is an ordinary package the installer never created."""
+    shipped = _shipped_package_files()
+    if "__init__.py" not in shipped:
+        return False
+    init_path = os.path.join(package_dir, "__init__.py")
+    if os.path.islink(init_path) \
+            or not os.path.isfile(init_path):
+        return False
+    try:
+        with open(init_path, "rb") as handle:
+            if handle.read() != shipped["__init__.py"]:
+                return False
+    except OSError:
+        return False
+    matched = 0
+    for name in os.listdir(package_dir):
+        path = os.path.join(package_dir, name)
+        if name in shipped and os.path.isfile(path) \
+                and not os.path.islink(path):
+            try:
+                with open(path, "rb") as handle:
+                    if handle.read() != shipped[name]:
+                        return False
+            except OSError:
+                return False
+            matched += 1
+    return matched >= 2
+
+
+def _remove_package_copy(package_dir, removed, remaining):
+    """Remove the installed package copy selectively.
+
+    Only the files the installer placed stand removed: a
+    top level file whose name and bytes are the shipped
+    file of that name, and the bytecode caches the
+    installed package itself writes under __pycache__ for
+    a shipped module. A foreign file placed inside the
+    copy, and a shipped file whose bytes no longer stand
+    as installed, survive and stand named under remaining,
+    and the directory itself stands while any of them
+    stands. Returns True where any product file stood
+    removed, as genuine evidence of an installation.
+    """
+    shipped = _shipped_package_files()
+    stems = {
+        name[:-3] if name.endswith(".py") else name
+        for name in shipped}
+    evidence = False
+    for dirpath, dirnames, filenames in os.walk(
+            package_dir, topdown=False):
+        for name in filenames:
+            path = os.path.join(dirpath, name)
+            relative = os.path.relpath(path, package_dir)
+            parts = relative.split(os.sep)
+            drop = False
+            if len(parts) == 1 and parts[0] in shipped \
+                    and not os.path.islink(path):
+                try:
+                    with open(path, "rb") as handle:
+                        drop = handle.read() == shipped[parts[0]]
+                except OSError:
+                    drop = False
+            elif len(parts) == 2 and parts[0] == "__pycache__":
+                stem = parts[1].split(".")[0]
+                drop = stem in stems
+            if drop:
+                os.unlink(path)
+                removed.append(path)
+                evidence = True
+            else:
+                remaining.append(path)
+        for name in dirnames:
+            path = os.path.join(dirpath, name)
+            if os.path.islink(path):
+                remaining.append(path)
+            elif name == "__pycache__":
+                try:
+                    os.rmdir(path)
+                    removed.append(path)
+                except OSError:
+                    pass
+            else:
+                remaining.append(path)
+    try:
+        os.rmdir(package_dir)
+        removed.append(package_dir)
+    except OSError:
+        if package_dir not in remaining:
+            remaining.append(package_dir)
+    return evidence
+
+
+def _remove_home_product_files(home, removed):
+    """Remove the product files at the home top level,
+    selectively: the files the product itself creates
+    there, and no other file. Links at those names lose
+    the link itself only, as at every created item path.
+    Returns the names that stood removed."""
+    dropped = []
+    try:
+        names = os.listdir(home)
+    except OSError:
+        return dropped
+    for name in names:
+        if not _is_home_product_file(name):
+            continue
+        path = os.path.join(home, name)
+        try:
+            info = os.lstat(path)
+        except OSError:
+            continue
+        if stat.S_ISDIR(info.st_mode) \
+                and not stat.S_ISLNK(info.st_mode):
+            continue
+        os.unlink(path)
+        removed.append(path)
+        dropped.append(name)
+    return dropped
+
+
 def _uninstall_impl(location=None, home=None):
     if location is None or home is None:
         raise InstallError(
@@ -852,9 +1222,25 @@ def _uninstall_impl(location=None, home=None):
     home = os.path.abspath(str(home))
     removed = []
     remaining = []
+    # Evidence, in the strict form every limb below reads:
+    # the removal of an item verified as the installer's
+    # own (a launcher in launcher form, a config carrying
+    # the marker as its own line, or the package copy in
+    # shipped form). The removal of a link at a created
+    # item path is no evidence: a link stands planted as
+    # easily as created, and its removal alone authorises
+    # no directory removal.
     evidence = False
     product_file = os.path.join(location, PRODUCT_FILE_NAME)
     config_file = os.path.join(location, CONFIG_FILE_NAME)
+    # The home link is read before any removal runs: the
+    # installer config at the location is itself a created
+    # item this route may remove, and the home limb below
+    # reads the home the config names, so the reading
+    # stands taken while the config still stands.
+    linked = _home_linked(location, home)
+    installer_linked = linked and _is_installer_config(
+        config_file)
     for path in (product_file, config_file):
         if not os.path.lexists(path):
             continue
@@ -862,7 +1248,6 @@ def _uninstall_impl(location=None, home=None):
         if stat.S_ISLNK(info.st_mode):
             os.unlink(path)
             removed.append(path)
-            evidence = True
         elif stat.S_ISREG(info.st_mode):
             if path == config_file and not _is_installer_config(
                     path):
@@ -883,11 +1268,11 @@ def _uninstall_impl(location=None, home=None):
         if stat.S_ISLNK(info.st_mode):
             os.unlink(package_dir)
             removed.append(package_dir)
-            evidence = True
-        elif stat.S_ISDIR(info.st_mode) and os.path.isfile(
-                os.path.join(package_dir, "__init__.py")):
-            _remove_home_tree(package_dir, removed)
-            evidence = True
+        elif stat.S_ISDIR(info.st_mode) and _is_product_package(
+                package_dir):
+            if _remove_package_copy(
+                    package_dir, removed, remaining):
+                evidence = True
         else:
             remaining.append(package_dir)
     if os.path.lexists(home):
@@ -896,11 +1281,42 @@ def _uninstall_impl(location=None, home=None):
             os.unlink(home)
             removed.append(home)
         elif stat.S_ISDIR(info.st_mode):
-            linked = _home_linked(location, home) or \
-                _home_is_product_home(home) or (
-                    evidence and not os.listdir(home))
-            if linked:
+            if installer_linked and _home_is_used(home):
+                # The used home of a genuine installation,
+                # removed whole under the Step 19 cure: the
+                # installer config names this home and the
+                # home holds the product's own work.
                 _remove_home_tree(home, removed)
+            elif installer_linked or evidence:
+                # A home the installation names, or one
+                # standing beside verified installer items:
+                # its product files stand removed, and the
+                # home itself stands removed where nothing
+                # else stands in it. A foreign file placed
+                # inside it survives, and the home stands
+                # named under remaining while it stands.
+                _remove_home_product_files(home, removed)
+                if not os.listdir(home):
+                    os.rmdir(home)
+                    removed.append(home)
+                else:
+                    remaining.append(home)
+            elif _home_is_product_home(home) and all(
+                    _is_home_product_file(name)
+                    for name in os.listdir(home)):
+                # A home holding only files the product
+                # itself creates there, with no foreign
+                # file among them: those files stand
+                # removed and the home with them. A home
+                # holding any foreign file is no product
+                # home on a file name alone and stands
+                # untouched below.
+                _remove_home_product_files(home, removed)
+                if not os.listdir(home):
+                    os.rmdir(home)
+                    removed.append(home)
+                else:
+                    remaining.append(home)
             else:
                 remaining.append(home)
         else:
@@ -926,7 +1342,10 @@ def _uninstall_impl(location=None, home=None):
         "home": home,
         "removed": removed,
         "remaining": remaining,
-        "complete": True,
+        # Completion stands reported against the created
+        # items list: the call stands complete only where
+        # nothing the route governs stands remaining.
+        "complete": not remaining,
     }
 
 
@@ -1160,10 +1579,7 @@ def main(argv=None):
         # no filesystem failure of either route reaches
         # the operator as a traceback at a code the table
         # assigns to no outcome.
-        wrapped = InstallError(
-            "DESTINATION_EXISTS",
-            "the install filesystem operation failed: %s"
-            % (exc,))
+        wrapped = _filesystem_error(mode, exc)
         print("install: %s" % (wrapped,), file=sys.stderr)
         _print_error_furniture(mode)
         return wrapped.exit_code
