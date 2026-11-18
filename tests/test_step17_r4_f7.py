@@ -499,7 +499,7 @@ class Test067AuditIdentitiesAgainstRecovery(SeededBase):
                          snapshots[-1]["snapshot_id"])
         self.assertEqual(
             record["limits_in_force"]["run_id"], record["run_id"])
-        standing = service.audit(
+        standing = service.audit_render(
             home=str(self.home), run_id=record["run_id"])
         self.assertEqual(standing["snapshot_id"],
                          snapshots[-1]["snapshot_id"])

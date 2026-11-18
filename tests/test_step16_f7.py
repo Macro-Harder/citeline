@@ -276,7 +276,7 @@ class TestD29StandingAuditForm(F7Base):
         run_id = json.loads(advanced)["run_id"]
         before = self.entry_count()
         code, agentic = cli(
-            ["audit", "--home", str(self.home),
+            ["audit-render", "--home", str(self.home),
              "--run_id", run_id, "--form", "agentic"])
         self.assertEqual(code, 0)
         self.assertEqual(self.entry_count(), before)
@@ -300,7 +300,7 @@ class TestD29StandingAuditForm(F7Base):
             home=str(self.home), page_file=str(PAGE),
             audit_date=AUDIT_DATE)
         before = self.entry_count()
-        again = service.audit(
+        again = service.audit_render(
             home=str(self.home),
             run_id=record["run_id"])
         self.assertEqual(self.entry_count(), before)

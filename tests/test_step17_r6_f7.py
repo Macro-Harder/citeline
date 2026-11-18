@@ -750,7 +750,7 @@ class Test055FormRequestValidatedAsItScans(SeededBase):
         entry = entries_of_kind(self.home, "audit_record")[-1]
         correct_entry(self.home, entry, run_id=123)
         with self.assertRaises(errors.CitelineError) as caught:
-            service.audit(
+            service.audit_render(
                 home=str(self.home), run_id=record["run_id"])
         self.assertEqual(
             token_of(caught.exception), "VALIDATION_FAILED")
@@ -763,7 +763,7 @@ class Test055FormRequestValidatedAsItScans(SeededBase):
         entry = entries_of_kind(self.home, "audit_record")[0]
         correct_entry(self.home, entry, run_id=123)
         with self.assertRaises(errors.CitelineError) as caught:
-            service.audit(
+            service.audit_render(
                 home=str(self.home), run_id=second["run_id"])
         self.assertEqual(
             token_of(caught.exception), "VALIDATION_FAILED")
@@ -771,7 +771,7 @@ class Test055FormRequestValidatedAsItScans(SeededBase):
 
     def test_unswapped_form_request_still_returns_control(self):
         record = self.audit_one()
-        standing = service.audit(
+        standing = service.audit_render(
             home=str(self.home), run_id=record["run_id"])
         self.assertEqual(standing["run_id"], record["run_id"])
 

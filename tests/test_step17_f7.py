@@ -742,7 +742,7 @@ class Test086Corrections(SeededBase):
         corrected = dict(stored["payload"])
         corrected["canonical_line"] = "The corrected standing line."
         self.correct(stored["sequence"], corrected)
-        form = service.audit(
+        form = service.audit_render(
             home=str(self.home), run_id=record["run_id"])
         self.assertEqual(
             form["canonical_line"], "The corrected standing line.")
