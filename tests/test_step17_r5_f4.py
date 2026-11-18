@@ -328,24 +328,57 @@ class Test034ResolverPreparedSet(ImportBase):
             path, answer_id_prefix="ans-{sequence}",
             answer_sequence_base=41)
 
-    def test_supplied_identity_not_rewritten_by_later_batch(self):
+    def test_later_batch_admits_distinct_answer_on_supplied_standing_combination(self):
+        """Contract C2 as relaxed under R19-048, on the
+        worksheet preparation surface; a later batch slot
+        holding a distinct answer for the same round, same
+        normalised engine label, same query, and same
+        captured_on as a supplied standing record prepared
+        by an earlier batch is admitted as a new record
+        under its own identity, at the one worksheet import
+        call for the sheet, and the supplied standing
+        records stand unchanged. This method stood as the
+        later batch pin for S17-R5-034, whose refusal
+        message supplied identity pin lapses with the
+        refusal itself under the ruling."""
         records_a = self.batch_a()
+        standing_before = [dict(record) for record in records_a]
         path = self.temp_file(sheet_text({
             1: "Batch B first answer text.",
             2: "Batch B second answer text.",
             3: "Batch B conflicting answer text."},
             dates={1: "2026-11-08", 2: "2026-11-09",
                    3: "2026-11-10"}), "b.txt")
-        with self.assertRaises(Exception) as caught:
-            self.prepare_sheet(
-                path, standing_records=records_a,
-                answer_id_prefix="ans-{sequence}",
-                answer_sequence_base=100)
-        self.assertEqual(token_of(caught.exception),
-                         "CONTRADICTORY_IMPORT")
-        message = str(caught.exception)
-        self.assertIn("ans-{sequence}-1", message)
-        self.assertNotIn("ans-100-1", message)
+        records = self.prepare_sheet(
+            path, standing_records=records_a,
+            answer_id_prefix="ans-{sequence}",
+            answer_sequence_base=100)
+        self.assertIsInstance(records, list)
+        self.assertEqual(len(records), 3)
+        third = records[2]
+        self.assertEqual(third["answer_text"],
+                         "Batch B conflicting answer text.")
+        self.assertEqual(third["captured_on"], "2026-11-10")
+        expected_hash = hashlib.sha256(
+            "Batch B conflicting answer text.".encode(
+                "utf-8")).hexdigest()
+        self.assertEqual(third["content_hash"], expected_hash)
+        self.assertNotEqual(third["content_hash"],
+                            records_a[0]["content_hash"])
+        self.assertEqual(third["product"], "Acme Ledger")
+        self.assertEqual(third["round"], "round-1")
+        self.assertEqual(third["query"], Q1)
+        self.assertEqual(third["kind"], "real_sample")
+        self.assertEqual(third["captured_on"],
+                         records_a[0]["captured_on"])
+        self.assertEqual(third["engine_label_normalised"],
+                         "engine a")
+        self.assertEqual(third["answer_id"], "ans-{sequence}-3")
+        self.assertEqual(len(records_a), 2)
+        for standing, before in zip(records_a, standing_before):
+            for field in ("answer_id", "captured_on",
+                          "answer_text", "content_hash"):
+                self.assertEqual(standing[field], before[field])
 
     def test_own_batch_admits_second_distinct_answer(self):
         """S17-R5-034 own batch control as superseded under
