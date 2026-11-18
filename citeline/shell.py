@@ -78,7 +78,10 @@ _SURFACE = {
     "audit": (
         "audit",
         ("home", "page_file", "robots_file",
-         "evaluated_page_path", "audit_date", "form", "run_id")),
+         "evaluated_page_path", "audit_date", "form")),
+    "audit-render": (
+        "audit_render",
+        ("home", "run_id", "form")),
     "robots": (
         "robots",
         ("home", "robots_file", "evaluated_page_path", "form",
@@ -218,7 +221,8 @@ def help_text():
         "--importer_declaration --supplier_relation "
         "--audit_date --form",
         "audit --home --page_file --robots_file "
-        "--evaluated_page_path --audit_date --form --run_id",
+        "--evaluated_page_path --audit_date --form",
+        "audit-render --home --run_id --form",
         "robots --home --robots_file --evaluated_page_path "
         "--form --audit_date",
         "robots-preview --home --first_robots_file "
@@ -732,10 +736,9 @@ def _missing_required(operation, inputs):
     signature: a parameter with no default stands required,
     except the home input, whose default the shell supplies,
     and the form input, which the shell itself carries. One
-    stated alternative stands beside the signature rule: an
-    audit call names either a page file or a standing run
-    identity, so the page file stands required exactly where
-    the call names neither.
+    One stated rule stands beside the signature rule: an
+    audit call names a page file, with no exception, so the
+    page file stands required wherever the call names none.
     """
     try:
         signature = inspect.signature(getattr(service, operation))
@@ -750,8 +753,7 @@ def _missing_required(operation, inputs):
             continue
         if name not in present:
             missing.append(name)
-    if operation == "audit" and "page_file" not in present \
-            and "run_id" not in present:
+    if operation == "audit" and "page_file" not in present:
         missing.append("page_file")
     return missing
 
@@ -845,33 +847,6 @@ def main(argv=None):
             home=inputs.get("home"),
             operation=subcommand,
             audit_date=inputs.get("audit_date"))
-    if operation == "audit" and "run_id" in inputs:
-        # A run identity stands alone in an audit call: any
-        # fresh audit input named beside it stands refused
-        # here, in the standing shell outcome, before the
-        # service call can disregard it. The refusal stands
-        # under the one error name MALFORMED_CALL regardless
-        # of whether the audit_date value parses, so the one
-        # combination never reports under two error names
-        # from two layers. Which
-        # calls stand refused does not change: a call naming
-        # no fresh input beside the run identity stands
-        # admitted here as before, and an audit date that is
-        # not a date, named with no run identity, stands
-        # left to the service call as before.
-        fresh_named = [
-            name for name in ("page_file", "robots_file",
-                              "evaluated_page_path",
-                              "audit_date")
-            if name in inputs]
-        if fresh_named:
-            return _usage_error(
-                "an audit call naming a run identity names "
-                "no fresh audit input beside it; the call "
-                "also names %s" % ", ".join(fresh_named),
-                home=inputs.get("home"),
-                operation=subcommand,
-                audit_date=inputs.get("audit_date"))
     defaulted_home = "home" not in inputs
     if defaulted_home:
         # The default home stands named as it stands, and

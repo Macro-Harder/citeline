@@ -2609,7 +2609,7 @@ def _land_audit_correction(home, audit_sequence, stored,
 
 def _audit_impl(*, home, page_file=None, robots_file=None,
                 evaluated_page_path=None, audit_date=None,
-                product=None, run_id=None):
+                product=None):
     """One audit: recovery first, then the assembly.
 
     A killed batch standing on the home stands recovered
@@ -2620,14 +2620,13 @@ def _audit_impl(*, home, page_file=None, robots_file=None,
     record names."""
     home = _require_home(home)
     _recover_interrupted_batch(home)
-    if run_id is None and page_file is not None:
+    if page_file is not None:
         with _audit_assembly_lock(home):
             result = _audit_body(
                 home=home, page_file=page_file,
                 robots_file=robots_file,
                 evaluated_page_path=evaluated_page_path,
-                audit_date=audit_date, product=product,
-                run_id=run_id)
+                audit_date=audit_date, product=product)
         # The assembly hold stands closed against a batch
         # intent record planted inside it: the assembly
         # lock barred the recovery from judging an intent
@@ -2669,30 +2668,19 @@ def _audit_impl(*, home, page_file=None, robots_file=None,
     return _audit_body(
         home=home, page_file=page_file, robots_file=robots_file,
         evaluated_page_path=evaluated_page_path,
-        audit_date=audit_date, product=product, run_id=run_id)
+        audit_date=audit_date, product=product)
 
 
 def _audit_body(*, home, page_file=None, robots_file=None,
                 evaluated_page_path=None, audit_date=None,
-                product=None, run_id=None):
+                product=None):
     """One audit, assembled as caller over its components.
 
-    A call naming a standing run by its run_id stands as a
-    form request on that run, on the invocation to artefact
-    mapping: it returns the stored audit record of that run
-    and appends nothing, so a second form of a standing
-    audit renders the stored record and runs no new audit.
-    The run identity stands alone in such a call: a call
-    naming run_id together with any fresh audit input, a
-    page file, a robots file, an audit date, an evaluated
-    page path, or a product, refuses as a malformed call at
-    row U-8, token MALFORMED_CALL, usage class, exit 2, and
-    no named input is silently disregarded. A call naming
-    no run stands as a fresh audit and creates a new run,
-    as below. An unknown run identity fails with the
-    recorded value for an unknown round identity, the value
-    the guide route already returns for a missing audit
-    record identity.
+    Every audit call stands as a fresh audit and creates a
+    new run, as below. An audit call returns no standing
+    record: the stored record of a completed audit run
+    stands returned only through the audit_render route,
+    which renders that record and runs no audit.
 
     The audit date of a fresh audit stands under brief
     Section 6.2, M1: where no audit date stands supplied,
@@ -2737,7 +2725,7 @@ def _audit_body(*, home, page_file=None, robots_file=None,
     run_started = _clock()
     run_candidate = None
     start_limits = None
-    if run_id is None and page_file is not None:
+    if page_file is not None:
         # The run identity the service assigns this audit:
         # the snapshot entry the extraction appends stands
         # first and the audit record second, so the record
@@ -2763,77 +2751,10 @@ def _audit_body(*, home, page_file=None, robots_file=None,
         except Exception:
             pass
         _audit_preflight_limits(home, page_file, start_limits)
-    if run_id is not None:
-        fresh_named = [
-            name for name, value in (
-                ("page_file", page_file),
-                ("robots_file", robots_file),
-                ("evaluated_page_path", evaluated_page_path),
-                ("audit_date", audit_date),
-                ("product", product),
-            ) if value is not None]
-        if fresh_named:
-            _fail(
-                "MALFORMED_CALL",
-                "an audit call naming a run identity names "
-                "no fresh audit input beside it; the call "
-                "also names %s, so it stands as neither a "
-                "form request on the standing run nor a "
-                "fresh audit" % ", ".join(fresh_named))
-        standing = None
-        standing_sequence = None
-        for entry in _fold(home, apply_corrections=True):
-            if _get(entry, "entry_kind") != "audit_record":
-                continue
-            payload = _payload(entry)
-            # The stored record stands validated as it is
-            # scanned, before its identity is compared, as
-            # the guide assembly on the same store states:
-            # a swapped identity field stands judged at
-            # this reader in the recorded vocabulary naming
-            # the field, instead of the standing run
-            # reading as unknown, or a standing sibling run
-            # standing handed out over a swapped record
-            # beside it.
-            _validate_audit_payload(payload)
-            if payload.get("run_id") == run_id:
-                standing = payload
-                standing_sequence = _get(entry, "sequence")
-        if standing is None:
-            _fail(
-                "UNKNOWN_ROUND",
-                "no completed audit record stands under the "
-                "identity given: %r" % (run_id,))
-        # The form request reader stands under the stored
-        # audit field discipline its sibling reader
-        # enforces: the record stands judged by the same
-        # validation the full fold runs before it stands
-        # handed out, so a swapped field refuses here as it
-        # refuses at every other reader of the stored
-        # record.
-        _validate_audit_payload(standing)
-        # A standing record whose assembly correction never
-        # landed, the correction refused at the cap among
-        # its forms, stands healed at this reader where the
-        # correction can land now: the correction lands
-        # here, rebuilt from the run's own reading, and the
-        # corrected record stands returned; where the
-        # correction still cannot land, the form request
-        # stands refused with it, never returning the
-        # miscited record as the run's form.
-        healed = _land_audit_correction(
-            home, standing_sequence, standing,
-            audit_date=audit_date)
-        if healed is not None:
-            standing = healed
-        result = copy.deepcopy(standing)
-        result["audit_run"] = copy.deepcopy(standing)
-        return result
     if page_file is None:
         _fail(
             "VALIDATION_FAILED",
-            "an audit call names no page file and no standing "
-            "run identity")
+            "an audit call names no page file")
     audit_date_defaulted = audit_date is None
     if audit_date_defaulted:
         import datetime
@@ -3101,7 +3022,7 @@ def _audit_body(*, home, page_file=None, robots_file=None,
 
 def audit(*, home, page_file=None, robots_file=None,
           evaluated_page_path=None, audit_date=None,
-          product=None, run_id=None):
+          product=None):
     """One audit: the public route over the assembly above.
 
     A failed audit over a healthy chain far below cap
@@ -3120,7 +3041,7 @@ def audit(*, home, page_file=None, robots_file=None,
         # of the route.
         _append_failure_record(
             home, "audit", exc,
-            page_file if page_file is not None else run_id,
+            page_file,
             audit_date)
         raise
     try:
@@ -3128,15 +3049,14 @@ def audit(*, home, page_file=None, robots_file=None,
             home=home, page_file=page_file,
             robots_file=robots_file,
             evaluated_page_path=evaluated_page_path,
-            audit_date=audit_date, product=product,
-            run_id=run_id)
+            audit_date=audit_date, product=product)
     except errors.CitelineError as exc:
         if getattr(exc, "token", None) != "MALFORMED_CALL" \
                 and getattr(exc, "token", None) \
                 not in _LOOKUP_REFUSAL_CODES:
             _append_failure_record(
                 home, "audit", exc,
-                page_file if page_file is not None else run_id,
+                page_file,
                 audit_date)
         raise
     except Exception as exc:
@@ -3153,9 +3073,91 @@ def audit(*, home, page_file=None, robots_file=None,
         converted = errors.CitelineError(str(exc), token=token)
         _append_failure_record(
             home, "audit", converted,
-            page_file if page_file is not None else run_id,
+            page_file,
             audit_date)
         raise converted
+
+
+def _audit_render_body(*, home, run_id):
+    """Render the stored record of one completed audit run.
+
+    This route renders the stored record of one completed
+    audit run and runs no audit: it appends no snapshot
+    entry and no audit record entry. A run identity that
+    names no standing run fails with the recorded value for
+    an unknown round identity, the value the guide route
+    already returns for a missing audit record identity.
+    """
+    _barred_check(home)
+    home = _require_home(home)
+    standing = None
+    standing_sequence = None
+    for entry in _fold(home, apply_corrections=True):
+        if _get(entry, "entry_kind") != "audit_record":
+            continue
+        payload = _payload(entry)
+        # The stored record stands validated as it is
+        # scanned, before its identity is compared, as
+        # the guide assembly on the same store states:
+        # a swapped identity field stands judged at
+        # this reader in the recorded vocabulary naming
+        # the field, instead of the standing run
+        # reading as unknown, or a standing sibling run
+        # standing handed out over a swapped record
+        # beside it.
+        _validate_audit_payload(payload)
+        if payload.get("run_id") == run_id:
+            standing = payload
+            standing_sequence = _get(entry, "sequence")
+    if standing is None:
+        _fail(
+            "UNKNOWN_ROUND",
+            "no completed audit record stands under the "
+            "identity given: %r" % (run_id,))
+    # The re-render reader stands under the stored
+    # audit field discipline its sibling reader
+    # enforces: the record stands judged by the same
+    # validation the full fold runs before it stands
+    # handed out, so a swapped field refuses here as it
+    # refuses at every other reader of the stored
+    # record.
+    _validate_audit_payload(standing)
+    # A standing record whose assembly correction never
+    # landed, the correction refused at the cap among
+    # its forms, stands healed at this reader where the
+    # correction can land now: the correction lands
+    # here, rebuilt from the run's own reading, and the
+    # corrected record stands returned; where the
+    # correction still cannot land, the re-render
+    # stands refused with it, never returning the
+    # miscited record as the run's record.
+    healed = _land_audit_correction(
+        home, standing_sequence, standing,
+        audit_date=None)
+    if healed is not None:
+        standing = healed
+    result = copy.deepcopy(standing)
+    result["audit_run"] = copy.deepcopy(standing)
+    return result
+
+
+def audit_render(*, home, run_id):
+    """One re-render: the public route over the reader above.
+
+    The stored record of a completed audit run stands
+    returned only through this route. A lookup refusal on
+    this route appends no failure record, as the audit
+    route stated for its lookup refusals.
+    """
+    try:
+        return _audit_render_body(home=home, run_id=run_id)
+    except errors.CitelineError as exc:
+        if getattr(exc, "token", None) != "MALFORMED_CALL" \
+                and getattr(exc, "token", None) \
+                not in _LOOKUP_REFUSAL_CODES:
+            _append_failure_record(
+                home, "audit_render", exc, run_id, None)
+        raise
 
 
 def _detector_version():
@@ -4831,6 +4833,7 @@ __all__ = [
     "ServiceError",
     "add_product",
     "audit",
+    "audit_render",
     "contention_fields",
     "estate_grounds",
     "export_capture_worksheet",

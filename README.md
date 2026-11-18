@@ -125,6 +125,7 @@ subcommand per call, every input a named flag:
     export-capture-worksheet --home --product --round --queries --engine_labels --planned_answers --output_path --audit_date --form
     name-round --home --product --round_label --importer_declaration --supplier_relation --audit_date --form
     audit --home --page_file --robots_file --evaluated_page_path --audit_date --form
+    audit-render --home --run_id --form
     robots --home --robots_file --evaluated_page_path --form --audit_date
     robots-preview --home --first_robots_file --second_robots_file --evaluated_page_path --first_capture_date --second_capture_date --form --audit_date
     probe import --home --answer_file --product --round --engine_label --query --kind --captured_on --capture_method --control_designation --audit_date --form
@@ -143,6 +144,10 @@ guide takes exactly one selector: the run_id
 alone, or the product together with its round
 label. Supplying both forms in one call is a
 malformed call.
+
+An audit call runs a new audit. audit-render
+returns the stored record of a completed audit
+run and runs no audit.
 
 ## Your first round, in work order
 
