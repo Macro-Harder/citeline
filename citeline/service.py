@@ -106,9 +106,21 @@ def recorded_error(exc):
         entry = errors.error_for_token(token)
     if entry is None and row is not None:
         entry = errors.error_for_row(row)
+    message = _bounded_message(exc)
+    # One legacy opening clause stands dropped here, at
+    # the service message surface: a supplied path failure
+    # whose message opens with the clause "supplied path
+    # cannot be stated" states nothing an operator can act
+    # on ahead of the plain clause the message already
+    # carries, so the recorded message stands with the
+    # plain clause in first position.
+    legacy_prefix = "supplied path cannot be stated: "
+    head, sep, tail = message.partition(legacy_prefix)
+    if sep and (not head or head.endswith(": ")):
+        message = head + tail
     record = {
         "error_value": token if token is not None else str(exc),
-        "message": _bounded_message(exc),
+        "message": message,
     }
     if entry is not None:
         record["row"] = entry["row"]
