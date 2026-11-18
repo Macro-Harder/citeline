@@ -312,15 +312,32 @@ class Test028WorksheetContradictionIdentity(ImportBase):
         kwargs.update(extra)
         return import_module.prepare_worksheet_import(**kwargs)
 
-    def test_prefix_without_base_names_no_marker(self):
+    def test_prefix_without_base_admits_both_slots_as_two_records(self):
+        """S17-R3-028 naming pin as superseded under R19-048; two
+        distinct answers for the same round, same engine label,
+        same query, and same captured_on in one worksheet are
+        admitted as two prepared records, at one import call
+        for the sheet as the worksheet form prices it, and the
+        first slot record is not overwritten; no refusal
+        message stands for this shape, and a prepared identity
+        carries the sequence marker form the journal resolves
+        at append."""
         path = self.temp_answer(self.conflicting_sheet(), "sheet.txt")
-        with self.assertRaises(Exception) as caught:
-            self.call_sheet(path)
-        self.assertEqual(token_of(caught.exception),
-                         "CONTRADICTORY_IMPORT")
-        message = str(caught.exception)
-        self.assertNotIn("{sequence}", message)
-        self.assertIn("ans-1-1", message)
+        records = self.call_sheet(path)
+        self.assertEqual(len(records), 2)
+        first_hash = hashlib.sha256(
+            "First worksheet answer text.".encode("utf-8")).hexdigest()
+        second_hash = hashlib.sha256(
+            "Second conflicting worksheet answer.".encode(
+                "utf-8")).hexdigest()
+        self.assertEqual(records[0]["content_hash"], first_hash)
+        self.assertEqual(records[1]["content_hash"], second_hash)
+        self.assertNotEqual(records[0]["content_hash"],
+                            records[1]["content_hash"])
+        self.assertEqual(records[0]["captured_on"], "2026-11-10")
+        self.assertEqual(records[1]["captured_on"], "2026-11-10")
+        self.assertEqual(records[0]["answer_id"], "ans-{sequence}-1")
+        self.assertEqual(records[1]["answer_id"], "ans-{sequence}-2")
 
     def test_control_with_base_admits_second_distinct_answer(self):
         """Contract C2 as relaxed under R19-048, on the worksheet
