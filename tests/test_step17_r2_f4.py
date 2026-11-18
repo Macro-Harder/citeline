@@ -8,6 +8,7 @@ and the round 2 F1 and F2 seats, then stands as the pin
 for its cure."""
 
 import datetime
+import hashlib
 import json
 import os
 import re
@@ -722,7 +723,14 @@ class Test088RaisedErrorMessageBound(ImportBase):
 
 
 class Test097WorksheetContradictionName(WorksheetBase):
-    def test_contradiction_names_resolved_standing_identity(self):
+    def test_distinct_same_query_slots_admitted_with_resolved_identities(self):
+        """Pins contract C2 as relaxed under R19-048, on the
+        worksheet route: two slots holding distinct answers for
+        the same round, same normalised engine label, same query,
+        and same captured_on in one sheet are both admitted, each
+        as its own record under its own resolved identity, at one
+        import call for the sheet, and neither record overwrites
+        the other."""
         target = self.export_sheet()
         self.fill_sheet(target, {
             1: "First worksheet answer text.",
@@ -730,15 +738,36 @@ class Test097WorksheetContradictionName(WorksheetBase):
             fields={2: {"query": Q1}})
         expected_sequence = entry_count(self.home) + 1
         expected_id = "ans-%d-1" % expected_sequence
-        with self.assertRaises(Exception) as caught:
-            do_import(self.home, target)
-        self.assertEqual(token_of(caught.exception),
-                         "CONTRADICTORY_IMPORT")
-        message = str(caught.exception)
-        self.assertIn(expected_id, message)
-        self.assertNotIn("{sequence}", message)
+        do_import(self.home, target)
+        answers = payloads_of_kind(self.home, "answer_imported")
+        self.assertEqual(len(answers), 2)
+        by_text = {}
+        for record in answers:
+            if "First worksheet answer text." in record["answer_text"]:
+                by_text["first"] = record
+            if "Second conflicting worksheet answer." in (
+                    record["answer_text"]):
+                by_text["second"] = record
+        self.assertIn("first", by_text)
+        self.assertIn("second", by_text)
+        first = by_text["first"]
+        second = by_text["second"]
+        self.assertEqual(first["answer_id"], expected_id)
+        self.assertNotEqual(second["answer_id"], first["answer_id"])
+        for record in answers:
+            self.assertNotIn("{sequence}", record["answer_id"])
+        self.assertNotEqual(first["content_hash"],
+                            second["content_hash"])
         self.assertEqual(
-            len(entries_of_kind(self.home, "answer_imported")), 0)
+            first["content_hash"],
+            hashlib.sha256(
+                "First worksheet answer text.".encode(
+                    "utf-8")).hexdigest())
+        self.assertEqual(
+            second["content_hash"],
+            hashlib.sha256(
+                "Second conflicting worksheet answer.".encode(
+                    "utf-8")).hexdigest())
 
 
 if __name__ == "__main__":
