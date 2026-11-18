@@ -426,7 +426,15 @@ class Test032WorksheetOverflowCost(ImportBase):
             "answer_id": "ans-standing-1",
         }])
 
-    def test_duplicate_and_contradiction_controls_hold(self):
+    def test_duplicate_control_holds(self):
+        """Contract C2 duplicate limb and brief Section 5.9
+        item 146, as preserved under R19-048; the same answer
+        text in a later slot of one sheet stands refused as a
+        duplicate, whatever its capture date does, because
+        repeated sampling admits different answers, not a
+        double count of the same answer. This method is the
+        S17-R6-032 judgement control for the duplicate
+        judgement, standing as it stood."""
         path = self.temp_file(sheet_text({
             1: "Same answer text standing here.",
             2: "Same answer text standing here."},
@@ -434,14 +442,37 @@ class Test032WorksheetOverflowCost(ImportBase):
         with self.assertRaises(Exception) as caught:
             self.prepare_sheet(path)
         self.assertEqual(token_of(caught.exception), "DUPLICATE_IMPORT")
+
+    def test_second_distinct_answer_in_sheet_admitted_and_first_slot_stands(self):
+        """Contract C2 as relaxed under R19-048, on the
+        worksheet preparation surface; a distinct content
+        answer in a later slot of one sheet, for the same
+        round, same normalised engine label, same query, and
+        same captured_on as an earlier slot, is admitted as a
+        new record beside the earlier slot's record, at the
+        one import call the sheet stands as, and the earlier
+        record is not overwritten. This half stood as the
+        contradiction judgement control for S17-R6-032, whose
+        refusal pin lapses with the refusal itself under the
+        ruling."""
+        first_text = "First answer text standing here."
+        second_text = "Second answer text standing here."
         path = self.temp_file(sheet_text({
-            1: "First answer text standing here.",
-            2: "Second answer text standing here."},
+            1: first_text,
+            2: second_text},
             dates={1: "2026-11-10", 2: "2026-11-10"}), "con.txt")
-        with self.assertRaises(Exception) as caught:
-            self.prepare_sheet(path)
-        self.assertEqual(token_of(caught.exception),
-                         "CONTRADICTORY_IMPORT")
+        records = self.prepare_sheet(path)
+        self.assertEqual(len(records), 2)
+        self.assertEqual(records[0]["answer_text"], first_text)
+        self.assertEqual(records[1]["answer_text"], second_text)
+        self.assertNotEqual(records[0]["content_hash"],
+                            records[1]["content_hash"])
+        self.assertEqual(
+            records[0]["content_hash"],
+            hashlib.sha256(first_text.encode("utf-8")).hexdigest())
+        self.assertEqual(
+            records[1]["content_hash"],
+            hashlib.sha256(second_text.encode("utf-8")).hexdigest())
 
 
 class Test051FlowPositions(ImportBase):
