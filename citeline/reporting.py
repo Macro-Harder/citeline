@@ -832,9 +832,17 @@ def _apply_control_failure_notice(body):
                         continue
                     flagged = True
             for key, value in node.items():
-                if tuple(_key_components(key)) == \
-                        ("answer", "metrics") \
+                if tuple(_key_components(key)) in (
+                        ("answer", "metrics"),
+                        ("answer", "metrics", "rows")) \
                         and isinstance(value, list):
+                    # answer_metrics_rows stands as a
+                    # standing name for the same per answer
+                    # rows container, so a row flag under
+                    # that key stands excepted exactly as
+                    # under answer_metrics: the exception
+                    # follows what the container holds, not
+                    # the key spelling.
                     for item in value:
                         flag_walk(item, isinstance(item, dict))
                 else:

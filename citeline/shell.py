@@ -10,10 +10,11 @@ reports: 0 where the call carries no error value, the code
 of the class of the one error value reported where it
 fails, and no code outside that table. Code 4 stands for
 the gate check and stands returned by no version 1
-invocation here. Code 1 stands unassigned as a product
-outcome; it stands returned only where a call dies on an
-exception carrying no reported error value, the death
-the item 126 table reserves code 1 for in practice.
+invocation here. Code 1 stands reserved for exactly one
+case: a call that dies on an exception carrying no
+reported error value. No domain outcome takes code 1,
+and no other outcome takes it; the exit table stands
+amended to state that reservation in those terms.
 """
 
 import inspect
@@ -239,15 +240,21 @@ def help_text():
         "--form --audit_date",
         "query-set-report --home --product --form "
         "--audit_date",
-        "guide --home --run_id --product --round_label "
+        "guide --home --run_id --audit_date --form",
+        "guide --home --product --round_label "
         "--audit_date --form",
+        "guide takes exactly one selector: the run_id "
+        "alone, or the product together with its round "
+        "label. Supplying both forms in one call is a "
+        "malformed call.",
         "verify --home --form",
         "status --home --form",
         "staleness-view --home --form",
         "help",
         "watch --plan --form",
         "install: python install.py [location]",
-        "uninstall: python install.py uninstall [location]",
+        "uninstall: python install.py uninstall "
+        "[location] [home]",
         "The flag forms --location and --home stand accepted "
         "beside the install forms above, and --uninstall "
         "beside the word uninstall.",
@@ -255,7 +262,8 @@ def help_text():
         "subcommands above and watch each take --form. "
         "The help line takes no flag.",
         "List valued inputs (--competitors, --aliases, "
-        "--query_set, --category_terms) take a comma "
+        "--query_set, --category_terms, --queries, "
+        "--engine_labels) take a comma "
         "separated list, a JSON list, or the flag repeated "
         "once per item. A competitor item is a competitor "
         "name, or a JSON object with name, domain, and "
@@ -615,9 +623,14 @@ def _print_error(exc):
     """Print the error value and message of one failed call.
 
     The printed failure states the fact in plain words,
-    then a next step, then what was stored: nothing was
-    stored for the failed subject by the call, no report,
-    no score, and no stored entry for that subject.
+    then a next step, then what was stored: no report, no
+    score, and no entry for the failed subject stands
+    stored by the call, and a failure record for the call
+    stands appended in the home where the chain accepts
+    appends, on the failure record discipline the error
+    vocabulary states. The printed sentence states both
+    halves, so it never states that nothing was stored on
+    a call whose failure record the product itself stores.
     """
     try:
         record = service.recorded_error(exc)
@@ -631,7 +644,11 @@ def _print_error(exc):
         value, "correct the input the message names and "
         "run the call again")
     guidance = (" Next step: %s. Nothing was stored for "
-                "the failed subject by this call." % step)
+                "the failed subject by this call as a "
+                "report, a score, or an entry for that "
+                "subject; a failure record for this call "
+                "stands appended in the home where the "
+                "chain accepts appends." % step)
     if value:
         text = _plain_wording(str(message))
         prefix = "%s: " % (value,)
@@ -904,8 +921,17 @@ def main(argv=None):
 
 
 def _run_watch(tokens):
-    inputs = _parse_flags(tokens, ("plan", "form"), "watch")
-    if inputs is None or "plan" not in inputs:
+    inputs, fault = _parse_flags_detailed(
+        tokens, ("plan", "form"), "watch")
+    if inputs is None:
+        return _usage_error(
+            fault or (
+                "the call stands malformed: its inputs stand as "
+                "named flags with a value each, from the inputs "
+                "the subcommand accepts"),
+            home=_home_from_plan(_extract_value(tokens, "--plan")),
+            operation="watch")
+    if "plan" not in inputs:
         return _usage_error(
             "the watch call names no plan, which stands "
             "required",

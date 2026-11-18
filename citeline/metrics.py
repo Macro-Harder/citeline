@@ -1676,6 +1676,21 @@ def round_metrics(answers, kind, frame=None, datum=None,
     query_values = [_get(item, "query", "") for item in active]
     day_values = [_get(item, "captured_on", "") for item in active]
     method_values = [_first(item, ("capture_method", "method"), "") for item in active]
+    # The capture context stands over every answer
+    # standing in the round for the kind, designated
+    # controls included, and the same set governs the
+    # sampling frame engine label set and the capture
+    # methods asserted. Rates, counts, and clusters
+    # above and below stay over the active answers
+    # alone, controls excluded as before.
+    context_engine_values = [
+        _first(item, ("engine_label", "engine"), "")
+        for item in by_kind]
+    context_day_values = [
+        _get(item, "captured_on", "") for item in by_kind]
+    context_method_values = [
+        _first(item, ("capture_method", "method"), "")
+        for item in by_kind]
 
     def largest_share(values):
         if not values:
@@ -1727,8 +1742,8 @@ def round_metrics(answers, kind, frame=None, datum=None,
     frame_imported = imported_count
     sampling_frame = {
         "query_set_version": _first(frame, ("query_set_version",), version_stamps.get("query_set_version")),
-        "engine_label_set": sorted({value for value in engine_values if value}),
-        "capture_methods_asserted": sorted({value for value in method_values if value}),
+        "engine_label_set": sorted({value for value in context_engine_values if value}),
+        "capture_methods_asserted": sorted({value for value in context_method_values if value}),
         "imported_count": frame_imported,
         "importer_declaration": _get(frame, "importer_declaration", None),
         "declaration_unverifiable": True,
@@ -1737,12 +1752,12 @@ def round_metrics(answers, kind, frame=None, datum=None,
         sampling_frame["importer_declaration"] = _get(datum, "importer_declaration")
 
     capture_context = {
-        "distinct_engines": len({value for value in engine_values if value}),
-        "distinct_capture_dates": len({value for value in day_values if value}),
-        "distinct_capture_methods": len({value for value in method_values if value}),
-        "engine_labels": sorted({value for value in engine_values if value}),
-        "capture_dates": sorted({value for value in day_values if value}),
-        "capture_methods": sorted({value for value in method_values if value}),
+        "distinct_engines": len({value for value in context_engine_values if value}),
+        "distinct_capture_dates": len({value for value in context_day_values if value}),
+        "distinct_capture_methods": len({value for value in context_method_values if value}),
+        "engine_labels": sorted({value for value in context_engine_values if value}),
+        "capture_dates": sorted({value for value in context_day_values if value}),
+        "capture_methods": sorted({value for value in context_method_values if value}),
     }
 
     result = {
@@ -2481,11 +2496,33 @@ def round_metrics_from_journal(entries, fold_point=None, detector_version=None,
                 aliases=seed_aliases_multi,
                 competitors=list(product.get("competitors") or []),
             )
+        # The multi kind form carries a round level
+        # capture_context pooled over all kinds standing
+        # in the round, over the same all answers set
+        # the per kind contexts stand over.
+        pooled_engines = sorted({
+            row.get("engine_label") for row in metrics_rows
+            if row.get("engine_label")})
+        pooled_dates = sorted({
+            row.get("captured_on") for row in metrics_rows
+            if row.get("captured_on")})
+        pooled_methods = sorted({
+            row.get("capture_method") for row in metrics_rows
+            if row.get("capture_method")})
+        pooled_context = {
+            "distinct_engines": len(pooled_engines),
+            "distinct_capture_dates": len(pooled_dates),
+            "distinct_capture_methods": len(pooled_methods),
+            "engine_labels": pooled_engines,
+            "capture_dates": pooled_dates,
+            "capture_methods": pooled_methods,
+        }
         return {
             "kind": None,
             "source_kind": None,
             "kinds": list(kinds),
             "answer_metrics": metrics_rows,
+            "capture_context": pooled_context,
             "per_kind": per_kind,
             "imported_count": sum(
                 per_kind[each_kind]["imported_count"]

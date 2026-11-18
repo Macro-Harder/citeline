@@ -1431,6 +1431,11 @@ def _print_help():
         "the flag forms --location and --home stand "
         "accepted beside the positional forms, and "
         "--uninstall stands beside the word uninstall")
+    print(
+        "uninstall takes the form python install.py "
+        "uninstall [location] [home], the home naming "
+        "a product home other than the default where "
+        "the install was made with one")
 
 
 def _malformed(message):

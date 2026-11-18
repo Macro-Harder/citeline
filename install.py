@@ -3,13 +3,14 @@
 Run this file with the system Python, from this directory:
 
     python install.py [install location]
-    python install.py uninstall [install location]
+    python install.py uninstall [install location] [home]
 
 With no argument, the install location is the directory
 named citeline beside this directory. Uninstall is the
 word uninstall as the first argument, with the install
-location as its optional second argument and the same
-default. The output stands in the simple form only and
+location as its optional second argument, the home as
+its optional third argument, and the same default. The
+output stands in the simple form only and
 states the home path.
 """
 

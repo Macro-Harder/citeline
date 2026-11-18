@@ -252,15 +252,35 @@ def _resolve_home(home):
     never a home under the caller's working directory,
     so the governed home stands fixed by the config
     alone.
+
+    The selection resolves to a fixed point: where the
+    selected home itself selects another home, the
+    selection stands followed until a home selects
+    itself or selects nothing. A selection cycle is
+    refused with the named error CONFIG_INVALID at row
+    X-1, never followed and never looped.
     """
-    try:
-        selected = _journal().selected_home(home)
-    except Exception:
-        return home
-    if selected != str(home) and not os.path.isabs(str(selected)):
-        return os.path.normpath(
-            os.path.join(str(home), str(selected)))
-    return selected
+    current = str(home)
+    seen = []
+    while True:
+        marker = os.path.normpath(os.path.abspath(
+            os.path.expanduser(current)))
+        if marker in seen:
+            _fail(
+                "CONFIG_INVALID",
+                "the home selection stands in a cycle: %s"
+                % (" -> ".join(seen + [marker]),))
+        seen.append(marker)
+        try:
+            selected = _journal().selected_home(current)
+        except Exception:
+            return current
+        if str(selected) == current:
+            return current
+        if not os.path.isabs(str(selected)):
+            selected = os.path.normpath(
+                os.path.join(current, str(selected)))
+        current = str(selected)
 
 
 def _require_named_home(home):
@@ -3589,6 +3609,13 @@ def probe_import(*, home, answer_file=None, product=None,
     standing record, and no control count, so no round
     level check fires ahead of the lookup that owns it.
     """
+    # The limits of the home the call names govern the
+    # intake: the home_path selection chooses where the
+    # material lands, not which rules apply, so the named
+    # home stands kept here for every limit reading of
+    # this route and for the limit reading the import
+    # component performs over the file it reads.
+    named_home = str(home)
     home = _require_home(home)
     try:
         # The audit date stands under the service
@@ -3651,7 +3678,7 @@ def probe_import(*, home, answer_file=None, product=None,
         # checked here, in code points, as the engine
         # label length stands checked in the adapter.
         method_limit = _limit_value(
-            home, "capture_method_text_length")
+            named_home, "capture_method_text_length")
         if isinstance(capture_method, str) \
                 and method_limit is not None \
                 and len(capture_method) > method_limit:
@@ -3704,7 +3731,7 @@ def probe_import(*, home, answer_file=None, product=None,
                 query_set=None, standing_records=(), control_count=0,
                 product_id=None, round_id=None, answer_id=None,
                 registry_version_at_import=None,
-                detector_version_at_import=None, home=home)
+                detector_version_at_import=None, home=named_home)
         except Exception as exc:
             _append_failure_record(
                 home, "probe import", exc, answer_file, audit_date)
@@ -3751,7 +3778,7 @@ def probe_import(*, home, answer_file=None, product=None,
                     registry_version_at_import=product_record.get(
                         "registry_version", 1),
                     detector_version_at_import=_detector_version(),
-                    answer_sequence_base=sequence, home=home)
+                    answer_sequence_base=sequence, home=named_home)
             else:
                 control_count = sum(
                     1 for item in standing
@@ -3772,7 +3799,7 @@ def probe_import(*, home, answer_file=None, product=None,
                     registry_version_at_import=product_record.get(
                         "registry_version", 1),
                     detector_version_at_import=_detector_version(),
-                    home=home)]
+                    home=named_home)]
         except Exception as exc:
             _append_failure_record(
                 home, "probe import", exc, answer_file, audit_date)
@@ -3785,7 +3812,8 @@ def probe_import(*, home, answer_file=None, product=None,
             # backstops, limit 42 over the preparation and
             # limit 41 over the whole run.
             text_limit = _limit_value(
-                home, "extracted_text_length_per_page_or_answer")
+                named_home,
+                "extracted_text_length_per_page_or_answer")
             if text_limit is not None:
                 for item in records:
                     text = item.get("answer_text")
@@ -3796,7 +3824,8 @@ def probe_import(*, home, answer_file=None, product=None,
                             "limit is %s characters, with "
                             "rejection and no partial record"
                             % (text_limit,))
-            round_limit = _limit_value(home, "answers_per_round")
+            round_limit = _limit_value(
+                named_home, "answers_per_round")
             if round_limit is not None and len(standing) + len(
                     records) > round_limit:
                 _fail(
@@ -3804,7 +3833,8 @@ def probe_import(*, home, answer_file=None, product=None,
                     "answers per round limit is %s, with "
                     "rejection and no partial record"
                     % (round_limit,))
-            parse_limit = _limit_value(home, "per_file_parse_time")
+            parse_limit = _limit_value(
+                named_home, "per_file_parse_time")
             if parse_limit is not None and \
                     _clock() - run_started > parse_limit:
                 _fail(
@@ -3813,7 +3843,7 @@ def probe_import(*, home, answer_file=None, product=None,
                     "in force, and the preparation of this file "
                     "passed it" % (parse_limit,))
             run_limit = _limit_value(
-                home, "per_run_wall_clock_backstop")
+                named_home, "per_run_wall_clock_backstop")
             if run_limit is not None and \
                     _clock() - run_started > run_limit:
                 _fail(

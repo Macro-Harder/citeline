@@ -1308,6 +1308,15 @@ def _read_supplied_file(page_path, size_limit_bytes=None):
               "stated and is rejected")
     try:
         pre = os.lstat(path_text)
+    except FileNotFoundError:
+        # A supplied path that does not exist is an
+        # operator input fault and takes the input class
+        # at row X-14, not the integrity class of row
+        # X-4: row X-4 governs paths that exist but are
+        # not regular files or are unsafe.
+        _fail("PAGE_EXTRACTION_FAILED",
+              "the supplied page file does not exist: %s"
+              % (path_text,))
     except (OSError, ValueError) as exc:
         _fail("SUPPLIED_PATH_UNSAFE",
               "supplied path cannot be stated: %s" % (exc,))
@@ -1334,6 +1343,10 @@ def _read_supplied_file(page_path, size_limit_bytes=None):
         flags |= os.O_NONBLOCK
     try:
         descriptor = os.open(path_text, flags)
+    except FileNotFoundError:
+        _fail("PAGE_EXTRACTION_FAILED",
+              "the supplied page file does not exist: %s"
+              % (path_text,))
     except (OSError, ValueError) as exc:
         _fail("SUPPLIED_PATH_UNSAFE",
               "supplied path cannot be opened: %s" % (exc,))

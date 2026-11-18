@@ -95,12 +95,15 @@ the directory named citeline beside this directory.
 The flag forms --location and --home stand accepted
 beside the stated form, and --home names a product
 home other than the default, a directory named
-.citeline in your home directory. The install
+.citeline in your home directory. The flag form
+--uninstall stands accepted beside the word
+uninstall. The install
 output stands in the simple form only and states
 the home path. The installer records what it
 created. The matching uninstall, the word uninstall
 as the first argument with the install location as
-its optional second argument, removes only what
+its optional second argument and the home as its
+optional third argument, removes only what
 the installer created, and that includes the used
 home: uninstall removes the used home and every
 record in its journal, including the records
@@ -108,7 +111,12 @@ created by using the product. Before it removes a
 used home, uninstall warns that the home and its
 journal stand for removal:
 
-    python install.py uninstall [location]
+    python install.py uninstall [location] [home]
+
+Material imported into the home is retained until
+the operator deletes the home by hand. Version 1
+ships no in product deletion route for imported
+material.
 
 ## Use
 
@@ -176,7 +184,8 @@ Forms are simple, advanced, and agentic. The
 subcommands above and watch each take --form. The
 help line takes no flag. List valued inputs
 (--competitors, --aliases, --query_set,
---category_terms) take a comma separated list, a
+--category_terms, --queries, --engine_labels)
+take a comma separated list, a
 JSON list, or the flag repeated once per item. A
 competitor may also stand as a JSON object
 naming its name, domain, and aliases, as one

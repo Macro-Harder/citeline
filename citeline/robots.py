@@ -929,6 +929,17 @@ def _read_supplied_file(path):
             "the supplied path holds a NUL character, so "
             "it does not decode in UTF-8 strictly",
         ) from exc
+    except FileNotFoundError as exc:
+        # A supplied path that does not exist is an
+        # operator input fault and takes the input class,
+        # not the integrity class of row X-4, which
+        # governs paths that exist but are not regular
+        # files or are unsafe.
+        raise RobotsError(
+            "VALIDATION_FAILED",
+            "the supplied robots file does not exist: %s"
+            % (path_text,),
+        ) from exc
     except OSError as exc:
         raise RobotsError(
             "SUPPLIED_PATH_UNSAFE",
