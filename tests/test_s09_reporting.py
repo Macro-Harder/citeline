@@ -499,7 +499,23 @@ class TestRenderingSafety(ReportingBase):
         the JSON forms, neither stripped nor entity encoded a
         second time; parsing the Agentic response as exactly one
         JSON value (brief Section 5.5 Agentic conformance) yields
-        the same values as the Advanced artefact."""
+        the same values as the Advanced artefact.
+
+        Step 19 Phase 8 record correction (triage item U-10): this
+        pin is restated to pin exactly what the brief defines. Its
+        earlier form also required every stored text value of the
+        audit record, the page sentences among them, to stand in
+        the JSON forms. Purple graded that limb TEST OVERREACH
+        (design/audit/step-19-phase8-purple.md, Resolution 3),
+        upheld by the Phase 8 triage: the brief AuditRun field
+        list defines no sentences field; sentences is a field of
+        ExtractedPage and reaches the Simple form only, so no
+        defined route carries page sentences into the Advanced or
+        Agentic forms. The undefined sentences limb is removed.
+        What this pin now holds is the defined claim: every value
+        the JSON forms are defined to carry, that is every stored
+        text value of the AuditRun record outside any sentences
+        list, round trips exactly in both JSON forms."""
         record = audit_page(self.home, PAGE_HOSTILE)
         advanced_text = as_text(render(record, "advanced"))
         self.assertNotIn("&lt;script&gt;", advanced_text)
@@ -507,17 +523,32 @@ class TestRenderingSafety(ReportingBase):
         reparsed = json.loads(json.dumps(agentic_raw))
         self.assertEqual(payload(reparsed), payload(agentic_raw))
         joined = advanced_text
-        self.assertIn("café", joined)
         self.assertIn("a=1&b=2", joined)
+
+        def walk_defined(node):
+            """Yields every dict in node, never descending into a
+            sentences list: sentences is an ExtractedPage field the
+            AuditRun definition does not carry, per the docstring
+            above, so its values stand outside this pin."""
+            if isinstance(node, dict):
+                yield node
+                for key, value in node.items():
+                    if key == "sentences":
+                        continue
+                    yield from walk_defined(value)
+            elif isinstance(node, list):
+                for value in node:
+                    yield from walk_defined(value)
+
         stored_texts = []
-        for obj in walk_objects(record if isinstance(
+        for obj in walk_defined(record if isinstance(
                 record, dict) else vars(record)):
             for value in obj.values():
                 if isinstance(value, str):
                     stored_texts.append(value)
         hostile_stored = [v for v in stored_texts
                           if any(bit in v for bit in
-                                 self.HOSTILE_BITS) or "café" in v]
+                                 self.HOSTILE_BITS)]
         self.assertTrue(hostile_stored)
         for form in ("advanced", "agentic"):
             body = payload(render(record, form))
