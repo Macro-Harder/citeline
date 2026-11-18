@@ -534,19 +534,44 @@ class Test035ContradictionIdentitySurfaces(ImportBase):
         self.assertIn("ans-{sequence}-3", message)
         self.assertNotIn("ans-43-3", message)
 
-    def test_control_worksheet_batch_identity_still_resolves(self):
+    def test_control_worksheet_batch_admits_second_distinct_answer(
+            self):
+        """Contract C2 as relaxed under R19-048, on the worksheet
+        preparation surface; a second filled slot holding a distinct
+        answer for the same round, same normalised engine label,
+        same query, and same captured_on as an earlier slot of the
+        same sheet is admitted as a new record under its own
+        identity, and the earlier slot's record stands beside it
+        unchanged. This method stood as the batch internal control
+        for S17-R4-035, whose refusal message identity pin lapses
+        with the refusal itself under the ruling."""
         path = self.temp_answer(sheet_text({
             1: "First worksheet answer text.",
             2: "Second conflicting worksheet answer."},
             dates={1: "2026-11-10", 2: "2026-11-10"}), "sheet.txt")
-        with self.assertRaises(Exception) as caught:
-            self.prepare_sheet(
-                path, answer_id_prefix="ans-{sequence}",
-                answer_sequence_base=41)
-        self.assertEqual(token_of(caught.exception),
-                         "CONTRADICTORY_IMPORT")
-        self.assertIn("ans-41-1", str(caught.exception))
-        self.assertNotIn("{sequence}", str(caught.exception))
+        records = self.prepare_sheet(
+            path, answer_id_prefix="ans-{sequence}",
+            answer_sequence_base=41)
+        self.assertEqual(len(records), 2)
+        self.assertEqual(records[0]["answer_text"],
+                         "First worksheet answer text.")
+        self.assertEqual(records[1]["answer_text"],
+                         "Second conflicting worksheet answer.")
+        self.assertNotEqual(records[0]["content_hash"],
+                            records[1]["content_hash"])
+        self.assertEqual(
+            records[0]["content_hash"],
+            hashlib.sha256(
+                "First worksheet answer text.".encode()).hexdigest())
+        self.assertEqual(
+            records[1]["content_hash"],
+            hashlib.sha256(
+                "Second conflicting worksheet answer.".encode()
+            ).hexdigest())
+        self.assertEqual(records[0]["answer_id"], "ans-{sequence}-1")
+        self.assertEqual(records[1]["answer_id"], "ans-{sequence}-2")
+        self.assertNotEqual(records[0]["answer_id"],
+                            records[1]["answer_id"])
 
 
 class Test036WorksheetPreparationCost(ImportBase):
