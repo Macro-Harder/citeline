@@ -419,20 +419,39 @@ class Test089MultiAppend(ImportBase):
 
 
 class Test101ContradictionSurface(ImportBase):
-    def test_contradiction_message_names_answer_and_remedy(self):
-        first = do_import(
-            self.home, self.temp_answer("First answer text.", "a.txt"))
+    def test_second_distinct_answer_admitted_under_own_identity_and_first_stands(self):
+        """S17-R1-101 surface as superseded under R19-048; a distinct
+        content answer for the same round, same engine label, same
+        query, and same captured_on is admitted as a new record under
+        its own identity, at one import call for the one answer, and
+        the standing record is not overwritten; no refusal message
+        stands for this shape."""
+        first_path = self.temp_answer("First answer text.", "a.txt")
+        first = do_import(self.home, first_path)
         standing_id = first["answer_id"]
-        with self.assertRaises(Exception) as caught:
-            do_import(self.home,
-                      self.temp_answer("Second different answer.", "b.txt"))
-        self.assertEqual(token_of(caught.exception),
-                         "CONTRADICTORY_IMPORT")
-        message = str(caught.exception)
-        self.assertIn(standing_id, message)
-        self.assertNotIn("normalised", message)
-        self.assertNotIn("content hash", message)
-        self.assertIn("capture date", message)
+        second_path = self.temp_answer("Second different answer.", "b.txt")
+        second = do_import(self.home, second_path)
+        self.assertIsNotNone(second)
+        self.assertTrue(second["answer_id"])
+        self.assertNotEqual(second["answer_id"], standing_id)
+        first_hash = hashlib.sha256(first_path.read_bytes()).hexdigest()
+        second_hash = hashlib.sha256(second_path.read_bytes()).hexdigest()
+        self.assertEqual(second["content_hash"], second_hash)
+        self.assertNotEqual(second["content_hash"], first["content_hash"])
+        self.assertEqual(first["content_hash"], first_hash)
+        stored = entries_of_kind(self.home, "answer_imported")
+        self.assertEqual(len(stored), 2)
+        pairs = []
+        for entry in stored:
+            payload = entry.get("payload") or {}
+            if not isinstance(payload, dict):
+                payload = {}
+            pairs.append((payload.get("answer_id")
+                          or entry.get("answer_id"),
+                          payload.get("content_hash")
+                          or entry.get("content_hash")))
+        self.assertIn((standing_id, first_hash), pairs)
+        self.assertIn((second["answer_id"], second_hash), pairs)
 
 
 class Test105EmptySurface(ImportBase):
