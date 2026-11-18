@@ -4,10 +4,14 @@ Reporting owns no stored shape. It renders ReportArtefact,
 ProbeTrend, QuerySetReport, and RobotsPreview artefacts from
 stored records, and, for a ReportArtefact, from supplied files
 and standing records on the terms the plan states for that
-artefact. It adds no number: every figure in an artefact is a
-value the stored record already carries, or a fixed text the
-plan states, or the one permitted rendering derivation (a stored
-rate restated as a plain range in percent in the Simple form).
+artefact. It adds no number beyond the stated rendering
+derivations: every figure in an artefact is a value the stored
+record already carries, or a fixed text the plan states, or
+one of the permitted rendering derivations (a stored rate
+restated as a plain range in percent in the Simple form, and
+the secondary figure recomputed at rendering from the stored
+CheckResults where the stored ScoreObject carries none, on
+the terms _recomputed_secondary_figure states).
 It depends on no guide module: a GuideDraft reaches this module
 only as a stored record like any other, and renders the same
 with no guide call made.
@@ -979,10 +983,35 @@ def _recomputed_secondary_figure(score, checks):
             applicable.append(item)
     if not has_not_applicable or not applicable:
         return None
-    weighted = sum(
-        Decimal(str(item.get("earned") or 0))
-        * Decimal(str(item.get("weight") or 0))
-        for item in applicable)
+    # Each stored earned and weight stands read as a
+    # figure on the module's own figure reading: a value
+    # in no figure form stands as no figure, and a sum
+    # resting on such a value cannot stand, so no figure
+    # stands for the record rather than a crash or a sum
+    # built from part of the checks.
+    def figure_of(item, key):
+        raw = item.get(key)
+        if raw is None:
+            return Decimal(0)
+        figure = _figure_or_none(raw)
+        if isinstance(figure, bool) or not isinstance(
+                figure, (int, float, Decimal)):
+            return None
+        if isinstance(figure, float) \
+                and not math.isfinite(figure):
+            return None
+        if isinstance(figure, Decimal) \
+                and not figure.is_finite():
+            return None
+        return Decimal(str(figure))
+
+    weighted = Decimal(0)
+    for item in applicable:
+        earned = figure_of(item, "earned")
+        weight = figure_of(item, "weight")
+        if earned is None or weight is None:
+            return None
+        weighted += earned * weight
     value = float(_quantized_decimal(
         weighted / Decimal(100) * 100, "0.1"))
     if score.get("cap_status") and value > 39.0:
@@ -1409,8 +1438,13 @@ def render(record, form="advanced"):
     that same payload under the one named report key, with the
     honesty and limit fields in structured form at the top
     level. Rendering is a pure transformation of the one record:
-    it reads no second store, recomputes nothing, and a second
-    render of the same record stands equal to the first.
+    it reads no second store, and a second render of the same
+    record stands equal to the first. Its one recompute stands
+    stated in the open: where a stored ScoreObject carries no
+    secondary figure, the secondary figure stands recomputed
+    at rendering from the stored CheckResults, on the governed
+    terms _recomputed_secondary_figure states, and it is never
+    written back to the stored record.
     """
     if form not in FORMS:
         raise ValueError("unknown reading form: %r" % (form,))
@@ -2105,6 +2139,13 @@ def _render_guide_simple(body):
     return lines
 
 
+def _query_string_noun(count):
+    """The query string noun in the form its count states:
+    the singular at a count of one, the plural otherwise,
+    in the form the rate lines already print for answers."""
+    return "query string" if count == 1 else "query strings"
+
+
 def _render_query_set_simple(body):
     lines = ["Query set report."]
     # The total the form counts relate to stands first,
@@ -2113,8 +2154,9 @@ def _render_query_set_simple(body):
     # words.
     if body.get("total_count") is not None:
         lines.append(
-            "The set holds %s query strings in total."
-            % _scalar_text(body.get("total_count")))
+            "The set holds %s %s in total."
+            % (_scalar_text(body.get("total_count")),
+               _query_string_noun(body.get("total_count"))))
     labels = (
         ("asks a question", "interrogative_count"),
         ("compares", "comparison_count"),
@@ -2128,14 +2170,17 @@ def _render_query_set_simple(body):
     lines.append(_COVERAGE_STATEMENT)
     if body.get("duplicate_count") is not None:
         lines.append(
-            "duplicates: %s query strings stand more than "
+            "duplicates: %s %s stand more than "
             "once in the set."
-            % _scalar_text(body.get("duplicate_count")))
+            % (_scalar_text(body.get("duplicate_count")),
+               _query_string_noun(body.get("duplicate_count"))))
     if body.get("naming_none_count") is not None:
         lines.append(
-            "naming none: %s query strings name neither "
+            "naming none: %s %s name neither "
             "the product nor a competitor."
-            % _scalar_text(body.get("naming_none_count")))
+            % (_scalar_text(body.get("naming_none_count")),
+               _query_string_noun(
+                   body.get("naming_none_count"))))
     if "marker_list_version" in body:
         marker = body.get("marker_list_version")
         if isinstance(marker, dict):
@@ -2334,12 +2379,25 @@ def _render_audit_simple(body):
         basis = score.get("applicable_basis")
         if isinstance(basis, dict):
             checks_named = basis.get("applicable_checks") or []
+            # The stored form stands judged before its
+            # count stands taken: a list of check ids
+            # counts by its length, a count standing in
+            # its own form counts as itself, and any other
+            # shape counts as no named checks, so no shape
+            # the stored record carries can crash the line.
+            if isinstance(checks_named, (list, tuple)):
+                checks_count = len(checks_named)
+            elif isinstance(checks_named, int) \
+                    and not isinstance(checks_named, bool):
+                checks_count = checks_named
+            else:
+                checks_count = 0
             weight = basis.get("applicable_weight")
             if weight is not None:
                 lines.append(
                     "The score rests on %d checks, with a total "
                     "weight of %s."
-                    % (len(checks_named), _figure_text(weight)))
+                    % (checks_count, _figure_text(weight)))
             # A check standing not applicable is named here,
             # beside the total its weight was redistributed
             # into, so the head lines and the check list
@@ -2505,7 +2563,11 @@ def _render_audit_simple(body):
     # the reader can see rather than a figure alone.
     page_headings = []
     for check in body.get("checks") or []:
+        if not isinstance(check, dict):
+            continue
         for section in check.get("section_breakdown") or []:
+            if not isinstance(section, dict):
+                continue
             heading = section.get("heading_text")
             if heading and heading not in page_headings:
                 page_headings.append(heading)

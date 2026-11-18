@@ -34,7 +34,12 @@ anything the page or an answer says.
   its bounds stated beside its figures), and
   Agentic (the same payload for another program to
   consume). Reporting adds no number to what is
-  stored.
+  stored, with one stated exception: where a stored
+  score carries no secondary figure, reporting
+  recomputes the secondary figure at rendering from
+  the stored check results and stands it beside the
+  score, and that figure is never written back to
+  the stored record.
 - Drafts a guide from a completed audit record or
   round: the canonical line, an evidence sentence
   where the record supports one, and an ordered

@@ -348,6 +348,46 @@ def _plan_warnings(plan, targets):
                     "key names nothing the target shape "
                     "states and the target runs without it"
                     % (key,))
+    # A picked probe target reads none of the audit
+    # limb fields the target shape states: its guide
+    # flag names no guide call, and its robots_file and
+    # evaluated_page_path name no audit input, because
+    # the probe dispatch reads the target's round alone.
+    # Each such field the target carries stands named
+    # here instead of standing disregarded in silence,
+    # on the same ground as the unknown key warnings
+    # above. An audit target reads all three fields, so
+    # no warning stands for it.
+    for target in targets or []:
+        if not isinstance(target, dict):
+            continue
+        if target.get("page_file"):
+            continue
+        product = target.get("product")
+        if target.get("guide"):
+            warnings.append(
+                "WatchPlan target guide for product %s: %s; "
+                "the target stands as a probe target, the "
+                "probe round reads no guide field, so the "
+                "flag stands disregarded and the target "
+                "runs without it" % (product, target["guide"]))
+        if target.get("robots_file"):
+            warnings.append(
+                "WatchPlan target robots_file for product "
+                "%s: %s; the target stands as a probe "
+                "target, the probe round reads no "
+                "robots_file field, so the field stands "
+                "disregarded and the target runs without "
+                "it" % (product, target["robots_file"]))
+        if target.get("evaluated_page_path"):
+            warnings.append(
+                "WatchPlan target evaluated_page_path for "
+                "product %s: %s; the target stands as a "
+                "probe target, the probe round reads no "
+                "evaluated_page_path field, so the field "
+                "stands disregarded and the target runs "
+                "without it"
+                % (product, target["evaluated_page_path"]))
     # A second_rounds record key naming no product the
     # plan targets stands warned in the open: the
     # dispatch reads the record by product name, so such
@@ -699,21 +739,39 @@ def _target_identity(target):
     return ("probe", product, target.get("round"))
 
 
-def _page_age_days(record, audit_date):
+def _page_age_days(record, audit_date, extracted_text=None):
     """The age in days of the page one audit used.
 
     The age stands computed from the dates the audit
-    record already carries: the page date the freshness
-    limb reads, found in the record sentences in the
+    already carries: the page date the freshness limb
+    reads, found in the extracted text itself in the
     freshness limb's own order (a labelled line first,
     then a date in the opening lines), against the audit
-    date the round ran at. Where either date stands
-    absent, no age stands.
+    date the round ran at. The record's sentences never
+    stand in for the extracted text: segmentation does
+    not preserve the extracted text's lines, so an age
+    rebuilt over joined sentences can contradict the
+    freshness check on the same page. Where the plan
+    names no audit date, the record's own audit date
+    governs, as the date the audit computed on. Where
+    the extracted text or either date stands absent,
+    no age stands.
     """
+    if not isinstance(record, dict):
+        return None
+    if audit_date is None:
+        audit_date = record.get("audit_date")
     if audit_date is None:
         return None
-    sentences = record.get("sentences") or []
-    text = "\n".join(str(sentence) for sentence in sentences)
+    text = extracted_text
+    if text is None:
+        text = record.get("running_text")
+    if text is None:
+        text = record.get("extracted_text")
+    if text is None and isinstance(record.get("extracted"), dict):
+        text = record["extracted"].get("running_text")
+    if not isinstance(text, str) or not text:
+        return None
     found = None
     try:
         from citeline import checks as checks_module
@@ -775,7 +833,31 @@ def _audit_entry(home, plan, product, target):
         "outcome": "completed",
         "record_identity": run_id,
     }
-    entry["page_age_days"] = _page_age_days(record, audit_date)
+    # The page age reads the extracted text itself, on
+    # the same terms the freshness check read it: the
+    # extraction runs again without registering its
+    # snapshot, so no journal entry stands from this
+    # reading, and where the reading fails no age stands
+    # rather than an age rebuilt from the record's
+    # sentences.
+    extracted_text = None
+    try:
+        from citeline import acquisition
+        extraction = acquisition.extract_page(
+            str(home), product_id=product,
+            page_path=str(target["page_file"]),
+            audit_date=audit_date,
+            evaluated_page_path=target.get(
+                "evaluated_page_path"),
+            register_snapshot=False)
+        extracted = extraction.get("extracted") \
+            if isinstance(extraction, dict) else None
+        if isinstance(extracted, dict):
+            extracted_text = extracted.get("running_text")
+    except Exception:
+        extracted_text = None
+    entry["page_age_days"] = _page_age_days(
+        record, audit_date, extracted_text)
     if target.get("guide"):
         try:
             draft = service.guide(
