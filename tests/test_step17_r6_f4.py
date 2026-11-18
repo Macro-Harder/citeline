@@ -6,6 +6,7 @@ papers the register paper and the register paper (entry 051
 and the merged limbs of entries 024 and 032)."""
 
 import gzip
+import hashlib
 import io
 import json
 import tarfile
@@ -371,7 +372,20 @@ class Test032WorksheetOverflowCost(ImportBase):
         records = self.prepare_sheet(path, standing_records=standing)
         self.assertEqual(len(records), 1)
 
-    def test_contradiction_by_date_with_unhashable_hash(self):
+    def test_second_answer_by_date_with_unhashable_hash_admitted(self):
+        """Contract C2 as relaxed under R19-048, on the worksheet
+        preparation route; a slot holding a distinct answer for
+        the same round, same normalised engine label, same query,
+        and same captured_on as a standing record whose content
+        hash stands in an unhashable form is admitted as a new
+        record, at one import call for the sheet, the standing
+        record stands neither matched as a duplicate nor
+        overwritten, and no error of any kind stands raised on
+        the unhashable form. This method stood as the date index
+        correctness control of S17-R6-032, whose contradiction
+        outcome lapses under the ruling while its no crash, no
+        false match substance stands re-pinned here in admitted
+        form."""
         body_text = "First answer text."
         standing = [{
             "kind": "real_sample",
@@ -382,10 +396,35 @@ class Test032WorksheetOverflowCost(ImportBase):
             "answer_id": "ans-standing-1",
         }]
         path = self.temp_file(sheet_text({1: body_text}))
-        with self.assertRaises(Exception) as caught:
-            self.prepare_sheet(path, standing_records=standing)
-        self.assertEqual(token_of(caught.exception),
-                         "CONTRADICTORY_IMPORT")
+        records = self.prepare_sheet(path, standing_records=standing)
+        self.assertEqual(len(records), 1)
+        record = records[0]
+        self.assertEqual(record["answer_text"], "First answer text.")
+        self.assertEqual(
+            record["content_hash"],
+            hashlib.sha256(body_text.encode("utf-8")).hexdigest())
+        self.assertNotEqual(record["content_hash"], ["unhashable"])
+        self.assertEqual(record["product"], "Acme Ledger")
+        self.assertEqual(record["round"], "round-1")
+        self.assertEqual(record["query"], Q1)
+        self.assertEqual(record["kind"], "real_sample")
+        self.assertEqual(record["captured_on"], "2026-11-10")
+        self.assertEqual(record["engine_label_normalised"], "engine a")
+        self.assertEqual(standing[0]["kind"], "real_sample")
+        self.assertEqual(standing[0]["engine_label_normalised"],
+                         "engine a")
+        self.assertEqual(standing[0]["query"], Q1)
+        self.assertEqual(standing[0]["content_hash"], ["unhashable"])
+        self.assertEqual(standing[0]["captured_on"], "2026-11-10")
+        self.assertEqual(standing[0]["answer_id"], "ans-standing-1")
+        self.assertEqual(standing, [{
+            "kind": "real_sample",
+            "engine_label_normalised": "engine a",
+            "query": Q1,
+            "content_hash": ["unhashable"],
+            "captured_on": "2026-11-10",
+            "answer_id": "ans-standing-1",
+        }])
 
     def test_duplicate_and_contradiction_controls_hold(self):
         path = self.temp_file(sheet_text({
