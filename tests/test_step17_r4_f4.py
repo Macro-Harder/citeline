@@ -7,6 +7,7 @@ reproduces the defect named at its register entry on
 the tree standing after fix round 3 and the round 4
 F1 and F2 seats, then stands as the pin for its cure."""
 
+import hashlib
 import io
 import json
 import tarfile
@@ -478,21 +479,44 @@ class Test035ContradictionIdentitySurfaces(ImportBase):
         "answer_id": "ans-{sequence}-3",
     }
 
-    def test_single_import_names_resolved_identity(self):
+    def test_single_import_admits_second_distinct_answer(self):
+        """Contract C2 as relaxed under R19-048, on the single import
+        preparation surface; a candidate holding a distinct answer
+        for the same round, same normalised engine label, same
+        query, and same captured_on as a supplied standing record
+        is admitted as a new record under its own identity, at one
+        import call for the one answer, and the standing record
+        stands beside it unchanged. This method stood as the single
+        import pin for S17-R4-035, whose refusal message identity
+        pin lapses with the refusal itself under the ruling."""
         path = self.temp_answer("A single plain answer text.")
-        with self.assertRaises(Exception) as caught:
-            import_module.prepare_import(
-                answer_file=str(path), product=PRODUCT, round=ROUND,
-                engine_label="Engine A", query=Q1, kind="real_sample",
-                captured_on="2026-11-10",
-                capture_method="manual copy", audit_date=AUDIT_DATE,
-                query_set=[Q1, Q2],
-                standing_records=[dict(self.STANDING)])
-        self.assertEqual(token_of(caught.exception),
-                         "CONTRADICTORY_IMPORT")
-        message = str(caught.exception)
-        self.assertIn("ans-3-3", message)
-        self.assertNotIn("{sequence}", message)
+        supplied = dict(self.STANDING)
+        record = import_module.prepare_import(
+            answer_file=str(path), product=PRODUCT, round=ROUND,
+            engine_label="Engine A", query=Q1, kind="real_sample",
+            captured_on="2026-11-10",
+            capture_method="manual copy", audit_date=AUDIT_DATE,
+            query_set=[Q1, Q2],
+            standing_records=[supplied])
+        self.assertEqual(record["answer_text"],
+                         "A single plain answer text.")
+        self.assertEqual(
+            record["content_hash"],
+            hashlib.sha256(path.read_bytes()).hexdigest())
+        self.assertNotEqual(record["content_hash"],
+                            "a different hash stands here")
+        self.assertNotEqual(record["content_hash"],
+                            self.STANDING["content_hash"])
+        self.assertEqual(record["product"], PRODUCT)
+        self.assertEqual(record["round"], ROUND)
+        self.assertEqual(record["query"], Q1)
+        self.assertEqual(record["kind"], "real_sample")
+        self.assertEqual(record["captured_on"], "2026-11-10")
+        self.assertEqual(record["engine_label_normalised"],
+                         "engine a")
+        for field, value in self.STANDING.items():
+            self.assertEqual(supplied[field], value, field)
+        self.assertEqual(supplied, self.STANDING)
 
     def test_worksheet_resolver_leaves_supplied_identity_as_supplied(
             self):
