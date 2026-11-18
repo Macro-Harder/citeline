@@ -7,17 +7,30 @@ robots file, audit date, evaluated page path, or product)
 refuses MALFORMED_CALL at row U-8, exit 2. Through the shell the
 refusal carries the standing shell outcome: the value printed,
 the subcommand list in full, and one failure record where the
-chain accepts appends. run_id alone, in any of the three forms,
-renders the stored record and appends nothing, and a fresh call
-without run_id audits exactly as before. E-06, an audit omitting
-audit_date stores audit_date null with audit_date_is_run_date
-true and no defaulted recording, and freshness scores
-FRESH_NO_DATE. Brief Section 6.2 M1 requires the default to be
-the current UTC date, recorded as defaulted and naming the date
-used: the stored record carries audit_date set to the current
-UTC date and audit_date_defaulted true beside it, a supplied
-date is recorded as supplied with audit_date_defaulted false,
-and freshness computes on the date used."""
+chain accepts appends. Restated for Step 20 register item
+R19-092, which ruled the split these pins now state: a repeat
+audit is a new operation, the audit route takes no run_id, and
+the stored record stands returned only through the separate
+audit_render route, at the service as service.audit_render and
+through the shell as the audit-render subcommand. A service
+call naming run_id, beside a fresh input or on the re-render
+route beside one, stands refused by the service signatures
+themselves, which carry no such parameter beside the run
+identity the re-render route names, and stores nothing; the
+governed MALFORMED_CALL refusal for a fresh input beside a
+run_id stands at the shell, pinned by the shell tests below.
+run_id alone on the re-render route, in any of the three
+forms, renders the stored record and appends nothing, and a
+fresh call without run_id audits exactly as before. E-06, an
+audit omitting audit_date stores audit_date null with
+audit_date_is_run_date true and no defaulted recording, and
+freshness scores FRESH_NO_DATE. Brief Section 6.2 M1 requires
+the default to be the current UTC date, recorded as defaulted
+and naming the date used: the stored record carries
+audit_date set to the current UTC date and
+audit_date_defaulted true beside it, a supplied date is
+recorded as supplied with audit_date_defaulted false, and
+freshness computes on the date used."""
 
 import contextlib
 import datetime
@@ -106,15 +119,25 @@ class TestE05RunIdBesideFreshInputs(G5Base):
     silently disregarded; the call refuses as malformed."""
 
     def assert_malformed_service_call(self, **kwargs):
+        # Restated for R19-092: the audit service signature
+        # carries no run_id parameter and the audit_render
+        # signature carries no fresh audit input, so a call
+        # naming a fresh input beside a run identity stands
+        # refused by both signatures themselves, before any
+        # governed error can fire, and stores nothing. The
+        # MALFORMED_CALL token, row U-8, and exit 2 assertions
+        # this helper carried at the service surface cannot
+        # stand on a signature refusal; that governed refusal
+        # stands pinned at the shell surface by the shell
+        # tests of this class below, at full strength.
         before = self.entry_count()
         audits_before = len(audit_records(self.home))
-        with self.assertRaises(Exception) as caught:
+        with self.assertRaises(TypeError):
             service.audit(home=str(self.home),
                           run_id=self.run_id, **kwargs)
-        value, row, exit_code = token_of(caught.exception)
-        self.assertEqual(value, "MALFORMED_CALL")
-        self.assertEqual(row, "U-8")
-        self.assertEqual(exit_code, 2)
+        with self.assertRaises(TypeError):
+            service.audit_render(home=str(self.home),
+                                 run_id=self.run_id, **kwargs)
         self.assertEqual(self.entry_count(), before)
         self.assertEqual(len(audit_records(self.home)),
                          audits_before)
@@ -154,12 +177,28 @@ class TestE05RunIdBesideFreshInputs(G5Base):
         self.assert_malformed_service_call(product=PRODUCT)
 
     def test_non_date_beside_run_id_still_refuses_as_non_date(self):
-        # The D-18 cure stands ahead of the E-05 refusal: a
-        # value that is not a date refuses VALIDATION_FAILED,
-        # as it did before this cure.
-        with self.assertRaises(Exception) as caught:
+        # Restated for R19-092: the D-18 precedence this pin
+        # stated, a value that is not a date beside run_id
+        # refusing VALIDATION_FAILED ahead of the E-05
+        # refusal, cannot stand on the cured routes, because
+        # both service signatures refuse a run_id call before
+        # any governed validation runs. The beside call stands
+        # refused on both routes, as the first two assertions
+        # state. The D-18 cure itself stands pinned by the
+        # fresh call below: a value that is not a date refuses
+        # VALIDATION_FAILED on a fresh audit, as it did before
+        # this cure.
+        with self.assertRaises(TypeError):
             service.audit(home=str(self.home),
                           run_id=self.run_id,
+                          audit_date="banana")
+        with self.assertRaises(TypeError):
+            service.audit_render(home=str(self.home),
+                                 run_id=self.run_id,
+                                 audit_date="banana")
+        with self.assertRaises(Exception) as caught:
+            service.audit(home=str(self.home),
+                          page_file=str(PAGE),
                           audit_date="banana")
         value, _row, exit_code = token_of(caught.exception)
         self.assertEqual(value, "VALIDATION_FAILED")
@@ -212,16 +251,17 @@ class TestE05RunIdBesideFreshInputs(G5Base):
 
 
 class TestE05RunIdAloneAndFreshCalls(G5Base):
-    """E-05 standing limbs: run_id alone renders the stored
+    """E-05 standing limbs, restated for R19-092: run_id
+    alone on the audit_render route renders the stored
     record in every form and appends nothing; a fresh call
-    without run_id audits as before; the D-08 boundary stands
-    (page file required exactly where the call names neither
-    a page file nor a run identity)."""
+    without run_id audits as before; page_file stands
+    required for audit in all cases, the run_id exception
+    to that requirement standing removed by the ruling."""
 
     def test_service_run_id_alone_renders_stored_record(self):
         before = self.entry_count()
-        again = service.audit(home=str(self.home),
-                              run_id=self.run_id)
+        again = service.audit_render(home=str(self.home),
+                                     run_id=self.run_id)
         self.assertEqual(self.entry_count(), before)
         self.assertEqual(again["run_id"], self.run_id)
         self.assertEqual(again["checks"], self.record["checks"])
@@ -233,7 +273,7 @@ class TestE05RunIdAloneAndFreshCalls(G5Base):
             with self.subTest(form=form):
                 before = self.entry_count()
                 code, out, err = run_shell(
-                    ["audit", "--home", str(self.home),
+                    ["audit-render", "--home", str(self.home),
                      "--run_id", self.run_id, "--form", form])
                 self.assertEqual(code, 0, err)
                 self.assertEqual(self.entry_count(), before)
@@ -242,8 +282,8 @@ class TestE05RunIdAloneAndFreshCalls(G5Base):
     def test_unknown_run_id_alone_refuses_unknown_round(self):
         before = self.entry_count()
         with self.assertRaises(Exception) as caught:
-            service.audit(home=str(self.home),
-                          run_id="run-9999")
+            service.audit_render(home=str(self.home),
+                                 run_id="run-9999")
         value, _row, exit_code = token_of(caught.exception)
         self.assertEqual(value, "UNKNOWN_ROUND")
         self.assertEqual(exit_code, 2)

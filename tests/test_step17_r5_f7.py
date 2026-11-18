@@ -4,7 +4,16 @@ Pins the register entries charged to F7 in fix round 5: and.
 Every test was written before its cure and run failing for
 the register stated reason, except the controls named as
 controls. Oracle: the round 5 findings register and
-disposition."""
+disposition.
+
+Restated for Step 20 register item R19-092: every call in
+this file that stood as service.audit with a run_id, the
+form request for a stored audit record, stands restated to
+service.audit_render, the route the ruling names for that
+record. The reading discipline those pins exercise, stored
+payload validation and correction healing at the reader,
+stands moved to that route unchanged, and every assertion
+stands as it stood."""
 
 import json
 import os
@@ -157,7 +166,7 @@ class Test050CorrectionLandedOrRefused(SeededBase):
                     audit_date=AUDIT_DATE)
         journal.write_config(
             str(self.home), "journal_length = 10\n")
-        standing = service.audit(
+        standing = service.audit_render(
             home=str(self.home), run_id="run-6")
         snapshots = payloads_of_kind(
             self.home, "snapshot_registered")
@@ -167,7 +176,7 @@ class Test050CorrectionLandedOrRefused(SeededBase):
             standing["limits_in_force"]["run_id"], "run-6")
         self.assertEqual(
             len(entries_of_kind(self.home, "correction")), 1)
-        again = service.audit(
+        again = service.audit_render(
             home=str(self.home), run_id="run-6")
         self.assertEqual(again["snapshot_id"],
                          snapshots[-1]["snapshot_id"])
@@ -236,7 +245,7 @@ class Test051IntentPlantedInsideHold(SeededBase):
         self.assertEqual(
             entries_of_kind(self.home, "audit_record"), [])
         with self.assertRaises(errors.CitelineError) as caught:
-            service.audit(home=str(self.home), run_id="run-6")
+            service.audit_render(home=str(self.home), run_id="run-6")
         self.assertEqual(
             token_of(caught.exception), "UNKNOWN_ROUND")
 
@@ -318,7 +327,9 @@ class Test052SuppliedPathJudged(unittest.TestCase):
 
 # ----------------------------------------------------------------:
 # the audit form request reader stands under the stored audit
-# field discipline its sibling reader enforces.
+# field discipline its sibling reader enforces. Restated for
+# R19-092: the form request stands on the audit_render route,
+# under the same discipline.
 # ----------------------------------------------------------------
 
 class Test053FormRequestJudged(SeededBase):
@@ -349,7 +360,7 @@ class Test053FormRequestJudged(SeededBase):
                     audit_date=AUDIT_DATE)
                 with self.assertRaises(
                         errors.CitelineError) as caught:
-                    service.audit(
+                    service.audit_render(
                         home=str(home), run_id=record["run_id"])
                 self.assertEqual(
                     token_of(caught.exception), "VALIDATION_FAILED")
@@ -359,7 +370,7 @@ class Test053FormRequestJudged(SeededBase):
         record = service.audit(
             home=str(self.home), page_file=str(PAGE),
             audit_date=AUDIT_DATE)
-        standing = service.audit(
+        standing = service.audit_render(
             home=str(self.home), run_id=record["run_id"])
         self.assertEqual(standing["run_id"], record["run_id"])
         self.assertEqual(
@@ -682,7 +693,7 @@ class Test059GuideStoreJudged(SeededBase):
         def wrapper(audit_record, **kwargs):
             draft = real_draft(audit_record, **kwargs)
             builds["count"] += 1
-            standing = service.audit(
+            standing = service.audit_render(
                 home=str(self.home), run_id=record["run_id"])
             corrected = dict(standing)
             corrected["canonical_line"] = (
@@ -921,7 +932,8 @@ class Test071DeferredRecoverySignalled(SeededBase):
 
 # ----------------------------------------------------------------:
 # the assembly correction stands on the one limits reading the run
-# started under.
+# started under. Restated for R19-092: the standing record
+# stands read back through the audit_render route.
 # ----------------------------------------------------------------
 
 class Test072CorrectionOnTheStartReading(SeededBase):
@@ -944,7 +956,7 @@ class Test072CorrectionOnTheStartReading(SeededBase):
         value = limits["by_limit"][
             "front_matter_value_length_per_key"]["value"]
         self.assertEqual(value, 4096)
-        standing = service.audit(
+        standing = service.audit_render(
             home=str(self.home), run_id=record["run_id"])
         self.assertEqual(
             standing["limits_in_force"]["by_limit"][

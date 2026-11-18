@@ -5,7 +5,15 @@ and, and the seam positions the F2, F4, and F6 papers of
 this round state for this seat. Every defect test was
 written before its cure and run failing for the register
 stated reason, except the controls named as controls.
-Oracle: the round 7 findings register and disposition."""
+Oracle: the round 7 findings register and disposition.
+
+Restated for Step 20 register item R19-092: the audit form
+request this file's Test046 class names is the re-render of
+a stored audit record, and under the ruled split that
+record stands returned only through service.audit_render,
+never through service.audit with a run_id. The
+form_request helper below stands restated to that route;
+every assertion it feeds stands as it stood."""
 
 import json
 import os
@@ -189,7 +197,9 @@ class Test045StampsCounterForm(SeededBase):
 # date, the date defaulted flag, and the methods note version
 # beside the fields its validator names today, the methods note
 # version standing judged as the integer 1 under the Manager
-# ruling.
+# ruling. Restated for R19-092: the form request stands on
+# the audit_render route, the reader the ruling names for a
+# stored audit record, under the same validation.
 # ----------------------------------------------------------------
 
 class Test046AuditFieldsValidated(SeededBase):
@@ -208,7 +218,7 @@ class Test046AuditFieldsValidated(SeededBase):
         return home, record["run_id"]
 
     def form_request(self, home, run_id):
-        return service.audit(home=str(home), run_id=run_id)
+        return service.audit_render(home=str(home), run_id=run_id)
 
     def test_swapped_audit_date_number_refuses(self):
         home, run_id = self.fresh_home_with_swap(audit_date=123)
