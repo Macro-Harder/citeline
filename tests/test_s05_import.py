@@ -493,22 +493,35 @@ class TestDuplicatesAndContradictions(ImportBase):
                       engine_label="  ENGINE A ")
         assert_token(self, caught, "DUPLICATE_IMPORT")
 
-    def test_contradiction_rejected_and_nothing_overwritten(self):
-        """Pins C2 contradiction limb. Oracle: contract C2 and
-        entry 13 row X-7, token CONTRADICTORY_IMPORT: same round,
-        same normalised engine label, same query, and same
-        captured_on, with a different content hash, is a
-        contradiction and fails with a recorded error and nothing
-        overwritten."""
+    def test_second_distinct_answer_admitted_and_first_record_stands(self):
+        """Pins C2 as relaxed under R19-048. Oracle: contract C2
+        as relaxed under R19-048: a distinct content answer for
+        the same round, same normalised engine label, same query,
+        and same captured_on is admitted as a new record under
+        its own identity, at one import call for the one answer,
+        and the standing record is not overwritten."""
+        plain_hash = hashlib.sha256(
+            (FIXTURES / "w4-answer-plain.txt").read_bytes()).hexdigest()
+        other_hash = hashlib.sha256(
+            (FIXTURES / "w4-answer-other.txt").read_bytes()).hexdigest()
         first = do_import(self.home, FIXTURES / "w4-answer-plain.txt")
-        with self.assertRaises(Exception) as caught:
-            do_import(self.home, FIXTURES / "w4-answer-other.txt")
-        assert_token(self, caught, "CONTRADICTORY_IMPORT")
+        second = do_import(self.home, FIXTURES / "w4-answer-other.txt")
+        self.assertIsNotNone(second)
+        self.assertEqual(field(second, "content_hash"), other_hash)
+        self.assertNotEqual(field(second, "content_hash"),
+                            field(first, "content_hash"))
+        self.assertEqual(field(first, "content_hash"), plain_hash)
         stored = entries_of_kind(self.home, "answer_imported")
-        self.assertEqual(len(stored), 1)
-        self.assertEqual(field(first, "content_hash"),
-                         hashlib.sha256((FIXTURES / "w4-answer-plain.txt")
-                                        .read_bytes()).hexdigest())
+        self.assertEqual(len(stored), 2)
+        stored_hashes = []
+        for entry in stored:
+            values = find_key_values(entry, "content_hash")
+            self.assertTrue(values, "no content_hash in stored entry")
+            stored_hashes.append(values[0])
+        self.assertIn(plain_hash, stored_hashes)
+        self.assertIn(other_hash, stored_hashes)
+        self.assertEqual(sorted(stored_hashes),
+                         sorted([plain_hash, other_hash]))
 
     def test_same_text_into_second_round_stands_as_new_record(self):
         """Pins C2 worked case. Oracle: contract C2 worked case
