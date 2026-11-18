@@ -485,11 +485,28 @@ class TestRenderingSafety(ReportingBase):
         Oracle: IM2-BRK-20 as the S9 entry states it: hostile page
         material renders in the Simple prose artefact as plain text
         characters, and the artefact contains no JSON object syntax
-        (brief Section 5.5 Simple distinguishing criteria)."""
+        (brief Section 5.5 Simple distinguishing criteria).
+
+        Step 19 case look correction (U-09 remainder,
+        design/audit/step-19-case-u09.md): this pin is restated to
+        pin exactly what the brief defines. Its earlier form also
+        required the Markdown link target bit of HOSTILE_BITS,
+        javascript:alert(1), to stand in the Simple artefact. The
+        case look disposed that bit as a test overreach: brief
+        correction F3 states version 1 does not record link
+        targets, creates no link target field, and derives no
+        finding, evidence span, or report field from a link
+        target, so the target bit overreached the design. The
+        link stands asserted in its label form, the form the
+        stored record carries, and the target stands asserted
+        absent. The two governed hostile bits stand asserted at
+        full strength, unchanged."""
         record = audit_page(self.home, PAGE_HOSTILE)
         simple = render(record, "simple")
-        for bit in self.HOSTILE_BITS:
-            self.assertIn(bit, simple)
+        self.assertIn('<script>alert("x")</script>', simple)
+        self.assertIn("<img src=x onerror=alert(1)>", simple)
+        self.assertIn("a link inside", simple)
+        self.assertNotIn("javascript:alert(1)", simple)
         self.assertNotIn('{"', simple)
 
     def test_hostile_values_round_trip_exactly_in_json_forms(self):
