@@ -80,9 +80,10 @@ class TestMentionDetection(unittest.TestCase):
 
     def test_bare_url_masked_so_host_text_is_no_mention(self):
         """Plan Section 1.3 S6 family (a), mention detection. Oracle: brief Section 5.7 item 46, bare URLs are masked at equal length before the search, read with item 1, which scopes the bare domain named outcome to a bare domain in prose."""
-        result = detection.detect_answer("See https://northbeam.example.com/guide for the guide.", PRODUCT, [])
+        result = detection.detect_answer("See https://northbeam.example.com/guide for the details.", PRODUCT, [])
         self.assertFalse(field(result, "named"))
         self.assertTrue(field(result, "cited"))
+        self.assertEqual(field(result, "matched_aliases"), [])
 
     def test_first_offset_read_from_unmasked_text(self):
         """Plan Section 1.3 S6 family (a), mention detection, offsets. Oracle: brief Section 5.7 item 46, first offsets are read from the unmasked extracted text at the positions the masked search found, the equal length mask keeping them aligned. Fixture w5-answer-masked-url.txt, hand counted offset 33."""
