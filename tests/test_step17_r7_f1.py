@@ -1,12 +1,11 @@
 """Journal family.
 
-Each test pins one register entry from design/audit/
-the register paper on the behaviour the register and
-the round 7 disposition state. Homes are scratch
+Each test pins one settled rule from the findings the settled record on the behaviour the register and
+the settled disposition state. Homes are scratch
 homes under a temporary directory. No test here
 touches a standing test item or a governed ground.
 Entry stands refused on the ground recorded in the
-seat paper, and its test stands as an expected
+repair notes, and its test stands as an expected
 failure pinning the defect, in the form the refused
 stands pinned."""
 

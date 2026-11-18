@@ -1,4 +1,4 @@
-"""Step 19 Phase 7 fix seat G, item P7A3-F1-3 pinning tests.
+"""Repair pinning tests.
 
 The caller named kind form of round_metrics_from_journal.
 Governing text: plan Section 5.1 RoundMetrics entry,

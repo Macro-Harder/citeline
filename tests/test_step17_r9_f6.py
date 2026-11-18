@@ -1,4 +1,4 @@
-# fix seat F6 tests. Entries, and: guide and reporting
+# Verdict tests. Entries, and: guide and reporting
 # family. Each defect pin stands on the worked cases
 # of the round 9 register and its source papers, the
 # guide attack paper at and and the Red attack paper

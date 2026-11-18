@@ -1,6 +1,6 @@
 """Service, watch, seams.
 
-Pins the register entries charged to F7 in fix round 6: and.
+Pins the settled rules
 Every test was written before its cure and run failing for
 the register stated reason, except the controls named as
 controls. Oracle: the round 6 findings register and

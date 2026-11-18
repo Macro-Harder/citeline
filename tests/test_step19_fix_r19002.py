@@ -1,4 +1,4 @@
-"""Step 19 repair test for R19-002, description consistency.
+"""Repair test: description consistency.
 
 Oracle: brief Section 5.7, full credit only where the
 canonical line appears verbatim after whitespace

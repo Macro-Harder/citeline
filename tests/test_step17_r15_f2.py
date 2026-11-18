@@ -20,9 +20,9 @@ follower set through the word character limb of with no head
 material exception standing in that limb.
 
 The defect pins assert the page reading and the page side helper
-alone, in the form the page side limb pins of fix round 14 took:
+alone, in the form the page side limb pins of the repair took:
 the import side limbs of the three entries stand inside the F4
-charge of this wave and land after this seat in the dependency
+charge of this repair wave and land after this repair in the dependency
 order. The controls assert both readings where the standing the
 control names already stands at both. Every pin runs in memory
 at the readings and at the helpers, so no pin stands on a

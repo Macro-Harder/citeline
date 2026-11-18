@@ -1,6 +1,6 @@
 """Journal family.
 
-Each defect pin states one entry of the register paper.
+Each defect pin states one entry of the settled record.
 Entry: the replay resume branch is a fifth journal write
 road carrying no post write judgement, so a rename plant
 timed at the return of the helper lstat reading of its
@@ -25,15 +25,15 @@ judgement before the last, stands refused in the
 vocabulary and the remedy form of its site on every road,
 and a plant at the return of the lstat reading of the
 last judgement stands pinned in its bounded form, the
-form the fix paper in the register states in its
+form the settled record states in its
 corrected cure claim, equivalent to a rename after the
 call returns, which no judgement inside the call reaches.
 The plants below wrap os.lstat and rename the target at
 the return of the counted call on that path, returning
 the stale stat result the caller already read, in the
-form the round 16 attack papers state. Counted calls
+form the earlier round attack findingss state. Counted calls
 stand measured on the uncured tree with the scan cache
-cleared, in the form the journal paper of round 16
+cleared, in the form the journal paper of the earlier round
 records: replay resume, journal path 4 calls; restore
 truncate, journal path 2 calls; lock acquire, lock path 2
 calls; journal append, journal path 5 calls; config

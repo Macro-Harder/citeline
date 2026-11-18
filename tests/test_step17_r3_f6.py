@@ -1,6 +1,6 @@
 """Guide and reporting.
 
-Each test pins one register entry from the round 3 findings
+Each test pins one settled rule
 register, in the form the register states. Written before
 the cures, watched failing, then watched passing."""
 
@@ -169,7 +169,7 @@ class TestPrecision045(unittest.TestCase):
         simple = render(self.audit(), form="simple")
         self.assertNotIn("0.3333333333333333", simple)
         self.assertNotIn("10.123456789012", simple)
-        # Restated for Step 19 register item R19-058: the
+        # Restated for the settled rule: the
         # earned figure now stands stated as a fraction of
         # the weight with its points, so it cannot read as
         # points out of the weight.
@@ -364,7 +364,7 @@ class TestStalenessRoundCount066(unittest.TestCase):
             str(home), "round_named", dict(payload),
             audit_date=AUDIT_DATE)
         view = service.staleness_view(home=str(home))
-        # Restated for Step 19 register item R19-007: the
+        # Restated for the settled rule: the
         # staleness view now builds one row per standing round,
         # taking the last round_named payload as the standing
         # record as every other round reader does, so the two

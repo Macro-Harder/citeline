@@ -1,6 +1,6 @@
-"""Step 19 Phase 6 mop up tests.
+"""Repair mop up tests.
 
-Each class pins one remainder item of the Step 19 repair loop.
+Each class pins one settled rule.
 Tests were written before the fixes they pin. Dates are call
 inputs in every test.
 """
@@ -50,7 +50,7 @@ def entry_count(home):
 
 
 class TestR19026ServiceForwarding(unittest.TestCase):
-    """R19-026 remainder: the service route forwards its home
+    """The settled rule remainder: the service route forwards its home
     into the import intake calls, so the answer file size limit
     in force governs the command line route and stands named
     in the refusal."""
@@ -95,7 +95,7 @@ class TestR19026ServiceForwarding(unittest.TestCase):
 
 
 class TestR19041CapRefusalConsistency(unittest.TestCase):
-    """R19-041: a cap refusal stores nothing on every route, so
+    """The settled rule: a cap refusal stores nothing on every route, so
     refusal traffic alone cannot spend journal entries on one
     route and store nothing on another."""
 
@@ -142,7 +142,7 @@ class TestR19041CapRefusalConsistency(unittest.TestCase):
 
 
 class TestR19106HomePathEffect(unittest.TestCase):
-    """R19-106: the home_path config key has its specified
+    """The settled rule: the home_path config key has its specified
     effect under plan Section 3 EC-15 row 43: it names the
     product home where it differs from the default."""
 
@@ -191,7 +191,7 @@ class TestR19106HomePathEffect(unittest.TestCase):
 
 class TestW1WatchFormParameter(unittest.TestCase):
     """W-1: run_watch carries the form parameter of the
-    R19-103 unit, merged with the R19-010 round level clock
+    the settled rule unit, merged with the settled rule round level clock
     cure, so the shell watch call binds."""
 
     def test_run_watch_signature_carries_form(self):

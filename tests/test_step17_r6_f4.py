@@ -373,7 +373,7 @@ class Test032WorksheetOverflowCost(ImportBase):
         self.assertEqual(len(records), 1)
 
     def test_second_answer_by_date_with_unhashable_hash_admitted(self):
-        """Contract C2 as relaxed under R19-048, on the worksheet
+        """Contract C2 as relaxed under the settled rule, on the worksheet
         preparation route; a slot holding a distinct answer for
         the same round, same normalised engine label, same query,
         and same captured_on as a standing record whose content
@@ -382,7 +382,7 @@ class Test032WorksheetOverflowCost(ImportBase):
         record stands neither matched as a duplicate nor
         overwritten, and no error of any kind stands raised on
         the unhashable form. This method stood as the date index
-        correctness control of S17-R6-032, whose contradiction
+        correctness control of the settled detection rule, whose contradiction
         outcome lapses under the ruling while its no crash, no
         false match substance stands re-pinned here in admitted
         form."""
@@ -428,12 +428,12 @@ class Test032WorksheetOverflowCost(ImportBase):
 
     def test_duplicate_control_holds(self):
         """Contract C2 duplicate limb and brief Section 5.9
-        item 146, as preserved under R19-048; the same answer
+        item 146, as preserved under the settled rule; the same answer
         text in a later slot of one sheet stands refused as a
         duplicate, whatever its capture date does, because
         repeated sampling admits different answers, not a
         double count of the same answer. This method is the
-        S17-R6-032 judgement control for the duplicate
+        the settled detection rule judgement control for the duplicate
         judgement, standing as it stood."""
         path = self.temp_file(sheet_text({
             1: "Same answer text standing here.",
@@ -444,7 +444,7 @@ class Test032WorksheetOverflowCost(ImportBase):
         self.assertEqual(token_of(caught.exception), "DUPLICATE_IMPORT")
 
     def test_second_distinct_answer_in_sheet_admitted_and_first_slot_stands(self):
-        """Contract C2 as relaxed under R19-048, on the
+        """Contract C2 as relaxed under the settled rule, on the
         worksheet preparation surface; a distinct content
         answer in a later slot of one sheet, for the same
         round, same normalised engine label, same query, and
@@ -452,7 +452,7 @@ class Test032WorksheetOverflowCost(ImportBase):
         new record beside the earlier slot's record, at the
         one import call the sheet stands as, and the earlier
         record is not overwritten. This half stood as the
-        contradiction judgement control for S17-R6-032, whose
+        contradiction judgement control for the settled detection rule, whose
         refusal pin lapses with the refusal itself under the
         ruling."""
         first_text = "First answer text standing here."

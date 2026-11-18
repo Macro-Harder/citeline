@@ -13,7 +13,7 @@ from a clock.
 Every test method docstring names the matrix row it pins by section
 qualified identifier and the oracle passage. Rows whose expectation
 is that a named check fires a FAIL_ or WARN_ trigger stand blocked
-on CL-16 at plan Part B entry B1 and stand filed in blocked-w6.md,
+on the settled claim at plan Part B entry B1 and stand filed in the open items list,
 not written here.
 """
 
@@ -195,7 +195,7 @@ class TestGuideDraftShape(GuideBase):
 
 class TestDraftSelectionOrdering(GuideBase):
     """Row S8 draft selection ordering. Oracle: brief Section 5.12
-    item 137 draft rules and the IM7-BRK-13 landing at that section:
+    item 137 draft rules and the settled landing at that section:
     prefer the first quotable evidence sentence in extracted order
     that passes the naming preference test; where none passes, fall
     back to the first quotable evidence sentence in extracted order.
@@ -204,7 +204,7 @@ class TestDraftSelectionOrdering(GuideBase):
 
     def test_preference_picks_first_sentence_that_names_the_product(self):
         """Pins plan Section 1.3 S8, draft selection ordering,
-        preference limb. Oracle: brief Section 5.12 IM7-BRK-13
+        preference limb. Oracle: brief Section 5.12 the settled landing
         landing: the first quotable sentence that passes the naming
         test is chosen over an earlier quotable sentence that does
         not name the product, an alias, or a category term."""
@@ -218,7 +218,7 @@ class TestDraftSelectionOrdering(GuideBase):
 
     def test_fallback_picks_first_quotable_sentence(self):
         """Pins plan Section 1.3 S8, draft selection ordering,
-        fallback limb. Oracle: brief Section 5.12 IM7-BRK-13 landing:
+        fallback limb. Oracle: brief Section 5.12 settled landing:
         where no quotable evidence sentence passes the preference
         test, the draft falls back to the first quotable evidence
         sentence in extracted order."""
@@ -232,7 +232,7 @@ class TestDraftSelectionOrdering(GuideBase):
 
     def test_category_term_alone_passes_the_preference_test(self):
         """Pins plan Section 1.3 S8, draft selection ordering,
-        category limb. Oracle: brief Section 5.12 IM7-BRK-13 landing:
+        category limb. Oracle: brief Section 5.12 settled landing:
         the preference test is a naming test over the product name,
         its aliases, and its category terms; a sentence naming only
         a category term passes it."""
@@ -245,7 +245,7 @@ class TestDraftSelectionOrdering(GuideBase):
 
     def test_empty_category_list_runs_the_test_on_name_and_aliases(self):
         """Pins plan Section 1.3 S8, draft selection ordering, empty
-        category limb. Oracle: brief Section 5.12 IM7-BRK-13 landing:
+        category limb. Oracle: brief Section 5.12 settled landing:
         where the product category list stands empty, the preference
         test runs on the product name and its aliases only, so a
         sentence naming only a category term does not pass and the
@@ -261,7 +261,7 @@ class TestDraftSelectionOrdering(GuideBase):
 
 class TestCitationOnlyAndRefusal(GuideBase):
     """Row S8 refusal behaviour and draft rules. Oracle: brief
-    Section 5.12 item 137 draft rules under grill Q8."""
+    Section 5.12 item 137 draft rules under the settled answers."""
 
     def test_citation_only_page_drafts_the_canonical_line_alone(self):
         """Pins plan Section 1.3 S8, the citation only draft rule.
@@ -348,7 +348,7 @@ class TestClosedTriggerListAsBriefData(GuideBase):
         produced where the distinct cited target count for the page
         is under 2, that is 0 or 1, a design value stated in the
         brief. This code is neither a FAIL_ nor a WARN_ form, so the
-        row stands outside the CL-16 blocked class at B1."""
+        row stands outside the settled claim blocked class at B1."""
         record = audit_page(self.home, PAGE_ONE_CITATION)
         draft = guide_for_run(self.home, field(record, "run_id"))
         self.assertIn("LOW_CITATIONS", action_codes(draft))
@@ -369,13 +369,13 @@ class TestClosedTriggerListAsBriefData(GuideBase):
 
 class TestWorklistClassDerivation(GuideBase):
     """Row S8 worklist class derivation. Oracle: brief Section 5.12
-    IM7-DIV-3 landing, cap first worklist: classes derive from the
+    settled landing, cap first worklist: classes derive from the
     stored AuditRun alone, from its cap_status, its check outcomes,
     and its robots summary, and from nothing else."""
 
     def test_low_citations_action_is_cap_first_where_the_cap_operates(self):
         """Pins plan Section 1.3 S8, worklist class cap_first. Oracle:
-        brief Section 5.12 IM7-DIV-3 landing and brief Section 5.8
+        brief Section 5.12 settled landing and brief Section 5.8
         cap rule: cap_first stands for an action on the citations
         check, including one produced by LOW_CITATIONS, where the
         stored cap_status shows the evidence cap operating; the cap
@@ -390,7 +390,7 @@ class TestWorklistClassDerivation(GuideBase):
 
     def test_low_citations_action_is_score_check_where_cap_does_not_operate(self):
         """Pins plan Section 1.3 S8, worklist class score_check.
-        Oracle: brief Section 5.12 IM7-DIV-3 landing: score_check
+        Oracle: brief Section 5.12 settled landing: score_check
         stands for every other action produced by a page check,
         including an action on an evidence check where the cap does
         not operate; one cited target stands, so the all zero cap
@@ -404,7 +404,7 @@ class TestWorklistClassDerivation(GuideBase):
 
     def test_round_actions_carry_no_class_value(self):
         """Pins plan Section 1.3 S8, worklist class on round actions.
-        Oracle: brief Section 5.12 IM7-DIV-3 landing: for an action
+        Oracle: brief Section 5.12 settled landing: for an action
         produced by a round outcome, no cap and no score stand, and
         the field carries no class value, standing null on every
         such action."""
@@ -415,7 +415,7 @@ class TestWorklistClassDerivation(GuideBase):
 
     def test_defect_not_score_stands_empty_by_construction(self):
         """Pins plan Section 1.3 S8, worklist class defect_not_score
-        empty limb. Oracle: brief Section 5.12 IM7-DIV-3 landing and
+        empty limb. Oracle: brief Section 5.12 settled landing and
         plan Section 5.1 GuideDraft entry: no trigger in the closed
         list is produced by a robots outcome, so no action in
         version 1 derives this class, even on an audit that carries
@@ -457,7 +457,7 @@ class TestStandingAction(GuideBase):
 
     def test_standing_action_is_a_code_and_carries_no_class_or_score(self):
         """Pins plan Section 1.3 S8, standing action form. Oracle:
-        brief Section 5.12 IM7-DIV-3 landing: the standing action is
+        brief Section 5.12 settled landing: the standing action is
         not an element of the actions list, so it carries no class
         value and no class field at all; plan Section 5.1 states it
         manual and unscored, so the field carries the code alone and
@@ -549,13 +549,13 @@ class TestGuideTiming(GuideBase):
 
 class TestControlInteraction(GuideBase):
     """Row S8 guide inputs over controls. Oracle: brief Section 5.8
-    IM7-ANA-2 landing: the guide consumes no control as evidence,
+    settled landing: the guide consumes no control as evidence,
     its round triggers compute over the round's non control answers
     only, and no control produces an action."""
 
     def test_controls_produce_no_action_and_round_triggers_skip_them(self):
         """Pins plan Section 1.3 S8, guide over a round holding only
-        a designated control. Oracle: brief Section 5.8 IM7-ANA-2
+        a designated control. Oracle: brief Section 5.8 the settled landing
         landing: a round whose only answer is a designated control
         stands empty for the guide's round triggers, so the three
         round triggers fire on the non control set and no action is
@@ -568,7 +568,7 @@ class TestControlInteraction(GuideBase):
 
     def test_failed_control_suppresses_guide_actions_for_the_round(self):
         """Pins plan Section 1.3 S8, guide suppression on a failed
-        control. Oracle: brief Section 5.8 IM7-ANA-2 landing: a
+        control. Oracle: brief Section 5.8 settled landing: a
         guide call over a round holding a failed control carries
         the control failure notice and produces no action from that
         round."""

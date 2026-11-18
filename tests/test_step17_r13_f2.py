@@ -11,13 +11,13 @@ outside that range and outside the word character set passes the
 page reading whole at its judged positions, in the line form and
 in the JSON form, at the value position and at the key position
 alike, where the import reading refuses the same block. The page
-side limb of stands on ruling (c) of the round 13 disposition:
-the generic combining mark term of stands as the union of the
+side limb stands on the settled disposition:
+the generic combining mark term stands as the union of the
 mark categories Mn, Mc, and Me, so a construct whose name opens
 on a mark of category Mc or of category Me stands refused at the
 page reading at the judged positions, the import side of that
-entry standing charged to seat F4 as lead and landing after this
-seat in the dependency order. The Mc and Me pins therefore
+entry standing charged to the repair as lead and landing after this
+repair in the dependency order. The Mc and Me pins therefore
 assert the page reading alone. The pins stand at every judged
 position the entries name, in plain form, in JSON escape form,
 and standing behind interior head material alike, beside sweeps

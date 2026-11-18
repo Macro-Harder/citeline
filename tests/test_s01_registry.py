@@ -1,9 +1,9 @@
-"""Slice S1 registry tests, Step 13, Citeline.
+"""Slice S1 registry tests, Citeline.
 
 Written before the product exists. Every test imports the
 product package citeline and calls the registry operations
-on the service form the suite lands on in the Step 13 fix
-wave (register entry R1-088): citeline.service, the home
+on the service form the suite lands on in the Repair
+wave (the settled rule): citeline.service, the home
 passed as the keyword home, the brief's named inputs
 including audit_date, and the product input carrying the
 product name, as test_s10_service.py pins in its operation
@@ -12,7 +12,7 @@ expected red state. No stub and no mock of the product
 stands in this file.
 
 The slug form row of item 136 stands blocked in
-blocked-w2.md at entry B-W2-9 (register entry R1-016): no
+the open items list at entry the open items list (the settled rule): no
 source names a registry surface carrying a slug value in,
 so no slug test stands in this module.
 """
@@ -80,7 +80,7 @@ class RegistryBase(unittest.TestCase):
 
 class TestSubcommandsAndNameRound(RegistryBase):
     def test_add_product_returns_product_shape(self):
-        """Plan Section 1.3 S1, seven registry subcommands; plan Section 5.1 Product shape. Oracle: brief Section 5.12 item 136 and contract C6. The creation state of the remaining Product fields stands asserted under register entry R1-024: path_prefix absent, competitors, aliases, query_set, and category each empty at creation."""
+        """Plan Section 1.3 S1, seven registry subcommands; plan Section 5.1 Product shape. Oracle: brief Section 5.12 item 136 and contract C6. The creation state of the remaining Product fields stands asserted under the settled rule: path_prefix absent, competitors, aliases, query_set, and category each empty at creation."""
         product = self.add_default()
         self.assertEqual(field(product, "name"), "Example Product")
         self.assertEqual(field(product, "domain"), "example.invalid")
@@ -93,7 +93,7 @@ class TestSubcommandsAndNameRound(RegistryBase):
         self.assertEqual(field(product, "category"), [])
 
     def test_set_canonical_line_changes_line(self):
-        """Plan Section 1.3 S1, seven registry subcommands. Oracle: brief Section 5.12 item 136, set or change the canonical line subject to the 200 code point limit at grill Q11."""
+        """Plan Section 1.3 S1, seven registry subcommands. Oracle: brief Section 5.12 item 136, set or change the canonical line subject to the 200 code point limit under the settled answers."""
         product = self.add_default()
         updated = service.set_canonical_line(home=self.home, product=PRODUCT, line="A new canonical line.", audit_date=AUDIT_DATE)
         self.assertEqual(field(updated, "canonical_line"), "A new canonical line.")
@@ -106,7 +106,7 @@ class TestSubcommandsAndNameRound(RegistryBase):
         self.assertEqual(field(field(updated, "competitors")[0], "name"), "Rival")
 
     def test_set_competitors_removes_competitor(self):
-        """Plan Section 1.3 S1, seven registry subcommands, removal limb. Oracle: brief Section 5.12 item 136, add or remove a competitor. Register entry R1-021."""
+        """Plan Section 1.3 S1, seven registry subcommands, removal limb. Oracle: brief Section 5.12 item 136, add or remove a competitor. Register entry the settled rule."""
         product = self.add_default()
         service.set_competitors(home=self.home, product=PRODUCT, competitors=[{"name": "Rival", "domain": "rival.invalid", "aliases": []}], audit_date=AUDIT_DATE)
         updated = service.set_competitors(home=self.home, product=PRODUCT, competitors=[], audit_date=AUDIT_DATE)
@@ -119,7 +119,7 @@ class TestSubcommandsAndNameRound(RegistryBase):
         self.assertIn("Example Prod", field(updated, "aliases"))
 
     def test_set_aliases_removes_alias(self):
-        """Plan Section 1.3 S1, seven registry subcommands, removal limb. Oracle: brief Section 5.12 item 136, add or remove an alias. Register entry R1-021."""
+        """Plan Section 1.3 S1, seven registry subcommands, removal limb. Oracle: brief Section 5.12 item 136, add or remove an alias. Register entry the settled rule."""
         product = self.add_default()
         service.set_aliases(home=self.home, product=PRODUCT, aliases=["Example Prod"], audit_date=AUDIT_DATE)
         updated = service.set_aliases(home=self.home, product=PRODUCT, aliases=[], audit_date=AUDIT_DATE)
@@ -158,7 +158,7 @@ class TestSubcommandsAndNameRound(RegistryBase):
         self.assertTrue(field(snapshot, "format"))
 
     def test_register_page_second_snapshot_unregistered_until_registered(self):
-        """Plan Section 1.3 S1, sole writer discipline for is_product_page, per snapshot limb. Oracle: brief Section 5.12 item 136, registration is per snapshot and must be repeated for each new snapshot of a product page. Register entry R1-024. The second snapshot stands created by extraction with is_product_page false, and stands unregistered until register page runs for it."""
+        """Plan Section 1.3 S1, sole writer discipline for is_product_page, per snapshot limb. Oracle: brief Section 5.12 item 136, registration is per snapshot and must be repeated for each new snapshot of a product page. Register entry the settled rule. The second snapshot stands created by extraction with is_product_page false, and stands unregistered until register page runs for it."""
         product = self.add_default()
         page = os.path.join(self.tmp.name, "page.txt")
         with open(page, "w", encoding="utf-8") as handle:
@@ -175,7 +175,7 @@ class TestSubcommandsAndNameRound(RegistryBase):
         self.assertTrue(field(registered_second, "is_product_page"))
 
     def test_name_round_returns_round_shape(self):
-        """Plan Section 1.3 S1, name round and Round identity and declaration fields. Oracle: contract C10 and brief Section 5.12 round naming operation in full. Both declaration values and created_by stand asserted under register entry R1-019."""
+        """Plan Section 1.3 S1, name round and Round identity and declaration fields. Oracle: contract C10 and brief Section 5.12 round naming operation in full. Both declaration values and created_by stand asserted under the settled rule."""
         product = self.add_default()
         named = service.name_round(home=self.home, product=PRODUCT, round_label="round-one", importer_declaration="all_captured", supplier_relation="independent", audit_date=AUDIT_DATE)
         self.assertEqual(field(named, "round_label"), "round-one")
@@ -193,7 +193,7 @@ class TestSubcommandsAndNameRound(RegistryBase):
         self.assertIsNone(field(named, "detector_version_at_first_import"))
 
     def test_name_round_duplicate_label_domain_error_home_bytes(self):
-        """Plan Section 1.3 S1, Round identity. Oracle: brief Section 5.12 round naming error cases, a standing label for the product is a domain error, nothing is stored, rounds are never overwritten or renamed; plan entry 13 row D-1, token ROUND_LABEL_EXISTS, domain class, asserted expressly under register entry R1-017. The no write claim is a byte identity claim over the home files."""
+        """Plan Section 1.3 S1, Round identity. Oracle: brief Section 5.12 round naming error cases, a standing label for the product is a domain error, nothing is stored, rounds are never overwritten or renamed; plan entry 13 row D-1, token ROUND_LABEL_EXISTS, domain class, asserted expressly under the settled rule. The no write claim is a byte identity claim over the home files."""
         product = self.add_default()
         service.name_round(home=self.home, product=PRODUCT, round_label="round-one", importer_declaration="all_captured", supplier_relation="independent", audit_date=AUDIT_DATE)
         before = home_bytes(self.home)
@@ -203,7 +203,7 @@ class TestSubcommandsAndNameRound(RegistryBase):
         self.assertEqual(home_bytes(self.home), before)
 
     def test_name_round_out_of_set_declaration_usage_error(self):
-        """Plan Section 1.3 S1, Round declaration fields. Oracle: brief Section 5.12 round naming error cases, out of set field values are usage errors naming the allowed values; plan entry 13 row U-3, token ROUND_FIELD_OUT_OF_SET. Register entry R1-017: the message names each allowed importer declaration value in full, value by value."""
+        """Plan Section 1.3 S1, Round declaration fields. Oracle: brief Section 5.12 round naming error cases, out of set field values are usage errors naming the allowed values; plan entry 13 row U-3, token ROUND_FIELD_OUT_OF_SET. Register entry the settled rule: the message names each allowed importer declaration value in full, value by value."""
         product = self.add_default()
         with self.assertRaises(Exception) as caught:
             service.name_round(home=self.home, product=PRODUCT, round_label="round-one", importer_declaration="bogus_value", supplier_relation="independent", audit_date=AUDIT_DATE)
@@ -214,7 +214,7 @@ class TestSubcommandsAndNameRound(RegistryBase):
         self.assertIn("selection rule unknown", message)
 
     def test_name_round_out_of_set_supplier_relation_usage_error(self):
-        """Plan Section 1.3 S1, Round declaration fields, supplier relation limb. Oracle: brief Section 5.12 round naming error cases, out of set field values are usage errors naming the allowed values; plan entry 13 row U-3, token ROUND_FIELD_OUT_OF_SET. Register entries R1-019 and R1-017: the message names each allowed supplier relation value in full, value by value."""
+        """Plan Section 1.3 S1, Round declaration fields, supplier relation limb. Oracle: brief Section 5.12 round naming error cases, out of set field values are usage errors naming the allowed values; plan entry 13 row U-3, token ROUND_FIELD_OUT_OF_SET. Register entries the settled rule and the settled rule: the message names each allowed supplier relation value in full, value by value."""
         product = self.add_default()
         with self.assertRaises(Exception) as caught:
             service.name_round(home=self.home, product=PRODUCT, round_label="round-one", importer_declaration="all_captured", supplier_relation="bogus_value", audit_date=AUDIT_DATE)
@@ -225,7 +225,7 @@ class TestSubcommandsAndNameRound(RegistryBase):
         self.assertIn("supplier relation unknown", message)
 
     def test_name_round_unknown_product_usage_error(self):
-        """Plan Section 1.3 S1, Round identity. Oracle: brief Section 5.12 round naming error cases, an unknown product is a usage error naming the allowed values; plan entry 13 row U-1, token UNKNOWN_PRODUCT. Register entry R1-017: the message names the allowed value, the one standing product name, in full."""
+        """Plan Section 1.3 S1, Round identity. Oracle: brief Section 5.12 round naming error cases, an unknown product is a usage error naming the allowed values; plan entry 13 row U-1, token UNKNOWN_PRODUCT. Register entry the settled rule: the message names the allowed value, the one standing product name, in full."""
         self.add_default()
         with self.assertRaises(Exception) as caught:
             service.name_round(home=self.home, product="no-such-product", round_label="round-one", importer_declaration="all_captured", supplier_relation="independent", audit_date=AUDIT_DATE)
@@ -233,7 +233,7 @@ class TestSubcommandsAndNameRound(RegistryBase):
         self.assertIn("Example Product", str(caught.exception))
 
     def test_registry_timing_bound(self):
-        """Plan Section 1.5 timing bounds, S1. Oracle: registry operations over a test registry, 2 seconds, conditional on a test scale Step 13 states on the record. Scale stated here and in design/tests/scales-w2.md: one product, seven operations, one round. The body runs the stated scale under register entry R1-020: the seven registry operations and one round naming over the one product, inside the timed span."""
+        """Plan Section 1.5 timing bounds, S1. Oracle: registry operations over a test registry, 2 seconds, conditional on a test scale stated on the record. Scale stated here and in design/tests/scales-w2.md: one product, seven operations, one round. The body runs the stated scale under the settled rule: the seven registry operations and one round naming over the one product, inside the timed span."""
         import time
         start = time.monotonic()
         product = self.add_default()
@@ -255,13 +255,13 @@ class TestValidationForms(RegistryBase):
     """Validation rejection form, plan entry 13 row X-5, token
     VALIDATION_FAILED, usage class. Every rejection test in
     this class carries the same assertions under register
-    entries R1-017 and R1-018: the token on the raised error,
+    entries the settled rule and the settled rule: the token on the raised error,
     which is the recorded error limb at the strength the
     chain state in the test allows, and the home bytes
     standing identical after the refused call, a byte
     identity claim over the home files, for the write limb.
-    The slug form tests stand withdrawn under register entry
-    R1-016 and the slug row stands blocked at B-W2-9."""
+    The slug form tests stand withdrawn under the settled rule
+    the settled rule and the slug row stands blocked at the open items list."""
 
     def test_name_empty_rejected_home_bytes(self):
         """Plan Section 1.3 S1, validation forms. Oracle: brief Section 5.12 item 136, a name is 1 to 200 code points with no control characters; row X-5."""
@@ -288,13 +288,13 @@ class TestValidationForms(RegistryBase):
         self.assertEqual(home_bytes(self.home), before)
 
     def test_name_exactly_200_code_points_accepted(self):
-        """Plan Section 1.3 S1, validation forms, boundary limb. Oracle: brief Section 5.12 item 136, a name is 1 to 200 code points, so a name of exactly 200 code points stands accepted. Register entry R1-022."""
+        """Plan Section 1.3 S1, validation forms, boundary limb. Oracle: brief Section 5.12 item 136, a name is 1 to 200 code points, so a name of exactly 200 code points stands accepted. Register entry the settled rule."""
         product = service.add_product(home=self.home, name="x" * 200, canonical_line="Line.", domain="example.invalid", audit_date=AUDIT_DATE)
         self.assertEqual(field(product, "name"), "x" * 200)
         self.assertTrue(field(product, "product_id"))
 
     def test_canonical_line_over_200_rejected_home_bytes(self):
-        """Plan Section 1.3 S1, validation forms. Oracle: brief Section 5.12 item 136 with grill Q11, the canonical line stands subject to the 200 code point limit; row X-5."""
+        """Plan Section 1.3 S1, validation forms. Oracle: brief Section 5.12 item 136 under the settled answers, the canonical line stands subject to the 200 code point limit; row X-5."""
         before = home_bytes(self.home)
         with self.assertRaises(Exception) as caught:
             service.add_product(home=self.home, name="Long Line", canonical_line="y" * 201, domain="example.invalid", audit_date=AUDIT_DATE)
@@ -302,7 +302,7 @@ class TestValidationForms(RegistryBase):
         self.assertEqual(home_bytes(self.home), before)
 
     def test_set_canonical_line_over_200_rejected_home_bytes(self):
-        """Plan Section 1.3 S1, validation forms, set-canonical-line limb. Oracle: brief Section 5.12 item 136, set or change the canonical line subject to the 200 code point limit at grill Q11; row X-5. Register entry R1-022."""
+        """Plan Section 1.3 S1, validation forms, set-canonical-line limb. Oracle: brief Section 5.12 item 136, set or change the canonical line subject to the 200 code point limit under the settled answers; row X-5. Register entry the settled rule."""
         self.add_default()
         before = home_bytes(self.home)
         with self.assertRaises(Exception) as caught:
@@ -345,7 +345,7 @@ class TestValidationForms(RegistryBase):
         self.assertEqual(home_bytes(self.home), before)
 
     def test_domain_with_path_rejected_home_bytes(self):
-        """Plan Section 1.3 S1, validation forms, path limb. Oracle: plan Section 5.1 Product domain, registry domain form item 50, host, no path; row X-5. Register entry R1-022."""
+        """Plan Section 1.3 S1, validation forms, path limb. Oracle: plan Section 5.1 Product domain, registry domain form item 50, host, no path; row X-5. Register entry the settled rule."""
         before = home_bytes(self.home)
         with self.assertRaises(Exception) as caught:
             service.add_product(home=self.home, name="Path Host", canonical_line="Line.", domain="example.invalid/some/path", audit_date=AUDIT_DATE)
@@ -361,7 +361,7 @@ class TestValidationForms(RegistryBase):
         self.assertEqual(home_bytes(self.home), before)
 
     def test_set_category_invalid_term_rejected_home_bytes(self):
-        """Plan Section 1.3 S1, validation forms, category term limb. Oracle: brief Section 5.2 Product shape, each category term is validated as a name string of 1 to 200 code points with no control characters; row X-5. Register entry R1-022."""
+        """Plan Section 1.3 S1, validation forms, category term limb. Oracle: brief Section 5.2 Product shape, each category term is validated as a name string of 1 to 200 code points with no control characters; row X-5. Register entry the settled rule."""
         self.add_default()
         before = home_bytes(self.home)
         with self.assertRaises(Exception) as caught:
@@ -378,7 +378,7 @@ class TestValidationForms(RegistryBase):
 
 class TestReAddIdempotence(RegistryBase):
     def test_readd_no_change_returns_unchanged(self):
-        """Plan Section 1.3 S1, re add idempotence. Oracle: contract C6 and brief Section 5.12 item 136, re-adding a product with no change returns the product unchanged. The returned product stands compared field by field against the standing product, on the registry re add route the register charges at R1-004 for this slice."""
+        """Plan Section 1.3 S1, re add idempotence. Oracle: contract C6 and brief Section 5.12 item 136, re-adding a product with no change returns the product unchanged. The returned product stands compared field by field against the standing product, on the registry re add route the register charges at the settled rule for this slice."""
         first = self.add_default()
         second = self.add_default()
         for name in ("name", "domain", "canonical_line", "product_id",
@@ -394,7 +394,7 @@ class TestReAddIdempotence(RegistryBase):
         self.assertEqual(home_bytes(self.home), before)
 
     def test_readd_with_change_is_usage_error_home_bytes(self):
-        """Plan Section 1.3 S1, re add idempotence. Oracle: brief Section 5.12 item 136 and plan entry 13 row U-2, token PRODUCT_READD_CHANGED, re-adding a product with any change is a usage error naming the allowed values, and nothing is written. Register entry R1-017: the message names the allowed values in full, the standing product name, canonical line, and domain a re add must match, value by value. The no write claim is a byte identity claim over the home files."""
+        """Plan Section 1.3 S1, re add idempotence. Oracle: brief Section 5.12 item 136 and plan entry 13 row U-2, token PRODUCT_READD_CHANGED, re-adding a product with any change is a usage error naming the allowed values, and nothing is written. Register entry the settled rule: the message names the allowed values in full, the standing product name, canonical line, and domain a re add must match, value by value. The no write claim is a byte identity claim over the home files."""
         self.add_default()
         before = home_bytes(self.home)
         with self.assertRaises(Exception) as caught:
@@ -407,7 +407,7 @@ class TestReAddIdempotence(RegistryBase):
         self.assertEqual(home_bytes(self.home), before)
 
     def test_unknown_product_operation_writes_nothing_home_bytes(self):
-        """Plan Section 1.3 S1, registry subcommands. Oracle: brief Section 5.12 item 136, unknown product outcome stated once for every registry operation that names a product, a usage error naming the allowed values, and the operation writes nothing; row U-1, token UNKNOWN_PRODUCT. Register entry R1-017: the message names the allowed value, the one standing product name, in full. The no write claim is a byte identity claim over the home files."""
+        """Plan Section 1.3 S1, registry subcommands. Oracle: brief Section 5.12 item 136, unknown product outcome stated once for every registry operation that names a product, a usage error naming the allowed values, and the operation writes nothing; row U-1, token UNKNOWN_PRODUCT. Register entry the settled rule: the message names the allowed value, the one standing product name, in full. The no write claim is a byte identity claim over the home files."""
         self.add_default()
         before = home_bytes(self.home)
         with self.assertRaises(Exception) as caught:

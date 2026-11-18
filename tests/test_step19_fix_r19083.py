@@ -1,7 +1,6 @@
-"""Step 19 fix tests for R19-083: robots-preview capture dates.
+"""Repair tests: robots-preview capture dates.
 
-Oracle: register item R19-083, README CL19-038, help CL19-073, and
-plan decision T-11. The capture dates arrive only as
+Oracle: the settled rule, and plan decision T-11. The capture dates arrive only as
 first_capture_date and second_capture_date; the captured_on
 spelling pair stands refused on robots-preview.
 """

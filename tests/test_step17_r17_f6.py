@@ -24,9 +24,9 @@ control at the draft and states nothing at the rendering,
 and a flag whose raw value stands falsy and whose converted
 value stands truthy states it at the rendering alone. The
 flag value must stand judged on the converted terms at both
-readings. Oracle: the round 17 findings register and
-disposition, ruling (e) and Section 3 seat F6, the round 17
-guide attack paper at finding and, the Red paper at
+readings. Oracle: the earlier round findings register and
+disposition, the settled rule and Section 3 the repair, the earlier round
+guide attack findings at finding and, the Red paper at
 finding, and the Yellow paper at finding.
 
 Copyright: J.P. Picard aka Macro-Harder."""

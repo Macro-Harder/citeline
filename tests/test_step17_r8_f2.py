@@ -1,7 +1,7 @@
 """Registry and acquisition.
 
 Test first pins for register to and. Each test reproduces the
-defect named at its register entry, then stands as the pin for
+defect named under the settled rule, then stands as the pin for
 its cure."""
 
 import os
@@ -283,8 +283,8 @@ class TestR8_028ContainerStringCharacterMeasure(Base):
         self.assertEqual(self.page_front_matter(block), "body text")
 
     def test_string_of_4096_inside_a_dict_value_refuses(self):
-        # Corrected at fix round 10 under ruling (g) of the
-        # round 10 disposition: the pin as first written
+        # Corrected at the repair under the settled rule of the
+        # settled disposition: the pin as first written
         # stated the standing before the cure at. On the
         # cured standing a key standing inside a container
         # stands measured by its length in characters

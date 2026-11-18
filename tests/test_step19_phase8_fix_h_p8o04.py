@@ -1,7 +1,7 @@
-"""Step 19 Phase 8 fix test, seat H, item P8O-04.
+"""Repair test.
 
-Oracle: design/audit/step-19-phase8-orange.md finding P8O-04,
-disposed [defect] in design/audit/step-19-phase8-triage.md
+Oracle: the audit record finding the repair item,
+disposed [defect] in the audit record
 Part B: the Simple query set report renders the marker list
 version as a raw Python dict. The cure: the Simple form
 renders it as text an operator can read.

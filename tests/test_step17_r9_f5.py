@@ -1,4 +1,4 @@
-# fix seat F5 tests.
+# Verdict tests.
 # Entry: the prefix seed pass of _similar_components
 # stands outside its backstops on the pool families the
 # wide reading guards leave on the prefix form, at both
@@ -145,7 +145,7 @@ def _shared_pool_family(count, seed=19):
 
 def _deferred_family(links, per_pair=120, seed=9000):
     # The registered construction, standing as a control,
-    # in the form the round 7 seat states it, so the two
+    # in the form the round 7 repair states it, so the two
     # queue organisation stands exercised whole beside
     # this cure.
     core = set(range(60))

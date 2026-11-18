@@ -1,7 +1,7 @@
 """E-08 and E-09.
 
 Written test first for the round 2 supplementary defects
-E-08 and E-09. The recorded perspective of this seat:
+E-08 and E-09. The recorded perspective of this repair:
 records and warnings surfaced, what the product computes
 for the user it also shows the user.
 

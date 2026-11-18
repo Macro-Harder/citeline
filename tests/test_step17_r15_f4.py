@@ -1,10 +1,10 @@
 """Import family.
 
 Test first pins for the import side limbs of register,
-and, each Low, each counted at its lead seat F2, cured
+and, each Low, each counted at its lead the repair, cured
 at the import side helper _holds_tag_construct in
 probe_import.py and at the import reading, in the form
-the F2 cure rule states for this seat. Entry: a head
+the F2 cure rule states for this repair. Entry: a head
 union mark standing between a judged position and a
 construct character blocks the cure at both readings,
 the except marks reading keeping the blocker and the
@@ -25,9 +25,9 @@ material exception standing in that limb.
 
 The defect pins assert the import reading and the
 import side helper alone, in the form the import side
-limb pins of fix round 14 took: the page side limbs of
-the three entries stand cured at seat F2 in this wave
-ahead of this seat in the dependency order. The
+limb pins of the repair took: the page side limbs of
+the three entries stand cured at the repair in this repair wave
+ahead of this repair in the dependency order. The
 controls assert both readings where the standing the
 control names already stands at both. Every pin runs in
 memory at the readings and at the helpers, so no pin

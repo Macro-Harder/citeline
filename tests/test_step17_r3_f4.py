@@ -1,9 +1,9 @@
 """Import family.
 
 Test first pins for register, from the register and the
-source paper the register paper. Each test reproduces the
-defect named at its register entry on the tree standing after
-fix round 2 and the round 3 F1 and F2 seats, then stands as
+source paper the settled record. Each test reproduces the
+defect named under the settled rule on the tree standing after
+the repair and the round 3 F1 and F2 seats, then stands as
 the pin for its cure."""
 
 import hashlib
@@ -313,7 +313,7 @@ class Test028WorksheetContradictionIdentity(ImportBase):
         return import_module.prepare_worksheet_import(**kwargs)
 
     def test_prefix_without_base_admits_both_slots_as_two_records(self):
-        """S17-R3-028 naming pin as superseded under R19-048; two
+        """The settled detection rule naming pin as superseded under the settled rule; two
         distinct answers for the same round, same engine label,
         same query, and same captured_on in one worksheet are
         admitted as two prepared records, at one import call
@@ -340,14 +340,14 @@ class Test028WorksheetContradictionIdentity(ImportBase):
         self.assertEqual(records[1]["answer_id"], "ans-{sequence}-2")
 
     def test_control_with_base_admits_second_distinct_answer(self):
-        """Contract C2 as relaxed under R19-048, on the worksheet
+        """Contract C2 as relaxed under the settled rule, on the worksheet
         preparation surface; a second filled slot holding a
         distinct answer for the same round, same normalised
         engine label, same query, and same captured_on as an
         earlier slot of the same sheet is admitted as a new
         record under its own identity, and the earlier slot's
         record stands beside it unchanged. This method stood
-        as the base supplied control for S17-R3-028, whose
+        as the base supplied control for the settled detection rule, whose
         refusal message identity pin lapses with the refusal
         itself under the ruling."""
         path = self.temp_answer(self.conflicting_sheet(), "sheet.txt")

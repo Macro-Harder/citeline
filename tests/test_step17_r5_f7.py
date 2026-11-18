@@ -1,12 +1,12 @@
 """Service, watch, seams.
 
-Pins the register entries charged to F7 in fix round 5: and.
+Pins the settled rules
 Every test was written before its cure and run failing for
 the register stated reason, except the controls named as
 controls. Oracle: the round 5 findings register and
 disposition.
 
-Restated for Step 20 register item R19-092: every call in
+Restated for the settled rule: every call in
 this file that stood as service.audit with a run_id, the
 form request for a stored audit record, stands restated to
 service.audit_render, the route the ruling names for that
@@ -105,7 +105,7 @@ def temp_file(case, content, name="file.txt"):
 
 def gated_batch(case, shift_config=None):
     """A batch gate planting a genuine intent record, in the
-    form of the round 4 seat test for."""
+    form of the round 4 repair test for."""
     real_batch = journal.append_entries_atomic
 
     def gated(home, entries, audit_date=None, run_id=None):
@@ -328,7 +328,7 @@ class Test052SuppliedPathJudged(unittest.TestCase):
 # ----------------------------------------------------------------:
 # the audit form request reader stands under the stored audit
 # field discipline its sibling reader enforces. Restated for
-# R19-092: the form request stands on the audit_render route,
+# The settled rule: the form request stands on the audit_render route,
 # under the same discipline.
 # ----------------------------------------------------------------
 
@@ -564,8 +564,8 @@ class Test058ProbeReportOneFoldInstant(SeededBase):
 
     def test_two_corrections_between_folds_do_not_split(self):
         self.import_one()
-        # Restated in its seed limb, for Step 19 register item
-        # R19-017: the standing failure record now stands
+        # Restated in its seed limb, for The settled the settled rule
+        # The settled rule: the standing failure record now stands
         # created by a failed import, an appending operation
         # whose failure record stands, instead of by a failed
         # probe report, a non appending operation whose cure
@@ -604,7 +604,7 @@ class Test058ProbeReportOneFoldInstant(SeededBase):
             result = service.probe_report(
                 home=str(self.home), product=PRODUCT, round=ROUND,
                 audit_date=AUDIT_DATE)
-        # Restated for Step 19 register item R19-018: the
+        # Restated for the settled rule: the
         # probe report record carries no standing failure
         # record payloads at all, in the one fold report and
         # in the followup alike, so neither the standing
@@ -932,7 +932,7 @@ class Test071DeferredRecoverySignalled(SeededBase):
 
 # ----------------------------------------------------------------:
 # the assembly correction stands on the one limits reading the run
-# started under. Restated for R19-092: the standing record
+# started under. Restated for the settled rule: the standing record
 # stands read back through the audit_render route.
 # ----------------------------------------------------------------
 

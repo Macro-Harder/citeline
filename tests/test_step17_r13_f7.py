@@ -1,9 +1,9 @@
 """Service, watch, seams.
 
-Seat F7 stands in verdict form only in this round and carries
-no entry TO FIX. The pins below judge the F7 standings of fix
-round 12 against the tree as it stands in this wave, in the
-forms the round 13 papers record and ruling (n) of the round
+The repair stands in verdict form only in this round and carries
+no repair entry. The pins below judge the F7 standings of fix
+the earlier round against the tree as it stands in this repair wave, in the
+forms the earlier round papers record and the settled round
 13 disposition sustains: the container seam verdict, the
 three readings agreeing on the worked forms; the top level
 key position as cured at standing cured at the service
@@ -14,17 +14,17 @@ its renamed form; and the watch figures in their exact forms,
 the WatchPlan size figure of 1 MiB and the picked scope bound
 of 100 targets, with both watch modes standing as options.
 The colon seam pins judge that standing again in its bounded
-observation sustained form under ruling (f) of the round 13
+observation sustained form under the settled the earlier round
 disposition, recorded and not cured and not reopened as an
 entry. The combining mark pins hold only the forms that stand
-settled on both sides of the cures charged at in this wave: a
+settled on both sides of the cures charged at in this repair wave: a
 mark inside the landed range refuses at both readings, and a
 mark the word character set itself covers refuses at both
 readings. No pin in this file judges the follower limb those
-two cures stand, which stands in progress in this wave and
-stands judged whole in the next round. Oracle: the round 13
-disposition, Section 3 seat F7 and rulings (f) and (n), and
-register Section 3, records 14 and 16, beside the round 13
+two cures stand, which stands in progress in this repair wave and
+stands judged whole in the next round. Oracle: the earlier round
+disposition, Section 3 the repair and the settled rules, and
+register Section 3, records 14 and 16, beside the earlier round
 service and seams papers.
 
 Copyright: J.P. Picard aka Macro-Harder."""
@@ -423,7 +423,7 @@ class TestFollowerReadingsCuredSets(unittest.TestCase):
 
 # ----------------------------------------------------------------
 # The colon seam, in its bounded observation sustained
-# form under ruling (f) of the round 13 disposition:
+# form under the settled disposition:
 # a colon standing inside an indented continuation
 # line stands consumed as the key separator of its
 # line at both readings alike, at no judged position

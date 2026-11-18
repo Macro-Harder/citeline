@@ -1,7 +1,7 @@
-"""Step 19 fix tests for R19-080: the worksheet export surface.
+"""Repair tests: the worksheet export surface.
 
-Oracle: register item R19-080, plan S5, and brief CL19-132,
-CL19-140. The capture worksheet export stands on the operator
+Oracle: the settled rule, plan S5, and the settled rule,
+the settled rule. The capture worksheet export stands on the operator
 surface as the subcommand export-capture-worksheet, beside the
 worksheet import route that already stands shipped, and the
 help text names it.

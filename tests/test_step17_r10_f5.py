@@ -1,11 +1,11 @@
-# fix seat F5 tests.
+# Verdict tests.
 # Entry, reopening: the counted reading of
 # _similar_components prices every seed at the batch
 # count times the distinct size count times the set
 # count width, so a family holding many distinct sizes
 # inside the threshold band prices past the 120 second
 # backstop at the round cap of 10,000 sets, at both
-# module copies. The families stand as the round 10
+# module copies. The families stand as the earlier round
 # papers state them: the Red constructions at
 # scratch/r10-red/p_f5_cost.py to p_f5_cost4.py (sizes
 # cycling through 1,000 sizes from 1,000 to 1,999 over
@@ -15,7 +15,7 @@
 # common block, at 451 distinct sizes from 2,000 to
 # 2,450; and sizes cycling through 2,250 sizes from
 # 4,000 to 6,249 over a pool of 200,000, seed 11), and
-# the detection seat families at
+# the detection repair families at
 # scratch/r10-detection/probe4_wider.py and
 # probe2_cyclic.py with probe2b_cyclic_big.py (the
 # mixed size family at 201 distinct sizes from 800 to
@@ -132,7 +132,7 @@ def _planted_pair_family(pairs, seed=17):
 
 
 def _mixed_family(count, seed=3):
-    # The detection seat mixed size family: sizes
+    # The detection repair mixed size family: sizes
     # cycling over 201 distinct values from 800 to
     # 2,800, every set drawn from one pool of 20,000,
     # seed 3, no pair similar.
@@ -143,7 +143,7 @@ def _mixed_family(count, seed=3):
 
 
 def _cyclic_family(count, width=6, block=500, core=100):
-    # The detection seat late miss cyclic construction:
+    # The detection repair late miss cyclic construction:
     # a universal core plus blocks of 500 shingles, set
     # index holding the core and width cyclically
     # consecutive blocks, size 3,100 at the standing
@@ -166,7 +166,7 @@ def _cyclic_family(count, width=6, block=500, core=100):
 
 
 def _cyclic_wide_family(count):
-    # The detection seat late miss cyclic wide
+    # The detection repair late miss cyclic wide
     # construction: width eight blocks of 800 plus the
     # core of 100, size 6,500, pair threshold 5,778,
     # two sets at shift 1 sharing 5,700, no pair similar.
@@ -303,17 +303,16 @@ class TestR10F5CompoundedCost(unittest.TestCase):
         self._run_inside_bound(metrics, _pair_family(500), 4.5)
 
     # The two fourth construction pins below stand
-    # re-pinned under the ruling of Captain JP of
-    # 2026-11-16, in her words: "Just remove the two
-    # minute limit." The two minute limit stands removed
+    # re-pinned under the settled rule. The two minute
+    # limit stands removed
     # for this family, so these pins assert the
     # correctness standing of the family at this scale,
     # the singleton result judged, and no time bound
     # assertion on this family stands in their place.
     # Their old form, the same construction at this scale
     # against a bound of 40.0 seconds of process CPU
-    # time, stands recorded in the fix papers of rounds
-    # 10 to 13 in its standing as the pin form of the
+    # time, stands recorded in the earlier repair records
+    # in its standing as the pin form of the
     # backstop judgement on this family.
 
     def _run_correct_at_scale(self, module, type_sets):
@@ -332,7 +331,7 @@ class TestR10F5CompoundedCost(unittest.TestCase):
 
 
 class TestR10F5DetectionFamilyControls(unittest.TestCase):
-    # The detection seat families of this round, standing
+    # The detection repair families standing
     # as controls beside the cure: the mixed size family
     # and the two late miss cyclic constructions, inside
     # their bounds in both copies, the singleton result

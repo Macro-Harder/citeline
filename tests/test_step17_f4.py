@@ -420,7 +420,7 @@ class Test089MultiAppend(ImportBase):
 
 class Test101ContradictionSurface(ImportBase):
     def test_second_distinct_answer_admitted_under_own_identity_and_first_stands(self):
-        """S17-R1-101 surface as superseded under R19-048; a distinct
+        """The settled detection rule surface as superseded under the settled rule; a distinct
         content answer for the same round, same engine label, same
         query, and same captured_on is admitted as a new record under
         its own identity, at one import call for the one answer, and

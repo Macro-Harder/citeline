@@ -105,7 +105,7 @@ class F5Case(unittest.TestCase):
 
 class TestD09RepeatedTrendFailureRecord(F5Case):
     def test_repeated_trend_refuses_and_appends_one_failure_record(self):
-        # Restated for Step 19 register item R19-017: probe
+        # Restated for the settled rule: probe
         # trend is one of the operations the brief names as
         # non appending, and its cure stops it appending a
         # failure record on failure. The refusal, token, and
@@ -136,7 +136,7 @@ class TestD09RepeatedTrendFailureRecord(F5Case):
                 "--round_b", ROUND, "--audit_date", AUDIT_DATE])
         self.assertEqual(code, 2)
         self.assertIn("ROUND_REPEATED", stream.getvalue())
-        # Restated for Step 19 register item R19-017: probe
+        # Restated for the settled rule: probe
         # trend is a non appending operation, so the refused
         # call through the shell appends no failure record.
         self.assertEqual(len(failure_records(self.home)), 0)

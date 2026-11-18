@@ -1,6 +1,6 @@
-"""Step 19 fix tests for R19-044: failure messages guide the operator.
+"""Repair tests: failure messages guide the operator.
 
-Oracle: register item R19-044 and brief CL19-183, CL19-176. A
+Oracle: the settled rule. A
 shell failure message states a next step and states what was
 stored, or that nothing was stored, and carries no raw errno
 text and no raw Python wording.

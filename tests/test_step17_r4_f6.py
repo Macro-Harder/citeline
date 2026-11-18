@@ -1,6 +1,6 @@
 """Guide and reporting.
 
-Each test pins one register entry from the round 4 findings
+Each test pins one settled rule
 register, in the form the register states. Written before
 the cures, watched failing, then watched passing."""
 
@@ -128,8 +128,8 @@ class TestControlNotice045(unittest.TestCase):
             "control_failure_notice", advanced["nested"])
         simple = render(record, form="simple")
         self.assertNotIn("SPOOF NESTED", simple)
-        # Restated in its Simple limb only, for Step 19 queue
-        # addition U-07: the Simple form now stands the notice
+        # Restated in its Simple limb only, for the settled rule
+        # addition: the Simple form now stands the notice
         # in its own words, as a line of its own beside the
         # round figures, not as the fixed constant text. The
         # Advanced assertions above stand unrestated at full
@@ -204,7 +204,7 @@ class TestPrecision046(unittest.TestCase):
         record["checks"][0]["earned"] = 0.3333333333333333
         record["checks"][0]["weight"] = 10.123456789012
         simple = render(record, form="simple")
-        # Restated for Step 19 register item R19-058: the
+        # Restated for the settled rule: the
         # earned figure now stands stated as a fraction of
         # the weight with its points, so it cannot read as
         # points out of the weight. The string carried control

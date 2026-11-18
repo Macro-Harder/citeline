@@ -1,4 +1,4 @@
-"""Slice S4 tests: robots evaluation, Step 13, Citeline.
+"""Slice S4 tests: robots evaluation, Citeline.
 
 Written before the product exists. Every test imports the product
 package named citeline and calls the operation signatures the plan
@@ -26,13 +26,13 @@ agent with no row in the shipped table: such a group stands
 outside the report scope, with no finding row and no blocked row,
 on the rule stated at plan Section 1.3 slice S4. The version
 suffix token outcome stands stated as the plan's one stated
-exception to that rule. The named Step 13 size case stands
+exception to that rule. The named the build size case stands
 outside that rule and is no exception to it, on its table row
 ground: its subject crawler holds a table row. Any
 likeness judgement in robots host handling carries no test in
 this slice (plan Part B entry B3). No test in this file expects a
 stored preview or a preview fold: that limb stands blocked at
-plan Part B entry B8 and stands in blocked-w4.md. No test in this
+plan Part B entry B8 and stands in the open items list. No test in this
 file refreshes the crawler table: the O5-9 re verification due
 2027-02-10 is a dated obligation, not a test.
 """
@@ -187,8 +187,8 @@ class TestCrawlerTableAndFindings(unittest.TestCase):
         between ship and the first post ship refresh. Superseded at
         under defect E-04: the earlier form of this test asserted
         table_version 1. The disposition, ruling on the brief
-        Section 5.6 version rule on the S4 seat reading, displaces
-        that form: the round 1 fix wave changed the evidence label
+        Section 5.6 version rule on the S4 repair reading, displaces
+        that form: the round 1 repair wave changed the evidence label
         value on four shipped rows and restored two stated fields
         across the shipped rows in one published revision, and the
         rule counts one bump per published table revision with no
@@ -276,7 +276,7 @@ class TestCrawlerTableAndFindings(unittest.TestCase):
 
     def test_defect_flag_only_for_search_purpose_rows(self):
         """Pins S4 defect eligibility. Oracle: brief Section 5.10
-        item 87 and grill DQ-3: a block counts as a defect finding
+        item 87 and the settled answers: a block counts as a defect finding
         only where it blocks a search purpose row; control and
         other purpose rows are reported and not defected."""
         report = evaluate(self, FIXTURES / "w4-robots-basic.txt",
@@ -372,7 +372,7 @@ class TestPrecedenceAndPaths(unittest.TestCase):
 
     def test_path_defaulted_true_where_no_path_supplied(self):
         """Pins S4 path_defaulted flag, defaulted limb. Oracle:
-        brief Section 5.10 IM7-BRK-10 landing: path_defaulted
+        brief Section 5.10 settled landing: path_defaulted
         stands true where the call supplied no evaluated page
         path and the root default operated."""
         report = evaluate(self, FIXTURES / "w4-robots-basic.txt")
@@ -381,7 +381,7 @@ class TestPrecedenceAndPaths(unittest.TestCase):
 
     def test_path_defaulted_false_where_path_supplied(self):
         """Pins S4 path_defaulted flag, supplied limb. Oracle:
-        brief Section 5.10 IM7-BRK-10 landing: the flag stands
+        brief Section 5.10 settled landing: the flag stands
         false where the call supplied the path."""
         report = evaluate(self, FIXTURES / "w4-robots-basic.txt", "/x")
         self.assertIs(field(report, "path_defaulted"), False)
@@ -485,7 +485,7 @@ class TestVersionSuffixToken(unittest.TestCase):
 
 
 class TestNamedSizeCase(unittest.TestCase):
-    """Row plan Section 1.3 S4, the named Step 13 size case.
+    """Row plan Section 1.3 S4, the named size case.
     Oracle: plan slice S4 finding claim and brief Section 6.3
     item 118 decision, with brief Section 5.11 limit 34."""
 
@@ -503,7 +503,7 @@ class TestNamedSizeCase(unittest.TestCase):
         self.assertLess(len(data), 512 * 1024)
 
     def test_rule_in_band_evaluated_by_plan_ruleset(self):
-        """Pins the named Step 13 size case. Oracle: plan slice
+        """Pins the named size case. Oracle: plan slice
         S4: a finding for a rule standing past a named crawler
         published reading stop claims only the plan own ruleset
         evaluation of the whole admitted file, and claims nothing

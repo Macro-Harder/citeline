@@ -16,7 +16,7 @@ openings that entry names, a question mark, a backslash, an
 opening parenthesis, a closing parenthesis, a less than sign,
 and a colon, which pass both readings on the uncured tree and
 stand refused at the page reading on the cured tree, their
-import side limb standing charged to seat F4. The pins stand at
+import side limb standing charged to the repair. The pins stand at
 every judged position, in the line form and in the JSON form, at
 the value position and at the key position alike, in plain form
 and standing behind interior head material alike."""

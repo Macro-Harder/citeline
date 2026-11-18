@@ -7,8 +7,7 @@ robots file, audit date, evaluated page path, or product)
 refuses MALFORMED_CALL at row U-8, exit 2. Through the shell the
 refusal carries the standing shell outcome: the value printed,
 the subcommand list in full, and one failure record where the
-chain accepts appends. Restated for Step 20 register item
-R19-092, which ruled the split these pins now state: a repeat
+chain accepts appends. Restated for The settled rule, which ruled the split these pins now state: a repeat
 audit is a new operation, the audit route takes no run_id, and
 the stored record stands returned only through the separate
 audit_render route, at the service as service.audit_render and
@@ -119,7 +118,7 @@ class TestE05RunIdBesideFreshInputs(G5Base):
     silently disregarded; the call refuses as malformed."""
 
     def assert_malformed_service_call(self, **kwargs):
-        # Restated for R19-092: the audit service signature
+        # Restated for the settled rule: the audit service signature
         # carries no run_id parameter and the audit_render
         # signature carries no fresh audit input, so a call
         # naming a fresh input beside a run identity stands
@@ -177,7 +176,7 @@ class TestE05RunIdBesideFreshInputs(G5Base):
         self.assert_malformed_service_call(product=PRODUCT)
 
     def test_non_date_beside_run_id_still_refuses_as_non_date(self):
-        # Restated for R19-092: the D-18 precedence this pin
+        # Restated for the settled rule: the D-18 precedence this pin
         # stated, a value that is not a date beside run_id
         # refusing VALIDATION_FAILED ahead of the E-05
         # refusal, cannot stand on the cured routes, because
@@ -212,7 +211,7 @@ class TestE05RunIdBesideFreshInputs(G5Base):
              "--run_id", self.run_id] + extra)
         self.assertEqual(code, 2)
         self.assertIn("MALFORMED_CALL", err)
-        # Restated for Step 19 register item R19-043: a usage
+        # Restated for the settled rule: a usage
         # error now prints nothing to stdout and no subcommand
         # list anywhere, instead of flooding stdout with the
         # full help text. The refusal, token, exit code, and
@@ -251,7 +250,7 @@ class TestE05RunIdBesideFreshInputs(G5Base):
 
 
 class TestE05RunIdAloneAndFreshCalls(G5Base):
-    """E-05 standing limbs, restated for R19-092: run_id
+    """E-05 standing limbs, restated for the settled rule: run_id
     alone on the audit_render route renders the stored
     record in every form and appends nothing; a fresh call
     without run_id audits as before; page_file stands
@@ -343,7 +342,7 @@ class TestE06AuditDateDefault(unittest.TestCase):
         self.assertIs(stored["audit_date_is_run_date"], True)
 
     def test_omitted_date_is_run_date_true_by_construction(self):
-        # M1 beside IM7-BRK-2: where the audit date was itself
+        # M1 beside the settled landing: where the audit date was itself
         # defaulted the boolean is true by construction,
         # because the default audit date is the current UTC
         # date the run runs on.
@@ -356,7 +355,7 @@ class TestE06AuditDateDefault(unittest.TestCase):
         # The strong page carries the date 2026-11-01 in its
         # text. Against the current UTC date that date stands
         # inside the 90 day full credit band on the day this
-        # suite runs beside the build (2026-11-14), so the
+        # suite runs (2026-11-14), so the
         # check earns on age, not on absence of a date.
         record = service.audit(home=str(self.home),
                                page_file=str(PAGE_STRONG))
@@ -396,7 +395,7 @@ class TestE06AuditDateDefault(unittest.TestCase):
         body = json.loads(out)
         self.assertEqual(body["audit_date"], today_utc())
         # The artefact limb of this pin stood restated by the
-        # Step 19 U-11 cure: the Advanced audit artefact carries
+        # The settled cure: the Advanced audit artefact carries
         # only the traced field set, so the defaulted flag is
         # read on the stored record the shell run wrote, which
         # is the surface brief Section 6.2 M1 governs.

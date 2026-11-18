@@ -1,6 +1,6 @@
 """Guide and reporting.
 
-Each test pins one register entry from the round 2 findings
+Each test pins one settled rule
 register, in the form the register states. Written before
 the cures, watched failing, then watched passing."""
 

@@ -1,5 +1,5 @@
-# fix seat F5 tests.
-# Entries and: two cost defects at the passes the fix round 7
+# Verdict tests.
+# Entries and: two cost defects at the passes the repair
 # cures rebuilt, correctness standing verified against direct
 # pair computations written from the rule beside every cost
 # series. Timing probes stand on process CPU time, never on
@@ -7,7 +7,7 @@
 # as controls, and the round 8 attack constructions stand as
 # the failing probes, at the largest scales that run in
 # reasonable time, with the projection to the cap stated in
-# the seat paper.
+# the repair notes.
 # Copyright: J.P. Picard aka Macro-Harder.
 
 import random
@@ -133,7 +133,7 @@ def _registered_clique_family(count, seed=11):
 
 def _deferred_family(links, per_pair=120, seed=9000):
     # The registered construction, standing as a control, in
-    # the form the round 7 seat states it.
+    # the form the round 7 repair states it.
     core = set(range(60))
     type_sets = []
     for index in range(links):
@@ -284,7 +284,7 @@ class TestR8F5WideClique(unittest.TestCase):
 
 class TestR8F5StandingControls(unittest.TestCase):
     # The round 7 cures that must keep holding, and the
-    # differentials of this seat.
+    # differentials of this repair.
 
     def test_deferred_family_control_both_copies(self):
         type_sets = _deferred_family(25)

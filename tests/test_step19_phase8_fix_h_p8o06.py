@@ -1,18 +1,18 @@
-"""Step 19 Phase 8 fix test, seat H, item P8O-06.
+"""Repair test.
 
-Oracle: design/audit/step-19-phase8-orange.md finding P8O-06,
-disposed [defect] in design/audit/step-19-phase8-triage.md
+Oracle: the audit record finding the repair item,
+disposed [defect] in the audit record
 Part B: the audit error prefix "supplied path cannot be
 stated" survives ahead of its own plain clause. The cure:
 the message stands with the plain clause alone, in first
 position.
 
-Restatement, Step 20 seat FX20-09: the missing page pin in
+Restatement: the missing page pin in
 this file stated the superseded behaviour for a supplied
-path that does not exist. Delegated decision 5 of the
-Step 20 register (R19-087) decides that a supplied path
+path that does not exist. The settled decision of the
+The settled register decides that a supplied path
 that does not exist is an operator input fault and takes
-the input class, not exit 5, and the FX20-07 cure lands
+the input class, not exit 5, and the repair cure lands
 that decision: a missing page file takes
 PAGE_EXTRACTION_FAILED, row X-14, at exit 2 at the
 acquisition intake, and a missing robots file takes

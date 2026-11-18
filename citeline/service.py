@@ -1205,7 +1205,7 @@ def verify(*, home):
 
 # ----------------------------------------------------------------
 # Staleness view: the derived graph over the stored records
-# of one home, on the IM7-ANA-5 landing and contract C9.
+# of one home, on the settled landing and contract C9.
 # ----------------------------------------------------------------
 
 # The stale state's wording, stated once: it states
@@ -1492,7 +1492,7 @@ def _staleness_row(record_kind, record_id, payload, axes,
 def staleness_view(*, home):
     """The staleness view over the stored records of one home.
 
-    On the IM7-ANA-5 landing at brief Section 5.12 and
+    On the settled landing at brief Section 5.12 and
     contract C9 in brief Section 11 and plan Section 9:
     the view is derived and stores nothing, recomputes no
     outcome, and prints no new rate or score. It recomputes

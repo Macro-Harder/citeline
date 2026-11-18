@@ -3400,7 +3400,7 @@ def compute_score(results):
         "claim_type": "signal_presence_only",
         "validated_predictor": False,
         # The secondary figure on the not applicable as
-        # zero basis (brief Section 5.8, IM7-BRK-3): the
+        # zero basis (brief Section 5.8, the settled landing): the
         # ScoreObject carries it in this field, in the
         # landing stated form. It is not a second value
         # field and it is not a ScoreObject: it is an

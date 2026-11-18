@@ -1,6 +1,6 @@
-"""Step 19 fix tests for R19-019: registry list limits in force.
+"""Repair tests: registry list limits in force.
 
-Oracle: register item R19-019. The registry list limits read
+Oracle: the settled rule. The registry list limits read
 the config in force for the home, not hardcoded values: a
 lowered limit refuses a set above it, and a raised limit
 admits a set past the brief default.

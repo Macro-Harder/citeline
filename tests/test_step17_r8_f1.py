@@ -1,8 +1,7 @@
 """Journal family.
 
-Each test pins one register entry from design/audit/
-the register paper on the behaviour the register and
-the round 8 disposition state. Homes are scratch homes
+Each test pins one settled rule from the findings the settled record on the behaviour the register and
+the settled disposition state. Homes are scratch homes
 under a temporary directory. No test here touches a
 standing test item or a governed ground."""
 

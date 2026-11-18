@@ -1,4 +1,4 @@
-"""Tests for the Step 13 fixture generator.
+"""Tests for the Repairture generator.
 
 Oracle: plan Section 1.6, generation and scaling route
 (CQ-D29 and CQ-D30), and the expectation source passage in
@@ -90,7 +90,7 @@ class MutationRouteTests(unittest.TestCase):
         the multi line w1-page-section-unit repeats the
         whole stated unit exactly, both of its lines, so
         the product stands at twice the unit byte size
-        (Step 13 test audit round 1, entry R1-014)."""
+        (the settled test audit)."""
         base = fg.BASE_FIXTURES["w1-page-section-unit"]["unit"] \
             .replace(b"INDEX", b"1")
         data, prov = fg.generate(
@@ -104,8 +104,8 @@ class MutationRouteTests(unittest.TestCase):
         """Pins plan Section 1.6 CQ-D29: reverse-lines on
         the multi line w1-page-section-unit gives its two
         lines in reverse order, the body line first and the
-        heading line second (Step 13 test audit round 1,
-        entry R1-014)."""
+        heading line second (the settled test audit,
+        entry the settled rule)."""
         base = fg.BASE_FIXTURES["w1-page-section-unit"]["unit"] \
             .replace(b"INDEX", b"1")
         lines = base.splitlines(keepends=True)
@@ -185,7 +185,7 @@ class ProvenanceTests(unittest.TestCase):
 class StopRuleTests(unittest.TestCase):
     def test_cl13_list_member_mutation_stops_at_seam_lists(self):
         """Pins plan Section 1.6 CQ-D29 stop rule: a fixture
-        whose generation would need a CL-13 list member
+        whose generation would need a the settled claim list member
         stops at SEAM-LISTS and is not produced."""
         with self.assertRaises(fg.SeamListsStop):
             fg.generate("w1-answer-unit", "mutation",

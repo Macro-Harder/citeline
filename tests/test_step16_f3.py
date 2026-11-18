@@ -5,7 +5,7 @@ Written test first for the round 1 defects D-03 and D-04. D-03 oracle: brief Sec
 the standing PageSnapshot named by its snapshot_id for that product, and plan joined
 entry 13 row X-5, token VALIDATION_FAILED, usage class, exit code 2, failure record
 appended where the chain accepts appends, the row this fix chooses for an identifier
-naming no standing snapshot for the product, stated in the fix paper. D-04 oracle:
+naming no standing snapshot for the product, stated in the repair record. D-04 oracle:
 plan Section 5.1 WatchRun coverage statement, registered product page snapshots
 counted against snapshots audited, computed from registry and journal facts."""
 

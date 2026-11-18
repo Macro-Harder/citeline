@@ -418,7 +418,7 @@ def _plan_warnings(plan, targets):
         # here instead of standing disregarded in silence,
         # on the same ground the estate targets discipline
         # states at open. Both watch modes stand as
-        # options under Captain JP's rulings; this warning
+        # options under the settled rules; this warning
         # rules neither mode away, it names the field the
         # estate round does not read.
         second_round = plan.get("second_round")
@@ -1482,8 +1482,8 @@ def _write_output(result, output_path, form):
     if not isinstance(rendered, str):
         rendered = json.dumps(rendered, sort_keys=True, indent=2)
     # The write itself stands in the pinned B4 sequence
-    # (plan EC-18 subsection 8.1, decisions D-KF-18-PICK
-    # and D-KF-18-TEMP): a complete temporary file in the
+    # (plan EC-18 subsection 8.1, decisions the settled decision
+    # and the settled decision): a complete temporary file in the
     # destination directory, flushed to storage; a hard
     # link from the temporary name to the destination
     # name, which fails where the destination exists; the
@@ -1567,7 +1567,7 @@ def _write_output(result, output_path, form):
 def _temporary_process_number(name, destination_name):
     """The process number a B4 temporary name carries, or
     None where the name is not a temporary of the
-    destination, on the parse form decision D-KF-18-TEMP
+    destination, on the parse form the settled decision
     states: the destination name, the suffix .tmp-, the
     journal sequence digit run, a hyphen separator, and
     the process number digit run at the end of the name."""
@@ -1585,7 +1585,7 @@ def _temporary_process_number(name, destination_name):
 def _remove_orphaned_temporaries(directory, destination_name):
     """Remove the orphaned B4 temporaries of one
     destination standing in its directory, before this
-    invocation writes (decision D-KF-18-TEMP): an orphan
+    invocation writes (the settled decision): an orphan
     is a file matching the temporary naming pattern that
     this invocation did not create and whose process
     number names no live process. A temporary whose
@@ -1628,7 +1628,7 @@ def _flush_directory(directory):
 def _last_journal_sequence(home):
     """The sequence of the journal's last entry as this
     invocation reads it, or 0 over a home whose journal
-    stands empty or absent (decision D-KF-18-TEMP, the
+    stands empty or absent (the settled decision, the
     form for a writing invocation that appends no entry,
     as the WatchRun write does not)."""
     if not home:

@@ -1,6 +1,6 @@
 """Service, watch, seams.
 
-Seat F7 carries one entry TO FIX in this round, Medium: the
+The repair carries one repair entry in this round: the
 audit preflight key count counter in citeline/service.py,
 _front_matter_key_count, parses the JSON front matter block
 of a page inside a try that catches ValueError alone, so a
@@ -15,10 +15,10 @@ a raw RecursionError at any depth, in list shape and in
 record shape alike, at the counter directly, at the audit
 preflight, and through service.audit whole, with no
 failure record appended for the governed refusal of the
-route (restated for Step 19 register item R19-041: a cap
+route (restated for the settled rule: a cap
 refusal stores nothing on every route), while the forms at and below the depth limit stand as
 they stood and the cure at stands whole at its seam. The flip
-depths stand stated honestly per runtime, as the round 15
+depths stand stated honestly per runtime, as the earlier round
 papers measure them: on this machine, Python 3.12.3, the
 counter returns its count at list depth 8000 and raises a raw
 RecursionError at list depths 10000 and past, the flip
@@ -39,9 +39,9 @@ the counter returning its count on shallow JSON forms and on
 the line form, a page nesting at depth 99 standing whole at
 the audit route, the seam cure at standing whole in its
 standing form, and the three container measures agreeing on
-the worked forms of. Oracle: the round 15 disposition,
-Section 3 seat F7 and ruling (d), the round 15 register, and
-the round 15 service, red, and yellow attack papers, filings,
+the worked forms of. Oracle: the settled disposition,
+Section 3 the repair and the settled rule, the earlier register, and
+the earlier round service, red, and yellow attack findingss, filings,
 and R15-Y-06.
 
 Copyright: J.P. Picard aka Macro-Harder."""
@@ -251,15 +251,15 @@ class TestPreflightDeep(SeededBase):
 # Entry through service.audit whole: a past flip form refuses with
 # LIMIT_EXCEEDED and appends no failure record, in list shape
 # and in record shape alike, and the standing forms of the
-# route hold whole. Restated for Step 19 register item
-# R19-041: a cap refusal stores nothing on every route, so
+# route hold whole. Restated for The settled the settled rule
+# The settled rule: a cap refusal stores nothing on every route, so
 # the record count stands unchanged beside the refusal.
 # ----------------------------------------------------------------
 
 class TestAuditRouteDeep(SeededBase):
 
     def test_audit_list_past_flip_refuses_with_failure_record(self):
-        # Restated for Step 19 register item R19-041: a cap
+        # Restated for the settled rule: a cap
         # refusal stores nothing on every route, under the
         # cure in citeline/service.py where
         # _append_failure_record returns without storing
@@ -273,7 +273,7 @@ class TestAuditRouteDeep(SeededBase):
             failure_record_count(self.home), before)
 
     def test_audit_record_past_flip_refuses_with_failure_record(self):
-        # Restated for Step 19 register item R19-041: a cap
+        # Restated for the settled rule: a cap
         # refusal stores nothing on every route, under the
         # cure in citeline/service.py where
         # _append_failure_record returns without storing

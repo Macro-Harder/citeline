@@ -1,10 +1,10 @@
 """Import family.
 
 Test first pins for register to and, from the
-register and the source papers the register paper and
-the register paper (entry 064, Red RED-02). Each test
-reproduces the defect named at its register entry on
-the tree standing after fix round 3 and the round 4
+register and the source papers the settled record and
+the settled record (entry 064, Red RED-02). Each test
+reproduces the defect named under the settled rule on
+the tree standing after the repair and the round 4
 F1 and F2 seats, then stands as the pin for its cure."""
 
 import hashlib
@@ -480,14 +480,14 @@ class Test035ContradictionIdentitySurfaces(ImportBase):
     }
 
     def test_single_import_admits_second_distinct_answer(self):
-        """Contract C2 as relaxed under R19-048, on the single import
+        """Contract C2 as relaxed under the settled rule, on the single import
         preparation surface; a candidate holding a distinct answer
         for the same round, same normalised engine label, same
         query, and same captured_on as a supplied standing record
         is admitted as a new record under its own identity, at one
         import call for the one answer, and the standing record
         stands beside it unchanged. This method stood as the single
-        import pin for S17-R4-035, whose refusal message identity
+        import pin for the settled detection rule, whose refusal message identity
         pin lapses with the refusal itself under the ruling."""
         path = self.temp_answer("A single plain answer text.")
         supplied = dict(self.STANDING)
@@ -520,7 +520,7 @@ class Test035ContradictionIdentitySurfaces(ImportBase):
 
     def test_worksheet_supplied_standing_admits_distinct_answer(
             self):
-        """Contract C2 as relaxed under R19-048, on the worksheet
+        """Contract C2 as relaxed under the settled rule, on the worksheet
         preparation surface; a filled slot holding a distinct
         answer for the same round, same normalised engine label,
         same query, and same captured_on as a standing record
@@ -528,7 +528,7 @@ class Test035ContradictionIdentitySurfaces(ImportBase):
         its own identity, and the supplied record stands as
         supplied, neither joined, overwritten, nor rewritten.
         This method stood as the supplied identity half of
-        S17-R4-035, whose refusal message identity pin lapses
+        the settled detection rule, whose refusal message identity pin lapses
         with the refusal itself under the ruling."""
         path = self.temp_answer(
             sheet_text({1: "First worksheet answer text."}),
@@ -558,14 +558,14 @@ class Test035ContradictionIdentitySurfaces(ImportBase):
 
     def test_control_worksheet_batch_admits_second_distinct_answer(
             self):
-        """Contract C2 as relaxed under R19-048, on the worksheet
+        """Contract C2 as relaxed under the settled rule, on the worksheet
         preparation surface; a second filled slot holding a distinct
         answer for the same round, same normalised engine label,
         same query, and same captured_on as an earlier slot of the
         same sheet is admitted as a new record under its own
         identity, and the earlier slot's record stands beside it
         unchanged. This method stood as the batch internal control
-        for S17-R4-035, whose refusal message identity pin lapses
+        for the settled detection rule, whose refusal message identity pin lapses
         with the refusal itself under the ruling."""
         path = self.temp_answer(sheet_text({
             1: "First worksheet answer text.",
@@ -626,7 +626,7 @@ class Test036WorksheetPreparationCost(ImportBase):
         self.assertLess(elapsed, 10.0)
 
     def test_same_engine_distinct_answers_both_prepared(self):
-        """S17-R4-036 cost cure guard, as superseded under R19-048;
+        """The settled detection rule cost cure guard, as superseded under the settled rule;
         two slots holding distinct answers for the same round, same
         normalised engine label, same query, and same captured_on,
         sharing one preparation bucket, are both prepared, each as

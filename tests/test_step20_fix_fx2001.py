@@ -1,8 +1,7 @@
-"""Step 20 fix wave tests, seat FX20-01.
+"""Repair tests.
 
-Test first cures for register items S20-01, S20-07, S20-08,
-S20-19, S20-21, S20-22, S20-36, and S20-37. Each test names
-its register item and the settled text it pins.
+Test first cures for eight settled rules. Each test names
+the settled text it pins.
 Copyright: J.P. Picard aka Macro-Harder.
 """
 
@@ -27,7 +26,7 @@ GUIDE_EXAMPLE = {"name": "Guide", "aliases": [], "domain": "example.com"}
 
 
 class TestS2001DecodingBeforeHostParsing(unittest.TestCase):
-    """S20-01, High. Brief items 148 and 159, decision D22:
+    """The settled rule. Brief items 148 and 159, the settled decision:
     percent sequences and entities in a link destination are
     decoded exactly once before host parsing."""
 
@@ -79,7 +78,7 @@ class TestS2001DecodingBeforeHostParsing(unittest.TestCase):
 
 
 class TestS2007IdnaFailureCountsNoCitation(unittest.TestCase):
-    """S20-07, Medium. Brief item 42: an IDNA failure is
+    """The settled rule. Brief item 42: an IDNA failure is
     malformed and counts no citation."""
 
     def test_normalise_host_returns_none_on_idna_failure(self):
@@ -104,11 +103,11 @@ class TestS2007IdnaFailureCountsNoCitation(unittest.TestCase):
 
 
 class TestS2008BoundarySets(unittest.TestCase):
-    """S20-08, Medium. Brief item 46 and primitive P5 name a
+    """The settled rule. Brief item 46 and primitive P5 name a
     letter or a digit only; item 40 states host only matching
     with a dot boundary. The mention limb is cured here. The
     bare domain limb stands not cured, as the last test of
-    this class and the fix paper state."""
+    this class and the repair record state."""
 
     def test_mention_flanked_by_underscores_counts(self):
         result = detection.detect_answer(
@@ -127,13 +126,13 @@ class TestS2008BoundarySets(unittest.TestCase):
         self.assertTrue(field(result, "named"))
 
     def test_bare_domain_lookalike_forms_stay_unnamed(self):
-        # The bare domain limb of S20-08 stands NOT cured by
-        # this seat, for the reasons stated in the fix paper:
-        # the shipped Step 17 pins (TestDomainBoundary039,
+        # The bare domain limb of the settled rule stands NOT cured by
+        # this repair, for the reasons stated in the repair record:
+        # the shipped pins (TestDomainBoundary039,
         # TestDomainBoundaryUnderscore038, and the lookalike
         # case of TestSentenceFinalDomain042) pin the wider
         # flank set of _domain_offsets as settled cure
-        # behaviour for lookalike hosts, and DA20-12 filed no
+        # behaviour for lookalike hosts, and the defect audit filed no
         # finding on the domain offsets. This test pins the
         # standing shipped behaviour so the uncured limb is
         # visible in this suite, not silently dropped.
@@ -152,7 +151,7 @@ class TestS2008BoundarySets(unittest.TestCase):
 
 
 class TestS2019ZeroWidthRemoval(unittest.TestCase):
-    """S20-19, Medium. Brief item 152, zero width limb only:
+    """The settled rule. Brief item 152, zero width limb only:
     zero width characters are removed in the matching copy
     only, after NFC and before case folding."""
 
@@ -180,7 +179,7 @@ class TestS2019ZeroWidthRemoval(unittest.TestCase):
 
 
 class TestS2021Ipv6CanonicalForm(unittest.TestCase):
-    """S20-21, Low. Brief item 33: two distinct targets must
+    """The settled rule. Brief item 33: two distinct targets must
     not share one canonical key."""
 
     def test_ipv6_brackets_kept_in_canonical_form(self):
@@ -195,12 +194,12 @@ class TestS2021Ipv6CanonicalForm(unittest.TestCase):
 
 
 class TestS2022DeferredNamedOnce(unittest.TestCase):
-    """S20-22, Low. The second queue statement in
+    """The settled rule. The second queue statement in
     _similar_components: a deferred set stands named once
     and judged once in one pass, in both module copies."""
 
     def _trigger_family(self):
-        # The family the audit paper names: a set deferred at
+        # The family the audit record names: a set deferred at
         # one layer, promoted at a later layer without joining,
         # and deferred again at a still later layer. Eight
         # heavy shingles stand shared by 150 filler sets, so
@@ -270,7 +269,7 @@ class TestS2022DeferredNamedOnce(unittest.TestCase):
 
 
 class TestS2036FirstOffsetSuppliedCoordinates(unittest.TestCase):
-    """S20-36, Low. Brief items 46 and 151: first_offset is a
+    """The settled rule. Brief items 46 and 151: first_offset is a
     position in the text as supplied, not in its NFC form."""
 
     def test_first_offset_after_decomposed_character(self):
@@ -283,7 +282,7 @@ class TestS2036FirstOffsetSuppliedCoordinates(unittest.TestCase):
 
 
 class TestS2037AliasLengthAfterNfc(unittest.TestCase):
-    """S20-37, Low. Brief items 47 and 151: the alias minimum
+    """The settled rule. Brief items 47 and 151: the alias minimum
     length of 3 is judged on the NFC normalised form."""
 
     def test_alias_normalising_to_two_characters_is_refused(self):

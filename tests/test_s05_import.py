@@ -1,4 +1,4 @@
-"""Slice S5 tests: probe import, Step 13, Citeline.
+"""Slice S5 tests: probe import, Citeline.
 
 Written before the product exists. Every test imports the product
 package named citeline and calls the operation signatures the plan
@@ -27,9 +27,9 @@ CONTRADICTORY_IMPORT, row X-8 token UNCOVERED_IMPORT_FORM, row
 X-10 token WRITE_CONTENDED, and row X-16 token
 IMPORT_VALIDATION_FAILED.
 
-The stamp binding rule itself stands blocked on K-18 at plan
+The stamp binding rule itself stands blocked on the open question at plan
 Part B entry B6 and no test in this file pins it; the blocked
-row stands in blocked-w4.md. Matching copy behaviour depending
+row stands in the open items list. Matching copy behaviour depending
 on the item 152 removal set stands blocked on L-CC-3 in CL-L-36
 and no test in this file pins it; the decided limbs around it,
 pipeline order, NFC, and folding, proceed in the F-23 case pair
@@ -364,18 +364,18 @@ class TestAdapterContract(ImportBase):
         CONTROL_CAP_EXCEEDED: a control designation past the cap
         of 5 designated controls in one round for one source kind
         is refused as a usage error naming the cap, and the import
-        writes nothing. Restated in the Step 19 Phase 7 re-pin:
+        writes nothing. Restated in the repair phase re-pin:
         the earlier form of this pin asserted the journal count
         rises by 1 across this refusal, the one record being a
         failure record for the cap refusal itself. That record
-        is the behaviour the R19-041 rule abolished and the
-        Phase 7 cure for P7A1-02 removed: a cap refusal stores
+        is the behaviour the settled rule abolished and the
+        repair cure for the repair item removed: a cap refusal stores
         nothing on every route, and CONTROL_CAP_EXCEEDED stands
         in the cap refusal class beside LIMIT_EXCEEDED and
         JOURNAL_CAP_EXCEEDED, so this refusal stores no failure
         record and the journal count stands unchanged. A non cap
         failure on this appending route still stores exactly one
-        record, per CL19-177, as the neighbouring failure record
+        record, per the settled rule, as the neighbouring failure record
         tests in this file pin."""
         for index in range(5):
             path = self.temp_answer("Control answer %d text.\n" % index,
@@ -484,7 +484,7 @@ class TestDuplicatesAndContradictions(ImportBase):
         """Pins C2 normalisation limb on decided ground. Oracle:
         contract C2 duplicate key over the normalised engine
         label, with the label trimmed and case folded under
-        grill Q19 as plan Section 5.1 states: a label differing
+        the settled answers as plan Section 5.1 states: a label differing
         only in surrounding whitespace and letter case hits the
         same duplicate key."""
         do_import(self.home, FIXTURES / "w4-answer-plain.txt")
@@ -494,8 +494,8 @@ class TestDuplicatesAndContradictions(ImportBase):
         assert_token(self, caught, "DUPLICATE_IMPORT")
 
     def test_second_distinct_answer_admitted_and_first_record_stands(self):
-        """Pins C2 as relaxed under R19-048. Oracle: contract C2
-        as relaxed under R19-048: a distinct content answer for
+        """Pins C2 as relaxed under the settled rule. Oracle: contract C2
+        as relaxed under the settled rule: a distinct content answer for
         the same round, same normalised engine label, same query,
         and same captured_on is admitted as a new record under
         its own identity, at one import call for the one answer,
@@ -743,7 +743,7 @@ class TestRoundStamps(ImportBase):
     first import stamps, through the journal, at
     SEAM-ROUND-STAMP. Oracle: plan Part B entry B6 proceeding
     tests and brief Section 5.2 Round entry. The binding rule
-    itself stands blocked on K-18 and no test here pins it."""
+    itself stands blocked on the open question and no test here pins it."""
 
     def round_state(self):
         report = service.probe_report(
@@ -798,7 +798,7 @@ class TestRoundStamps(ImportBase):
         carries its own import stamps. This test pins the
         writing act and the disclosure values only; which
         registry version a report figure binds to stands blocked
-        on K-18 and no assertion here touches it."""
+        on the open question and no assertion here touches it."""
         first = do_import(self.home, FIXTURES / "w4-answer-plain.txt")
         service.set_aliases(
             home=str(self.home), product=PRODUCT,
@@ -984,7 +984,7 @@ class TestF23CasePairDesign(ImportBase):
     decided limbs only: pipeline order, NFC, and folding. No
     assertion in this class pins which characters the item 152
     removal removes: that behaviour stands blocked on L-CC-3 in
-    CL-L-36 and stands in blocked-w4.md. The pair becomes a
+    CL-L-36 and stands in the open items list. The pair becomes a
     proceeding test when the plan names the folding operation,
     on the pinning condition terms; until then its assertions
     stand as the design this entry charges."""
@@ -1009,7 +1009,7 @@ class TestF23CasePairDesign(ImportBase):
         locale independent; a call delivering only simple or
         locale sensitive lowering does not meet this character.
         The engine label normalisation at probe import (trimmed
-        and case folded under grill Q19) is a named consumer of
+        and case folded under the settled answers) is a named consumer of
         the one folding operation."""
         record = do_import(
             self.home, FIXTURES / "w4-answer-plain.txt",

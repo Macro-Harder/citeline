@@ -13,17 +13,17 @@ this file. Dates are call inputs in every test; no test reads a date
 from a clock.
 
 Every test method docstring names the matrix row it pins by section
-qualified identifier and the oracle passage. Trade T-7 settled key (register R1-050): the Agentic envelope key
+qualified identifier and the oracle passage. Trade T-7 settled key (register the settled rule): the Agentic envelope key
 stands settled as report, the key the plan Agentic shape statement
 names for the report payload; this module, the owned side of the
 forms, pins that key, and the S3 side conforms to it. Status
 dependent limbs
-stand blocked and stand filed in blocked-w6.md, not written here:
-the failed and warned ordering limb on CL-16 at B1, its top adverse
-reasons selection limb on CL-16 and L-CC-6 together, AuditRun
+stand blocked and stand filed in the open items list, not written here:
+the failed and warned ordering limb on the settled claim at B1, its top adverse
+reasons selection limb on the settled claim and L-CC-6 together, AuditRun
 facts_counts on L-CC-4, the html_variant_claim presentation on
-L-CC-5, and the IM7-BRK-11 severed Simple classification limb on
-CL-13 at K-13 inside B2.
+L-CC-5, and the settled landing severed Simple classification limb on
+the settled claim at the open question inside B2.
 """
 
 import hashlib
@@ -377,7 +377,7 @@ class TestCommonCarry(ReportingBase):
         """Pins plan Section 1.3 S9, common carry, evaluated page
         path with its path defaulted companion, defaulted case.
         Oracle: brief Section 5.5 commitment (e) as amended by
-        IM7-BRK-10: every audit output and every robots output, in
+        the settled landing: every audit output and every robots output, in
         every form, shows the evaluated page path with the value
         the call used, including where the value is the default
         root path, and beside it whether that path was defaulted; a
@@ -487,8 +487,8 @@ class TestRenderingSafety(ReportingBase):
         characters, and the artefact contains no JSON object syntax
         (brief Section 5.5 Simple distinguishing criteria).
 
-        Step 19 case look correction (U-09 remainder,
-        design/audit/step-19-case-u09.md): this pin is restated to
+        Case look correction (
+        the audit record this pin is restated to
         pin exactly what the brief defines. Its earlier form also
         required the Markdown link target bit of HOSTILE_BITS,
         javascript:alert(1), to stand in the Simple artefact. The
@@ -518,13 +518,13 @@ class TestRenderingSafety(ReportingBase):
         JSON value (brief Section 5.5 Agentic conformance) yields
         the same values as the Advanced artefact.
 
-        Step 19 Phase 8 record correction (triage item U-10): this
+        Record correction: this
         pin is restated to pin exactly what the brief defines. Its
         earlier form also required every stored text value of the
         audit record, the page sentences among them, to stand in
         the JSON forms. Purple graded that limb TEST OVERREACH
-        (design/audit/step-19-phase8-purple.md, Resolution 3),
-        upheld by the Phase 8 triage: the brief AuditRun field
+        (the audit record, Resolution 3),
+        upheld by the triage: the brief AuditRun field
         list defines no sentences field; sentences is a field of
         ExtractedPage and reaches the Simple form only, so no
         defined route carries page sentences into the Advanced or
@@ -615,10 +615,10 @@ class TestReverseTrace(ReportingBase):
 
     Named gaps carried visibly through every later stage that
     would have consumed them: the per check status word stands as
-    a named gap at SEAM-STATUS, BLOCKED-ON CL-16, and no status
+    a named gap at SEAM-STATUS, BLOCKED-ON the settled claim, and no status
     word value stands in any rendered form in this class; the
     empty extraction score stands as a named gap at
-    SEAM-SCORE-EMPTY, BLOCKED-ON K-20, shown nowhere as a value,
+    SEAM-SCORE-EMPTY, BLOCKED-ON the open question, shown nowhere as a value,
     and no empty extraction score value stands in any rendered
     form in this class. The checks blob comparison is not the
     only treatment of the status word: the gap tests below name
@@ -626,7 +626,8 @@ class TestReverseTrace(ReportingBase):
     values in the audit, guide, and probe stages that would have
     consumed them."""
 
-    TRACE_GAPS = (("SEAM-STATUS", "CL-16"), ("SEAM-SCORE-EMPTY", "K-20"))
+    TRACE_GAPS = (("SEAM-STATUS", "the settled claim"),
+                  ("SEAM-SCORE-EMPTY", "the open question"))
 
     def seed_shared_trace_set(self):
         """The shared material set stated in the class docstring:
@@ -641,7 +642,7 @@ class TestReverseTrace(ReportingBase):
 
     def test_named_gaps_carry_through_every_later_stage(self):
         """Pins plan Section 1.5, the named gaps at SEAM-STATUS
-        (BLOCKED-ON CL-16) and SEAM-SCORE-EMPTY (BLOCKED-ON K-20):
+        (BLOCKED-ON the settled claim) and SEAM-SCORE-EMPTY (BLOCKED-ON the open question):
         each gap stands named by seam and open item in this trace
         material, and no status word value and no empty extraction
         score value stands in the audit, guide, or probe artefacts
@@ -822,7 +823,7 @@ class TestReverseTrace(ReportingBase):
         25. Superseded at under defect E-04: the earlier form of
         this test asserted table_version 1. The disposition,
         ruling on the brief Section 5.6 version rule on the S4
-        seat reading, displaces that form: the round 1 fix wave
+        repair reading, displaces that form: the round 1 repair wave
         changed the evidence label value on four shipped rows
         and restored two stated fields across the shipped rows
         in one published revision, and the rule counts one bump
@@ -956,12 +957,12 @@ class TestDetachedArtefactConformance(ReportingBase):
     1.3 S9 and IM2-INV-2: fields that must survive detachment,
     listed per artefact. The per artefact list stands carried by
     name in the plan closing list (the detached artefact field
-    list, owner the Step 13 test designer, due at Step 13 before
+    list, owner the test designer, due before
     the S9 closure), and this family stands on that carry: the
     lists stated in this class are that carry as this writer
     states it, per artefact, from the Section 5.1 shapes."""
 
-    # Superseded in part by the Step 19 U-11 cure: the
+    # Superseded in part by the settled cure: the
     # Advanced audit artefact carries only the traced field
     # set, so audit_date_is_run_date and limits_in_force,
     # which stand outside that set, no longer stand in the
@@ -1226,8 +1227,7 @@ class TestReportingBounds(ReportingBase):
     def test_third_party_scope_line_in_the_bounds_section_every_form(self):
         """Pins plan Section 1.3 S9, reporting bounds, third party
         scope line. Oracle: plan slice S9 bounds passage and the
-        Captain JP ruling carried in memory (third party mentions
-        stay out): every report form carries one scope line in its
+        the settled rule (third party mentions stay out): every report form carries one scope line in its
         bounds section stating that third party mentions stand
         outside version 1 measurement and that no figure in the
         artefact speaks for them; the line carries no third party
@@ -1380,7 +1380,7 @@ class TestReportingBounds(ReportingBase):
 
 class TestQuerySetReport(ReportingBase):
     """Row S9 QuerySetReport as an artefact. Oracle: brief Section
-    5.12 IM7-DIV-4 landing and plan Section 5.1 QuerySetReport
+    5.12 settled landing and plan Section 5.1 QuerySetReport
     entry. Counts below stand hand computed from the seeded query
     set at authoring time: four query strings; interrogative 2
     (the two What forms), comparison 1 (the vs form), named product
@@ -1405,7 +1405,7 @@ class TestQuerySetReport(ReportingBase):
 
     def test_counts_hand_computed_from_the_query_set(self):
         """Pins plan Section 1.3 S9, QuerySetReport counts. Oracle:
-        brief Section 5.12 IM7-DIV-4 landing: the report classifies
+        brief Section 5.12 settled landing: the report classifies
         each query string by surface form only under the four
         forms, and reports the count of query strings, a count for
         each form, a duplicate count on the pinned normalisation
@@ -1442,7 +1442,7 @@ class TestQuerySetReport(ReportingBase):
 
     def test_overlap_and_coverage_statements_in_every_form(self):
         """Pins plan Section 1.3 S9, QuerySetReport statements.
-        Oracle: brief Section 5.12 IM7-DIV-4 landing: the overlap
+        Oracle: brief Section 5.12 settled landing: the overlap
         statement stands in the report in plain words beside the
         counts, in every form; every form states that form
         coverage is a property of the question list, not of
@@ -1459,7 +1459,7 @@ class TestQuerySetReport(ReportingBase):
 
 class TestRobotsPreview(ReportingBase):
     """Row S9 RobotsPreview as an artefact. Oracle: plan Section
-    5.1 RobotsPreview entry in severed form (IM7-DIV-7) and plan
+    5.1 RobotsPreview entry in severed form (the settled landing) and plan
     Part B entry B8: the preview artefact stands in full and
     unstored, with its own field list kept in its own named place
     outside the RobotsReport closure. No stored preview and no
@@ -1532,7 +1532,7 @@ class TestRobotsPreview(ReportingBase):
         self.assertIsNone(
             field(row, "defect_flag_change"),
             "a defect flag change stands only on a search "
-            "purpose row under DQ-3, and the wildcard row is "
+            "purpose row under the settled robots rule, and the wildcard row is "
             "no single purpose row, so no change stands")
 
     def test_preview_dates_supplied_and_omitted_forms(self):
@@ -1577,8 +1577,8 @@ class TestRobotsPreview(ReportingBase):
         next_refresh_due_date. Superseded at under defect E-04, on
         its literal table_version assertion only: the earlier form
         of this test asserted table_version 1. The disposition,
-        ruling on the brief Section 5.6 version rule on the S4 seat
-        reading, displaces that form: the round 1 fix wave changed
+        ruling on the brief Section 5.6 version rule on the S4 repair
+        reading, displaces that form: the round 1 repair wave changed
         the evidence label value on four shipped rows and restored
         two stated fields across the shipped rows in one published
         revision, and the rule counts one bump per published table
@@ -1614,8 +1614,8 @@ class TestRobotsPreview(ReportingBase):
 
 
 class TestControlFailureNotice(ReportingBase):
-    """Row S9 notice N-L1-2. Oracle: brief Section 5.8 IM7-ANA-2
-    landing, on the K-08 cure, carried at the S9 entry: the control
+    """Row S9 notice N-L1-2. Oracle: brief Section 5.8 the settled landing
+    landing, on the open question cure, carried at the S9 entry: the control
     failure notice stands outside the warning vocabulary entirely;
     it is not a warning kind, it stands in no warning list this
     slice renders, and no reading form presents it as a warning; it
@@ -1652,7 +1652,7 @@ class TestControlFailureNotice(ReportingBase):
 
     def test_failed_control_notice_stands_in_its_own_form_every_form(self):
         """Pins plan Section 1.3 S9, notice N-L1-2, presence limb.
-        Oracle: brief Section 5.8 IM7-ANA-2 landing: where a
+        Oracle: brief Section 5.8 settled landing: where a
         control outcome contradicts its asserted kind, the round
         report carries the control failure notice in all three
         forms, in Simple in words, in Advanced as a structured
@@ -1667,7 +1667,7 @@ class TestControlFailureNotice(ReportingBase):
 
     def test_notice_stands_in_no_warning_list_and_as_no_warning_kind(self):
         """Pins plan Section 1.3 S9, notice N-L1-2, vocabulary limb.
-        Oracle: brief Section 5.8 IM7-ANA-2 landing on the K-08
+        Oracle: brief Section 5.8 settled landing on the open question
         cure: the notice is not a warning kind, it enters no part
         of the closed warning vocabulary, and no reading form
         presents it as a warning, so no warning list in any form
@@ -1687,7 +1687,7 @@ class TestControlFailureNotice(ReportingBase):
 
     def test_passing_control_round_carries_no_notice(self):
         """Pins plan Section 1.3 S9, notice N-L1-2, absence limb.
-        Oracle: brief Section 5.8 IM7-ANA-2 landing: the notice
+        Oracle: brief Section 5.8 settled landing: the notice
         stands where a control outcome contradicts its asserted
         kind, and a passed control is never presented as detector
         validation; a round whose designated control passes
@@ -1705,7 +1705,7 @@ class TestGuideArtefactTexts(ReportingBase):
     against all three fixed guide texts at Section 5.12, the
     rendering rule, the refusal sentence, and the citation only
     sentence, each verbatim where it applies) and brief Section
-    5.12 IM7-BRK-13 and IM7-DIV-3 landings."""
+    5.12 the settled landing and settled landings."""
 
     def guide_draft(self, page):
         record = audit_page(self.home, page)
@@ -1732,7 +1732,7 @@ class TestGuideArtefactTexts(ReportingBase):
 
     def test_selection_statements_verbatim_in_every_form(self):
         """Pins plan Section 1.3 S9, guide artefact selection
-        statements. Oracle: brief Section 5.12 IM7-BRK-13 landing:
+        statements. Oracle: brief Section 5.12 settled landing:
         two statements are fixed verbatim and print in those words
         in the guide artefact in every form the draft ships in;
         the fallback statement where the fallback is used, and the
@@ -1749,7 +1749,7 @@ class TestGuideArtefactTexts(ReportingBase):
 
     def test_simple_group_labels_verbatim_in_class_order(self):
         """Pins plan Section 1.3 S9, guide artefact group labels.
-        Oracle: brief Section 5.12 IM7-DIV-3 landing rendering per
+        Oracle: brief Section 5.12 settled landing rendering per
         form: in Simple the actions print grouped in class order,
         cap_first first, then score_check, then any
         defect_not_score action, each group under its fixed label

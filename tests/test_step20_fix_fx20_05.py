@@ -1,13 +1,10 @@
-"""Step 20 fix tests, seat FX20-05, journal and status.
+"""Repair tests: journal and status.
 
-Items cured, one class per item: R19-038 (delegated
-decision 12, entry_count counts valid entries only),
-R19-033 (delegated decision 1, the anchor append bar
-goes), R19-036 (delegated decision 2, status over a
-missing home at exit 2 and the shipped text correction),
-and R19-051 (delegated decision 3, status states when
-the head hash recording stands due). Written before the
-cure, under the test first rule.
+Items cured, one class per item: entry_count counts valid
+entries only; the anchor append bar goes; status over a
+missing home at exit 2 with the shipped text correction;
+and status states when the head hash recording stands
+due. Written before the cure, under the test first rule.
 """
 
 import hashlib
@@ -59,7 +56,7 @@ class HomeCase(unittest.TestCase):
 
 
 class ValidEntryCountTests(HomeCase):
-    """R19-038, decision 12: entry_count counts valid
+    """The settled rule: entry_count counts valid
     entries only. A complete corrupt line is reported as
     corruption in the same output and is not counted as
     an entry, exactly as a torn partial line is not."""
@@ -88,7 +85,7 @@ class ValidEntryCountTests(HomeCase):
 
     def test_first_entry_corrupt_counts_zero_and_absence_form(self):
         # The restated governed pin case, decided in the
-        # seat paper: the distinct absence form stands on
+        # repair notes: the distinct absence form stands on
         # the head text, and the count is the valid count.
         self.append_product("A", "p-a")
         line = bytearray(self.journal_lines()[0])
@@ -121,7 +118,7 @@ class ValidEntryCountTests(HomeCase):
 
 
 class AnchorAppendTests(HomeCase):
-    """R19-033, decision 1: appends proceed over a stale,
+    """The settled rule: appends proceed over a stale,
     missing, or malformed anchor and rewrite the anchor.
     The disagreement stands reported in the append result
     and in status and verify until the anchor agrees."""
@@ -179,10 +176,10 @@ class AnchorAppendTests(HomeCase):
         self.check_proceeds("torn")
 
     def test_divergent_anchor_append_stands_barred(self):
-        # Decision 1 names stale, missing, and malformed.
+        # The settled decision names stale, missing, and malformed.
         # A divergent recording, a head standing nowhere
         # in the chain, is the honest forgery case of plan
-        # pair IM2-INV-3, whose facts decision 1 does not
+        # pair IM2-INV-3, whose facts the settled decision does not
         # reach: its bar stands exactly as it stood, and
         # the disagreement stands reported in status.
         anchor = self.anchored_home(3)
@@ -225,7 +222,7 @@ class AnchorAppendTests(HomeCase):
 
 
 class StatusMissingHomeTests(HomeCase):
-    """R19-036, decision 2: status over a missing home
+    """The settled rule: status over a missing home
     returns exit 2 with HOME_MISSING. The shipped sentence
     that status returns 0 in every case is corrected to
     except a missing home."""
@@ -269,7 +266,7 @@ class StatusMissingHomeTests(HomeCase):
 
 
 class HeadHashRecordingTests(HomeCase):
-    """R19-051, decision 3: the head hash duty stays
+    """The settled rule: the head hash duty stays
     manual and the hash stays stored outside the home in
     version 1. Status output states plainly when the
     recording stands due."""

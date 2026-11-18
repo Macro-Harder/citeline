@@ -1,6 +1,6 @@
-"""Step 19 repair test for R19-085, not applicable earned.
+"""Repair test: not applicable earned.
 
-Oracle: CL19-190 as reproduced in the register, a
+Oracle: the settled rule, a
 check with status not_applicable carries no earned
 fraction and no presence reason; description
 consistency on a supplied file audit stands with no

@@ -128,7 +128,7 @@ _LIMIT_INDEX = {row[0]: index + 1 for index, row in enumerate(_LIMIT_TABLE)}
 _SIZE_MULTIPLIERS = {"MiB": 1024 ** 2, "KiB": 1024, "GiB": 1024 ** 3}
 
 # Canonical number scales, by leaf member name, on decision
-# D-KF-14-NUM: earned at 3 decimal places, the score value
+# The settled decision: earned at 3 decimal places, the score value
 # at 1, and rates, interval bounds, and shares at 6.
 _SCALE_BY_KEY = {
     "earned": 3,
@@ -1771,7 +1771,7 @@ def parse_config(text, home=None):
     # valid combination fails on an unstated relation
     # (the relations themselves
     # stand stated in the design plan at decision
-    # D-KF-15-RANGE as forced dependencies under row X-1):
+    # The settled decision as forced dependencies under row X-1):
     # front_matter_size_after_alias_expansion stands at
     # or above front_matter_block_size, and
     # evidence_spans_per_report stands at or above
@@ -3472,7 +3472,7 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
             anchor_state, recorded = _read_anchor(resolved_anchor)
             # Anchor disagreement is a reported position,
             # never a barring ground, for the three forms
-            # delegated decision 1 names: an append over a
+            # the settled decision names: an append over a
             # stale, missing, or malformed anchor proceeds
             # and rewrites the anchor, and the disagreement
             # that stood at the append stands reported in
@@ -3484,7 +3484,7 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
             # that stands nowhere in the chain, is not one
             # of the three forms: it is the honest forgery
             # case of the plan pair IM2-INV-3, whose facts
-            # decision 1 does not reach, and its bar stands
+            # the settled decision does not reach, and its bar stands
             # exactly as it stood.
             if anchor_state == "ok" and \
                     _agreement_for(recorded, scan) == "divergent":

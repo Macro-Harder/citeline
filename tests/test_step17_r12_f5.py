@@ -1,21 +1,19 @@
-# fix seat F5 tests, verdict form only.
-# Seat F5 carries no TO FIX entry in fix round 12. The
-# family stands in its refusal form at ruling (l) of the
-# round 12 disposition, extending, REFUSED in exact form
-# in the fix round 10 seat F5 paper, carried to the
-# closing wave gate record and to the Step 18 packet as
-# an open decision named for the Manager and Captain JP.
-# These tests pin the verdicts of this seat on the cured
+# Verdict form tests only.
+# The repair carries no repair entry. The family
+# stands in its refusal form under the settled
+# disposition, extending, REFUSED in exact form in the
+# repair record, carried to the closing record and to
+# the earlier packet as an open decision.
+# These tests pin the verdicts of this repair on the cured
 # tree as it stands: the two copies of
-# _similar_components standing byte identical; the round
-# 10 cure standing exact against direct pair
-# computations on the differential forms of this seat,
-# written from the rule; and the four Red round 10
-# constructions standing at the behaviour the papers
-# record at the scales these pins run, process CPU time,
+# _similar_components standing byte identical; the earlier
+# cure standing exact against direct pair computations on
+# the differential forms, written from the rule; and the
+# four Red constructions standing at the recorded behaviour
+# at the scales these pins run, process CPU time,
 # construction excluded, the singleton result judged at
 # every cost scale. No product module stands edited by
-# this seat.
+# this repair.
 # Copyright: J.P. Picard aka Macro-Harder.
 
 import random
@@ -29,7 +27,7 @@ def _function_text(module):
     # The _similar_components text of a module, read from
     # its source file, from the def line through the last
     # line of the function, in the counting form the fix
-    # round 10 paper states at 34,214 characters.
+    # the earlier round paper states at 34,214 characters.
     import inspect
     source = inspect.getsource(module)
     start = source.index("def _similar_components")
@@ -214,7 +212,7 @@ def _distinct_seed_size_family(count):
 
 def _band_family(count, low, span, pool_size, seed=11):
     # The Red first, second, and fourth constructions in
-    # one form, as the round 10 test file states them.
+    # one form, as the earlier test file states them.
     rng = random.Random(seed)
     pool_list = list(range(pool_size))
     return [set(rng.sample(pool_list, low + (index % span)))
@@ -222,7 +220,7 @@ def _band_family(count, low, span, pool_size, seed=11):
 
 
 def _pair_family(pairs):
-    # The Red third construction, as the round 10 test
+    # The Red third construction, as the earlier round test
     # file states it.
     common_first = set(range(900))
     common_second = set(range(900, 1800))
@@ -272,9 +270,9 @@ class TestR12F5ByteIdentity(unittest.TestCase):
 
 
 class TestR12F5CureCorrectnessDifferentials(unittest.TestCase):
-    # The round 10 cure stands exact against direct pair
+    # The repair cure stands exact against direct pair
     # computations on the differential forms of this
-    # seat, in both copies.
+    # repair, in both copies.
 
     def test_allowance_sweep_seed_480_both_copies(self):
         type_sets = _allowance_sweep(480, 4)
@@ -357,7 +355,7 @@ class TestR12F5ConstructionCostPins(unittest.TestCase):
     # pins run, process CPU time, construction excluded,
     # the singleton result judged at every scale. The
     # bounds stand wide against the measured standings
-    # of the round 12 papers, as verdict pins on the
+    # of the earlier round papers, as verdict pins on the
     # cured behaviour and not as backstop measurements.
 
     def _run_inside_bound(self, module, type_sets, bound):
@@ -392,16 +390,15 @@ class TestR12F5ConstructionCostPins(unittest.TestCase):
         self._run_inside_bound(metrics, _pair_family(500), 15.0)
 
     # The two fourth construction pins below stand
-    # re-pinned under the ruling of Captain JP of
-    # 2026-11-16, in her words: "Just remove the two
-    # minute limit." The two minute limit stands removed
+    # re-pinned under the settled rule. The two minute
+    # limit stands removed
     # for this family, so these pins assert the
     # correctness standing of the family at this scale,
     # the singleton result judged, and no time bound
     # assertion on this family stands in their place.
     # Their old form, the same construction at this scale
     # against a bound of 40.0 seconds of process CPU
-    # time, stands recorded in the fix papers of rounds
+    # time, stands recorded in the repair records of rounds
     # 10 to 13 in its standing as a pin form derived from
     # the backstop judgement on this family.
 

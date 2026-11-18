@@ -1,6 +1,6 @@
 """Journal family.
 
-Each defect pin states one entry of the register paper.
+Each defect pin states one entry of the settled record.
 Entry: append_entry stores its extended scan cache
 entry after the last judgement of the call, on a stat
 key taken from the journal path as it then stands, so a
@@ -22,14 +22,14 @@ lstat reading of the post write judgement the earlier
 cure added stands refused in the vocabulary and the
 remedy form of its site, and a plant at the return of
 the lstat reading of the further rejudgement the cure
-of this round adds, the last judgement of its road,
+of the round adds, the last judgement of its road,
 stands pinned in its bounded form, equivalent to a
 rename after the call returns, which no judgement
-inside the call reaches, in the form the fix paper in
+inside the call reaches, in the form the settled record in
 the register states. The plants below wrap os.lstat and
 rename the target at the return of the counted call on
 that path, returning the stale stat result the caller
-already read, in the form the round 17 attack papers
+already read, in the form the earlier round attack findingss
 state. Counted calls stand measured on the uncured tree
 with the scan cache cleared: journal append, journal
 path 5 calls; replay resume, journal path 5 calls; lock

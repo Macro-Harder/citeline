@@ -1,4 +1,4 @@
-"""Step 13 tests for slice S0, journal and store foundation.
+"""Tests for slice S0, journal and store foundation.
 
 Written before the product. No product code exists for this
 build, so every test here stands red by import or attribute
@@ -24,15 +24,14 @@ Section 1.5 date handling terms. Expectations stand hand
 computed from the cited passage. No golden file recorded
 from a run stands as a sole expectation source. The entry
 14 vectors stand published in the plan at decision
-D-KF-14-VECTORS; two of their hashes (V-01 and V-16) were
+the settled decision; two of their hashes (V-01 and V-16) were
 recomputed by hand with SHA-256 over the stated bytes at
 authoring time and matched.
 
-Suite convention recorded for this module (Step 13 test
-audit round 1, entries R1-007 and R1-010). The operations
+Suite convention recorded for this module (audit round 1, entries the settled rule and the settled rule). The operations
 verify and status are called at the service home,
 citeline.service.status and citeline.service.verify, with
-the keyword input home and no form input (entry R1-090);
+the keyword input home and no form input (entry the settled rule);
 formed output of a standing result goes through the
 rendering act the reporting slice pins. The journal home,
 citeline.journal, keeps the fold level helpers with no
@@ -55,7 +54,7 @@ the name .citeline-write.lock, as the concurrency tests
 already use.
 
 Exact spellings pinned in this module stand on this
-convention where no passage states them (entry R1-010):
+convention where no passage states them (entry the settled rule):
 the status and verify result keys passed, chain_fails,
 exit_code, claim, head, head_hash, entry_count, home_path,
 home_size, capacity_outlook, anchor, error_value, and row,
@@ -154,7 +153,7 @@ def canonical_line(payload, sequence, previous_hash, kind="product_registered"):
     """Hand rendering of one canonical line for structural tests.
 
     Built from plan Part 1 Section 2.1 and decisions
-    D-KF-14-ESC, D-KF-14-UNIT, and D-KF-14-HASHSELF: keys
+    the settled decision, the settled decision, and the settled decision: keys
     ordered by Unicode code point, comma and colon with no
     space, minimal escaping, UTF-8, entry_hash omitted,
     previous_hash null at sequence 1. Payloads used with
@@ -237,102 +236,102 @@ class Entry14FormTests(HomeCase):
     def test_v01_product_registered(self):
         """Row plan Section 1.3 S0 entry 14 form, vector V-01.
         Oracle: plan Part 1 Section 2.5 and decision
-        D-KF-14-VECTORS, vector V-01."""
+        the settled decision, vector V-01."""
         self.check_vector("V-01")
 
     def test_v02_registry_change(self):
         """Row plan Section 1.3 S0 entry 14 form, vector V-02.
         Oracle: plan Part 1 Section 2.5 and decision
-        D-KF-14-VECTORS, vector V-02."""
+        the settled decision, vector V-02."""
         self.check_vector("V-02")
 
     def test_v03_round_named(self):
         """Row plan Section 1.3 S0 entry 14 form, vector V-03.
         Oracle: plan Part 1 Section 2.5 and decision
-        D-KF-14-VECTORS, vector V-03."""
+        the settled decision, vector V-03."""
         self.check_vector("V-03")
 
     def test_v04_snapshot_registered(self):
         """Row plan Section 1.3 S0 entry 14 form, vector V-04.
         Oracle: plan Part 1 Section 2.5 and decision
-        D-KF-14-VECTORS, vector V-04."""
+        the settled decision, vector V-04."""
         self.check_vector("V-04")
 
     def test_v05_audit_record(self):
         """Row plan Section 1.3 S0 entry 14 form, vector V-05.
         Oracle: plan Part 1 Section 2.5 and decision
-        D-KF-14-VECTORS, vector V-05."""
+        the settled decision, vector V-05."""
         self.check_vector("V-05")
 
     def test_v06_answer_imported(self):
         """Row plan Section 1.3 S0 entry 14 form, vector V-06.
         Oracle: plan Part 1 Section 2.5 and decision
-        D-KF-14-VECTORS, vector V-06."""
+        the settled decision, vector V-06."""
         self.check_vector("V-06")
 
     def test_v07_guide_record(self):
         """Row plan Section 1.3 S0 entry 14 form, vector V-07.
         Oracle: plan Part 1 Section 2.5 and decision
-        D-KF-14-VECTORS, vector V-07."""
+        the settled decision, vector V-07."""
         self.check_vector("V-07")
 
     def test_v08_limit_raise(self):
         """Row plan Section 1.3 S0 entry 14 form, vector V-08.
         Oracle: plan Part 1 Section 2.5 and decision
-        D-KF-14-VECTORS, vector V-08."""
+        the settled decision, vector V-08."""
         self.check_vector("V-08")
 
     def test_v09_failure_record(self):
         """Row plan Section 1.3 S0 entry 14 form, vector V-09.
         Oracle: plan Part 1 Section 2.5 and decision
-        D-KF-14-VECTORS, vector V-09."""
+        the settled decision, vector V-09."""
         self.check_vector("V-09")
 
     def test_v10_correction(self):
         """Row plan Section 1.3 S0 entry 14 form, vector V-10.
         Oracle: plan Part 1 Section 2.5 and decision
-        D-KF-14-VECTORS, vector V-10."""
+        the settled decision, vector V-10."""
         self.check_vector("V-10")
 
     def test_v11_non_ascii_escaping(self):
         """Row plan Section 1.3 S0 entry 14 form, collision
         pair class non ASCII escaping, under the second
         status value (writable after entry 14 lands).
-        Oracle: decision D-KF-14-ESC, option (a) minimal
+        Oracle: the settled decision, option (a) minimal
         escaping, every non ASCII character as itself in
-        UTF-8, and decision D-KF-14-VECTORS, vector V-11."""
+        UTF-8, and the settled decision, vector V-11."""
         self.check_vector("V-11")
 
     def test_v12_null_value(self):
         """Row plan Section 1.3 S0 entry 14 form, vector V-12.
-        Oracle: decision D-KF-14-RENDER, a null field renders
-        as null, and decision D-KF-14-VECTORS, vector V-12."""
+        Oracle: the settled decision, a null field renders
+        as null, and the settled decision, vector V-12."""
         self.check_vector("V-12")
 
     def test_v13_empty_list_and_empty_string(self):
         """Row plan Section 1.3 S0 entry 14 form, vector V-13.
-        Oracle: decision D-KF-14-RENDER, an empty list renders
+        Oracle: the settled decision, an empty list renders
         as an empty array and an empty string as an empty
         string, the four forms pairwise distinct, and
-        decision D-KF-14-VECTORS, vector V-13."""
+        the settled decision, vector V-13."""
         self.check_vector("V-13")
 
     def test_v14_rounding_edges(self):
         """Row plan Section 1.3 S0 entry 14 form, collision
         pair class rounding edges and bare float forms,
         under the second status value. Oracle: decision
-        D-KF-14-NUM, earned at 3 decimal places, score at 1,
+        the settled decision, earned at 3 decimal places, score at 1,
         rates at 6, trailing zeros kept, and decision
-        D-KF-14-VECTORS, vector V-14."""
+        the settled decision, vector V-14."""
         self.check_vector("V-14")
 
     def test_v15_chain_entry_one_alone(self):
         """Row plan Section 1.3 S0 entry 14 form, vector V-15
-        rendering limb. Oracle: decision D-KF-14-VECTORS,
+        rendering limb. Oracle: the settled decision,
         vector V-15. The chain construction itself stands at
         the V-15 and V-16 pair test below, on Section 2.5
-        construction terms. Severance recorded (Step 13
-        test audit round 1, entry R1-011): this test is a
+        construction terms. Severance recorded (the earlier
+        test audit round 1, entry the settled rule): this test is a
         rendering limb outside the Section 2.5 construction,
         which states one home per vector with V-15 and V-16
         together in one home, as auditor 02 records at this
@@ -365,18 +364,18 @@ class Entry14FormTests(HomeCase):
     def test_v17_collision_cases(self):
         """Row plan Section 1.3 S0 entry 14 form, collision
         pair class bare float forms, under the second status
-        value. Oracle: decision D-KF-14-NUM: 1 renders as an
+        value. Oracle: the settled decision: 1 renders as an
         integer, a score scale value renders as 1.0, and true
         renders as the literal, so the three forms stand in
-        distinct bytes, and decision D-KF-14-VECTORS,
+        distinct bytes, and the settled decision,
         vector V-17."""
         self.check_vector("V-17")
 
     def test_v18_negative_zero_integer(self):
         """Row plan Section 1.3 S0 entry 14 form, collision
         pair class negative zero, under the second status
-        value. Oracle: decision D-KF-14-NUM, a negative zero
-        integer renders as 0, and decision D-KF-14-VECTORS,
+        value. Oracle: the settled decision, a negative zero
+        integer renders as 0, and the settled decision,
         vector V-18."""
         self.check_vector("V-18")
 
@@ -384,15 +383,15 @@ class Entry14FormTests(HomeCase):
         """Row plan Section 1.3 S0 entry 14 form, collision
         pair class negative zero at a non integer scale,
         under the second status value. Oracle: decision
-        D-KF-14-NUM, a negative zero at 1 decimal place
+        the settled decision, a negative zero at 1 decimal place
         renders as 0.0 with no minus sign, and decision
-        D-KF-14-VECTORS, vector V-19."""
+        the settled decision, vector V-19."""
         self.check_vector("V-19")
 
     def test_v20_null_and_absent_in_one_entry(self):
         """Row plan Section 1.3 S0 entry 14 form, vector V-20.
-        Oracle: decision D-KF-14-RENDER and decision
-        D-KF-14-VECTORS, vector V-20: robots_summary stands
+        Oracle: the settled decision and decision
+        the settled decision, vector V-20: robots_summary stands
         present with a null value, and section_breakdown
         stands omitted from the one CheckResult the payload
         carries, in a single entry."""
@@ -405,19 +404,19 @@ class Entry14FormTests(HomeCase):
 
     # Supersession note: the former byte changed limb,
     # test_byte_changed_limb_fails_verify, asserted plan
-    # Section 2.5 against decisions D-KF-14-HASHSELF and
-    # D-KF-14-RENDER and brief grill Q12, and stands
-    # restated on the Step 19 case adjudication U-01
+    # Section 2.5 against decisions the settled decision and
+    # The settled decision and brief the settled answers, and stands
+    # restated on the build case adjudication
     # (design/audit/step-19-case-u01.md) as the two tests
     # below.
 
     def test_byte_changed_last_entry_passes_internal_only(self):
         """Row plan Section 1.3 S0 entry 14 form, byte changed
         limb, last entry form. Oracle: decision
-        D-KF-14-RENDER (no hash comparison stands as a
+        the settled decision (no hash comparison stands as a
         verify step for the last entry; verify claims
         internal consistency only) with decision
-        D-KF-14-HASHSELF and brief grill Q12. Run here over
+        the settled decision and brief the settled answers. Run here over
         V-01, V-08, and V-16 in its chain home, each changed
         entry standing as the last entry of its home."""
         _, _, text, _ = VECTOR_BY_ID["V-01"]
@@ -446,7 +445,7 @@ class Entry14FormTests(HomeCase):
     def test_byte_changed_non_last_entry_fails_verify(self):
         """Row plan Section 1.3 S0 entry 14 form, byte changed
         limb, non last entry form. Oracle: decision
-        D-KF-14-RENDER, verify hash basis limb (the
+        the settled decision, verify hash basis limb (the
         recomputed hash stands compared against the
         previous_hash the next entry carries). Run here over
         the V-15 and V-16 chain home with one character
@@ -461,12 +460,12 @@ class Entry14FormTests(HomeCase):
 
     def test_collision_pairs_at_construction_point(self):
         """Row plan Section 1.3 S0 entry 14 form, typed
-        carriage limb. Oracle: decision D-KF-14-NUM, typed
+        carriage limb. Oracle: the settled decision, typed
         carriage at construction: no step carries a hashed
         value through an equality based container in which
         1, 1.0, and true, or a negative zero against a
         positive zero at the same scale, would collapse
-        before rendering, and the Step 13 form test tests
+        before rendering, and the earlier form test tests
         those pairs at that construction point."""
         entry = journal.append_entry(
             self.home, "audit_record",
@@ -483,7 +482,7 @@ class Entry14FormTests(HomeCase):
     def test_key_ordering_unit_is_code_point(self):
         """Row plan Section 1.3 S0 entry 14 form, collision
         pair class ordering unit, under the second status
-        value. Oracle: decision D-KF-14-UNIT: object key
+        value. Oracle: the settled decision: object key
         ordering compares by Unicode code point, at every
         nesting level, on plan Part 1 Section 2.1 point 1."""
         entry = {"entry_kind": "product_registered", "form_version": 1,
@@ -521,10 +520,10 @@ class AppendAtomicityTests(HomeCase):
         append is reported complete. On return, a fresh read
         of the file stands whole. The flush and sync step
         order limb stands recorded as blocked at
-        blocked-w1.md row 4, with the missing observation
+        the open items list row 4, with the missing observation
         seam named there, so this test claims completeness
-        on return only (Step 13 test audit round 1, entry
-        R1-002)."""
+        on return only (the settled test audit, entry
+        the settled rule)."""
         journal.append_entry(self.home, "round_named",
                              {"product_id": "p-example",
                               "round_id": "p-example:r1",
@@ -538,7 +537,7 @@ class AppendAtomicityTests(HomeCase):
 
     def test_sequence_increases_by_exactly_one(self):
         """Row plan Section 1.3 S0 append atomicity, ordering
-        limb. Oracle: contract C7 at plan Section 9 and grill
+        limb. Oracle: contract C7 at plan Section 9 and the settled answers
         Q11: sequence starts at 1 and increases by exactly
         1, and each append links its hash to the prior
         head."""
@@ -597,7 +596,7 @@ class AppendAtomicityTests(HomeCase):
         """Row plan Section 1.3 S0 append atomicity, torn tail
         limb two, and entry 16 reader rule. Oracle: brief
         Section 5.12 item 138 provenance test and decision
-        D-KF-16-STALE: a final partial line counts as a
+        the settled decision: a final partial line counts as a
         standing holder append in progress only where it is
         the live lock holder own partial write, the lock
         record naming the holder and the holder pending
@@ -607,13 +606,13 @@ class AppendAtomicityTests(HomeCase):
         sides of the reader and verify join: status as
         above, verify treating the partial line as not yet
         an entry on the same terms, and a fold based reader
-        seeing the last complete entry only (Step 13 test
-        audit round 1, entry R1-003). The holder state here
+        seeing the last complete entry only (the earlier test
+        audit round 1, entry the settled rule). The holder state here
         stands built by holding the write lock itself, with
         no lock record bytes hand written in this test; the
         limb that turns on the lock record spelling stands
-        blocked at blocked-w1.md row 5 until the plan states
-        the record form (entry R1-006)."""
+        blocked at the open items list row 5 until the plan states
+        the record form (entry the settled rule)."""
         import fcntl
         lines, head = chain_lines([{"name": "Example Product",
                                     "product_id": "p-example"}])
@@ -655,7 +654,7 @@ class AppendAtomicityTests(HomeCase):
 
 
 class VerifyAndStatusTests(HomeCase):
-    """Convention note (entry R1-010): the exact result
+    """Convention note (entry the settled rule): the exact result
     field, subkey, and exception spellings pinned in this
     class stand on the suite convention recorded in the
     module header, not on a passage, wherever a test
@@ -695,8 +694,8 @@ class VerifyAndStatusTests(HomeCase):
         entry, status prints for the head the distinct head
         only absence form in these exact words: no head: the
         journal does not recompute from its first entry.
-        Restated at Step 20 under delegated decision 12
-        (register item R19-038, fix paper
+        Restated under the settled decision
+        (the settled rule, repair record
         step-20-fix-05-journal-status): the count limb of
         this pin is restated from 1 to 0. Decision 12
         governs the count: entry_count counts valid entries
@@ -723,7 +722,7 @@ class VerifyAndStatusTests(HomeCase):
 
     def test_sequence_gap_repeat_reorder_fail(self):
         """Row plan Section 1.3 S0 hash chain verify, sequence
-        limb. Oracle: brief Section 5.12 item 138 and grill
+        limb. Oracle: brief Section 5.12 item 138 and the settled answers
         Q11: a gap, a repeat, or a reordering of sequence
         values makes verify fail. Three severed cases stand
         in one method as three homes."""
@@ -754,7 +753,7 @@ class VerifyAndStatusTests(HomeCase):
 
     def test_genesis_previous_hash_must_be_null(self):
         """Row plan Section 1.3 S0 hash chain verify, genesis
-        limb. Oracle: decision D-KF-14-HASHSELF and brief
+        limb. Oracle: the settled decision and brief
         Section 5.12 item 138: a sequence 1 entry whose
         previous_hash stands at any value other than the
         JSON value null fails verify, at every journal
@@ -767,7 +766,7 @@ class VerifyAndStatusTests(HomeCase):
     def test_noncanonical_spelling_fails_at_last_entry(self):
         """Row plan Section 1.3 S0 hash chain verify,
         canonical rendering comparison limb. Oracle:
-        decision D-KF-14-RENDER: verify parses each stored
+        the settled decision: verify parses each stored
         line, renders the parsed entry, and compares the
         rendered bytes against the stored bytes, at every
         chain position including the last entry, so a line
@@ -781,12 +780,12 @@ class VerifyAndStatusTests(HomeCase):
     def test_form_version_three_cases_fail_on_i2(self):
         """Row plan Section 1.3 S0 hash chain verify, form
         version limb, three severed cases. Oracle: decision
-        D-KF-14-VERSION and brief Section 5.12 item 138: a
+        the settled decision and brief Section 5.12 item 138: a
         stored line whose form_version stands absent, at a
         value other than 1, or in a non integer form fails
         verify as an integrity failure, reported on row I-2
         with the I-2 token as its error value and exit code
-        5 (Step 19 item R19-094 supersedes the integer
+        5 (The settled rule supersedes the integer
         error value reading)."""
         good = json.loads(canonical_line(
             {"name": "A", "product_id": "p-a"}, 1, None))
@@ -809,11 +808,11 @@ class VerifyAndStatusTests(HomeCase):
     def test_depth_100_passes_101_fails(self):
         """Row plan Section 1.3 S0 hash chain verify, depth
         limb, two severed bounds. Oracle: decision
-        D-KF-14-RENDER and brief limit 18: the outermost
+        the settled decision and brief limit 18: the outermost
         container counts as depth 1, a deepest container
         chain at 100 passes the depth limb, and at 101 it
         breaches it and verify fails. Container count
-        (Step 13 test audit round 1, entry R1-012): the
+        (the settled test audit): the
         entry object plus the payload object plus the
         nested lists give the deepest chain, so the loop
         parameter 98 gives a chain of 100 and the loop
@@ -837,7 +836,7 @@ class VerifyAndStatusTests(HomeCase):
 
     def test_duplicate_key_line_fails(self):
         """Row plan Section 1.3 S0 hash chain verify,
-        duplicate key limb. Oracle: decision D-KF-14-RENDER:
+        duplicate key limb. Oracle: the settled decision:
         an object holding a duplicate key is not a canonical
         form, and verify fails over it."""
         line = (b'{"entry_kind":"product_registered",'
@@ -1114,12 +1113,12 @@ class LimitsPlumbingTests(HomeCase):
         byte level refusal route for limit 40 stands at the
         same row I-1 as limit 39, whose lowered value route
         the cap tests above exercise; no config key states a
-        byte unit for row 40, on decision D-KF-15-RANGE unit
+        byte unit for row 40, on the settled decision unit
         terms, so no lowered byte cap test stands written
         here. The limit 40 refusal limb stands recorded as
-        blocked at blocked-w1.md row 3, with the route gap
+        blocked at the open items list row 3, with the route gap
         named there, so this test does not claim it as
-        pinned (Step 13 test audit round 1, entry R1-001)."""
+        pinned (the settled test audit)."""
         journal.write_config(self.home, "journal_length = 2\n")
         journal.append_entry(self.home, "product_registered",
                              {"name": "A", "product_id": "p-a"},
@@ -1141,7 +1140,7 @@ class LimitsPlumbingTests(HomeCase):
 
     def test_limit_raise_entry_raises_for_its_run(self):
         """Row plan Section 1.3 S0 limits plumbing, raise
-        limb. Oracle: decision D-KF-15-PREC: a limit_raise
+        limb. Oracle: the settled decision: a limit_raise
         journal entry for a run overrides the config value
         for that run only, for the one limit it names, and
         limits_in_force names the source of each value in
@@ -1189,7 +1188,7 @@ EXPECTED_KEYS = [
 
 
 class ConfigSurfaceTests(HomeCase):
-    """Convention note (entry R1-010): the exact key,
+    """Convention note (entry the settled rule): the exact key,
     source string, and exception spellings pinned in this
     class stand on the suite convention recorded in the
     module header, not on a passage, wherever a test
@@ -1200,7 +1199,7 @@ class ConfigSurfaceTests(HomeCase):
         """Row plan Section 1.3 S0 config surface, pinning
         condition F-22 count limb. Oracle: plan Part 1
         Section 3.1 completeness trace and decision
-        D-KF-15-STRING: 42 limit keys against the 42 limits,
+        the settled decision: 42 limit keys against the 42 limits,
         plus the home key and the anchor key, 44 rows in
         total, verified here as a count."""
         keys = journal.config_keys()
@@ -1209,7 +1208,7 @@ class ConfigSurfaceTests(HomeCase):
 
     def test_key_strings_exact_and_no_watch_key(self):
         """Row plan Section 1.3 S0 config surface, string
-        limb. Oracle: decision D-KF-15-STRING, the 44 exact
+        limb. Oracle: the settled decision, the 44 exact
         strings in table order, and plan Part 1 Section 3.4:
         no watch key stands in this table, and the count
         stands at exactly 44 with watch scoped."""
@@ -1230,7 +1229,7 @@ class ConfigSurfaceTests(HomeCase):
 
     def test_valid_config_parses_in_stated_syntax(self):
         """Row plan Section 1.3 S0 config surface, syntax
-        limb. Oracle: decision D-KF-15-SYNTAX: one key, one
+        limb. Oracle: the settled decision: one key, one
         space, an equals sign, one space, and the value, per
         line, each line ending in one newline; a blank line
         is ignored, and a line whose first character is the
@@ -1252,7 +1251,7 @@ class ConfigSurfaceTests(HomeCase):
 
     def test_unparsable_line_fails_on_x1(self):
         """Row plan Section 1.3 S0 config surface, failure
-        outcome one. Oracle: decision D-KF-15-SYNTAX and row
+        outcome one. Oracle: the settled decision and row
         X-1: any line form outside the stated syntax cannot
         be parsed and fails under row X-1, and a config file
         that cannot be parsed is never silently defaulted,
@@ -1264,7 +1263,7 @@ class ConfigSurfaceTests(HomeCase):
     def test_wrong_form_value_fails_on_x1(self):
         """Row plan Section 1.3 S0 config surface, failure
         outcome two. Oracle: plan Part 1 Section 3.2 point 5
-        and decision D-KF-15-RANGE: a value of the wrong
+        and the settled decision: a value of the wrong
         form for its key fails under row X-1."""
         with self.assertRaises(journal.ConfigError) as caught:
             journal.parse_config("journal_length = many\n")
@@ -1272,7 +1271,7 @@ class ConfigSurfaceTests(HomeCase):
 
     def test_duplicate_key_fails_on_x1(self):
         """Row plan Section 1.3 S0 config surface, failure
-        outcome three. Oracle: decision D-KF-15-SYNTAX: a
+        outcome three. Oracle: the settled decision: a
         repeated key is a duplicate key and fails under row
         X-1. The three failure outcomes decide mechanically
         from the stated syntax, on pinning condition F-22."""
@@ -1283,8 +1282,8 @@ class ConfigSurfaceTests(HomeCase):
 
     def test_two_spaces_before_equals_fails(self):
         """Row plan Section 1.3 S0 config surface, named
-        spacing variant one. Oracle: decision D-KF-15-SYNTAX:
-        the Step 13 config tests pin the two interior
+        spacing variant one. Oracle: the settled decision:
+        the earlier config tests pin the two interior
         spacing variants by name, two spaces before the
         equals sign, each failing under row X-1."""
         with self.assertRaises(journal.ConfigError):
@@ -1292,7 +1291,7 @@ class ConfigSurfaceTests(HomeCase):
 
     def test_two_spaces_after_equals_fails(self):
         """Row plan Section 1.3 S0 config surface, named
-        spacing variant two. Oracle: decision D-KF-15-SYNTAX:
+        spacing variant two. Oracle: the settled decision:
         two spaces after the equals sign fails under
         row X-1."""
         with self.assertRaises(journal.ConfigError):
@@ -1300,7 +1299,7 @@ class ConfigSurfaceTests(HomeCase):
 
     def test_no_inline_comment_form(self):
         """Row plan Section 1.3 S0 config surface, comment
-        limb. Oracle: decision D-KF-15-SYNTAX: no inline
+        limb. Oracle: the settled decision: no inline
         comment form exists, so trailing comment text stands
         in the value and a numeric key then holds a wrong
         form value under row X-1."""
@@ -1310,7 +1309,7 @@ class ConfigSurfaceTests(HomeCase):
     def test_zero_and_ceiling_and_backstop_range_rules(self):
         """Row plan Section 1.3 S0 config surface, range
         limb, three severed rules. Oracle: decision
-        D-KF-15-RANGE: a minimum of 1 for every row of 1 to
+        the settled decision: a minimum of 1 for every row of 1 to
         42, so zero stands refused as a wrong form value; a
         hard ceiling of ten times the brief default for rows
         1 to 40; and rows 41 and 42 take a ceiling equal to
@@ -1330,7 +1329,7 @@ class ConfigSurfaceTests(HomeCase):
 
     def test_size_value_stands_in_the_row_unit(self):
         """Row plan Section 1.3 S0 config surface, unit limb.
-        Oracle: decision D-KF-15-RANGE: a config value at a
+        Oracle: the settled decision: a config value at a
         size row stands in that row stated size unit, not in
         bytes, so a value of 2 at row 1 stands as 2 MiB."""
         journal.write_config(self.home, "page_file_size = 3\n")
@@ -1341,7 +1340,7 @@ class ConfigSurfaceTests(HomeCase):
     def test_forced_dependencies(self):
         """Row plan Section 1.3 S0 config surface, dependency
         limb, two severed pairs. Oracle: decision
-        D-KF-15-RANGE: front_matter_size_after_alias_expansion
+        the settled decision: front_matter_size_after_alias_expansion
         stands at or above front_matter_block_size, and
         evidence_spans_per_report stands at or above
         evidence_spans_per_check, a breach of either standing
@@ -1368,7 +1367,7 @@ class ConfigSurfaceTests(HomeCase):
 
     def test_second_raise_same_limit_same_run_refused(self):
         """Row plan Section 1.3 S0 config surface, precedence
-        limb one. Oracle: decision D-KF-15-PREC and row
+        limb one. Oracle: the settled decision and row
         X-11: a second limit_raise for the same limit in the
         same run is refused as a usage error, token
         LIMIT_RAISE_REPEATED, and no second raise stands
@@ -1392,7 +1391,7 @@ class ConfigSurfaceTests(HomeCase):
     def test_precedence_does_not_arise_on_a_barred_chain(self):
         """Row plan Section 1.3 S0 config surface, precedence
         limb two, the barred chain case stated beside the
-        precedence rule. Oracle: decision D-KF-15-PREC: on a
+        precedence rule. Oracle: the settled decision: on a
         barred chain no writing invocation runs, so no raise
         can be appended and the precedence question does not
         arise."""
@@ -1411,7 +1410,7 @@ class ConfigSurfaceTests(HomeCase):
 
     def test_limit_member_form_names_the_row_limit(self):
         """Row plan Section 1.3 S0 config surface, limit
-        member limb. Oracle: decision D-KF-15-PREC: the
+        member limb. Oracle: the settled decision: the
         limit member of a limit_raise entry takes the form
         limit_N, where N is the limit number in the
         Section 5.11 order, so limit_39 names journal_length,
@@ -1439,7 +1438,7 @@ class ConcurrencyTests(HomeCase):
     def test_contention_fails_and_leaves_no_failure_record(self):
         """Row plan Section 1.3 S0 concurrency exclusion,
         entry 16 named test contention. Oracle: plan Part 1
-        Section 6.1 point 2 and decision D-KF-16-MECH: a
+        Section 6.1 point 2 and the settled decision: a
         contended writing invocation fails with a recorded
         error, stores nothing, and leaves no failure record,
         the recorded error standing as the caller response
@@ -1478,7 +1477,7 @@ class ConcurrencyTests(HomeCase):
     def test_stale_holder_lock_file_presence_bars_nothing(self):
         """Row plan Section 1.3 S0 concurrency exclusion,
         entry 16 named test stale holder. Oracle: decision
-        D-KF-16-STALE: no stale holder recovery act exists,
+        the settled decision: no stale holder recovery act exists,
         the operating system releases the lock when the
         holder process ends, the lock file presence on disk
         after a holder ends is not evidence of a holder and
@@ -1496,7 +1495,7 @@ class ConcurrencyTests(HomeCase):
 
     def test_lock_unavailable_fails_closed_on_x12(self):
         """Row plan Section 1.3 S0 concurrency exclusion,
-        fail closed limb. Oracle: decision D-KF-16-MECH and
+        fail closed limb. Oracle: the settled decision and
         row X-12: on a platform or filesystem that cannot
         give the lock, a writing invocation fails closed
         under row X-12, token LOCK_UNAVAILABLE, with a
@@ -1515,7 +1514,7 @@ class ConcurrencyTests(HomeCase):
 
 
 class AppendCostTests(HomeCase):
-    """Convention note (entry R1-010): the exact field and
+    """Convention note (entry the settled rule): the exact field and
     subkey spellings pinned in this class stand on the
     suite convention recorded in the module header, not on
     a passage, wherever a test docstring oracle passage
@@ -1559,7 +1558,7 @@ class ReplayPairTests(HomeCase):
         14 lands. Oracle: plan slice S0 test status and
         Section 1.3 entry S0: replay from empty to a stated
         head hash, the stated hash here standing as the
-        V-16 expected hash of decision D-KF-14-VECTORS."""
+        V-16 expected hash of the settled decision."""
         entries = [VECTOR_BY_ID["V-15"][2].encode("utf-8"),
                    VECTOR_BY_ID["V-16"][2].encode("utf-8")]
         head = journal.replay(self.home, entries)
@@ -1607,17 +1606,17 @@ class HonestForgeryPairTests(HomeCase):
         one stands barred on a non matching external head.
         The external head here stands recorded in the anchor
         file the config anchor key names, on brief Section
-        5.12 IM7-BRK-9 landing terms: where the anchor
+        5.12 settled landing terms: where the anchor
         recorded head is not the standing head, the
         agreement stands divergent, no record from the chain
         is claimed as verified on that recording, on brief
         Section 5.12 item 138 head hash duty terms, and a
         writing invocation over the home stands barred. The
         anchor file here stands written in the stated record
-        form (Step 13 test audit round 1, entry R1-008): a
+        form (the settled test audit): a
         head hash with its sequence, the hash beside the
         journal sequence the head was taken, on the
-        IM7-BRK-9 landing terms in brief Section 5.12, with
+        settled landing terms in brief Section 5.12, with
         the sequence stated as 99, a sequence that stands
         nowhere in this one entry chain, so the recorded
         head stands nowhere in the chain and the agreement
@@ -1663,7 +1662,7 @@ class TimingAndDateTests(HomeCase):
         """Row plan Section 1.5 timing bounds, S0. Oracle:
         plan Section 1.5, CQ-D31: S0, journal append and
         verify over a test home, 5 seconds, conditional on a
-        test scale Step 13 states on the record. The scale
+        test scale stated on the record. The scale
         stands stated at design/tests/scales-w1.md: a test
         home of 1,000 entries of the stated composition.
         The elapsed measure here is the test harness measure

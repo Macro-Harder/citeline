@@ -1,12 +1,12 @@
 """Service, watch, seams.
 
-Pins the register entries charged to F7 in fix round 4:
+Pins the settled rules:
 and. Entry is a rename charge in
 product/tests/test_step16_f5.py and stands pinned by that
 file's own run, not by a test here. Every test was written
 before its cure and run failing for the register stated
 reason, except the controls named as controls. Oracle: the
-round 4 findings register and disposition."""
+round 4 settled findings."""
 
 import json
 import os
@@ -536,8 +536,8 @@ class Test075ProbeReportOneInstant(SeededBase):
 
     def test_correction_between_folds_does_not_split_the_artefact(self):
         self.import_one()
-        # Restated in its seed limb, for Step 19 register item
-        # R19-017: the standing failure record now stands
+        # Restated in its seed limb, for The settled the settled rule
+        # The settled rule: the standing failure record now stands
         # created by a failed import, an appending operation
         # whose failure record stands, instead of by a failed
         # probe report, a non appending operation whose cure
@@ -571,7 +571,7 @@ class Test075ProbeReportOneInstant(SeededBase):
                 audit_date=AUDIT_DATE)
         values = [payload.get("error_value")
                   for payload in result.get("failure_records") or []]
-        # Restated for Step 19 register item R19-018: the
+        # Restated for the settled rule: the
         # probe report record carries no standing failure
         # record payloads at all, so neither the corrected
         # marker nor the standing UNKNOWN_ROUND record stands

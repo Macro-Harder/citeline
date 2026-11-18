@@ -629,7 +629,7 @@ def draft_from_audit_record(record, canonical_line=None, audit_date=None,
         # No threshold for partial earnings stands
         # derived here: the earned value to status
         # mapping for a partial earning stands unruled
-        # (CL-16), and a not applicable check fires
+        # (the settled claim), and a not applicable check fires
         # nothing.
         for result in _get(record, "checks", None) or []:
             earned = _get(result, "earned", None)
@@ -723,7 +723,7 @@ def draft_from_audit_record(record, canonical_line=None, audit_date=None,
             # The draft records the basis its selection
             # stood, in the form the reporting limb reads,
             # so the fixed selection statement of the
-            # IM7-BRK-13 landing prints in every form.
+            # Settled landing prints in every form.
             if passes_naming_test(
                     chosen, product_name, aliases,
                     category_terms):
@@ -983,7 +983,7 @@ def draft_from_round(round_record=None, canonical_line=None, audit_date=None,
         # outcome contradicts its asserted kind, a
         # positive control standing not named or not
         # cited, or a negative control standing named or
-        # cited, under the IM7-ANA-2 landing.
+        # cited, under the settled landing.
         for item in answers:
             if isinstance(item, dict):
                 is_ctl = bool(item.get("control")

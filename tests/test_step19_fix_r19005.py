@@ -1,4 +1,4 @@
-"""Step 19 repair test for R19-005, fluff filler boosters.
+"""Repair test: fluff filler boosters.
 
 Oracle: brief Section 5.7, the otherwise 1.0 fluff
 outcome loses 0.3 where the stated filler boosters

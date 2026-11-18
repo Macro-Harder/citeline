@@ -18,8 +18,8 @@ helper on the key past its head material alone.
 
 The defect pins assert the page side alone, in the form the page
 side limb pins of the earlier rounds took: the import side limbs
-of stand inside the F4 charge of this wave and land after this
-seat in the dependency order, by the cure rule this seat states
+of stand inside the F4 charge of this repair wave and land after this
+repair in the dependency order, by the cure rule this repair states
 in its paper. Entry stands at the page key judgement alone, with
 no F4 limb. The controls assert both readings where the standing
 the control names already stands at both, and assert the page
@@ -253,9 +253,9 @@ class TestR16_011LineKeyJudgement(Base):
         # key texts, the judged key and the key past its
         # head material. The forms standing outside that
         # ground stand on the helper divergence alone,
-        # the page helper standing cured by this seat
+        # the page helper standing cured by this repair
         # and the import helper standing inside the F4
-        # charge of this wave, in the form the seat
+        # charge of this repair wave, in the form the repair
         # paper states.
         divergent = []
         for prefix in PREFIXES:

@@ -1,4 +1,4 @@
-"""Step 13 fixture generator.
+"""Repairture generator.
 
 A test tree program. It produces large fixtures by scaling
 and hostile fixtures by mutation, on the route plan
@@ -18,7 +18,7 @@ class GenerationRefused(Exception):
 
 
 class SeamListsStop(Exception):
-    """Generation would need a CL-13 list member.
+    """Generation would need a the settled claim list member.
 
     The fixture stops at SEAM-LISTS and is not produced,
     on the doctrine at plan Section 2 as Section 1.6
@@ -77,7 +77,7 @@ def generate(base_id, route, target_count=None, target_bytes=None,
     """Produce one fixture and its provenance record.
 
     Returns (data, provenance). Raises SeamListsStop where
-    generation would need a CL-13 list member, and
+    generation would need a the settled claim list member, and
     GenerationRefused where the stated route does not
     produce the fixture.
     """
@@ -112,7 +112,7 @@ def generate(base_id, route, target_count=None, target_bytes=None,
         mutation = mutations[0]
         if mutation in CL13_MUTATIONS:
             raise SeamListsStop(
-                "mutation needs a CL-13 list member: %s" % mutation)
+                "mutation needs a common word list member: %s" % mutation)
         if mutation not in entry["mutations"]:
             raise GenerationRefused(
                 "mutation not listed for %s: %s" % (base_id, mutation))

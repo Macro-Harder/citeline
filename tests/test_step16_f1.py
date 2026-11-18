@@ -123,7 +123,7 @@ class TestD01CountOnlyHeadline(unittest.TestCase):
             "cited": rate_block(1, 3, low=0.0615, high=0.7923),
         }}
         text = reporting.render(record, form="simple")
-        # Restated for Step 19 register item R19-056: the
+        # Restated for the settled rule: the
         # count only line now carries the interval the stored
         # record holds and the small sample warning beside
         # it, states in the count only clause that no rate
@@ -323,8 +323,8 @@ class TestD27RobotsPathAtHead(F1Base):
             home=str(self.home), robots_file=str(ROBOTS_A),
             form="simple", audit_date=AUDIT_DATE)
         lines = text.splitlines()
-        # Restated for Step 19 register items R19-062 beside
-        # R19-055: the Simple form now opens with the prose
+        # Restated for the settled rules beside
+        # The settled rule: the Simple form now opens with the prose
         # summary of the record, and the robots form stands
         # the path result in plain words at its head with its
         # labels defined, instead of opening with the field

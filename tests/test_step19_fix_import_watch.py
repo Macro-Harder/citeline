@@ -1,6 +1,6 @@
-"""Step 19 repair tests, fix seat 5: import intake and watch.
+"""Repair tests: import intake and watch.
 
-Each class pins one register item from the Step 19 split repair
+Each class pins one settled rule from the repair
 queue. Tests were written before the fixes they pin.
 """
 
@@ -63,7 +63,7 @@ def base_plan(home, scope, **extra):
 
 
 class TestR19024HtmlForms(unittest.TestCase):
-    """R19-024: HTML captures refused in every spelling."""
+    """The settled rule: HTML captures refused in every spelling."""
 
     SPELLINGS = {
         "prolog": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
@@ -89,7 +89,7 @@ class TestR19024HtmlForms(unittest.TestCase):
 
 
 class TestR19025JsonLines(unittest.TestCase):
-    """R19-025: a JSON lines file with one non JSON line is still
+    """The settled rule: a JSON lines file with one non JSON line is still
     a JSON lines file, not one plain answer."""
 
     LINES = [json.dumps({"answer": "answer %d" % i}) for i in range(50)]
@@ -118,7 +118,7 @@ class TestR19025JsonLines(unittest.TestCase):
 
 
 class TestR19045AllMissingInputs(unittest.TestCase):
-    """R19-045: one refusal reports every missing required input."""
+    """The settled rule: one refusal reports every missing required input."""
 
     def test_all_missing_inputs_named_in_one_refusal(self):
         with self.assertRaises(Exception) as caught:
@@ -134,7 +134,7 @@ class TestR19045AllMissingInputs(unittest.TestCase):
 
 
 class TestR19026ConfigGovernedSizeLimit(unittest.TestCase):
-    """R19-026: the answer file size limit in force governs the
+    """The settled rule: the answer file size limit in force governs the
     import intake and stands named in the refusal."""
 
     def _home_with_limit(self, value):
@@ -168,7 +168,7 @@ class TestR19026ConfigGovernedSizeLimit(unittest.TestCase):
 
 
 class TestR19027PageFrontMatter(unittest.TestCase):
-    """R19-027: the front matter tag construct rule fires at the
+    """The settled rule: the front matter tag construct rule fires at the
     page intake as it fires at the import intake."""
 
     BLOCK = "---\nkey: &a value\n---\nBody text about the product."
@@ -184,7 +184,7 @@ class TestR19027PageFrontMatter(unittest.TestCase):
 
 
 class TestR19020Projection(unittest.TestCase):
-    """R19-020: the WatchRun projection prices what the round
+    """The settled rule: the WatchRun projection prices what the round
     will actually append, failure records included."""
 
     def test_failing_probe_target_is_priced_at_its_failure_record(self):
@@ -207,7 +207,7 @@ class TestR19020Projection(unittest.TestCase):
 
 
 class TestR19053OccupiedOutputFirst(unittest.TestCase):
-    """R19-053: an occupied output path refuses before the round
+    """The settled rule: an occupied output path refuses before the round
     work runs, so no round is spent producing no artefact."""
 
     def test_occupied_output_spends_no_round(self):
@@ -230,7 +230,7 @@ class TestR19053OccupiedOutputFirst(unittest.TestCase):
 
 
 class TestR19037MissingDirectoryToken(unittest.TestCase):
-    """R19-037: a write into a missing directory is not reported
+    """The settled rule: a write into a missing directory is not reported
     under DESTINATION_EXISTS."""
 
     def test_missing_directory_write_names_the_missing_directory(self):
@@ -245,7 +245,7 @@ class TestR19037MissingDirectoryToken(unittest.TestCase):
 
 
 class TestR19103WatchFormSplit(unittest.TestCase):
-    """R19-103: the watch form named on the invocation governs
+    """The settled rule: the watch form named on the invocation governs
     the written artefact as it governs the printed rendering."""
 
     def test_cli_form_governs_the_written_artefact(self):
@@ -262,7 +262,7 @@ class TestR19103WatchFormSplit(unittest.TestCase):
 
 
 class TestR19104PlanWarnings(unittest.TestCase):
-    """R19-104: unknown plan keys and a missing form key stand
+    """The settled rule: unknown plan keys and a missing form key stand
     warned, not silently accepted."""
 
     def test_missing_form_key_is_warned(self):
@@ -286,7 +286,7 @@ class TestR19104PlanWarnings(unittest.TestCase):
 
 
 class TestR19107SecondRoundsSpecified(unittest.TestCase):
-    """R19-107: the second_rounds plan key stands specified in
+    """The settled rule: the second_rounds plan key stands specified in
     shipped product text."""
 
     def test_second_rounds_is_specified_in_the_module_text(self):

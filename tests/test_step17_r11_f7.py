@@ -1,8 +1,8 @@
 """Service, watch, seams.
 
-Seat F7 stands in verdict form only in this round and carries
-no entry TO FIX. The pins below stand on the cured tree as it
-stands at this run, in the standing forms the round 11 papers
+The repair stands in verdict form only in this round and carries
+no repair entry. The pins below stand on the cured tree as it
+stands at this run, in the standing forms the earlier round papers
 record: the container seam verdict, the three readings
 agreeing on the worked forms; the top level key position as
 cured at standing in its cured form at the service seam, in
@@ -10,8 +10,8 @@ the primary form and in the fallback form alike; the
 corrected pin test_string_of_4096_inside_a_dict_value_refuses
 passing in its renamed form; and the watch figures in their
 exact forms, the WatchPlan size figure of 1 MiB and the
-picked scope bound of 100 targets. Oracle: the round 11
-disposition, Section 3 seat F7, and register Section 3,
+picked scope bound of 100 targets. Oracle: the earlier round
+disposition, Section 3 the repair, and register Section 3,
 record 14.
 
 Copyright: J.P. Picard aka Macro-Harder."""

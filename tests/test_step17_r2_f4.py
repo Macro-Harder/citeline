@@ -3,7 +3,7 @@
 Test first pins for register, and, from the register
 and the source papers they cite (seats B6, B14, B15,
 B17, B18). Each test reproduces the defect named at its
-register entry on the tree standing after fix round 1
+the settled rule on the tree standing after the repair
 and the round 2 F1 and F2 seats, then stands as the pin
 for its cure."""
 
@@ -642,7 +642,7 @@ class Test083KillInsideBatch(KillBase):
         self.assertEqual(entry_count(self.home), before + 2)
         records = payloads_of_kind(self.home, "failure_record")
         # The recovery record's error_value stands in the
-        # closed vocabulary: Step 19 item R19-095 supersedes
+        # closed vocabulary: The settled rule supersedes
         # the raw interrupted_batch string this assertion
         # pinned before that cure.
         self.assertEqual(
@@ -724,7 +724,7 @@ class Test088RaisedErrorMessageBound(ImportBase):
 
 class Test097WorksheetContradictionName(WorksheetBase):
     def test_distinct_same_query_slots_admitted_with_resolved_identities(self):
-        """Pins contract C2 as relaxed under R19-048, on the
+        """Pins contract C2 as relaxed under the settled rule, on the
         worksheet route: two slots holding distinct answers for
         the same round, same normalised engine label, same query,
         and same captured_on in one sheet are both admitted, each

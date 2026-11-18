@@ -1,4 +1,4 @@
-"""Slice S3 page checks and scoring tests, Step 13, Citeline.
+"""Slice S3 page checks and scoring tests, Citeline.
 
 Written before the product exists. Every test imports the
 product package citeline and calls the checks module under
@@ -12,7 +12,7 @@ Section 1.5 date handling).
 Row naming: every test method docstring names the matrix
 row it pins by section qualified identifier (plan Section
 1.3 entry S3, by seam) and the oracle passage. Rows the
-plan leaves open stand in design/tests/blocked-w3.md, not
+plan leaves open stand in design/tests/the open items list, not
 here. CRAWL_THIN stands withdrawn as an audit output and
 no test in this file names it.
 """
@@ -471,7 +471,7 @@ class TestComparison(unittest.TestCase):
 
 class TestFreshness(unittest.TestCase):
     """Freshness pins on the 90 day full credit band, stated as a
-    Manager settlement under delegation wherever the band is
+    settled decision wherever the band is
     stated (plan Section 1.3 S3 freshness limb). No per product
     threshold test stands in this class, because no such
     threshold stands adopted. The audit date is the call input
@@ -484,7 +484,7 @@ class TestFreshness(unittest.TestCase):
         return run(page)["freshness"]
 
     def test_labelled_date_at_90_days_full_credit(self):
-        """Plan Section 1.3 S3 limb (a) and freshness limb, check freshness. Oracle: brief Section 5.7 freshness rule, earned by age in days is 1.0 at 90 or less, on the 90 day full credit band as a Manager settlement under delegation; 2026-08-16 stands 90 days before the audit date input 2026-11-14; FRESH_OK where the rule earns full credit on a date at 90 days or less."""
+        """Plan Section 1.3 S3 limb (a) and freshness limb, check freshness. Oracle: brief Section 5.7 freshness rule, earned by age in days is 1.0 at 90 or less, on the 90 day full credit band as a settled decision; 2026-08-16 stands 90 days before the audit date input 2026-11-14; FRESH_OK where the rule earns full credit on a date at 90 days or less."""
         r = self.fresh(["Updated: 2026-08-16"])
         self.assertEqual(field(r, "earned"), 1.0)
         self.assertEqual(field(r, "reason_code"), "FRESH_OK")
@@ -596,7 +596,7 @@ class TestDescriptionConsistency(unittest.TestCase):
         self.assertEqual(field(r, "reason_code"), "DESC_MISSING")
 
     def test_not_applicable_on_non_product_page(self):
-        """Plan Section 1.3 S3 limb (a), check description_consistency applicability. Oracle: brief Section 5.7, the check is applicable only on a product page as grill Q20 defines it, recorded by the is_product_page field, and not applicable on any other page; this is an applicability outcome, not a derivation of status from an earned value, and no earned value is asserted for it."""
+        """Plan Section 1.3 S3 limb (a), check description_consistency applicability. Oracle: brief Section 5.7, the check is applicable only on a product page as the settled answers define it, recorded by the is_product_page field, and not applicable on any other page; this is an applicability outcome, not a derivation of status from an earned value, and no earned value is asserted for it."""
         page = make_page(paragraphs=[[self.CANON]])
         r = run(page, make_facts(is_product_page=False))["description_consistency"]
         self.assertEqual(field(r, "status"), "not_applicable")
@@ -723,7 +723,7 @@ class TestUnprovenSuperlatives(unittest.TestCase):
 
 class TestScoreComputation(unittest.TestCase):
     def test_scored_page_value_band_and_basis(self):
-        """Plan Section 1.3 S3 limb (a), score computation for the non empty case. Oracle: brief Section 5.7 score rule, the sum of earned times weight across applicable checks divided by applicable weight times 100, rounded to one decimal place; the hand computed earned values on the scored page (1.0, 1.0, 0.5, 0.5, 0.6, 1.0, 1.0, 1.0, 1.0, 1.0 against weights 12, 16, 13, 11, 10, 8, 8, 8, 7, 7) sum to 84.0 over an applicable weight of 100, and grill Q9 bands give strong at 80 and over."""
+        """Plan Section 1.3 S3 limb (a), score computation for the non empty case. Oracle: brief Section 5.7 score rule, the sum of earned times weight across applicable checks divided by applicable weight times 100, rounded to one decimal place; the hand computed earned values on the scored page (1.0, 1.0, 0.5, 0.5, 0.6, 1.0, 1.0, 1.0, 1.0, 1.0 against weights 12, 16, 13, 11, 10, 8, 8, 8, 7, 7) sum to 84.0 over an applicable weight of 100, and the settled bands give strong at 80 and over."""
         results = checks.run_checks(score_a_page(), make_facts(), audit_date=AUDIT_DATE)
         score = checks.compute_score(results)
         self.assertEqual(field(score, "value"), 84.0)
@@ -738,7 +738,7 @@ class TestScoreComputation(unittest.TestCase):
                           "fluff", "unproven_superlatives"})
 
     def test_score_claim_constants_and_honesty_sentence(self):
-        """Plan Section 1.3 S3 limb (a), ScoreObject constants. Oracle: plan Section 5.1 ScoreObject and brief Section 5.8 IM7-BRK-14 landing, claim_type is a constant from the closed set holding exactly one value, signal_presence_only, and validated_predictor is the boolean false; the honesty sentence is the fixed brief Section 5.5 item 121 sentence."""
+        """Plan Section 1.3 S3 limb (a), ScoreObject constants. Oracle: plan Section 5.1 ScoreObject and brief Section 5.8 settled landing, claim_type is a constant from the closed set holding exactly one value, signal_presence_only, and validated_predictor is the boolean false; the honesty sentence is the fixed brief Section 5.5 item 121 sentence."""
         results = checks.run_checks(score_a_page(), make_facts(), audit_date=AUDIT_DATE)
         score = checks.compute_score(results)
         self.assertEqual(field(score, "claim_type"), "signal_presence_only")
@@ -765,7 +765,7 @@ class TestScoreComputation(unittest.TestCase):
         self.assertEqual(field(score, "band"), "poor")
 
     def test_not_applicable_weight_redistributed(self):
-        """Plan Section 1.3 S3 limb (a), score computation with redistribution. Oracle: brief Section 5.7 and grill Q9 and Q15, not applicable weight is redistributed and disclosed; with description_consistency not applicable on a non product page, the scored page hand sum over the nine applicable checks is 76.0 over an applicable weight of 92, giving 82.6 at one decimal place, band strong."""
+        """Plan Section 1.3 S3 limb (a), score computation with redistribution. Oracle: brief Section 5.7 and the settled answers, not applicable weight is redistributed and disclosed; with description_consistency not applicable on a non product page, the scored page hand sum over the nine applicable checks is 76.0 over an applicable weight of 92, giving 82.6 at one decimal place, band strong."""
         results = checks.run_checks(score_a_page(),
                                     make_facts(is_product_page=False),
                                     audit_date=AUDIT_DATE)
@@ -778,7 +778,7 @@ class TestScoreComputation(unittest.TestCase):
                          field(basis, "applicable_checks"))
 
     def test_plain_page_score_floor_case(self):
-        """Plan Section 1.3 S3 limb (a), score computation for the non empty case. Oracle: brief Section 5.7 score rule applied by hand; on this plain non product page the seven non inverted applicable checks earn 0, and the three inverted checks earn full credit on a clean page (keyword_stuffing 1.0, fluff 1.0, unproven_superlatives 1.0), so the hand sum is 22.0 over the applicable weight of 92 with description_consistency not applicable, giving 23.9 at one decimal place, band poor under grill Q9. This is not the empty extraction case, whose score expectation stands blocked at Part B entry B4 and is asserted nowhere in this file."""
+        """Plan Section 1.3 S3 limb (a), score computation for the non empty case. Oracle: brief Section 5.7 score rule applied by hand; on this plain non product page the seven non inverted applicable checks earn 0, and the three inverted checks earn full credit on a clean page (keyword_stuffing 1.0, fluff 1.0, unproven_superlatives 1.0), so the hand sum is 22.0 over the applicable weight of 92 with description_consistency not applicable, giving 23.9 at one decimal place, band poor under the settled answers. This is not the empty extraction case, whose score expectation stands blocked at Part B entry B4 and is asserted nowhere in this file."""
         page = make_page(paragraphs=[["The session covers planning and review."]])
         results = checks.run_checks(page, make_facts(is_product_page=False),
                                     audit_date=AUDIT_DATE)
@@ -799,7 +799,7 @@ class TestEmptyExtractionEndState(unittest.TestCase):
 
 class TestSectionBreakdown(unittest.TestCase):
     def test_citations_breakdown_marks_by_section(self):
-        """Plan Section 1.3 S3 limb (a), evidence spans and section attribution. Oracle: brief Section 5.7 IM7-DIV-2 landing, a span is attributed to the section holding the span start offset, and the three evidence checks carry the breakdown with a present or absent mark for each section, present where at least one span is attributed and absent where none is; the one citation here stands in the second section only."""
+        """Plan Section 1.3 S3 limb (a), evidence spans and section attribution. Oracle: brief Section 5.7 settled landing, a span is attributed to the section holding the span start offset, and the three evidence checks carry the breakdown with a present or absent mark for each section, present where at least one span is attributed and absent where none is; the one citation here stands in the second section only."""
         first = "Opening prose stands here without any counted evidence inside it."
         heading = "Details"
         second = "The detailed prose holds https://example.org/a inside it for readers."
@@ -893,11 +893,11 @@ class TestConformanceS3RecordsLimb(unittest.TestCase):
 
 
 # The joined entry 13 and item 126 table, hand transcribed from
-# the plan decisions section (Decisions D-KF-13, the joined
+# the plan decisions section (Decisions the settled decision, the joined
 # enumeration table IM2-BRK-11): row, token, precedence class,
 # exit code. Classes for the X rows stand as decision
-# D-KF-13-CLASS assigns them, except row X-13 (decision
-# D-KF-18-TEMP) and rows X-14 to X-16 (decision D-KF-13-ROWS).
+# The settled decision assigns them, except row X-13 (decision
+# The settled decision) and rows X-14 to X-16 (the settled decision).
 EXPECTED_JOINED_TABLE = [
     ("U-1", "UNKNOWN_PRODUCT", "usage", 2),
     ("U-2", "PRODUCT_READD_CHANGED", "usage", 2),
@@ -975,7 +975,7 @@ class TestJoinedErrorTableF20(unittest.TestCase):
             self.assertEqual(code, CLASS_TO_EXIT[cls], (row, token))
 
     def test_shared_refusal_value_and_distinguishing_field(self):
-        """Plan Section 1.3 S3 limb (a), F-20 shared refusal row. Oracle: plan entry 13 row I-1 and decision D-KF-13-DIST, one value serves both the ordinary cap refusal and the import preflight refusal, listed once, and the two refusals are distinguished by the structured field refusal_context, with values append_cap and import_preflight, carried beside limit_number holding 39 or 40; the table names that distinguishing field in the row itself."""
+        """Plan Section 1.3 S3 limb (a), F-20 shared refusal row. Oracle: plan entry 13 row I-1 and the settled decision, one value serves both the ordinary cap refusal and the import preflight refusal, listed once, and the two refusals are distinguished by the structured field refusal_context, with values append_cap and import_preflight, carried beside limit_number holding 39 or 40; the table names that distinguishing field in the row itself."""
         matches = [e for e in errors.ERROR_VOCABULARY
                    if field(e, "token") == "JOURNAL_CAP_EXCEEDED"]
         self.assertEqual(len(matches), 1)

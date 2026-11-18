@@ -1,7 +1,7 @@
-"""Step 19 Phase 7 fix seat G, item P7A3-F2-2 pinning tests.
+"""Repair pinning tests.
 
 The F-2 exception is a row field exception. Governing
-text: the Phase 6 class (f) F-2 cure, the exception
+text: the repair class (f) F-2 cure, the exception
 binds the per answer rows of an answer_metrics list,
 and a row's own control_flag states only that the
 answer is a control answer. A control_flag nested

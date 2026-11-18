@@ -1,7 +1,7 @@
-"""Step 20 fix tests, seat FX20-07: shell and text surfaces
+"""Repair tests: shell and text surfaces
 and delegated decisions 4 to 11.
 
-Each test pins one register item or one delegated decision
+Each test pins one settled rule
 of design/steps/step-20-register.md on its own evidence.
 Copyright: J.P. Picard aka Macro-Harder.
 """

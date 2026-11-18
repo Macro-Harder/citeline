@@ -1,13 +1,13 @@
 """Service, watch, seams.
 
-Verdict pins only: this seat charges no cure of its own and
+Verdict pins only: this repair charges no cure of its own and
 edits no product module. The pins stand on the F6 seams as
-the round 9 F6 fix paper states them, on the container seam
-at as the round 9 F2 fix paper states it, and on the
+the settled repair states them, on the container seam
+at as the settled repair states it, and on the
 standing watch verifications in their exact forms. Each pin
 was written before the verdict it records and stands passing
 on the cured tree the verdicts judge. Oracle: the round 9
-findings register and disposition, Section 3 seat F7.
+settled findings, Section 3 the repair.
 
 Copyright: J.P. Picard aka Macro-Harder."""
 

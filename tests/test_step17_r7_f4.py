@@ -1,8 +1,8 @@
 """Import family.
 
 Test first pins for register, from the register and the
-source paper the register paper, with the seam verdict pins
-the F2 fix paper of this round states."""
+source paper the settled record, with the seam verdict pins
+the F2 repair record of the round states."""
 
 import hashlib
 import io

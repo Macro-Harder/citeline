@@ -1,10 +1,10 @@
 """Service, watch, seams.
 
-Pins the register entries charged to F7 in fix round 2:
+Pins the settled rules:
 and, plus the report route backstop limb of charged
 through the F5 refusal. Every test was written before
 its cure and run failing for the register stated reason.
-Oracle: the round 2 findings register and disposition."""
+Oracle: the round 2 settled findings."""
 
 import contextlib
 import hashlib
@@ -978,8 +978,8 @@ class Test101FailureRecordSurfacing(SeededBase):
         super().setUp()
         answer = temp_file(self, "Acme Ledger is a ledger tool.\n")
         do_import(self.home, answer)
-        # Restated in its seed limb only, for Step 19 register
-        # item R19-017: one seed failure record now stands
+        # Restated in its seed limb only, for the settled rule
+        # item the settled rule: one seed failure record now stands
         # created by a failed import, an appending operation
         # whose failure record stands, instead of by a failed
         # probe report, a non appending operation whose cure
@@ -1009,7 +1009,7 @@ class Test101FailureRecordSurfacing(SeededBase):
         self.assertIn("UNKNOWN_ROUND", self.failure_values(record))
 
     def test_probe_report_surfaces_failure_records(self):
-        # Restated for Step 19 register item R19-018: the
+        # Restated for the settled rule: the
         # probe report record now keeps standing failure
         # record payloads out in full, so two identical probe
         # report calls return identical JSON however many

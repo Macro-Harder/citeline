@@ -1,8 +1,8 @@
-"""Step 19 Phase 7 repair tests, fix seat F: import and page intake.
+"""Repair tests: import and page intake.
 
-Each class pins one Phase 7 finding from the Attacker 2 paper
-(design/audit/step-19-phase7-attack2.md). Tests were written
-before the fixes they pin. S19-P7A2-07 stands routed as a
+Each class pins one repair finding from the attack findings
+(the audit record Tests were written
+before the fixes they pin. the settled rule stands routed as a
 design question and carries no cure test in this file.
 """
 
@@ -19,7 +19,7 @@ def form_of(text):
 
 
 class TestP7A201HtmlByDocumentKind(unittest.TestCase):
-    """S19-P7A2-01: an HTML capture is refused in every spelling,
+    """The settled rule: an HTML capture is refused in every spelling,
     judged by document kind: a file whose first content unit is
     markup is an HTML document or fragment, not answer text."""
 
@@ -91,7 +91,7 @@ class TestP7A201HtmlByDocumentKind(unittest.TestCase):
 
 
 class TestP7A202JsonLinesPastTheTenth(unittest.TestCase):
-    """S19-P7A2-02: a JSON lines export stands as json_lines where
+    """The settled rule: a JSON lines export stands as json_lines where
     its JSON lines are the substance of the file, however its
     framing, fencing, or damage is spelled, and not only where
     the non JSON lines stay within a tenth of the file."""
@@ -148,7 +148,7 @@ class TestP7A202JsonLinesPastTheTenth(unittest.TestCase):
 
 
 class TestP7A203TextPageFrontMatterControlSet(unittest.TestCase):
-    """S19-P7A2-03: the text page intake enforces the whole front
+    """The settled rule: the text page intake enforces the whole front
     matter control set, as the import intake and the markdown
     page intake each enforce it on the identical block."""
 
@@ -190,7 +190,7 @@ class TestP7A203TextPageFrontMatterControlSet(unittest.TestCase):
 
 
 class TestP7A204UnclosedFrontMatter(unittest.TestCase):
-    """S19-P7A2-04: an unclosed head front matter block refuses at
+    """The settled rule: an unclosed head front matter block refuses at
     every intake, as the import intake refuses it."""
 
     UNCLOSED = "---\nkey: &a value\n"

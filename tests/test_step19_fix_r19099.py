@@ -1,6 +1,6 @@
-"""Step 19 fix tests for R19-099: a repeated scalar flag stands refused.
+"""Repair tests: a repeated scalar flag stands refused.
 
-Oracle: register item R19-099 and brief CL19-044, repetition stands
+Oracle: the settled rule, repetition stands
 admitted for list valued inputs only. A repeated scalar flag must
 never silently govern by its last value.
 """

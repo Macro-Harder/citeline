@@ -1,6 +1,6 @@
-"""Step 19 fix tests for R19-008: a register-page repeat writes nothing.
+"""Repair tests: a register-page repeat writes nothing.
 
-Oracle: register item R19-008 and brief CL19-177. A repeat
+Oracle: the settled rule. A repeat
 register-page call on a snapshot already marked is_product_page
 writes nothing, matching the add-product no change rule, and
 returns the standing registered record.

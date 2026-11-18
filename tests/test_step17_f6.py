@@ -1,10 +1,10 @@
 """Guide and reporting family.
 
-Each test pins one register entry from the findings
+Each test pins one settled rule
 registers, in the form the register states. Written before
 the cures, watched failing, then watched passing. The
 staleness tests cure entries whose computation stands in
-service.py; that touch is recorded in the seat paper as an
+service.py; that touch is recorded in the repair notes as an
 out of family touch with its reason."""
 
 import json
@@ -367,7 +367,7 @@ class TestEmptyRound078(unittest.TestCase):
     """: an empty round guide states its empty basis in plain
     words on the draft itself. The trigger outcome stands
     as brief item 137 states it; the cure is the stated
-    basis, recorded in the seat paper."""
+    basis, recorded in the repair notes."""
 
     def test_empty_round_draft_states_no_answers(self):
         draft = guide.draft_from_round(

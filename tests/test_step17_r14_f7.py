@@ -1,6 +1,6 @@
 """Service, watch, seams.
 
-Seat F7 carries one entry TO FIX in this round, Medium: the
+The repair carries one repair entry in this round: the
 service seam container measure in citeline/service.py
 recursed with no depth guard, so a JSON front matter block
 nesting past the platform recursion standing escaped
@@ -30,9 +30,9 @@ service reading, in the primary form and in the fallback form
 alike; and the watch figures in their exact forms, the
 WatchPlan size figure of 1 MiB and the picked scope bound of
 100 targets, with both watch modes standing as options.
-Oracle: the round 14 disposition, Section 3 seat F7 and
-rulings (d) and (f), the round 14 register, and the round 14
-service attack paper, filing.
+Oracle: the settled disposition, Section 3 the repair and
+the settled rules, the earlier register, and the earlier round
+service attack findings, filing.
 
 Copyright: J.P. Picard aka Macro-Harder."""
 

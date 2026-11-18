@@ -2,8 +2,8 @@
 
 Test first pins for the import side limb of register,
 from the register, as dispositioned in the register
-paper ruling (c) and Section 3, this seat standing
-charged with the import side limb at the lead of seat
+paper the settled rule and Section 3, this repair standing
+charged with the import side limb at the lead of repair
 F2."""
 
 import json

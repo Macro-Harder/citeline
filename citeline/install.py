@@ -255,7 +255,7 @@ def _restrict(path, mode):
 def _create_file_exclusive(path, text, home=None):
     """Create one installer file by the pinned B4 write
     sequence (plan EC-18 subsection 8.1, decisions
-    D-KF-18-PICK and D-KF-18-TEMP): a complete temporary
+    the settled decision and the settled decision): a complete temporary
     file in the destination directory, flushed to storage;
     a hard link from the temporary name to the destination
     name, which fails where the destination exists, so a
@@ -319,7 +319,7 @@ def _create_file_exclusive(path, text, home=None):
 def _temporary_process_number(name, destination_name):
     """The process number a B4 temporary name carries, or
     None where the name is not a temporary of the
-    destination, on the parse form decision D-KF-18-TEMP
+    destination, on the parse form the settled decision
     states: the destination name, the suffix.tmp-, the
     journal sequence digit run, a hyphen separator, and
     the process number digit run at the end of the name."""
@@ -337,7 +337,7 @@ def _temporary_process_number(name, destination_name):
 def _remove_orphaned_temporaries(directory, destination_name):
     """Remove the orphaned B4 temporaries of one
     destination standing in its directory, before this
-    invocation writes (decision D-KF-18-TEMP): an orphan
+    invocation writes (the settled decision): an orphan
     is a file matching the temporary naming pattern that
     this invocation did not create and whose process
     number names no live process. A temporary whose
@@ -379,7 +379,7 @@ def _flush_directory(directory):
 def _last_journal_sequence(home):
     """The sequence of the journal's last entry as this
     invocation reads it, or 0 over a home whose journal
-    stands empty or absent (decision D-KF-18-TEMP, the
+    stands empty or absent (the settled decision, the
     form for a writing invocation that appends no entry,
     as the install writes do not)."""
     if not home:
@@ -1009,7 +1009,7 @@ def _home_is_product_home(home):
 def _home_is_used(home):
     """True where the home holds product work: the journal
     or its write lock, the records a used home stands
-    removed whole for under the Step 19 cure."""
+    removed whole for under the settled cure."""
     for name in ("journal.jsonl", ".citeline-write.lock"):
         if os.path.lexists(os.path.join(home, name)):
             return True
@@ -1283,7 +1283,7 @@ def _uninstall_impl(location=None, home=None):
         elif stat.S_ISDIR(info.st_mode):
             if installer_linked and _home_is_used(home):
                 # The used home of a genuine installation,
-                # removed whole under the Step 19 cure: the
+                # removed whole under the settled cure: the
                 # installer config names this home and the
                 # home holds the product's own work.
                 _remove_home_tree(home, removed)

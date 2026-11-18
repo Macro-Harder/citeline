@@ -1,11 +1,11 @@
 """Import family.
 
 Test first pins for the import side limbs of register,
-each Low, each counted at its lead seat F2, cured at
+each Low, each counted at its lead the repair, cured at
 the import side helper _holds_tag_construct in
 probe_import.py, at its position scan
 _position_scan_holds, in the form the F2 cure rule
-states for this seat. Entry: a sole category Lo
+states for this repair. Entry: a sole category Lo
 follower separated from its construct by one head gap
 character passes at both readings, the follower
 judgement of the position scan standing on the
@@ -23,8 +23,8 @@ judgement stands as the form that cure matches.
 The defect pins assert the import reading and the
 import side helper alone, in the form the import side
 limb pins of the earlier rounds took: the page side
-limbs of the two entries stand cured at seat F2 in
-this wave ahead of this seat in the dependency order.
+limbs of the two entries stand cured at the repair in
+this repair wave ahead of this repair in the dependency order.
 The controls assert both readings where the standing
 the control names already stands at both. Every pin
 runs in memory at the readings and at the helpers, so

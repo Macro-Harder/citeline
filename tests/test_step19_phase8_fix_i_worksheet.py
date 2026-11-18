@@ -1,9 +1,9 @@
-"""Step 19 Phase 8 fix seat I tests.
+"""Repair tests.
 
-Each class pins one Phase 8 triage item, test first.
-Oracle: design/audit/step-19-phase8-triage.md Part B
-(P8O-01, the merged worksheet row P8O-02 with P8Y-03,
-and P8Y-06), with the Orange and Yellow Phase 8 papers.
+Each class pins one triage item, test first.
+Oracle: the audit record Part B
+(the repair item, the merged worksheet row the repair item with the repair item,
+and the repair item), with the settled findings.
 """
 
 import contextlib
@@ -28,7 +28,7 @@ def flat(text):
 
 
 class TestWorksheetRowInReadme(unittest.TestCase):
-    """P8O-02 with P8Y-03: the README Use list names
+    """The repair item with the repair item: the README Use list names
     export-capture-worksheet with its flags, in the form
     the other subcommand lines stand in."""
 

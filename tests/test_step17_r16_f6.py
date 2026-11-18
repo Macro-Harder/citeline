@@ -17,9 +17,9 @@ the sentence argument of passes_naming_test stands
 unguarded, so a non string sentence raises the raw
 TypeError of the round through the token reading. The
 sentence argument must stand guarded in the form of the
-term guard of the same call. Oracle: the round 16 findings
-register and disposition, ruling (e) and Section 3 seat F6,
-and the round 16 guide attack paper.
+term guard of the same call. Oracle: the earlier round findings
+settled record, the settled rule and Section 3 the repair,
+and the settled guide findings.
 
 Copyright: J.P. Picard aka Macro-Harder."""
 

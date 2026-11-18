@@ -1,4 +1,4 @@
-"""Step 19 Phase 7 fix seat G, item P7A3-F2-1 pinning test.
+"""Repair pinning test.
 
 The fused key limb: answermetrics. Governing text: the
 reporting module component reading, a fused name stands

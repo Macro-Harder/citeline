@@ -1,6 +1,6 @@
 """Checks and robots entries.
 
-Each test pins one register entry on the behaviour the register
+Each test pins one settled rule on the behaviour the register
 states, written before its cure. Entries: to."""
 
 import subprocess

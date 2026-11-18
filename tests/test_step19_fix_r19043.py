@@ -1,6 +1,6 @@
-"""Step 19 fix tests for R19-043: usage errors name the fault only.
+"""Repair tests: usage errors name the fault only.
 
-Oracle: register item R19-043. A shell usage error prints no full
+Oracle: the settled rule. A shell usage error prints no full
 help text to stdout, and its error names the actual fault,
 including the flag at fault and the equals joined form where
 that is the fault. The help subcommand still prints the full

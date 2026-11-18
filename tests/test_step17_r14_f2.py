@@ -8,7 +8,7 @@ follower of a construct character, with nothing judged standing
 after it, because the interior head reading
 _fm_remove_interior_head in acquisition.py removes the mark
 before the follower judgement of _fm_holds_tag_construct runs,
-so the category reading the fix round 13 cures land never
+so the category reading the repair cures land never
 reaches it. On this machine Unicode 15.0.0 tables the head set
 holds 282 marks of the union, every one of category Mn, standing
 in eight ranges: U+034F alone, U+0610 to U+061A, U+17B4 to
@@ -19,10 +19,10 @@ and in the JSON form, at the value position and at the key
 position alike, in plain form and in JSON escape form alike,
 beside sweeps of the page side helper over every code point of
 the union at the sole follower positions. The import side limb
-of the entry stands inside the F4 charge of this wave and lands
-after this seat in the dependency order, so the defect pins
+of the entry stands inside the F4 charge of this repair wave and lands
+after this repair in the dependency order, so the defect pins
 assert the page reading alone, in the form the page side limb
-pins of fix round 13 took. The controls assert both readings
+pins of the repair took. The controls assert both readings
 where the standing the control names already stands at both."""
 
 import json

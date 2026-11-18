@@ -1,11 +1,10 @@
-"""Step 19 Phase 6 fix tests, journal seat (Fix seat 3).
+"""Repair tests for the journal.
 
-One class per register item cured in citeline/journal.py:
-R19-034, R19-035, R19-038, R19-039 and R19-040 (scale
-logic pins; their timings stand as measurements in the
-seat paper, under the cost bound carve out), R19-094,
-R19-095, R19-021, R19-022, and R19-105. Each test pins the
-behaviour its item states, written before the cure.
+One class per settled rule cured in citeline/journal.py,
+including the scale logic pins; their timings stand as
+measurements in the repair notes, under the cost bound
+carve out. Each test pins the behaviour its rule states,
+written before the cure.
 """
 
 import hashlib
@@ -52,7 +51,7 @@ class HomeCase(unittest.TestCase):
 
 
 class AnchorReadGuardTests(HomeCase):
-    """R19-034: the anchor read stands guarded by a regular
+    """The settled rule: the anchor read stands guarded by a regular
     file check and a size bound, so status and verify can
     neither hang on a FIFO nor be killed on a swapped
     anchor file, while a standing recording, a recording
@@ -113,7 +112,7 @@ class AnchorReadGuardTests(HomeCase):
 
 
 class AnchorTornFormTests(HomeCase):
-    """R19-035: a malformed anchor stands reported in the
+    """The settled rule: a malformed anchor stands reported in the
     torn form, and no unparsed first token stands printed
     as a recorded head."""
 
@@ -129,7 +128,7 @@ class AnchorTornFormTests(HomeCase):
 
 
 class VerifyErrorValueTests(HomeCase):
-    """R19-094: the verify error_value field carries the
+    """The settled rule: the verify error_value field carries the
     vocabulary token, not the integer exit code."""
 
     def test_verify_error_value_is_the_token(self):
@@ -146,7 +145,7 @@ class VerifyErrorValueTests(HomeCase):
 
 
 class RecoveryRecordVocabularyTests(HomeCase):
-    """R19-095: the recovery failure record stands built
+    """The settled rule: the recovery failure record stands built
     through the CitelineError constructor guard, so its
     error_value is one of the closed vocabulary tokens,
     with its row, class, and exit code carried."""
@@ -175,7 +174,7 @@ class RecoveryRecordVocabularyTests(HomeCase):
 
 
 class ReplaySizeCapTests(HomeCase):
-    """R19-021: the replay path enforces the home size cap
+    """The settled rule: the replay path enforces the home size cap
     as append_entry enforces it, not the journal length
     cap alone."""
 
@@ -205,7 +204,7 @@ class ReplaySizeCapTests(HomeCase):
 
 
 class HomeSizeCapScopeTests(HomeCase):
-    """R19-022: the home size cap counts only files the
+    """The settled rule: the home size cap counts only files the
     product created, so a foreign file in the home cannot
     consume the cap, drive the remaining figure negative,
     or block writes."""
@@ -225,7 +224,7 @@ class HomeSizeCapScopeTests(HomeCase):
 
 
 class ConfigRelationTests(HomeCase):
-    """R19-105: the two config key relations stand stated
+    """The settled rule: the two config key relations stand stated
     where the config keys are specified, and the
     CONFIG_INVALID refusal names the relation."""
 
@@ -259,11 +258,11 @@ class ConfigRelationTests(HomeCase):
 
 
 class ScaleLogicTests(HomeCase):
-    """R19-039 and R19-040 logic pins at scale: a chain
+    """The settled rules logic pins at scale: a chain
     built to a stated size verifies, reports its count,
     and accepts one more append whose chain still
     verifies. The cost of these operations at the journal
-    cap stands measured in the seat paper, not asserted
+    cap stands measured in the repair notes, not asserted
     here, under the cost bound carve out."""
 
     def build_chain(self, count):

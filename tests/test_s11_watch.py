@@ -8,7 +8,7 @@ product keeps none. No test states an estate level pooled figure.
 No test assumes answers arriving during a round, assumes a watched
 directory, or treats an unimported round as a product failure.
 Mid round registry change effects on a target not yet run stand on
-K-18 ground and no test here decides that ground.
+the open question ground and no test here decides that ground.
 Timing assertions use the scale stated in scales-w7.md.
 """
 
@@ -89,12 +89,12 @@ def run(case, home, scope, **extra):
 class TestWatchPlanBounds(unittest.TestCase):
     """Row S11 WatchPlan bounds. Oracle: plan Section 3 W-2 and entry
     13 rows U-9 to U-13 on decision D-WATCH-13. Each bound stands as a
-    Manager settlement under delegation, open to Captain JP's
-    overturn, and never as her words."""
+    settled decision, open to the settled
+    overturn, and never as those words."""
 
     def test_watchplan_over_1mib_refused_at_open_as_usage_error(self):
-        """Pins W-2 governing size bound of 1 MiB, a Manager settlement
-        under delegation. Oracle: plan W-2 and row U-9: refused at
+        """Pins W-2 governing size bound of 1 MiB, a settled decision
+        as settled. Oracle: plan W-2 and row U-9: refused at
         open as a usage error naming the bound, before any round
         runs, with no failure record."""
         fixture = FIXTURES / "w7-watchplan-oversize.json"
@@ -104,7 +104,7 @@ class TestWatchPlanBounds(unittest.TestCase):
         self.assertIn("1 MiB", str(caught.exception))
 
     def test_watchplan_over_1mib_shell_returns_usage_code_2(self):
-        """Pins W-2 size bound exit limb, a Manager settlement under
+        """Pins W-2 size bound exit limb, a settled decision under
         delegation. Oracle: plan Section 4.2 watch row: rows U-9 to
         U-13 are usage class with exit code 2 and no round runs."""
         code = shell.main(
@@ -113,7 +113,7 @@ class TestWatchPlanBounds(unittest.TestCase):
 
     def test_picked_scope_over_100_targets_refused(self):
         """Pins picked scope bound of at most 100 targets, a Manager
-        settlement under delegation. Oracle: plan W-2 and row U-10:
+        settlement as settled. Oracle: plan W-2 and row U-10:
         refused after parsing and before any round runs as a usage
         error naming the bound, with no failure record."""
         fixture = FIXTURES / "w7-watchplan-picked-101.json"
@@ -123,8 +123,8 @@ class TestWatchPlanBounds(unittest.TestCase):
             watch.run_watch(plan_file=str(fixture))
 
     def test_estate_scope_file_listing_targets_refused_as_usage_error(self):
-        """Pins the estate with targets refusal, a Manager settlement
-        under delegation. Oracle: plan W-2 row U-11 and the WatchPlan
+        """Pins the estate with targets refusal, a settled decision
+        as settled. Oracle: plan W-2 row U-11 and the WatchPlan
         shape at plan Section 5.1: a file whose scope is estate and
         which also lists targets stands refused as a usage error, its
         targets never silently disregarded, and no round runs."""

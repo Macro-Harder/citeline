@@ -1,11 +1,11 @@
 """Service, watch, seams.
 
-Pins the register entries charged to F7 in fix round 3: and.
+Pins the settled rules
 Every test was written before its cure and run failing for
 the register stated reason, except the controls named as
 controls and the evidence test, which stands as an expected
-failure beside that entry's refusal in the seat paper.
-Oracle: the round 3 findings register and disposition."""
+failure beside that entry's refusal in the repair notes.
+Oracle: the round 3 settled findings."""
 
 import datetime
 import json
@@ -142,7 +142,7 @@ class Test029ReadSideRecovery(SeededBase):
         values = [payload.get("error_value")
                   for payload in result.get("failure_records") or []]
         # The recovery record's error_value stands in the
-        # closed vocabulary: Step 19 item R19-095 supersedes
+        # closed vocabulary: The settled rule supersedes
         # the raw interrupted_batch string this assertion
         # pinned before that cure.
         self.assertIn("TEMPORARY_LOST", values)
@@ -232,7 +232,7 @@ class Test047AuditDateFailureRecord(SeededBase):
             audit_date="not-a-date"))
 
     def assert_no_record(self, call):
-        # Restated for Step 19 register item R19-017: probe
+        # Restated for the settled rule: probe
         # report, probe trend, and query-set-report are the
         # operations the brief names as non appending, and
         # the cure stops them appending a failure record on
@@ -342,10 +342,10 @@ class Test050ListProductsHomeCheck(unittest.TestCase):
 
 # ----------------------------------------------------------------:
 # the picked watch round cost shape. The evidence test stands as
-# an expected failure beside the refusal recorded in the seat
+# an expected failure beside the refusal recorded in the repair
 # paper: the per target cost grows with the journal the round
 # itself writes, through full journal rehash scans no service or
-# watch cure in this seat's family can remove.
+# watch cure in this repair's family can remove.
 # ----------------------------------------------------------------
 
 def _child_append_failure_record(home, go_path, done_path):
@@ -590,8 +590,8 @@ class Test064CorrectionsAwareReaders(SeededBase):
         self.assertEqual(count, 0)
 
     def test_failure_surfacing_reads_corrections(self):
-        # Restated in its seed limb only, for Step 19 register
-        # item R19-017: the seed failure record now stands
+        # Restated in its seed limb only, for the settled rule
+        # item the settled rule: the seed failure record now stands
         # created by a failed import, an appending operation
         # whose failure record stands, instead of by a failed
         # probe report, a non appending operation whose cure

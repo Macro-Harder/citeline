@@ -1,8 +1,7 @@
 """Journal family.
 
-Each test pins one register entry from design/audit/
-the register paper on the behaviour the register and
-the round 4 disposition state. Homes are scratch homes
+Each test pins one settled rule from the findings the settled record on the behaviour the register and
+the settled disposition state. Homes are scratch homes
 under a temporary directory. No test here touches a
 standing test item or a governed ground."""
 
@@ -151,8 +150,8 @@ class BatchIntentStartingStateTests(HomeCase):
         self.assertTrue(journal.recover_interrupted_batch(self.home))
         # The partial batch stands removed and the record
         # stands acted, not cleared unacted. Restated at
-        # Step 20 under delegated decision 1 (register item
-        # R19-033, fix paper step-20-fix-05-journal-status):
+        # The build under the settled decision (the settled rule
+        # The settled rule, repair record step-20-fix-05-journal-status):
         # the recovery record append meets the repointed
         # config anchor, which stands missing at its new
         # path, and a missing anchor no longer bars an

@@ -1,15 +1,15 @@
-"""Step 19 Phase 7 fix seat E tests.
+"""Repair tests.
 
-This file pins the Phase 7 home selection items
-S19-P7A2-05 and S19-P7A2-06 at the service and shell loci. Tests were written before the fixes they pin.
+This file pins the home selection items
+the settled rule and the settled rule at the service and shell loci. Tests were written before the fixes they pin.
 Dates are call inputs in every test.
 
-Restatement, Step 20 seat FX20-09: three pins in this file
+Restatement: three pins in this file
 stated the superseded one hop behaviour for home
-selection. Delegated decision 9 of the Step 20 register
+selection. The settled decision of the settled register
 decides that selection resolves to a fixed point and that
 a selection cycle is refused with a named error, never
-followed and never looped, and the FX20-07 cure lands
+followed and never looped, and the repair cure lands
 that decision with the token CONFIG_INVALID at row X-1.
 The chain pin, the shell status pin, and the cycle pin
 stand restated to that behaviour in their original
@@ -127,7 +127,7 @@ def journal_holds(home, name):
 
 
 class TestP7A2HomeSelection(unittest.TestCase):
-    """S19-P7A2-05 and S19-P7A2-06: the home a governing call
+    """The settled rule and the settled rule: the home a governing call
     acts on stands the same at every entry point, and a
     relative home_path selection denotes a fixed home, not
     whatever the caller working directory makes it denote.

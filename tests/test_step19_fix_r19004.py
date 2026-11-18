@@ -1,4 +1,4 @@
-"""Step 19 repair test for R19-004, comparison criterion words.
+"""Repair test: comparison criterion words.
 
 Oracle: brief Section 5.7, the comparison check has four
 components at 0.4, 0.2, 0.2, and 0.2, the last being at

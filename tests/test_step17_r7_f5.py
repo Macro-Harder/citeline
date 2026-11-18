@@ -1,10 +1,10 @@
-# fix seat F5 tests. Entries, and: three cost defects,
+# Verdict tests. Entries, and: three cost defects,
 # correctness standing verified by differential in the attack
 # papers and rechecked here against a direct pair
 # computation. Timing probes stand on process CPU time, never
 # on wall clock, at the attack scales or the largest scale
 # that runs in reasonable time on the uncured tree, with the
-# projection to the cap stated in the seat paper. Copyright:
+# projection to the cap stated in the repair notes. Copyright:
 # J.P. Picard aka Macro-Harder.
 
 import random

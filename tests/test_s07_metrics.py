@@ -1,4 +1,4 @@
-"""Slice S7 metrics and trend tests, Step 13, Citeline.
+"""Slice S7 metrics and trend tests, Citeline.
 
 Written before the product exists. Every test imports the
 product package citeline and calls the metrics operations
@@ -25,7 +25,7 @@ trace states RoundMetrics computes from AnswerMetrics over
 both Section 5.2 inputs.
 
 Ground that stands blocked for this slice stands in
-blocked-w5.md and no test in this file pins it: every
+the open items list and no test in this file pins it: every
 stratum effective n derivation, the contract C4 binding
 limb, the bound limb of any figure resting on the
 clustering index, and the identity of an unqualified cited
@@ -191,7 +191,7 @@ class TestRatesAndTiers(unittest.TestCase):
 
 class TestBreakdowns(unittest.TestCase):
     def test_per_query_breakdown_counts(self):
-        """Plan Section 1.3 S7 family, per query breakdowns. Oracle: plan Section 5.1 RoundMetrics, the shape holds a per query breakdown, and brief Section 5.8 item 58, a per query rate is shown at any n with its tier and warning, and at count only tier as a count. The breakdown rows in this test proceed on the round level effective n; no stratum effective n is derived, that derivation standing blocked on L-ID-2 in blocked-w5.md."""
+        """Plan Section 1.3 S7 family, per query breakdowns. Oracle: plan Section 5.1 RoundMetrics, the shape holds a per query breakdown, and brief Section 5.8 item 58, a per query rate is shown at any n with its tier and warning, and at count only tier as a count. The breakdown rows in this test proceed on the round level effective n; no stratum effective n is derived, that derivation standing blocked on L-ID-2 in the open items list."""
         answers = [
             answer(named=True, cluster_id=0, query="q-one"),
             answer(named=False, cluster_id=1, query="q-one"),
@@ -206,7 +206,7 @@ class TestBreakdowns(unittest.TestCase):
         self.assertFalse(has_field(per_query["q-one"], "stratum_effective_n"))
 
     def test_per_competitor_breakdown_and_empty_domain_cited_not_applicable(self):
-        """Plan Section 1.3 S7 family, per competitor breakdowns. Oracle: plan Section 5.1 RoundMetrics per competitor breakdown, for a competitor whose domain stands empty the cited figure stands as not applicable with that reason, carrying no rate value, never as zero, and never pooled into any rate, as grill Q17 decides, while mention figures still compute."""
+        """Plan Section 1.3 S7 family, per competitor breakdowns. Oracle: plan Section 5.1 RoundMetrics per competitor breakdown, for a competitor whose domain stands empty the cited figure stands as not applicable with that reason, carrying no rate value, never as zero, and never pooled into any rate, as the settled answers decide, while mention figures still compute."""
         answers = [
             answer(cluster_id=0, competitor_named=True),
             answer(cluster_id=1, competitor_named=False),
@@ -285,7 +285,7 @@ class TestCountsAndCitationFigures(unittest.TestCase):
         self.assertEqual(field(result, "citation_instance_count"), 3)
 
     def test_self_citation_share_and_cited_rates_gross_and_net(self):
-        """Plan Section 1.3 S7 family, citation figures. Oracle: brief Section 5.8 item 29, the cited rate gross counts an answer as cited where it holds at least one citation instance of any kind, the cited rate net counts an answer only where it holds at least one instance that is not a self citation, and self citation share is self citation instances divided by all citation instances in the round. Hand computed for this round: gross 1.0, net 0.5, share 2 of 3. The identity of an unqualified cited rate stands blocked on L-SB-2 in blocked-w5.md and no assertion in this test rests on it."""
+        """Plan Section 1.3 S7 family, citation figures. Oracle: brief Section 5.8 item 29, the cited rate gross counts an answer as cited where it holds at least one citation instance of any kind, the cited rate net counts an answer only where it holds at least one instance that is not a self citation, and self citation share is self citation instances divided by all citation instances in the round. Hand computed for this round: gross 1.0, net 0.5, share 2 of 3. The identity of an unqualified cited rate stands blocked on L-SB-2 in the open items list and no assertion in this test rests on it."""
         answers = [
             answer(cluster_id=0, citations=2, self_citations=1),
             answer(cluster_id=1, citations=1, self_citations=1),
@@ -496,7 +496,7 @@ class TestTrendContractC5(unittest.TestCase):
         self.assertIn("cluster composition", field(trend, "composition_changed_axes"))
 
     def test_mixed_methods_inside_one_round_are_not_a_break(self):
-        """Plan Section 1.3 S7 family, contract C5 trend. Oracle: contract C5, a mix of capture method values inside one round is not a break, and brief Section 5.8 IM7-BRK-4 landing, two asserted spellings normalising to one form count once in the set, the comparison standing at set level over normalised forms (trimmed, case folded, whitespace collapsed, after NFC)."""
+        """Plan Section 1.3 S7 family, contract C5 trend. Oracle: contract C5, a mix of capture method values inside one round is not a break, and brief Section 5.8 settled landing, two asserted spellings normalising to one form count once in the set, the comparison standing at set level over normalised forms (trimmed, case folded, whitespace collapsed, after NFC)."""
         first = trend_round(0.5, {"capture_methods": ["by hand"]})
         second = trend_round(0.75, {"capture_methods": ["by hand", "By  Hand "]})
         trend = metrics.compute_trend(first, second)
@@ -516,7 +516,7 @@ class TestTrendContractC5(unittest.TestCase):
 
 class TestContractC4ComputationLimbs(unittest.TestCase):
     def test_report_rates_computed_over_one_answer_set_with_stamps_travelling(self):
-        """Plan Section 1.3 S7 family, contract C4 rows severed at the join, computation limb. Identifier: contract C4 is the Section 11 consistency contract. Oracle: contract C4, every rate in one report stands computed over the same set of stored answers, under the same registry version, the same query set version, the same ruleset version, and the same detector version, and those stamps travel in the report. The binding limb stands blocked on K-18 in blocked-w5.md and no assertion in this test rests on it."""
+        """Plan Section 1.3 S7 family, contract C4 rows severed at the join, computation limb. Identifier: contract C4 is the Section 11 consistency contract. Oracle: contract C4, every rate in one report stands computed over the same set of stored answers, under the same registry version, the same query set version, the same ruleset version, and the same detector version, and those stamps travel in the report. The binding limb stands blocked on the open question in the open items list and no assertion in this test rests on it."""
         answers = distinct_answers(4, named=True)
         result = metrics.round_metrics(answers, "sampled", datum={
             "registry_version": 3, "query_set_version": 2,
@@ -549,7 +549,7 @@ class TestContractC4ComputationLimbs(unittest.TestCase):
 
 
 class TestNoAgeSlotK17(unittest.TestCase):
-    """The K-17 shape tests call the service operations, in the
+    """The shape tests call the service operations, in the
     seeding form test_s05_import.py and test_s09_reporting.py
     use: an installed home, the product Acme Ledger with its
     one query, two named rounds, and one imported answer in
@@ -587,7 +587,7 @@ class TestNoAgeSlotK17(unittest.TestCase):
         return home
 
     def test_round_metrics_shape_carries_no_age_field(self):
-        """Plan Section 1.3 S7 entry, K-17 limb. Oracle: plan Section 1.3 S7 entry and Section 1.4 Part B carried account for K-17, no age field, no age statement, and no placeholder for one stands in any RoundMetrics shape, report object, or matrix row in this slice, and the absence of any age slot stands as a conformance point. This test asserts the absence over the field names of the report the service probe report operation returns."""
+        """Plan Section 1.3 S7 entry, the open question limb. Oracle: plan Section 1.3 S7 entry and Section 1.4 Part B carried account for the open question, no age field, no age statement, and no placeholder for one stands in any RoundMetrics shape, report object, or matrix row in this slice, and the absence of any age slot stands as a conformance point. This test asserts the absence over the field names of the report the service probe report operation returns."""
         home = self.seeded_home()
         result = service.probe_report(
             home=str(home), product="Acme Ledger", round="round-a",
@@ -596,7 +596,7 @@ class TestNoAgeSlotK17(unittest.TestCase):
             self.assertNotIn("age", name)
 
     def test_probe_trend_shape_carries_no_age_field(self):
-        """Plan Section 1.3 S7 entry, K-17 limb. Oracle: the K-17 absence as stated at the S7 entry, asserted here over the ProbeTrend field names of plan Section 5.1, on the trend the service probe trend operation returns."""
+        """Plan Section 1.3 S7 entry, the open question limb. Oracle: the open question absence as stated at the S7 entry, asserted here over the ProbeTrend field names of plan Section 5.1, on the trend the service probe trend operation returns."""
         home = self.seeded_home()
         trend = service.probe_trend(
             home=str(home), product="Acme Ledger", round_a="round-a",

@@ -1,11 +1,11 @@
 """Service, watch, seams.
 
-Pins the register entry charged to F7 in fix round 8, and
-the seam positions the F2, F4, and F6 papers of this round
-state for this seat. Every defect test was written before
+Pins the settled rule, and
+the seam positions the F2, F4, and F6 papers of the round
+state for this repair. Every defect test was written before
 its cure and run failing for the register stated reason,
 except the controls named as controls. Oracle: the round 8
-findings register and disposition.
+settled findings.
 
 Copyright: J.P. Picard aka Macro-Harder."""
 

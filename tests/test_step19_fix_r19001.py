@@ -1,4 +1,4 @@
-"""Step 19 repair test for R19-001, unproven superlatives.
+"""Repair test: unproven superlatives.
 
 Oracle: brief Section 5.7, earned is 1.0 minus 0.34 per
 unproven hit, floored at 0, each unproven span reported

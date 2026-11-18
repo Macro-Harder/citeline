@@ -1,4 +1,4 @@
-"""Slice S6 detection tests, Step 13, Citeline.
+"""Slice S6 detection tests, Citeline.
 
 Written before the product exists. Every test imports the
 product package citeline and calls the detection operations
@@ -9,11 +9,11 @@ expected red state. No stub and no mock of the product
 stands in this file.
 
 Ground that stands blocked for this slice stands in
-blocked-w5.md and no test in this file pins it: behaviour
-against the contents of any CL-13 list, likeness, any cost
+the open items list and no test in this file pins it: behaviour
+against the contents of any the settled claim list, likeness, any cost
 bound over the hostile corpus, and the item 152 removal
 set. Third party mentions stand outside this file: no test
-ingests them, on the ruling that third party mentions are
+ingests them, on the settled rule that third party mentions are
 out and the product is files only.
 """
 
@@ -67,7 +67,7 @@ class TestMentionDetection(unittest.TestCase):
         self.assertEqual(field(result, "matched_aliases"), ["Northbeam"])
 
     def test_matching_is_case_insensitive(self):
-        """Plan Section 1.3 S6 family (a), mention detection. Oracle: brief Section 5.7 item 46, the search runs case insensitively for all names under grill Q18."""
+        """Plan Section 1.3 S6 family (a), mention detection. Oracle: brief Section 5.7 item 46, the search runs case insensitively for all names under the settled answers."""
         result = detection.detect_answer("northbeam is a tool.", PRODUCT, [])
         self.assertTrue(field(result, "named"))
         self.assertEqual(field(result, "first_offset"), 0)
@@ -192,7 +192,7 @@ class TestCitationDetection(unittest.TestCase):
         self.assertEqual(field(result, "unresolved_form_count"), 0)
 
     def test_wrapped_target_records_target_as_written_no_unwrapped_outcome(self):
-        """Plan Section 1.3 S6 family (b), intermediary host list, list independent limb. Oracle: brief Section 5.7 item 48, no decoded wrapper outcome exists in version 1, and a wrapped target is recorded as the target as written. The wrapper note limb, which turns on the list contents, stands blocked in blocked-w5.md."""
+        """Plan Section 1.3 S6 family (b), intermediary host list, list independent limb. Oracle: brief Section 5.7 item 48, no decoded wrapper outcome exists in version 1, and a wrapped target is recorded as the target as written. The wrapper note limb, which turns on the list contents, stands blocked in the open items list."""
         result = detection.detect_answer("See https://www.google.com/url?q=https://northbeam.example.com/guide now.", PRODUCT, [])
         self.assertFalse(field(result, "cited"))
         self.assertNotIn("unwrapped_target", result if isinstance(result, dict) else vars(result))
@@ -215,7 +215,7 @@ class TestPerCompetitorOutcomes(unittest.TestCase):
         self.assertFalse(field(rival, "cited"))
 
     def test_empty_domain_competitor_cited_is_not_applicable_with_reason(self):
-        """Plan Section 1.3 S6 family (a), per competitor outcomes. Oracle: plan Section 5.1 AnswerMetrics per competitor cited rule and grill Q17, for a competitor whose domain stands empty, cited stands as not applicable with that reason, in place of a true or false outcome."""
+        """Plan Section 1.3 S6 family (a), per competitor outcomes. Oracle: plan Section 5.1 AnswerMetrics per competitor cited rule and the settled answers, for a competitor whose domain stands empty, cited stands as not applicable with that reason, in place of a true or false outcome."""
         result = detection.detect_answer("Nodomain is covered in the roundup.", PRODUCT, [NODOMAIN])
         rival = competitor_outcome(result, "Nodomain")
         self.assertTrue(field(rival, "named"))
@@ -273,7 +273,7 @@ class TestCanonicalForm(unittest.TestCase):
         )
 
     def test_ref_parameter_is_not_stripped(self):
-        """Plan Section 1.3 S6 family (b), tracking parameter list, list independent limb for the one member the brief names. Oracle: brief Section 5.7 item 41, the ref parameter is not a tracking parameter for matching, so a target differing only in a ref parameter is a different target for page level matching. Behaviour for every other member stands blocked in blocked-w5.md."""
+        """Plan Section 1.3 S6 family (b), tracking parameter list, list independent limb for the one member the brief names. Oracle: brief Section 5.7 item 41, the ref parameter is not a tracking parameter for matching, so a target differing only in a ref parameter is a different target for page level matching. Behaviour for every other member stands blocked in the open items list."""
         self.assertNotEqual(
             detection.canonical_form("https://example.com/a?ref=x"),
             detection.canonical_form("https://example.com/a"),
@@ -437,7 +437,7 @@ class TestClustering(unittest.TestCase):
         self.assertEqual(len(set(ids)), 1)
 
     def test_hostile_corpus_correctness_limb_only(self):
-        """Plan Section 1.3 S6 family (d), SEAM-CLUSTER-COST, correctness limb only. Oracle: plan Section 1.4 entry B7 proceeding tests, clustering correctness on the index specified exactly, and the hostile corpus in its correctness limb. The corpus stands produced by the scaling route of plan Section 1.6 from stated parameters in this test: 200 answers of ten pairwise distinct words each, and 50 exact copies of one further answer. Hand computed expectation from item 20 applied to the corpus as generated: 201 clusters. No timing, memory, completion, cap, or size bound stands asserted in this test; every such bound stands blocked on RH-2 in blocked-w5.md."""
+        """Plan Section 1.3 S6 family (d), SEAM-CLUSTER-COST, correctness limb only. Oracle: plan Section 1.4 entry B7 proceeding tests, clustering correctness on the index specified exactly, and the hostile corpus in its correctness limb. The corpus stands produced by the scaling route of plan Section 1.6 from stated parameters in this test: 200 answers of ten pairwise distinct words each, and 50 exact copies of one further answer. Hand computed expectation from item 20 applied to the corpus as generated: 201 clusters. No timing, memory, completion, cap, or size bound stands asserted in this test; every such bound stands blocked on RH-2 in the open items list."""
         texts = []
         for i in range(200):
             texts.append(" ".join("h%dw%d" % (i, j) for j in range(10)))
@@ -451,7 +451,7 @@ class TestItem157TimingBound(unittest.TestCase):
     def test_near_miss_input_within_five_second_bar(self):
         """Item 157 timing test, stated in full at plan
         EC-17 subsection 7.1 point 4 and decision
-        D-KF-17-LENGTH. Oracle: a detector pattern that
+        the settled decision. Oracle: a detector pattern that
         cannot pass the timing test does not ship; the
         near miss input length is 100,000 characters; the
         pass bar is 5 seconds on the reference machine

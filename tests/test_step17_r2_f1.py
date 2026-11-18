@@ -1,6 +1,6 @@
 """Journal family.
 
-Each test pins one register entry from design/audit/ the
+Each test pins one settled rule from the findings the
 register paper on the behaviour the register states. Homes
 are scratch homes under a temporary directory. No test
 here touches a standing test item or a governed ground."""
@@ -282,11 +282,11 @@ class AnchorReaderTests(HomeCase):
         state = journal.status_snapshot(self.home)
         # A recording whose sequence does not parse stands
         # malformed, and a malformed anchor reports the torn
-        # form: Step 19 item R19-035 supersedes the divergent
+        # form: The settled rule supersedes the divergent
         # form this assertion pinned before that cure.
         self.assertEqual(state["anchor"]["agreement"], "torn")
-        # Restated at Step 20 under delegated decision 1
-        # (register item R19-033, fix paper
+        # Restated under the settled decision
+        # (the settled rule, repair record
         # step-20-fix-05-journal-status): a malformed
         # anchor no longer bars the append. The append
         # proceeds, reports the torn disagreement in its
@@ -319,13 +319,13 @@ class AnchorReaderTests(HomeCase):
             state = journal.status_snapshot(home)
             # A sequence in a signed or padded form does not
             # parse as a recording, so the anchor stands
-            # malformed and reports the torn form: Step 19
-            # item R19-035 supersedes the divergent form this
+            # malformed and reports the torn form: the settled
+            # item supersedes the divergent form this
             # assertion pinned before that cure.
             self.assertEqual(state["anchor"]["agreement"], "torn",
                              msg=token)
-            # Restated at Step 20 under delegated decision
-            # 1 (R19-033): a malformed anchor no longer bars
+            # Restated under delegated decision
+            # 1 (the settled rule): a malformed anchor no longer bars
             # the append; the append proceeds, reports the
             # torn disagreement, and rewrites the anchor.
             result = journal.append_entry(

@@ -1,7 +1,7 @@
 """Registry and acquisition.
 
 Test first pins for register, and. Each test reproduces the
-defect named at its register entry against the governing brief
+defect named under the settled rule against the governing brief
 or plan text cited there, then stands as the pin for its cure."""
 
 import hashlib

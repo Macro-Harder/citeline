@@ -1,13 +1,13 @@
 """Service, watch, seams.
 
-Pins the register entries charged to F7 in fix round 7:
+Pins the settled rules:
 and, and the seam positions the F2, F4, and F6 papers of
-this round state for this seat. Every defect test was
+this round state for this repair. Every defect test was
 written before its cure and run failing for the register
 stated reason, except the controls named as controls.
-Oracle: the round 7 findings register and disposition.
+Oracle: the round 7 settled findings.
 
-Restated for Step 20 register item R19-092: the audit form
+Restated for the settled rule: the audit form
 request this file's Test046 class names is the re-render of
 a stored audit record, and under the ruled split that
 record stands returned only through service.audit_render,
@@ -197,7 +197,7 @@ class Test045StampsCounterForm(SeededBase):
 # date, the date defaulted flag, and the methods note version
 # beside the fields its validator names today, the methods note
 # version standing judged as the integer 1 under the Manager
-# ruling. Restated for R19-092: the form request stands on
+# ruling. Restated for the settled rule: the form request stands on
 # the audit_render route, the reader the ruling names for a
 # stored audit record, under the same validation.
 # ----------------------------------------------------------------
@@ -477,7 +477,7 @@ class TestF4SeamsServiceReading(SeededBase):
 # ----------------------------------------------------------------
 # F2 seams consumed at the service surfaces: the page side forms
 # as cured at to and the round label forms as cured at. Controls:
-# these forms stand landed by seat F2 and the service surfaces
+# these forms stand landed by the repair and the service surfaces
 # consume them as they stand.
 # ----------------------------------------------------------------
 

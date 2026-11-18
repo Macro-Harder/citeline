@@ -1,8 +1,8 @@
-"""Step 20 fix seat FX20-02, installer and uninstall items.
+"""Repair tests.
 
-Each class pins one register item from the Step 20 defect
-register, test first. Oracle: the register item text in
-design/steps/step-20-register.md, with the Step 19 cures
+Each class pins one settled rule
+register, test first. Oracle: the settled rule text in
+the settled register, with the earlier cures
 at the final head standing as regression ground.
 """
 
@@ -42,7 +42,7 @@ class InstallCase(unittest.TestCase):
 
 
 class TestS2002ForeignHome(InstallCase):
-    """S20-02: a foreign home is removed whole on the
+    """The settled rule: a foreign home is removed whole on the
     strength of one file name."""
 
     def test_foreign_home_with_journal_name_survives(self):
@@ -68,7 +68,7 @@ class TestS2002ForeignHome(InstallCase):
 
 
 class TestS2003ForeignPackage(InstallCase):
-    """S20-03: a foreign package directory at a never
+    """The settled rule: a foreign package directory at a never
     installed location is removed whole."""
 
     def test_foreign_package_survives_uninstall(self):
@@ -91,7 +91,7 @@ class TestS2003ForeignPackage(InstallCase):
 
 
 class TestS2009ForeignFilesInsideInstall(InstallCase):
-    """S20-09: the uninstall tree walks delete foreign
+    """The settled rule: the uninstall tree walks delete foreign
     files placed inside a genuine install."""
 
     def test_foreign_files_inside_genuine_install_survive(self):
@@ -126,7 +126,7 @@ class TestS2009ForeignFilesInsideInstall(InstallCase):
 
 
 class TestS2010NonJournalProductHome(InstallCase):
-    """S20-10: a home holding only non journal product
+    """The settled rule: a home holding only non journal product
     files is never removed, and a reinstall resurrects it."""
 
     def test_home_holding_only_home_config_is_removed(self):
@@ -156,7 +156,7 @@ class TestS2010NonJournalProductHome(InstallCase):
 
 
 class TestS2011SubstringProvenance(InstallCase):
-    """S20-11: the provenance checks are substring tests,
+    """The settled rule: the provenance checks are substring tests,
     so quoted marker text passes as provenance."""
 
     def test_prose_quoting_launcher_marker_survives(self):
@@ -191,7 +191,7 @@ class TestS2011SubstringProvenance(InstallCase):
 
 
 class TestS2012CompleteField(InstallCase):
-    """S20-12: the uninstall report states complete True
+    """The settled rule: the uninstall report states complete True
     unconditionally."""
 
     def test_complete_false_where_items_remain(self):
@@ -209,7 +209,7 @@ class TestS2012CompleteField(InstallCase):
 
 
 class TestS2014PythonFloorToken(InstallCase):
-    """S20-14: the InstallError token PYTHON_FLOOR stands
+    """The settled rule: the InstallError token PYTHON_FLOOR stands
     in no vocabulary table and falls back to row X-9."""
 
     def test_floor_refusal_carries_a_vocabulary_token(self):
@@ -229,7 +229,7 @@ class TestS2014PythonFloorToken(InstallCase):
 
 
 class TestS2028FilesystemFailureToken(InstallCase):
-    """S20-28: every filesystem failure on the install and
+    """The settled rule: every filesystem failure on the install and
     uninstall routes is returned as DESTINATION_EXISTS."""
 
     def test_permission_failure_is_not_destination_exists(self):
@@ -266,7 +266,7 @@ class TestS2028FilesystemFailureToken(InstallCase):
 
 
 class TestS2029LinkToDirectoryMessage(InstallCase):
-    """S20-29: a link to a directory is refused with a
+    """The settled rule: a link to a directory is refused with a
     message stating it stands as a file."""
 
     def test_location_link_to_directory_message(self):
@@ -294,7 +294,7 @@ class TestS2029LinkToDirectoryMessage(InstallCase):
 
 
 class TestS2030FallbackConfigCheck(InstallCase):
-    """S20-30: the fallback config check accepts wrong
+    """The settled rule: the fallback config check accepts wrong
     form values its docstring states it refuses."""
 
     def config_path(self, text):
@@ -337,7 +337,7 @@ class TestS2030FallbackConfigCheck(InstallCase):
 
 
 class TestS2031PlantedLinkEvidence(InstallCase):
-    """S20-31: a planted link alone authorises removal of
+    """The settled rule: a planted link alone authorises removal of
     never installed empty home and location directories."""
 
     def test_planted_link_alone_removes_no_directories(self):

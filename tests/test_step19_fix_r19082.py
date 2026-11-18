@@ -1,6 +1,6 @@
-"""Step 19 fix tests for R19-082: set-category and --category.
+"""Repair tests: set-category and --category.
 
-Oracle: register item R19-082 and brief CL19-033. The README, the
+Oracle: the settled rule. The README, the
 help text, and brief Section 5.12 name category_terms only, so the
 undocumented category spelling stands refused on set-category.
 """

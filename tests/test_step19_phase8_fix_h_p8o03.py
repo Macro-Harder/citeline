@@ -1,7 +1,7 @@
-"""Step 19 Phase 8 fix test, seat H, item P8O-03.
+"""Repair test.
 
-Oracle: design/audit/step-19-phase8-orange.md finding P8O-03,
-disposed [defect] in design/audit/step-19-phase8-triage.md
+Oracle: the audit record finding the repair item,
+disposed [defect] in the audit record
 Part B: the Simple robots summary leaves 2 of 25 crawlers
 unaccounted (23 reach, 0 barred; the 2 are control rows).
 The cure: the Simple summary accounts for every crawler row

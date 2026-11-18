@@ -1,9 +1,9 @@
-"""Step 19 fix seat 2, installer and uninstall items.
+"""Repair tests.
 
-Each class pins one register item from the Step 19 split
+Each class pins one settled rule
 repair queue, test first. Oracle: the cure stated for the
-item in design/audit/step-19-split.md Section 3, with the
-brief and README passages the register item cites.
+item in the audit record Section 3, with the
+brief and README passages the settled rule cites.
 """
 
 import os
@@ -37,9 +37,9 @@ class InstallCase(unittest.TestCase):
 
 
 class TestR19012UsedHomeRemoval(InstallCase):
-    """R19-012: uninstall removes everything the installer
+    """The settled rule: uninstall removes everything the installer
     created, a used home and its journal contents included,
-    per brief CL19-162 and README CL19-030."""
+    per the settled rule and the settled rule."""
 
     def test_uninstall_removes_used_home_and_journal_contents(self):
         self.install()
@@ -66,9 +66,9 @@ class TestR19012UsedHomeRemoval(InstallCase):
 
 
 class TestR19014Provenance(InstallCase):
-    """R19-014: uninstall checks provenance before every
+    """The settled rule: uninstall checks provenance before every
     removal, as the config file marker check already does,
-    per README CL19-030 and brief CL19-162."""
+    per the settled rule and the settled rule."""
 
     def test_foreign_product_file_survives_uninstall(self):
         self.location.mkdir(parents=True)
@@ -109,11 +109,11 @@ class TestR19014Provenance(InstallCase):
 
 
 class TestR19013RealInstall(InstallCase):
-    """R19-013: a real install stands independent of the
+    """The settled rule: a real install stands independent of the
     building tree path, and a broken installation fails with
     a recorded Citeline error at a designed exit code, never
-    a raw traceback at exit 1. Locus CL19-160, CL19-161,
-    CL19-200."""
+    a raw traceback at exit 1. Locus the settled rules,
+    the settled rule."""
 
     def copy_tree(self):
         import shutil
@@ -175,7 +175,7 @@ class TestR19013RealInstall(InstallCase):
 
 
 class TestR19015Permissions(InstallCase):
-    """R19-015: restrictive permissions on the home, the
+    """The settled rule: restrictive permissions on the home, the
     journal, and the config, set by the product itself and
     not by whatever the process umask gives."""
 
@@ -208,10 +208,10 @@ class TestR19015Permissions(InstallCase):
 
 
 class TestR19028UninstallNamesHome(InstallCase):
-    """R19-028: the documented uninstall form can name a
+    """The settled rule: the documented uninstall form can name a
     non default home and acts on the home named, never
-    silently against the default home. README CL19-030,
-    CL19-027."""
+    silently against the default home. the settled rule,
+    the settled rule."""
 
     def run_top_installer(self, args, fake_home):
         env = dict(os.environ)
@@ -238,11 +238,11 @@ class TestR19028UninstallNamesHome(InstallCase):
 
 
 class TestR19029Upgrade(InstallCase):
-    """R19-029: an upgrade path stands for a standing
+    """The settled rule: an upgrade path stands for a standing
     installation: reinstalling over a launcher from an
     earlier tree upgrades it in place, and the route is
-    stated in the shipped installer text. CL19-025,
-    CL19-159, CL19-165."""
+    stated in the shipped installer text. the settled rule,
+    the settled rules."""
 
     def test_reinstall_upgrades_a_standing_launcher(self):
         self.install()
@@ -271,10 +271,10 @@ class TestR19029Upgrade(InstallCase):
 
 
 class TestR19030UninstallRemaining(InstallCase):
-    """R19-030: uninstall output names everything that
+    """The settled rule: uninstall output names everything that
     remains after the call, and states plainly where nothing
-    was found or nothing was removed. Brief CL19-165,
-    CL19-226."""
+    was found or nothing was removed. Brief the settled rule,
+    the settled rule."""
 
     def run_main(self, argv):
         import contextlib
@@ -317,9 +317,9 @@ class TestR19030UninstallRemaining(InstallCase):
 
 
 class TestR19042HelpAndErrors(InstallCase):
-    """R19-042: the installer has a help surface, and every
+    """The settled rule: the installer has a help surface, and every
     installer error states the usage, the next step, and
-    what was not installed or removed. CL19-127."""
+    what was not installed or removed. the settled rule."""
 
     def run_main(self, argv):
         import contextlib
@@ -360,7 +360,7 @@ class TestR19042HelpAndErrors(InstallCase):
 
 
 class TestR19016ExclusiveCreate(InstallCase):
-    """R19-016: installer file creation uses exclusive
+    """The settled rule: installer file creation uses exclusive
     create, so a link planted between the existence checks
     and the write is refused and never followed, matching
     the journal code discipline."""
@@ -397,10 +397,10 @@ class TestR19016ExclusiveCreate(InstallCase):
 
 
 class TestR19032AbsoluteLocation(InstallCase):
-    """R19-032: a relative install location is printed as
+    """The settled rule: a relative install location is printed as
     an absolute path in the install output, as the home
-    lines in the same output already print. CL19-028,
-    CL19-226."""
+    lines in the same output already print. the settled rule,
+    the settled rule."""
 
     def test_relative_location_prints_absolute(self):
         import contextlib
@@ -422,10 +422,10 @@ class TestR19032AbsoluteLocation(InstallCase):
 
 
 class TestR19046ConfigInvalidDetail(InstallCase):
-    """R19-046: the install CONFIG_INVALID message names
+    """The settled rule: the install CONFIG_INVALID message names
     the cause, the rule broken, and the line at fault,
     distinguishing the parse, wrong form value, and
-    duplicate key causes. Brief CL19-164."""
+    duplicate key causes. Brief the settled rule."""
 
     def install_with_config(self, text):
         self.location.mkdir(parents=True)
@@ -465,10 +465,10 @@ class TestR19046ConfigInvalidDetail(InstallCase):
 
 
 class TestR19047RepeatInstallState(InstallCase):
-    """R19-047: a repeat install over a complete
+    """The settled rule: a repeat install over a complete
     installation reports per item state, stating that the
     product file and the home already stand complete where
-    they do. Brief CL19-165."""
+    they do. Brief the settled rule."""
 
     def test_repeat_install_reports_per_item_state(self):
         import contextlib

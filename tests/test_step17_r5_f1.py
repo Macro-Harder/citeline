@@ -1,8 +1,7 @@
 """Journal family.
 
-Each test pins one register entry from design/audit/
-the register paper on the behaviour the register and
-the round 5 disposition state. Homes are scratch
+Each test pins one settled rule from the findings the settled record on the behaviour the register and
+the settled disposition state. Homes are scratch
 homes under a temporary directory. No test here
 touches a standing test item or a governed ground."""
 
@@ -170,8 +169,8 @@ class RecoveryHomeSizeCapTests(HomeCase):
         journal._write_batch_intent(
             self.home, size_before, None, None, 1)
         # The size state stands staged by a product journal
-        # temporary left standing in the home: Step 19 item
-        # R19-022 charges the home size cap with product
+        # temporary left standing in the home: the settled item
+        # charges the home size cap with product
         # created files only, so a foreign file no longer
         # stages this state, and the temporary form this
         # assertion's scenario needs stands in its place.

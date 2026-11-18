@@ -1,8 +1,7 @@
 """Journal family.
 
-Each test pins one register entry from design/audit/
-the register paper (to, and under the Manager ruling
-recorded in the step record) on the behaviour the
+Each test pins one settled rule from the findings the settled record (to, and under the coordinator ruling
+recorded in the settled record) on the behaviour the
 register states. Homes are scratch homes under a
 temporary directory. No test here touches a standing
 test item or a governed ground."""

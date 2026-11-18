@@ -1,6 +1,6 @@
-"""Step 19 fix tests for R19-102: one error name for the run_id refusal.
+"""Repair tests: one error name for the run_id refusal.
 
-Oracle: register item R19-102. An audit call naming a run
+Oracle: the settled rule. An audit call naming a run
 identity beside fresh inputs stands refused under the one
 error name MALFORMED_CALL, regardless of whether the
 audit_date value parses. Which calls stand refused does not

@@ -1,7 +1,7 @@
-"""Step 20 fix tests for seat FX20-06: watch and reporting items.
+"""Repair tests: watch and reporting items.
 
-Items covered: S20-18, S20-20, S20-23, S20-24, S20-25, S20-26,
-S20-34, S20-35. Each test was written before its cure and run red
+Items covered: eight settled rules across the watch and
+reporting surfaces. Each test was written before its cure and run red
 on the PC bench, then green after the cure.
 
 Copyright: J.P. Picard aka Macro-Harder.
@@ -36,7 +36,7 @@ def audit_record(checks, score_extra=None, **extra):
 
 
 class TestS2018PageAgeUsesExtractedText(unittest.TestCase):
-    """S20-18: the watch page age stands on the extracted text
+    """The settled rule: the watch page age stands on the extracted text
     itself, never on the record sentences joined back together."""
 
     def test_labelled_line_in_extracted_text_governs(self):
@@ -74,7 +74,7 @@ class TestS2018PageAgeUsesExtractedText(unittest.TestCase):
 
 
 class TestS2034PageAgeReadsRecordAuditDate(unittest.TestCase):
-    """S20-34: where the plan names no audit date, the record's
+    """The settled rule: where the plan names no audit date, the record's
     own audit date governs the page age."""
 
     def test_record_audit_date_used_when_plan_date_absent(self):
@@ -87,7 +87,7 @@ class TestS2034PageAgeReadsRecordAuditDate(unittest.TestCase):
 
 
 class TestS2035ProbeTargetDisregardedFieldsNamed(unittest.TestCase):
-    """S20-35: a picked probe target's guide flag and audit limb
+    """The settled rule: a picked probe target's guide flag and audit limb
     fields stand named as disregarded in the plan warnings."""
 
     def warnings_for(self, target):
@@ -118,7 +118,7 @@ class TestS2035ProbeTargetDisregardedFieldsNamed(unittest.TestCase):
 
 
 class TestS2023SecondaryFigureNonNumeric(unittest.TestCase):
-    """S20-23: a non numeric stored earned or weight stands as no
+    """The settled rule: a non numeric stored earned or weight stands as no
     figure to the secondary figure recompute, never a crash."""
 
     def render_with(self, earned, weight):
@@ -150,7 +150,7 @@ class TestS2023SecondaryFigureNonNumeric(unittest.TestCase):
 
 
 class TestS2024ApplicableChecksCountForm(unittest.TestCase):
-    """S20-24: applicable_checks standing as a count renders in
+    """The settled rule: applicable_checks standing as a count renders in
     the Simple audit form without a crash."""
 
     def test_count_form_renders(self):
@@ -164,7 +164,7 @@ class TestS2024ApplicableChecksCountForm(unittest.TestCase):
 
 
 class TestS2025PageTextLoopGuards(unittest.TestCase):
-    """S20-25: a non record check or section item in the page
+    """The settled rule: a non record check or section item in the page
     text loop stands skipped, never a crash."""
 
     def test_non_record_check_item_renders(self):
@@ -183,7 +183,7 @@ class TestS2025PageTextLoopGuards(unittest.TestCase):
 
 
 class TestS2026QuerySetSingularNoun(unittest.TestCase):
-    """S20-26: the query set Simple lines print the singular noun
+    """The settled rule: the query set Simple lines print the singular noun
     at a count of one, in the form the rate lines already use."""
 
     def render_counts(self, total, duplicates, naming_none):
@@ -211,7 +211,7 @@ class TestS2026QuerySetSingularNoun(unittest.TestCase):
 
 
 class TestS2020ReportingTextMatchesRecompute(unittest.TestCase):
-    """S20-20: the README and the render docstring state the
+    """The settled rule: the README and the render docstring state the
     governed recompute as it stands, and the recompute itself
     stands unchanged."""
 

@@ -1,21 +1,21 @@
 """Guide and reporting.
 
-Verdict pins only: this seat charges no cure of its own and
+Verdict pins only: this repair charges no cure of its own and
 edits no product module. The pins stand on the guide and
 reporting seams in the standing verdict form (the failure
 line seam, the longer compound seam at in its stated bound,
-and the list branch seam, as the fix round 13 F6 paper
-states them and the round 14 guide paper rejudged them on
+and the list branch seam, as the repair F6 paper
+states them and the earlier guide findings rejudged them on
 new forms), on the guide selection readings in their
-standing forms as the round 14 guide paper judges them as
+standing forms as the earlier guide findings judges them as
 their own scope, on the collector kind discrepancy in its
 sustained recorded form, extended on the new forms the
-round 14 guide paper runs, and on the standing watch
+the earlier round guide paper runs, and on the standing watch
 figures and the methods note version stamp in their exact
 forms. Each pin was written before the verdict it records
 and stands passing on the tree the verdicts judge. Oracle:
-the round 14 findings register and disposition, ruling (j)
-and Section 3 seat F6, and the round 14 guide attack paper.
+the earlier round settled findings, the settled rule
+and Section 3 the repair, and the settled guide findings.
 
 Copyright: J.P. Picard aka Macro-Harder."""
 
@@ -145,7 +145,7 @@ class SeededBase(unittest.TestCase):
 # ----------------------------------------------------------------
 # Seam 1,: the failure line seam. The judged set stands at ten
 # characters, equal to the whole line boundary set under the
-# standard reading, judged exhaustively, and the round 14 forms
+# standard reading, judged exhaustively, and the earlier round forms
 # plant breaks in further partial fields, at a subject standing as
 # a bare break, and at an operation standing as a doubled break.
 # ----------------------------------------------------------------
@@ -245,7 +245,7 @@ class Test015FailureLineSeamVerdict(unittest.TestCase):
 
 # ----------------------------------------------------------------
 # Seam 2,: the longer compound seam, Simple form only, judged at
-# the scalar branch on the head and middle pairings of round 14,
+# the scalar branch on the head and middle pairings of the earlier round,
 # in plain and dressed forms, on its pinned bounds, and on the
 # rate digit forms standing on their own limb.
 # ----------------------------------------------------------------
@@ -323,7 +323,7 @@ class Test016LongerCompoundSeamVerdict(unittest.TestCase):
 # ----------------------------------------------------------------
 # Seam 3,: the list branch seam. The four place set stands stated
 # in one helper shared by the scalar and list branches, judged on
-# the round 14 pairing keys at the list branch, nested seven
+# the earlier round pairing keys at the list branch, nested seven
 # levels deep, and on the record stop one level deeper than the
 # earlier rounds ran it.
 # ----------------------------------------------------------------
@@ -385,7 +385,7 @@ class Test018ListBranchSeamVerdict(unittest.TestCase):
 # ----------------------------------------------------------------
 # The guide selection readings, in their standing
 # forms: the selection statement governed by the
-# selection_basis field alone, judged on the round 14
+# selection_basis field alone, judged on the earlier round
 # constructions, stated forms in new dressings, non
 # stated forms, non string values, spoofed fields, and
 # marker positions.
@@ -739,7 +739,7 @@ class TestDraftSelectionVerdict(unittest.TestCase):
 # wording stands corrected in effect by the round 9
 # register record, and the dressed kind and payload
 # forms stand as a bounded observation, extended on
-# the new forms the round 14 guide paper runs. These
+# the new forms the earlier guide findings runs. These
 # pins record that standing exactly: the exact forms
 # surface their payload in the entries form, and the
 # dressed forms do not. Nothing in this class files

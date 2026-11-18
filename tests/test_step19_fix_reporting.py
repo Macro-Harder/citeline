@@ -1,4 +1,4 @@
-"""Step 19 repair tests, fix seat 7 (reporting, metrics, guide, README).
+"""Repair tests: (reporting, metrics, guide, README).
 
 Each test pins one repair queue item's stated cure. The tests
 stand written before the cures they pin.
@@ -18,7 +18,7 @@ def readme_text():
 
 
 class TestR19056CountOnlyRateLine(unittest.TestCase):
-    """R19-056: the count only branch of the Simple probe report
+    """The settled rule: the count only branch of the Simple probe report
     rate line carries the small sample warning the stored record
     holds, never states that no rate is given while showing an
     interval, and counts one answer in the singular."""
@@ -37,7 +37,7 @@ class TestR19056CountOnlyRateLine(unittest.TestCase):
 
 
 class TestR19055SimpleOpensWithProseSummary(unittest.TestCase):
-    """R19-055: a Simple artefact on the generic surfaces opens
+    """The settled rule: a Simple artefact on the generic surfaces opens
     with a prose summary sentence, not with a raw field name."""
 
     def test_status_simple_opens_with_prose(self):
@@ -61,7 +61,7 @@ class TestR19055SimpleOpensWithProseSummary(unittest.TestCase):
 
 
 class TestR19054FirstRoundWorkflow(unittest.TestCase):
-    """R19-054: the README states the first round workflow in
+    """The settled rule: the README states the first round workflow in
     work order, with values."""
 
     def test_workflow_stated_in_order(self):
@@ -81,7 +81,7 @@ class TestR19054FirstRoundWorkflow(unittest.TestCase):
 
 
 class TestR19090WatchBound(unittest.TestCase):
-    """R19-090: the README states the product schedules nothing,
+    """The settled rule: the README states the product schedules nothing,
     an external scheduler runs the watch command, one invocation
     is one round only, and cadence is an operator statement."""
 
@@ -95,10 +95,10 @@ class TestR19090WatchBound(unittest.TestCase):
 
 
 class TestR19070B4WriteSequence(unittest.TestCase):
-    """R19-070: the pinned B4 write sequence stands at the
+    """The settled rule: the pinned B4 write sequence stands at the
     WatchRun write and the install product file write.
     Oracle: plan EC-18 subsection 8.1 and decisions
-    D-KF-18-PICK and D-KF-18-TEMP: a complete temporary
+    the settled decision and the settled decision: a complete temporary
     file in the destination directory, flushed to storage;
     a hard link from the temporary name to the destination
     name, failing where the destination exists; the
@@ -206,7 +206,7 @@ if __name__ == "__main__":
 
 
 class TestU08SelectionStatementsEveryForm(unittest.TestCase):
-    """U-08: where a selection basis stands recorded, the fixed
+    """ where a selection basis stands recorded, the fixed
     selection statement for that basis stands verbatim in every
     form of the guide artefact, the Simple form included."""
 
@@ -270,7 +270,7 @@ def audit_body(checks):
 
 
 class TestR19057SimpleAuditWordsDefined(unittest.TestCase):
-    """R19-057: every reason code, status word, and evidence
+    """The settled rule: every reason code, status word, and evidence
     class used in Simple audit lines stands defined in plain
     words on the artefact itself."""
 
@@ -300,7 +300,7 @@ class TestR19057SimpleAuditWordsDefined(unittest.TestCase):
 
 
 class TestR19058EarnedFigureWording(unittest.TestCase):
-    """R19-058: the earned figure in Simple audit lines states
+    """The settled rule: the earned figure in Simple audit lines states
     a fraction of the weight and the points it is worth, so it
     cannot read as points out of the weight, and the head
     lines name the not applicable check whose weight was
@@ -330,7 +330,7 @@ class TestR19058EarnedFigureWording(unittest.TestCase):
 
 
 class TestR19059HonestySentencePlacement(unittest.TestCase):
-    """R19-059: the honesty sentence, which speaks of this
+    """The settled rule: the honesty sentence, which speaks of this
     score, stands only on surfaces that carry a score or a
     report of one; operation results that produce no score do
     not close with it."""
@@ -360,7 +360,7 @@ class TestR19059HonestySentencePlacement(unittest.TestCase):
 
 
 class TestR19060SelfCitationReason(unittest.TestCase):
-    """R19-060, self citation limb: where the audit record
+    """The settled rule, self citation limb: where the audit record
     citations check reason is CIT_SELF_ONLY, the guide
     citations action states the self citation reason beside
     the distinct cited target count of 0."""
@@ -395,7 +395,7 @@ class TestR19060SelfCitationReason(unittest.TestCase):
 
 
 class TestR19096AdvancedCommonFields(unittest.TestCase):
-    """R19-096: every Advanced report object carries the
+    """The settled rule: every Advanced report object carries the
     anchor limit field, and the probe report, guide,
     query-set-report, and staleness-view objects carry the
     honesty sentence field."""
@@ -435,7 +435,7 @@ class TestR19096AdvancedCommonFields(unittest.TestCase):
 
 
 class TestR19097AnchorSentenceClosingBlock(unittest.TestCase):
-    """R19-097: the anchor limit sentence stands in the
+    """The settled rule: the anchor limit sentence stands in the
     closing block of every Simple report artefact, the
     audit, guide, probe report, and query set report
     included, standing once as a closing line."""
@@ -470,7 +470,7 @@ class TestR19097AnchorSentenceClosingBlock(unittest.TestCase):
 
 
 class TestR19061StatusUnitsAndSingleFacts(unittest.TestCase):
-    """R19-061: status Simple figures carry their units,
+    """The settled rule: status Simple figures carry their units,
     answer_average states what it averages and in what unit,
     and each fact stands once in one vocabulary."""
 
@@ -512,7 +512,7 @@ class TestR19061StatusUnitsAndSingleFacts(unittest.TestCase):
 
 
 class TestR19062RobotsSummaryAndLabels(unittest.TestCase):
-    """R19-062: robots Simple output opens with a plain
+    """The settled rule: robots Simple output opens with a plain
     summary of the result for the evaluated path, and
     evidence_label, purpose_prose_evidence_label, and
     next_refresh_due_date stand defined on the surface."""
@@ -549,7 +549,7 @@ class TestR19062RobotsSummaryAndLabels(unittest.TestCase):
 
 
 class TestR19063QuerySetPlainTail(unittest.TestCase):
-    """R19-063: the query set report Simple form ends in
+    """The settled rule: the query set report Simple form ends in
     defined plain names, the total stands with the counts it
     relates, and naming_none_count is stated in words."""
 
@@ -579,7 +579,7 @@ class TestR19063QuerySetPlainTail(unittest.TestCase):
 
 
 class TestR19064ReportableClauseBound(unittest.TestCase):
-    """R19-064: the reportable tier clause never says a rate
+    """The settled rule: the reportable tier clause never says a rate
     may be relied on; it states the presence only bound."""
 
     def test_clause_bound(self):
@@ -591,7 +591,7 @@ class TestR19064ReportableClauseBound(unittest.TestCase):
 
 
 class TestR19086RoundGuideControlOnlyRound(unittest.TestCase):
-    """R19-086: the round guide states the round contents
+    """The settled rule: the round guide states the round contents
     from the stored record, counting control answers as
     answers, so a round holding only controls never prints
     that it holds no answers."""
@@ -619,7 +619,7 @@ class TestR19086RoundGuideControlOnlyRound(unittest.TestCase):
 
 
 class TestR19003CitedFiguresDefined(unittest.TestCase):
-    """R19-003: gross, net, and self citation share stand
+    """The settled rule: gross, net, and self citation share stand
     named and defined distinctly in every form of the probe
     report, and the cited rate stands distinguished from
     them."""
@@ -652,7 +652,7 @@ class TestR19003CitedFiguresDefined(unittest.TestCase):
 
 
 class TestR19088EmptyDomainCompetitor(unittest.TestCase):
-    """R19-088: a competitor registered with an empty domain
+    """The settled rule: a competitor registered with an empty domain
     is reported with cited_not_applicable true, a null cited
     rate, and the empty domain reason stated."""
 
@@ -677,7 +677,7 @@ class TestR19088EmptyDomainCompetitor(unittest.TestCase):
 
 
 class TestR19006TrendDeltaRounded(unittest.TestCase):
-    """R19-006: the trend delta is rounded to the stated
+    """The settled rule: the trend delta is rounded to the stated
     precision of four decimal places before it is stored
     and served, so every form holds the same figure."""
 
@@ -698,7 +698,7 @@ class TestR19006TrendDeltaRounded(unittest.TestCase):
 
 
 class TestR19050GuideSurfaceLine(unittest.TestCase):
-    """R19-050: the README guide surface line states the
+    """The settled rule: the README guide surface line states the
     one selector rule, exactly one of run_id or product
     with round label."""
 
@@ -712,7 +712,7 @@ class TestR19050GuideSurfaceLine(unittest.TestCase):
 
 
 class TestR19084SurfaceListComplete(unittest.TestCase):
-    """R19-084, remaining limbs: the README surface list
+    """The settled rule, remaining limbs: the README surface list
     names staleness-view, the JSON object competitor form,
     and the three optional watch target fields; the
     installer flag forms stand stated as shipped surface."""
@@ -729,7 +729,7 @@ class TestR19084SurfaceListComplete(unittest.TestCase):
 
 
 class TestR19089ClockSentence(unittest.TestCase):
-    """R19-089: the README clock sentence matches the
+    """The settled rule: the README clock sentence matches the
     brief: a dateless audit defaults its audit date from
     the clock and stores audit_date_defaulted true."""
 
@@ -741,7 +741,7 @@ class TestR19089ClockSentence(unittest.TestCase):
 
 
 class TestR19078Ec19Statement(unittest.TestCase):
-    """R19-078: the EC-19 link count limit statement
+    """The settled rule: the EC-19 link count limit statement
     stands verbatim in the shipped README."""
 
     STATEMENT = (
@@ -757,7 +757,7 @@ class TestR19078Ec19Statement(unittest.TestCase):
 
 
 class TestR19091DocstringBound(unittest.TestCase):
-    """R19-091: the package docstring carries no trust
+    """The settled rule: the package docstring carries no trust
     word stronger than the verify bound; the word
     attested does not stand in it."""
 
@@ -769,7 +769,7 @@ class TestR19091DocstringBound(unittest.TestCase):
 
 
 class TestR19068PythonFloor(unittest.TestCase):
-    """R19-068: the Python 3.11 or later floor is enforced
+    """The settled rule: the Python 3.11 or later floor is enforced
     at run and at install, with a recorded Citeline error
     naming the floor, before files are placed."""
 

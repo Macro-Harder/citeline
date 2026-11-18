@@ -1,8 +1,8 @@
-"""Step 19 fix seat 4 tests: service operations, clock, failure records.
+"""Repair tests: service operations, clock, failure records.
 
-Each test pins one repair queue item of the Step 19 split
-(design/audit/step-19-split.md, Section 3) in the service
-locus, plus queue addition U-11 from the failing test
+Each test pins one repair queue item of the split
+(the audit record, Section 3) in the service
+locus, plus queue addition from the failing test
 mapping paper. Dates are call inputs in every test.
 Timing aspects stand under the cost bound carve out: the
 clock tests patch the service clock seam, so they judge
@@ -75,7 +75,7 @@ def jumping_clock():
 
 
 class TestR19017NonAppendingFailures(unittest.TestCase):
-    """R19-017: the operations the brief names as non appending
+    """The settled rule: the operations the brief names as non appending
     (probe report, probe trend, query-set-report) append no
     failure record on failure."""
 
@@ -111,7 +111,7 @@ class TestR19017NonAppendingFailures(unittest.TestCase):
 
 
 class TestR19018ProbeReportDeterminism(unittest.TestCase):
-    """R19-018: standing failure record payloads stay out of
+    """The settled rule: standing failure record payloads stay out of
     the probe report record, so identical probe report calls
     return identical JSON however many failing calls
     intervened."""
@@ -139,7 +139,7 @@ class TestR19018ProbeReportDeterminism(unittest.TestCase):
 
 
 class TestR19007StalenessRounds(unittest.TestCase):
-    """R19-007: the staleness view lists one row per standing
+    """The settled rule: the staleness view lists one row per standing
     round, so one imported round appears once."""
 
     def test_imported_round_appears_once(self):
@@ -153,7 +153,7 @@ class TestR19007StalenessRounds(unittest.TestCase):
 
 
 class TestR19009ImportPreflightSizeLimb(unittest.TestCase):
-    """R19-009: the import preflight reads
+    """The settled rule: the import preflight reads
     total_home_size_remaining from the capacity_outlook
     nesting, so its limit 40 refusal can fire."""
 
@@ -171,7 +171,7 @@ class TestR19009ImportPreflightSizeLimb(unittest.TestCase):
 
 
 class TestR19011AuditCapContext(unittest.TestCase):
-    """R19-011: an audit refused at the journal cap carries
+    """The settled rule: an audit refused at the journal cap carries
     the audit append cap context, not an import preflight
     refusal."""
 
@@ -191,7 +191,7 @@ class TestR19011AuditCapContext(unittest.TestCase):
 
 
 class TestR19098StatusCapacityOutlook(unittest.TestCase):
-    """R19-098: the status capacity outlook carries no
+    """The settled rule: the status capacity outlook carries no
     invented per entry kind division."""
 
     def test_status_outlook_has_no_by_entry_kind(self):
@@ -204,7 +204,7 @@ class TestR19098StatusCapacityOutlook(unittest.TestCase):
 
 
 class TestR19023GuideClockBound(unittest.TestCase):
-    """R19-023 and the guide limb of R19-010: the guide route
+    """The settled rule and the guide limb of the settled rule: the guide route
     reads the clock, so limit 41 aborts a guide call whose
     run passes the backstop in force."""
 
@@ -222,7 +222,7 @@ class TestR19023GuideClockBound(unittest.TestCase):
 
 
 class TestR19010RemainingOperationsClock(unittest.TestCase):
-    """R19-010, remaining operations limb: guide, robots,
+    """The settled rule, remaining operations limb: guide, robots,
     robots preview, query-set-report, status, verify, and
     staleness read the clock, so limit 41 aborts them and
     limit 42 guards the robots file parse."""
@@ -271,7 +271,7 @@ class TestR19010RemainingOperationsClock(unittest.TestCase):
 
 
 class TestR19010WatchRoundClock(unittest.TestCase):
-    """R19-010, watch limb: run_watch enforces a round level
+    """The settled rule, watch limb: run_watch enforces a round level
     clock, so a watch round aborts at the per run backstop."""
 
     def test_watch_round_aborts_past_the_backstop(self):
@@ -292,7 +292,7 @@ class TestR19010WatchRoundClock(unittest.TestCase):
 
 
 class TestU11AuditArtefactFields(unittest.TestCase):
-    """U-11: the Advanced audit artefact carries no
+    """ the Advanced audit artefact carries no
     facts_counts field; reporting adds no field the stored
     record does not trace."""
 

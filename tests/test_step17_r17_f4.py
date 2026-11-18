@@ -1,16 +1,16 @@
 """Import family, verdict form.
 
-No entry stands charged to this seat in fix round 17: Section 3 of
-the register paper enters no entry at seat F4 and no import side
-limb of any entry, at ruling (d). These pins stand in the standing
-verdict pin form: they pin the standings of fix round 16 at this
-seat as verified first hand on the cured tree, the import side
+No entry stands charged in the repair: Section 3 of
+the settled record enters no entry at the repair and no import side
+limb of any entry, at the settled rule. These pins stand in the standing
+verdict pin form: they pin the standings of the repair at this
+repair as verified first hand on the cured tree, the import side
 limbs of in citeline/probe_import.py at its position scan, in the
 F2 rule exact form, over the charged forms and past them in the
-broadened forms of the round 17 import paper, and the key
+broadened forms of the earlier round import paper, and the key
 judgements of standing alike between the modules and inside each
 module. The two F4 category count pins of test_step17_r13_f4.py
-stand outside this file in their ruling (h) form and no pin here
+stand outside this file in their the settled rule form and no pin here
 rests on them. Every pin runs in memory, so no pin stands on a
 temporary directory."""
 

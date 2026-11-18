@@ -120,7 +120,7 @@ class TestD07ShellSilence(unittest.TestCase):
                 code, out, err = run_shell(argv)
                 self.assertEqual(code, 2)
                 self.assertIn("MALFORMED_CALL", err)
-                # Restated for Step 19 register item R19-043:
+                # Restated for the settled rule:
                 # a usage error now prints nothing to stdout
                 # and no subcommand list anywhere, instead of
                 # flooding stdout with the full help text; the
@@ -196,7 +196,7 @@ class TestD08MissingRequiredInput(unittest.TestCase):
         self.assertNotIn("register_page()", combined)
         for name in missing_names:
             self.assertIn(name, err)
-        # Restated for Step 19 register item R19-043: a usage
+        # Restated for the settled rule: a usage
         # error now prints nothing to stdout and no subcommand
         # list anywhere; the missing input names stand in the
         # stderr error line, as asserted above.

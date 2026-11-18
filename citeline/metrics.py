@@ -1472,7 +1472,7 @@ def round_metrics(answers, kind, frame=None, datum=None,
     # a positive control passes where the answer stands
     # named and cited, and a negative control passes
     # where it stands not named and not cited, under the
-    # IM7-ANA-2 landing.
+    # Settled landing.
     control_failed = False
     for item in controls:
         control_kind = _get(item, "control_kind", None)
@@ -2465,7 +2465,7 @@ def round_metrics_from_journal(entries, fold_point=None, detector_version=None,
         row_kind = row.get("source_kind")
         if row_kind and row_kind not in kinds:
             kinds.append(row_kind)
-    # The kinds list stands in sorted order, grill Q13: a
+    # The kinds list stands in sorted order: a
     # round report is a function of the round's answers as a
     # set, and import order is not an input of the report.
     kinds = sorted(kinds, key=lambda value: str(value))

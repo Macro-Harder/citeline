@@ -1,19 +1,19 @@
 """Guide and reporting.
 
-Verdict pins only: this seat charges no cure of its own and
+Verdict pins only: this repair charges no cure of its own and
 edits no product module. The pins stand on the guide and
 reporting seams in the standing form (the failure line
 seam, the longer compound seam, and the list branch seam,
-as the round 9 F6 fix paper states them and the round 10
-and round 11 guide papers rejudged them), on the collector
+as the settled repair states them and the earlier round
+and the earlier round guide papers rejudged them), on the collector
 kind discrepancy in its sustained recorded form at register
-Section 3, record 3 of the round 11 register, extended on
-the new forms the round 11 guide paper runs, and on the
+Section 3, the earlier register, extended on
+the new forms the earlier guide findings runs, and on the
 standing watch figures and the methods note version stamp
 in their exact forms. Each pin was written before the
 verdict it records and stands passing on the cured tree the
-verdicts judge. Oracle: the round 11 findings register and
-disposition, Section 3 seat F6.
+verdicts judge. Oracle: the earlier round findings register and
+disposition, Section 3 the repair.
 
 Copyright: J.P. Picard aka Macro-Harder."""
 
@@ -264,7 +264,7 @@ class Test018ListBranchSeamVerdict(unittest.TestCase):
 # corrected in effect by the round 9 register record,
 # and the dressed kind and payload forms stand as a
 # bounded observation, extended on the new forms the
-# round 11 guide paper runs. These pins record that
+# the earlier round guide paper runs. These pins record that
 # standing exactly: the exact forms surface their
 # payload in the entries form, and the dressed forms
 # do not. Nothing in this class files or cures the

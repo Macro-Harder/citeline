@@ -1,6 +1,6 @@
 """Guide and reporting.
 
-Each test pins one register entry from the round 6 findings
+Each test pins one settled rule
 register, in the form the register states. Written before
 the cures, watched failing, then watched passing."""
 
@@ -164,8 +164,8 @@ class TestControlFlag037(unittest.TestCase):
             agentic["report"]["control_failure_notice"],
             reporting.CONTROL_FAILURE_NOTICE)
         simple = render(record, form="simple")
-        # Restated in its Simple limb only, for Step 19 queue
-        # addition U-07: the Simple form now stands the notice
+        # Restated in its Simple limb only, for the settled rule
+        # addition: the Simple form now stands the notice
         # in its own words, as a line of its own beside the
         # round figures, not as the fixed constant text. The
         # Advanced and Agentic assertions above stand

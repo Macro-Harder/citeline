@@ -1,9 +1,8 @@
 """Journal, config, anchor, limit_raise.
 
-Each test pins one register entry from the registers (main and
-supplementary) assigned to seat F1 in the combined fix wave charge.
+Each test pins one settled rule from the registers (main and supplementary) assigned to the repair in the combined repair wave charge.
 Homes are scratch homes under a temporary directory. No test here
-touches a standing test item or a Step 15 qualification ground."""
+touches a standing test item or a qualification ground."""
 
 import fcntl
 import hashlib
@@ -248,11 +247,11 @@ class ReplayTests(HomeCase):
 
 class AnchorTests(HomeCase):
     def test_x001_sequenceless_anchor_is_torn_and_bars(self):
-        # Step 19 item R19-035 supersedes the divergent
+        # The settled rule supersedes the divergent
         # reading of this case: a part record that does not
         # parse as a head hash with its sequence stands
-        # reported as torn. Restated at Step 20 under
-        # delegated decision 1 (register item R19-033, fix
+        # reported as torn. Restated under
+        # the settled decision (the settled rule, fix
         # paper step-20-fix-05-journal-status): the bar no
         # longer stands. The append proceeds over the torn
         # anchor, reports the disagreement in its result,
@@ -291,8 +290,8 @@ class AnchorTests(HomeCase):
             state = journal.status_snapshot(home)
             self.assertEqual(state["anchor"]["agreement"], "torn",
                              msg=suffix)
-            # Restated at Step 20 under delegated decision
-            # 1 (R19-033): a malformed anchor no longer bars
+            # Restated under delegated decision
+            # 1 (the settled rule): a malformed anchor no longer bars
             # the append; the append proceeds, reports the
             # disagreement, and rewrites the anchor.
             result = journal.append_entry(
@@ -306,8 +305,8 @@ class AnchorTests(HomeCase):
                 "matching", msg=suffix)
 
     def test_x002_deleted_or_emptied_anchor_bars_append(self):
-        # Restated at Step 20 under delegated decision 1
-        # (R19-033): a deleted or emptied anchor no longer
+        # Restated under the settled decision
+        # (the settled rule): a deleted or emptied anchor no longer
         # bars the append. Each append proceeds, reports
         # the absent disagreement, and rewrites the anchor.
         # The method name stands as it stood in the suite.
@@ -372,8 +371,8 @@ class AnchorTests(HomeCase):
         self.assertTrue(journal.verify_chain(self.home)["passed"])
 
     def test_x006_stale_anchor_bars_append(self):
-        # Restated at Step 20 under delegated decision 1
-        # (R19-033): a stale anchor no longer bars the
+        # Restated under the settled decision
+        # (the settled rule): a stale anchor no longer bars the
         # append. The status report of stale stands as it
         # stood; the append then proceeds, reports the
         # disagreement, and rewrites the anchor. The method
@@ -494,7 +493,7 @@ class ConfigTests(HomeCase):
         self.assertEqual(caught.exception.token, "CONFIG_INVALID")
 
     def test_x014_home_path_key_carries_a_warning(self):
-        # Restated for Step 19 register item R19-106: the
+        # Restated for the settled rule: the
         # home_path key now carries its specified effect at
         # home selection (plan Section 3 EC-15 row 43), read
         # by selected_home in citeline/journal.py, and

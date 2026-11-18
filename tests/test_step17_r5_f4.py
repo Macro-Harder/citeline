@@ -329,7 +329,7 @@ class Test034ResolverPreparedSet(ImportBase):
             answer_sequence_base=41)
 
     def test_later_batch_admits_distinct_answer_on_supplied_standing_combination(self):
-        """Contract C2 as relaxed under R19-048, on the
+        """Contract C2 as relaxed under the settled rule, on the
         worksheet preparation surface; a later batch slot
         holding a distinct answer for the same round, same
         normalised engine label, same query, and same
@@ -338,7 +338,7 @@ class Test034ResolverPreparedSet(ImportBase):
         under its own identity, at the one worksheet import
         call for the sheet, and the supplied standing
         records stand unchanged. This method stood as the
-        later batch pin for S17-R5-034, whose refusal
+        later batch pin for the settled detection rule, whose refusal
         message supplied identity pin lapses with the
         refusal itself under the ruling."""
         records_a = self.batch_a()
@@ -381,8 +381,8 @@ class Test034ResolverPreparedSet(ImportBase):
                 self.assertEqual(standing[field], before[field])
 
     def test_own_batch_admits_second_distinct_answer(self):
-        """S17-R5-034 own batch control as superseded under
-        R19-048; a second filled slot holding a distinct
+        """The settled detection rule own batch control as superseded under
+        the settled rule; a second filled slot holding a distinct
         answer for the same round, same engine label, same
         query, and same captured_on as an earlier slot this
         same preparation itself prepared is admitted as a
@@ -392,7 +392,7 @@ class Test034ResolverPreparedSet(ImportBase):
         marker form itself, so no resolved identity stands
         for this shape, and no refusal stands either. This
         method stood as the own batch control for
-        S17-R5-034, whose refusal and resolved identity
+        the settled detection rule, whose refusal and resolved identity
         pins lapse with the refusal itself under the
         ruling."""
         path = self.temp_file(sheet_text({
@@ -458,8 +458,8 @@ class Test035SingleBucketCost(ImportBase):
         self.assertLess(elapsed, 6.0)
 
     def test_same_bucket_judgements_hold(self):
-        """S17-R5-035 judgements companion, as ruled in part
-        under R19-048; inside one comparison bucket on the
+        """The settled detection rule judgements companion, as ruled in part
+        under the settled rule; inside one comparison bucket on the
         worksheet route, an equal content slot stands refused
         as a duplicate whatever its capture date does, and a
         distinct content slot for the same round, same

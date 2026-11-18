@@ -1,4 +1,4 @@
-"""Slice S2 acquisition and extraction tests, Step 13, Citeline.
+"""Slice S2 acquisition and extraction tests, Citeline.
 
 Written before the product exists. Every test imports the
 product package citeline and calls the acquisition
@@ -107,7 +107,7 @@ class TestFormatDetection(AcquisitionBase):
         self.assertEqual(field(field(result, "snapshot"), "detected_format"), "markdown")
 
     def test_blockquote_html_does_not_decide_detection(self):
-        """Plan Section 5.4 detection rule. Oracle: plan Section 5.4, material inside a blockquote does not count as content for detection, and a complete HTML document appearing only inside a blockquote does not make the file html. Register entry R1-027."""
+        """Plan Section 5.4 detection rule. Oracle: plan Section 5.4, material inside a blockquote does not count as content for detection, and a complete HTML document appearing only inside a blockquote does not make the file html. Register entry the settled rule."""
         result = self.extract(fixture("blockquote-html.md"))
         self.assertEqual(field(field(result, "snapshot"), "detected_format"), "markdown")
 
@@ -117,17 +117,17 @@ class TestFormatDetection(AcquisitionBase):
             self.extract(fixture("xhtml-page.html"))
 
     def test_xhtml_doctype_marker_alone_fails(self):
-        """Plan Section 5.4 XHTML marker test. Oracle: plan Section 5.4, one marker suffices, a doctype declaration naming XHTML alone marks the file as XHTML and the container rule fails it. Register entry R1-032."""
+        """Plan Section 5.4 XHTML marker test. Oracle: plan Section 5.4, one marker suffices, a doctype declaration naming XHTML alone marks the file as XHTML and the container rule fails it. Register entry the settled rule."""
         with self.assertRaises(Exception):
             self.extract(fixture("xhtml-doctype-only.html"))
 
     def test_xhtml_namespace_marker_alone_fails(self):
-        """Plan Section 5.4 XHTML marker test. Oracle: plan Section 5.4, one marker suffices, the XHTML namespace declared on the root element alone marks the file as XHTML and the container rule fails it. Register entry R1-032."""
+        """Plan Section 5.4 XHTML marker test. Oracle: plan Section 5.4, one marker suffices, the XHTML namespace declared on the root element alone marks the file as XHTML and the container rule fails it. Register entry the settled rule."""
         with self.assertRaises(Exception):
             self.extract(fixture("xhtml-namespace-only.html"))
 
     def test_mhtml_container_fails_despite_html_signals(self):
-        """Plan Section 5.4 container precedence. Oracle: plan Section 5.4, the same precedence holds for the MHTML container form over any content signal its inner material carries. Register entry R1-032."""
+        """Plan Section 5.4 container precedence. Oracle: plan Section 5.4, the same precedence holds for the MHTML container form over any content signal its inner material carries. Register entry the settled rule."""
         with self.assertRaises(Exception):
             self.extract(fixture("mhtml-container.mht"))
 
@@ -168,21 +168,21 @@ class TestDecodingAndStructure(AcquisitionBase):
             self.extract(fixture("unclosed-script.html"))
 
     def test_unclosed_style_fails_closed(self):
-        """Plan Section 1.3 S2, structure rules. Oracle: brief Section 5.9 parser failure table, an unclosed style element fails closed with a recorded error and nothing stored. Register entry R1-026."""
+        """Plan Section 1.3 S2, structure rules. Oracle: brief Section 5.9 parser failure table, an unclosed style element fails closed with a recorded error and nothing stored. Register entry the settled rule."""
         before = set(os.listdir(self.home))
         with self.assertRaises(Exception):
             self.extract(fixture("unclosed-style.html"))
         self.assertEqual(set(os.listdir(self.home)), before)
 
     def test_ambiguous_script_content_fails_closed(self):
-        """Plan Section 1.3 S2, structure rules. Oracle: brief Section 5.9 parser failure table, any case where content inside a script element could be counted or excluded ambiguously fails closed with a recorded error and nothing stored; the fixture script holds a closing tag inside a string, so its content stands ambiguous. Register entry R1-026."""
+        """Plan Section 1.3 S2, structure rules. Oracle: brief Section 5.9 parser failure table, any case where content inside a script element could be counted or excluded ambiguously fails closed with a recorded error and nothing stored; the fixture script holds a closing tag inside a string, so its content stands ambiguous. Register entry the settled rule."""
         before = set(os.listdir(self.home))
         with self.assertRaises(Exception):
             self.extract(fixture("ambiguous-script.html"))
         self.assertEqual(set(os.listdir(self.home)), before)
 
     def test_front_matter_failing_d17_controls_fails_closed(self):
-        """Plan Section 1.3 S2, structure rules. Oracle: brief Section 5.9 parser failure table, front matter that fails the D17 control set fails closed with a recorded error and nothing stored; the D17 set rejects tag constructs in front matter, and the fixture front matter carries one. Register entry R1-026."""
+        """Plan Section 1.3 S2, structure rules. Oracle: brief Section 5.9 parser failure table, front matter that fails the D17 control set fails closed with a recorded error and nothing stored; the D17 set rejects tag constructs in front matter, and the fixture front matter carries one. Register entry the settled rule."""
         before = set(os.listdir(self.home))
         with self.assertRaises(Exception):
             self.extract(fixture("frontmatter-tag.md"))
@@ -197,7 +197,7 @@ class TestDecodingAndStructure(AcquisitionBase):
         self.assertTrue(field(extracted, "extraction_notes"))
 
     def test_recoverable_unresolved_markdown_reference(self):
-        """Plan Section 1.3 S2, structure rules, unresolved Markdown references class. Oracle: brief Section 5.9 parser failure table, the reference text is extracted as written and no target is extracted from it. Register entry R1-025."""
+        """Plan Section 1.3 S2, structure rules, unresolved Markdown references class. Oracle: brief Section 5.9 parser failure table, the reference text is extracted as written and no target is extracted from it. Register entry the settled rule."""
         result = self.extract(fixture("recoverable-refs.md"))
         extracted = field(result, "extracted")
         self.assertIn("the reference text", field(extracted, "running_text"))
@@ -207,7 +207,7 @@ class TestDecodingAndStructure(AcquisitionBase):
         self.assertTrue(field(extracted, "extraction_notes"))
 
     def test_recoverable_duplicate_headings(self):
-        """Plan Section 1.3 S2, structure rules, duplicate headings class. Oracle: brief Section 5.9 parser failure table, each duplicate heading is extracted as written and each stands as a heading in its own position. Register entry R1-025."""
+        """Plan Section 1.3 S2, structure rules, duplicate headings class. Oracle: brief Section 5.9 parser failure table, each duplicate heading is extracted as written and each stands as a heading in its own position. Register entry the settled rule."""
         result = self.extract(fixture("dup-headings.md"))
         extracted = field(result, "extracted")
         headings = []
@@ -264,7 +264,7 @@ class TestSegmentation(AcquisitionBase):
         self.assertNotIn("Dr. Patel paid 3.", field(seg, "sentences"))
 
     def test_sentence_ellipsis_one_mark(self):
-        """Plan Section 1.3 S2, TextSegmentation outputs, sentences. Oracle: brief Section 5.1 item 154, an ellipsis counts as one terminal mark, so the terminal mark rule, a terminal mark plus a following space, gives one boundary after the ellipsis and the sentence stands as Wait... whole, not as fragments at each dot. The fixture sentence and this expectation stand changed under register entry R1-030 so the pinned case tests only that the ellipsis counts as one mark and not three; the course taken stands recorded in writer 2's paper by erratum."""
+        """Plan Section 1.3 S2, TextSegmentation outputs, sentences. Oracle: brief Section 5.1 item 154, an ellipsis counts as one terminal mark, so the terminal mark rule, a terminal mark plus a following space, gives one boundary after the ellipsis and the sentence stands as Wait... whole, not as fragments at each dot. The fixture sentence and this expectation stand changed under the settled rule so the pinned case tests only that the ellipsis counts as one mark and not three; the course taken stands recorded in an erratum."""
         seg = self.segment("seg-markdown.md")
         sentences = field(seg, "sentences")
         self.assertIn("Wait...", sentences)
@@ -325,7 +325,7 @@ class TestExtractionEndStates(AcquisitionBase):
         self.assertTrue(field(snapshot, "snapshot_id"))
 
     def test_empty_stored_with_audit_record(self):
-        """Plan Section 1.3 S2, extraction end states, decided limbs of the severed empty page case. Oracle: brief Section 5.9, empty is stored, the audit record is produced, and every check reports not_applicable. The score expectation stands blocked at B4 on K-20 and no score is asserted here."""
+        """Plan Section 1.3 S2, extraction end states, decided limbs of the severed empty page case. Oracle: brief Section 5.9, empty is stored, the audit record is produced, and every check reports not_applicable. The score expectation stands blocked at B4 on the open question and no score is asserted here."""
         result = service.audit(home=self.home, page_file=fixture("empty-page.txt"), audit_date=AUDIT_DATE)
         snapshot = field(result, "snapshot")
         self.assertEqual(field(snapshot, "extraction_outcome"), "empty")
@@ -357,7 +357,7 @@ class TestExtractionEndStates(AcquisitionBase):
 
 
     def test_failed_no_failure_record_where_chain_barred(self):
-        """Plan Section 1.3 S2, extraction end states, EC-13 excepted limb. Oracle: brief Section 5.9 item 158 scope and plan entry 13 row I-2, on a barred chain no failure record can be appended and the recorded error stands as caller response only. Arranged on the home level surface the S0 and S5 modules use: a line that is not a journal entry stands appended to the journal file, then the failing extraction is attempted. Register entry R1-033."""
+        """Plan Section 1.3 S2, extraction end states, EC-13 excepted limb. Oracle: brief Section 5.9 item 158 scope and plan entry 13 row I-2, on a barred chain no failure record can be appended and the recorded error stands as caller response only. Arranged on the home level surface the S0 and S5 modules use: a line that is not a journal entry stands appended to the journal file, then the failing extraction is attempted. Register entry the settled rule."""
         path, _data = self.seed_journal()
         with open(path, "ab") as handle:
             handle.write(b"this line is not a journal entry\n")
@@ -371,7 +371,7 @@ class TestExtractionEndStates(AcquisitionBase):
         self.assertNotIn(b"failure_record", after)
 
     def test_failed_no_failure_record_where_chain_at_cap(self):
-        """Plan Section 1.3 S2, extraction end states, EC-13 excepted limb. Oracle: brief Section 5.9 item 158 scope and plan entry 13 row I-1, at the cap no failure record can be appended and the recorded error stands as caller response only. Arranged on the surface the S0 module uses: journal_length stands lowered to the standing entry count through the product config writer. Register entry R1-033."""
+        """Plan Section 1.3 S2, extraction end states, EC-13 excepted limb. Oracle: brief Section 5.9 item 158 scope and plan entry 13 row I-1, at the cap no failure record can be appended and the recorded error stands as caller response only. Arranged on the surface the S0 module uses: journal_length stands lowered to the standing entry count through the product config writer. Register entry the settled rule."""
         path, data = self.seed_journal()
         standing = len([line for line in data.splitlines() if line.strip()])
         journal.write_config(self.home, "journal_length = %d\n" % standing)
@@ -383,7 +383,7 @@ class TestExtractionEndStates(AcquisitionBase):
         self.assertNotIn(b"failure_record", after)
 
     def test_failed_no_failure_record_where_invocation_contended(self):
-        """Plan Section 1.3 S2, extraction end states, EC-13 excepted limb. Oracle: brief Section 5.9 item 158 scope and plan entry 13 row X-10, a contended invocation leaves no failure record and the recorded error stands as caller response only. Arranged on the surface the S0 and S5 modules use: the advisory write lock file .citeline-write.lock in the home stands held under flock. Register entry R1-033."""
+        """Plan Section 1.3 S2, extraction end states, EC-13 excepted limb. Oracle: brief Section 5.9 item 158 scope and plan entry 13 row X-10, a contended invocation leaves no failure record and the recorded error stands as caller response only. Arranged on the surface the S0 and S5 modules use: the advisory write lock file .citeline-write.lock in the home stands held under flock. Register entry the settled rule."""
         path, data = self.seed_journal()
         lock_path = os.path.join(self.home, ".citeline-write.lock")
         with open(lock_path, "w", encoding="utf-8") as handle:
@@ -451,7 +451,7 @@ class TestPageSideLimits(AcquisitionBase):
         self.assertEqual(set(os.listdir(self.home)), before)
 
     def test_extracted_text_limit_rejected(self):
-        """Plan Section 1.3 S2, page side limits enforcement. Oracle: brief Section 5.11 limit 3, extracted text length per page 500,000 characters, with rejection and no partial record. Register entry R1-029: the home listing stands unchanged across the rejection, as the limit 1 sibling test pins."""
+        """Plan Section 1.3 S2, page side limits enforcement. Oracle: brief Section 5.11 limit 3, extracted text length per page 500,000 characters, with rejection and no partial record. Register entry the settled rule: the home listing stands unchanged across the rejection, as the limit 1 sibling test pins."""
         path = os.path.join(self.tmp.name, "long.txt")
         with open(path, "w", encoding="utf-8") as handle:
             handle.write("word " * 100001)
@@ -461,7 +461,7 @@ class TestPageSideLimits(AcquisitionBase):
         self.assertEqual(set(os.listdir(self.home)), before)
 
     def test_element_event_limit_rejected_no_partial(self):
-        """Plan Section 1.3 S2, page side limits enforcement. Oracle: brief Section 5.11 limit 4, element or tag events per page 100,000, with rejection and no partial record. Register entry R1-031."""
+        """Plan Section 1.3 S2, page side limits enforcement. Oracle: brief Section 5.11 limit 4, element or tag events per page 100,000, with rejection and no partial record. Register entry the settled rule."""
         path = os.path.join(self.tmp.name, "many-elements.html")
         with open(path, "w", encoding="utf-8") as handle:
             handle.write("<html><body>" + "<span>x</span>" * 100001 + "</body></html>")
@@ -471,7 +471,7 @@ class TestPageSideLimits(AcquisitionBase):
         self.assertEqual(set(os.listdir(self.home)), before)
 
     def test_nesting_depth_limit_rejected_no_partial(self):
-        """Plan Section 1.3 S2, page side limits enforcement. Oracle: brief Section 5.11 limit 5, nesting depth 100, with rejection and no partial record. Register entry R1-031."""
+        """Plan Section 1.3 S2, page side limits enforcement. Oracle: brief Section 5.11 limit 5, nesting depth 100, with rejection and no partial record. Register entry the settled rule."""
         path = os.path.join(self.tmp.name, "deep.html")
         with open(path, "w", encoding="utf-8") as handle:
             handle.write("<div>" * 101 + "Body text." + "</div>" * 101)

@@ -1,10 +1,10 @@
-"""Step 19 fix tests for R19-101: no silent discard between spellings.
+"""Repair tests: no silent discard between spellings.
 
-Oracle: register item R19-101 and brief CL19-031, CL19-058. Where
+Oracle: the settled rule. Where
 both spellings of one input stand on a call, the call stands
 refused in the open; one value never silently discards the other.
 The install positional limb of the item stands with the install
-seat; this file pins the two shell limbs.
+repair; this file pins the two shell limbs.
 """
 
 import contextlib

@@ -1,8 +1,8 @@
 """Journal family.
 
-Seat F1 carries no TO FIX entry in fix round 14. These
-tests pin the standing verdicts of this seat on the
-tree as it stands: the fix round 13 cure at standing
+The repair carries no repair entry. These
+tests pin the standing verdicts of this repair on the
+tree as it stands: the repair cure at standing
 whole, a plant at any of the first seven readings of
 the config handle in write_config standing refused in
 the remedy form, a plant placed before the eighth and
@@ -11,11 +11,11 @@ and refused in the same form, so the eighth reading
 stands proved a real reading, and a plain config write
 landing whole. The plant at the return of the eighth
 and last reading stands in its bounded position in its
-standing form, as the fix round 13 paper states it,
+standing form, as the repair record states it,
 and no test here pins that form, neither as a defect
 nor as cured. The batch intent write plant stands
 bounded outside this charge in the same form. No
-product module stands edited by this seat. Homes are
+product module stands edited by this repair. Homes are
 scratch homes under a temporary directory. No test
 here touches a standing test item or a governed
 ground: CARRY and CARRY stand untouched in exact form."""

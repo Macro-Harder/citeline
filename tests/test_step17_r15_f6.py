@@ -4,10 +4,10 @@ Defect pins, written before the cures they pin, beside
 verdict pins for the standing seams of this family in their
 forms: the failure line seam, the longer compound seam at
 in its stated bound, and the list branch seam, each judged
-on the new forms the round 15 guide paper runs, and the
+on the new forms the earlier guide findings runs, and the
 collector kind discrepancy in its sustained form. Oracle:
-the round 15 findings register and disposition, ruling (f)
-and Section 3 seat F6, and the round 15 guide attack paper.
+the earlier round settled findings, the settled rule
+and Section 3 the repair, and the settled guide findings.
 
 Copyright: J.P. Picard aka Macro-Harder."""
 
@@ -243,7 +243,7 @@ class Test008NonStringTermGuard(unittest.TestCase):
 
 # ----------------------------------------------------------------
 # Seam verdict pins, in their standing forms, judged on
-# the new forms of the round 15 guide paper.
+# the new forms of the earlier guide findings.
 # ----------------------------------------------------------------
 
 class TestSeam015FailureLine(unittest.TestCase):

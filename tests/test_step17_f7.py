@@ -650,7 +650,7 @@ class Test085FailureRecords(SeededBase):
         return len(entries_of_kind(self.home, "failure_record"))
 
     def test_failed_probe_report_appends_one_failure_record(self):
-        # Restated for Step 19 register item R19-017: probe
+        # Restated for the settled rule: probe
         # report is one of the operations the brief names as
         # non appending, and its cure stops it appending a
         # failure record on failure. The failure itself stands
@@ -674,7 +674,7 @@ class Test085FailureRecords(SeededBase):
         self.assertEqual(self.failure_count(), before + 1)
 
     def test_failed_query_set_report_appends_one_failure_record(self):
-        # Restated for Step 19 register item R19-017:
+        # Restated for the settled rule:
         # query-set-report is one of the operations the brief
         # names as non appending, and its cure stops it
         # appending a failure record on failure.
@@ -697,7 +697,7 @@ class Test085FailureRecords(SeededBase):
         self.assertEqual(record["operation"], "audit")
 
     def test_repeated_trend_appends_exactly_one_failure_record(self):
-        # Restated for Step 19 register item R19-017: probe
+        # Restated for the settled rule: probe
         # trend is a non appending operation, and its cure
         # stops it appending a failure record on failure. The
         # refusal token stands at full strength.

@@ -1,7 +1,7 @@
-"""Step 19 Phase 7 fix seat E tests.
+"""Repair tests.
 
-This file pins the Phase 7 cap refusal items P7A1-01 and
-P7A1-02 at the service locus. Tests were written before the fixes they pin.
+This file pins the cap refusal items the repair item and
+the repair item at the service locus. Tests were written before the fixes they pin.
 Dates are call inputs in every test.
 """
 
@@ -94,10 +94,10 @@ def import_kwargs(answer):
 
 
 class TestP7A1CapRefusalsStoreNothing(unittest.TestCase):
-    """P7A1-01 and P7A1-02: a refusal carrying any cap token
+    """The repair item and the repair item: a refusal carrying any cap token
     (LIMIT_EXCEEDED, JOURNAL_CAP_EXCEEDED, CONTROL_CAP_EXCEEDED)
     stores nothing on every route, while a non cap failure on an
-    appending route keeps storing exactly one record (CL19-177)."""
+    appending route keeps storing exactly one record (the settled rule)."""
 
     def _one_slot(self):
         root, home = make_home(self)

@@ -1,6 +1,6 @@
-"""Step 19 repair test for R19-075, the one named folding call.
+"""Repair test: the one named folding call.
 
-Oracle: plan decisions D-KF-153-CALL and D-KF-153-VER
+Oracle: plan the settled decisions
 name one folding call, str.casefold, for the consumer
 routes. The behavioural gap is masked downstream on
 the host routes by idna nameprep and on the token

@@ -1,7 +1,7 @@
 """Registry and acquisition.
 
 Test first pins for register to and the registry limb of. Each
-test reproduces the defect named at its register entry against
+test reproduces the defect named under the settled rule against
 the governing text cited there, then stands as the pin for its
 cure."""
 

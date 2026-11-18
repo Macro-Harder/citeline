@@ -1,9 +1,9 @@
 """Checks and scoring defects D-11, D-12, D-24, and D-25.
 
-Written test first against the round 1 audit papers for slice
-S3 (A4) and the Blue seat (A14), and the brief passages they
+Written test first against the round 1 audit records for slice
+S3 (A4) and the Blue repair (A14), and the brief passages they
 cite: Section 5.7 earning rules for statistics and citations,
-the Section 5.7 score formula, and the IM7-BRK-3 landing in
+the Section 5.7 score formula, and the settled landing in
 Section 5.8 for the secondary figure on the not applicable as
 zero basis."""
 

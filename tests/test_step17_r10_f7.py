@@ -8,10 +8,10 @@ limit in force for the home passes the seam and imports whole
 through service.probe_import. The pins below stand on a home
 whose config states front_matter_value_length_per_key = 100
 as the limit in force, in the worked forms of the registry
-paper of round 10, with the brief value route forms at 4,097
-and 5,000 standing as controls. Oracle: the round 10 findings
-register and the round 10 disposition, ruling (b) and Section
-3 seat F7.
+paper of the earlier round, with the brief value route forms at 4,097
+and 5,000 standing as controls. Oracle: the earlier round findings
+register and the settled disposition, the settled rule and Section
+3 the repair.
 
 Copyright: J.P. Picard aka Macro-Harder."""
 

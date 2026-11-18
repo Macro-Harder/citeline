@@ -1,7 +1,7 @@
-"""Step 20 fix tests for R19-092 and the R19-081 pin restatement.
+"""Repair tests and the settled rule pin restatement.
 
-Oracle: design/audit/step-20-case-r19-092.md, Units A, B, and C,
-and the R19-081 restatement in its two halves. A repeat audit
+Oracle: the audit record, Units A, B, and C,
+and the settled rule restatement in its two halves. A repeat audit
 runs new. Audit returns no standing record. The stored record
 of a completed audit run is returned only through the named
 re-render route, shell subcommand audit-render over service

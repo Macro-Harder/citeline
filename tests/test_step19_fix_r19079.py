@@ -1,6 +1,6 @@
-"""Step 19 fix tests for R19-079: the round label alias on probe calls.
+"""Repair tests: the round label alias on probe calls.
 
-Oracle: register item R19-079, help CL19-072, and README CL19-045.
+Oracle: the settled rule.
 The round_label spelling names the round on probe import, probe
 report, and probe trend, as it does on name-round and guide, and
 the round spelling names the first round on probe trend.

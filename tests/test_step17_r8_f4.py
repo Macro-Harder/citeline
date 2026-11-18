@@ -1,9 +1,9 @@
 """Import family.
 
 Test first pins for register, from the register and the
-source papers the register paper and the register paper
-(finding, merged), with the seam positions the F2 fix paper
-of this round states at."""
+source papers the settled record and the settled record
+(finding, merged), with the seam positions the F2 repair record
+of the round states at."""
 
 import hashlib
 import json
@@ -268,7 +268,7 @@ class Test014HeaderJudgementsReadMore(ImportBase):
     @unittest.expectedFailure
     def test_v7_letter_padding_form_is_text(self):
         # Refusal pin for the V7 limb, recorded in exact form
-        # in the F4 fix paper of this round: the worked form
+        # in the F4 repair record of the round: the worked form
         # stands byte for byte as the archive control form the
         # round 7 cure tests pin, a 512 byte block of letter A
         # characters with its mode, size, mtime, uid, and gid

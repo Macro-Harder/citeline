@@ -1,19 +1,19 @@
 """Guide and reporting.
 
-Verdict pins only: this seat charges no cure of its own and
+Verdict pins only: this repair charges no cure of its own and
 edits no product module. The pins stand on the guide and
 reporting seams in the standing form (the failure line
 seam, the longer compound seam, and the list branch seam,
-as the round 9 F6 fix paper states them and the round 10,
-round 11, and round 12 guide papers rejudged them), on the
+as the settled repair states them and the earlier round,
+the earlier round, and the earlier round guide papers rejudged them), on the
 collector kind discrepancy in its sustained recorded form
-at register Section 3, record 4 of the round 12 register,
-extended on the new forms the round 12 guide paper runs,
+at register Section 3, the earlier register,
+extended on the new forms the earlier guide findings runs,
 and on the standing watch figures and the methods note
 version stamp in their exact forms. Each pin was written
 before the verdict it records and stands passing on the
-cured tree the verdicts judge. Oracle: the round 12
-findings register and disposition, Section 3 seat F6.
+cured tree the verdicts judge. Oracle: the earlier round
+settled findings, Section 3 the repair.
 
 Copyright: J.P. Picard aka Macro-Harder."""
 
@@ -361,7 +361,7 @@ class Test016LongerCompoundSeamVerdict(unittest.TestCase):
 # ----------------------------------------------------------------
 # Seam 3,: the list branch seam. The four place set stands stated
 # in one helper shared by the scalar and list branches, judged on
-# the new compound keys of round 12 at the list branch.
+# the new compound keys of the earlier round at the list branch.
 # ----------------------------------------------------------------
 
 class Test018ListBranchSeamVerdict(unittest.TestCase):
@@ -451,7 +451,7 @@ class Test018ListBranchSeamVerdict(unittest.TestCase):
 # corrected in effect by the round 9 register record,
 # and the dressed kind and payload forms stand as a
 # bounded observation, extended on the new forms the
-# round 11 and round 12 guide papers run. These pins
+# the earlier round and the earlier round guide papers run. These pins
 # record that standing exactly: the exact forms surface
 # their payload in the entries form, and the dressed
 # forms do not. Nothing in this class files or cures

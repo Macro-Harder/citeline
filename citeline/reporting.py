@@ -168,7 +168,7 @@ DECLARATION_UNVERIFIABLE_STATEMENT = (
 )
 
 # The basis statement of the secondary figure on the not
-# applicable as zero basis, in the words the IM7-BRK-3
+# applicable as zero basis, in the words the settled landing
 # landing and the stored figure object both carry.
 SECONDARY_FIGURE_BASIS = (
     "Computed on a different basis from the headline "
@@ -961,7 +961,7 @@ def _recomputed_secondary_figure(score, checks):
     F6 form: an object holding the figure under value, the
     total weight of 100, and the basis statement.
 
-    The IM7-BRK-3 landing states the figure is not stored:
+    The settled landing states the figure is not stored:
     it recomputes at rendering from the stored CheckResults,
     so a record written before the figure stood in the
     ScoreObject renders it on the same terms, and no not
@@ -3736,7 +3736,7 @@ def assemble_robots_preview(first, second, evaluated_page_path="/",
             "The second file asserted capture date is omitted: "
             "no date was supplied for that file.")
     # The capture dates are operator asserted and stand
-    # shown as asserted, on the IM7-DIV-7 landing: each
+    # shown as asserted, on the settled landing: each
     # supplied date carries its asserted marker, and each
     # unsupplied date carries its omission above.
     preview["capture_dates_asserted"] = {

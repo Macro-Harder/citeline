@@ -248,8 +248,8 @@ class TestBoundaryChecks(unittest.TestCase):
             home=str(home), page_file=str(PAGE), robots_file=str(ROBOTS),
             audit_date=AUDIT_DATE)
         via_shell_audit = shell.format_record(record, form="advanced")
-        # The audit limb stands restated under the Step 19
-        # U-11 cure: the Advanced audit artefact carries the
+        # The audit limb stands restated under the settled
+        # cure: the Advanced audit artefact carries the
         # stored record projected onto its traced field set,
         # so its key set is that projection, not the whole
         # record. The check 2 point stands: the shell adds no
@@ -430,8 +430,8 @@ class TestExitBehaviour(unittest.TestCase):
         """Pins item 126 per operation reading for status. Oracle: plan
         Section 4.2 status row: status returns 0 in every case
         over a home that stands, a missing home excepted at
-        exit 2 with HOME_MISSING (Step 20 delegated decision
-        2, register item R19-036), and over a journal that
+        exit 2 with HOME_MISSING (the settled decision
+        2, the settled rule), and over a journal that
         does not recompute its report states the chain
         failure in full."""
         _, _, home = make_home(self)
@@ -500,7 +500,7 @@ class TestExitBehaviour(unittest.TestCase):
         product. The same row states that a guide refusal is a
         completed outcome carrying no error value and returns 0;
         no test here forces a refusal, because the refusal triggers
-        stand on CL-16 ground at Part B entry B1, and that gap
+        stand on the settled claim ground at Part B entry B1, and that gap
         stands named in the writer paper."""
         _, _, home = make_home(self)
         code = shell.main(
@@ -545,7 +545,7 @@ class TestInstallUninstall(unittest.TestCase):
 
     def test_install_creates_no_command_link(self):
         """Pins created items list, link limb. Oracle: brief Section
-        3.5 and grill Q24: no command link is created."""
+        3.5 and the settled answers: no command link is created."""
         self.install()
         for path in self.tmp.rglob("*"):
             self.assertFalse(path.is_symlink(), str(path))
@@ -708,8 +708,7 @@ class TestInstallUninstall(unittest.TestCase):
         """Pins interrupted install then uninstall, created items list
         limb only. Oracle: plan Section 1.3 S10 status: the case pins
         in its created items list limb. Its home contents limb stands
-        blocked on L-MA-6 and is not asserted here. Amended at Step 19
-        item R19-014: a file at the product file path whose content
+        blocked on L-MA-6 and is not asserted here. Amended item: a file at the product file path whose content
         is not the product file is a foreign file the installer never
         created, and uninstall leaves it standing."""
         self.location.mkdir(parents=True)
@@ -722,7 +721,7 @@ class TestInstallUninstall(unittest.TestCase):
 
 class TestStatusCapacity(unittest.TestCase):
     """Row S10 status. Oracle: brief Section 5.5 status field list,
-    brief Section 5.12 IM7-BRK-8 capacity outlook landing, and plan
+    brief Section 5.12 the settled landing capacity outlook landing, and plan
     Section 1.3 S10 capacity outlook by entry kind."""
 
     def test_status_fields_present_in_every_form(self):
@@ -747,7 +746,7 @@ class TestStatusCapacity(unittest.TestCase):
         self.assertIn("head_hash", out)
 
     def test_status_capacity_outlook_exact_figures(self):
-        """Pins capacity outlook exact figures. Oracle: brief IM7-BRK-8
+        """Pins capacity outlook exact figures. Oracle: brief the settled landing
         landing: journal entries remaining under limit 39 and bytes
         remaining under limit 40, each exact."""
         _, _, home = make_home(self)
@@ -760,7 +759,7 @@ class TestStatusCapacity(unittest.TestCase):
 
     def test_status_capacity_outlook_attributes_by_entry_kind(self):
         """Pins the capacity outlook figures the stored records
-        hold. Restated for Step 19 register item R19-098: the
+        hold. Restated for the settled rule: the
         invented per entry kind division stands removed from
         the outlook, because reporting adds no number to what
         is stored; the outlook now carries no by_entry_kind
@@ -780,7 +779,7 @@ class TestStatusCapacity(unittest.TestCase):
                          1024 * 1024 * 1024 - out["home_size"])
 
     def test_status_answers_estimate_labelled_and_absent_without_answers(self):
-        """Pins capacity outlook estimate limb. Oracle: brief IM7-BRK-8
+        """Pins capacity outlook estimate limb. Oracle: brief the settled landing
         landing: where the home holds no imported answer yet, no
         average stands and the outlook states that no average stands;
         the estimate is labelled an estimate wherever it prints."""

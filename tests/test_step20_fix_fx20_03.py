@@ -1,7 +1,7 @@
-"""Step 20 fix seat FX20-03 tests.
+"""Repair the repair tests.
 
-Pins for register items S20-04, S20-05, S20-06, and S20-27.
-Written before the cures they pin. The S20-04 cost test is a
+Pins for the settled rules.
+Written before the cures they pin. The settled rule cost test is a
 cost bound test: its result stands read as a measurement
 under the standing carve out for cost bound tests, not as a
 logic verdict. Dates are call inputs in every test.

@@ -1,6 +1,6 @@
-"""Step 19 fix tests for R19-100: two spellings of the round label.
+"""Repair tests: two spellings of the round label.
 
-Oracle: register item R19-100 and brief CL19-045. A call carrying
+Oracle: the settled rule. A call carrying
 both round label spellings stands refused in the open, so flag
 order never silently chooses the round that gets named.
 """

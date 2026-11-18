@@ -1,14 +1,14 @@
-"""fix seat F2 verdict pins, registry and acquisition.
+"""the repair Verdict pins, registry and acquisition.
 
-Verdict form only: no entry stands charged to this seat in
-fix round 17, in the form ruling (d) and Section 3 of the
+Verdict form only: no entry stands charged in
+the repair, in the form the settled rule and Section 3 of the
 register paper state. These pins stand written against the
 standing behaviour of the cured tree, verifying first hand
-that the fix round 16 F2 standings hold whole: the gap
+that the repair F2 standings hold whole: the gap
 cures, and, the position scan gap reach and the page key
 judgement in citeline/acquisition.py, over the charged
-forms and past them in the registry seat round 17 sweep
-forms of the register paper: structured gap chains, the
+forms and past them in the registry repair the earlier round sweep
+forms of the settled record: structured gap chains, the
 whole head set as single gap apart from the whitespace
 class, and the sole follower union sweep reproducing the
 passing class of exactly 4,023 characters. The bounded
@@ -20,7 +20,7 @@ pinned in its bounded form, the 29 whitespace characters
 of the head set. The non head union mark blocker form
 stands pinned as a bounded observation, outside any cure.
 Where a pin asserts a cured form, the revert check form
-applies in the seat paper: the cure removed in a scratch
+applies in the repair notes: the cure removed in a scratch
 copy, the pin failing in exact form. Every pin runs in
 memory at the readings and at the helpers, so no pin
 stands on a temporary directory."""

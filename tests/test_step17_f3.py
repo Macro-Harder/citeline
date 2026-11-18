@@ -1,7 +1,6 @@
 """Checks and robots entries.
 
-Each test pins one register entry on the behaviour the
-register states, written before its cure."""
+Each test pins one settled rule on the behaviour the register states, written before its cure."""
 
 import json
 import tempfile

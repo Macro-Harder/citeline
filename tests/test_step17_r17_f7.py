@@ -1,8 +1,8 @@
 """Service, watch, seams.
 
-Seat F7 carries no entry TO FIX in fix round 17. This file
-pins the sustained verdict standings of the seat in the forms
-the round 17 service and seams papers verify first hand on
+The repair carries no repair entry. This file
+pins the sustained verdict standings of the repair in the forms
+the earlier round service and seams papers verify first hand on
 the cured tree: the cure at standing sustained whole, the
 iterative string aware bracket depth helper
 _front_matter_block_depth at _front_matter_key_count in
@@ -10,9 +10,9 @@ citeline/service.py refusing LIMIT_EXCEEDED ahead of the
 parse where depth stands past 100, the parse catching
 RecursionError beside ValueError, and no failure
 record standing appended for a refusal on the audit route
-(restated for Step 19 register item R19-041: a cap refusal
+(restated for the settled rule: a cap refusal
 stores nothing on every route), at
-the boundary forms the round 17 service seat ran, depth 99 of
+the boundary forms the earlier round service repair ran, depth 99 of
 the nesting passing in list shape and in record shape, depths
 100 to 100000 refusing, mixed nesting standing exact at
 bracket depth 100 and refusing at 101, and brackets inside
@@ -21,10 +21,10 @@ sustained whole, depth standing judged at the service seam
 ahead of either container measure, _service_json_depth
 against _SERVICE_JSON_DEPTH_LIMIT at 100, with no raw
 RecursionError at any depth, in the primary form and in the
-fallback form alike. Oracle: Section 3 of the round 17
-disposition, seat F7 paragraph, with ruling (d), the round 17
-service paper in the register, the round 17 seams paper in
-the register, and the fix round 16 F7 paper in the register.
+fallback form alike. Oracle: Section 3 of the earlier round
+disposition, the repair paragraph, with the settled rule, the earlier round
+service paper in the register, the earlier round seams paper in
+the register, and the repair F7 paper in the register.
 
 Copyright: J.P. Picard aka Macro-Harder."""
 
@@ -139,7 +139,7 @@ class SeededBase(unittest.TestCase):
             audit_date=AUDIT_DATE)
 
     def audit_refuses_limit_no_record(self, page):
-        # Restated for Step 19 register item R19-041: a cap
+        # Restated for the settled rule: a cap
         # refusal stores nothing on every route, under the
         # cure in citeline/service.py where
         # _append_failure_record returns without storing
@@ -156,7 +156,7 @@ class SeededBase(unittest.TestCase):
 
 
 # ----------------------------------------------------------------
-# The depth helper of the cure at on the new forms of round 17:
+# The depth helper of the cure at on the new forms of the earlier round:
 # mixed nesting standing exact at the boundary, the judgement
 # standing on the deepest branch and not on any sum, and brackets
 # inside key strings standing uncounted.
@@ -191,7 +191,7 @@ class TestDepthHelperRound17Forms(unittest.TestCase):
 
 
 # ----------------------------------------------------------------
-# Entry at the counter on the round 17 boundary forms: nesting
+# Entry at the counter on the earlier round boundary forms: nesting
 # depth 99 passing in both shapes, depths 100 to 100000 refusing,
 # mixed nesting exact at bracket depth 100 and refusing at 101,
 # and brackets inside a key string standing uncounted, with no raw
@@ -249,11 +249,10 @@ class TestCounterRound17Forms(unittest.TestCase):
 
 # ----------------------------------------------------------------
 # Entry at the preflight and through service.audit whole on the
-# round 17 forms: the mixed form at the limit standing passed and
+# the earlier round forms: the mixed form at the limit standing passed and
 # running whole, the forms past the limit refusing with no
 # failure record each, and repeated refusals standing at no
-# added record each with no compounding. Restated for Step 19
-# register item R19-041: a cap refusal stores nothing on
+# added record each with no compounding. Restated for the settled rule: a cap refusal stores nothing on
 # every route, so the record count stands unchanged beside
 # each refusal.
 # ----------------------------------------------------------------
@@ -301,7 +300,7 @@ class TestPreflightAndRouteRound17Forms(SeededBase):
 
 
 # ----------------------------------------------------------------
-# The seam cure at on the round 17 forms: _service_json_depth
+# The seam cure at on the earlier round forms: _service_json_depth
 # standing exact against its limit of 100 on built values, the
 # seam refusing past the limit on mixed shapes alike, and the
 # refusal standing whole under the fallback forcing, with no raw

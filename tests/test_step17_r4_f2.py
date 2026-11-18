@@ -1,7 +1,7 @@
 """Registry and acquisition.
 
 Test first pins for register, and. Each test reproduces the
-defect named at its register entry, then stands as the pin for
+defect named under the settled rule, then stands as the pin for
 its cure."""
 
 import os

@@ -1,7 +1,7 @@
 """Service, watch, seams.
 
-Seat F7 carries no entry TO FIX in fix round 16. This file
-pins the sustained verdict standings of the seat in their
+The repair carries no repair entry. This file
+pins the sustained verdict standings of the repair in their
 charged forms, judged on the current tree: the cure at
 standing sustained whole, the audit preflight counter depth
 judgement in citeline/service.py judging a front matter block
@@ -10,14 +10,13 @@ shape and in record shape alike, at the limit of 100 and past
 it, counting brackets standing outside string literals alone,
 with no raw RecursionError standing raised at any depth and
 no failure record standing appended for a refusal on
-the audit route (restated for Step 19 register item
-R19-041: a cap refusal stores nothing on every route); and the container seam verdict at standing
+the audit route (restated for The settled rule: a cap refusal stores nothing on every route); and the container seam verdict at standing
 sustained whole in its standing form, the three container
 measures agreeing on their worked forms. The seam cure at
 stands pinned in its standing form beside them. Oracle:
-Section 3 of the round 16 disposition, seat F7 paragraph,
-with ruling (j), point 4, the F7 paragraph of the fix charge
-section in the register paper, and the fix round 15 F7 paper
+Section 3 of the settled disposition, the repair paragraph,
+with the settled rule, point 4, the F7 paragraph of the fix charge
+section in the settled record, and the repair F7 paper
 in the register.
 
 Copyright: J.P. Picard aka Macro-Harder."""
@@ -122,7 +121,7 @@ class SeededBase(unittest.TestCase):
             audit_date=AUDIT_DATE)
 
     def audit_refuses_limit_no_record(self, page):
-        # Restated for Step 19 register item R19-041: a cap
+        # Restated for the settled rule: a cap
         # refusal stores nothing on every route, under the
         # cure in citeline/service.py where
         # _append_failure_record returns without storing
@@ -272,8 +271,8 @@ class TestPreflightBoundary(SeededBase):
 # Entry through service.audit whole: each refusal appends no
 # failure record, at the boundary depth and past the parser
 # flip alike, in list shape and in record shape, and the form at
-# the limit runs whole. Restated for Step 19 register item
-# R19-041: a cap refusal stores nothing on every route, so
+# the limit runs whole. Restated for The settled the settled rule
+# The settled rule: a cap refusal stores nothing on every route, so
 # the record count stands unchanged beside the refusal.
 # ----------------------------------------------------------------
 

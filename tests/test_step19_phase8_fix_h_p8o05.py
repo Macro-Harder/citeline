@@ -1,7 +1,7 @@
-"""Step 19 Phase 8 fix test, seat H, item P8O-05.
+"""Repair test.
 
-Oracle: design/audit/step-19-phase8-orange.md finding P8O-05,
-disposed [defect] in design/audit/step-19-phase8-triage.md
+Oracle: the audit record finding the repair item,
+disposed [defect] in the audit record
 Part B: the guide Simple artefact lists the home failure
 records twice, raw block then prose. The cure: they stand
 once, in the prose form, with the reason the guide carries

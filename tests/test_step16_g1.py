@@ -1,7 +1,7 @@
 """The staleness view.
 
 Defect covered: E-01 (High). The staleness view stands claimed and
-unshipped. Brief Section 5.12, the IM7-ANA-5 landing, and brief
+unshipped. Brief Section 5.12, the settled landing, and brief
 Section 11, contract C9, with plan contract C9 and pass condition
 P59, claim an on demand staleness view over the stored records of
 one home, listing for each stored record the bound versions it

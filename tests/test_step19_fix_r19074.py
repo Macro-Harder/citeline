@@ -1,6 +1,6 @@
-"""Step 19 fix tests for R19-074: the exit code fallback.
+"""Repair tests: the exit code fallback.
 
-Oracle: register item R19-074 and plan EC-126 subsection 4.2. A
+Oracle: the settled rule and the plan subsection A
 subcommand returns the code of the class of the one error value
 it reports. An exception carrying no reported error value never
 receives the domain code 3; it receives code 1, the code the

@@ -50,7 +50,7 @@ class Test004MarkCategoriesPastMn(ImportBase):
 
     # The category counts below pin a Unicode data
     # version, stated in the open beside the counts, as
-    # Step 19 entry U-12 directs: the product helper
+    # The settled entry directs: the product helper
     # judges by unicodedata.category at run time, so its
     # refusal set follows the runtime Unicode data, and a
     # count pin stands read against the version it names.
@@ -143,7 +143,7 @@ class Test004MarkCategoriesPastMn(ImportBase):
         # The total is the runtime own Mc plus Me count,
         # derived from the runtime unicodedata at run time
         # and cross read against the version pin in the
-        # counts test above, per Step 19 entry U-12; the
+        # counts test above, per the settled entry; the
         # refusal pin itself stands unchanged: every Mc
         # and Me mark the runtime holds stands refused.
         pinned = self.CATEGORY_COUNTS_BY_UNIDATA_VERSION.get(
