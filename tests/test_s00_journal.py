@@ -403,24 +403,59 @@ class Entry14FormTests(HomeCase):
         check = entry["payload"]["checks"][0]
         self.assertNotIn("section_breakdown", check)
 
-    def test_byte_changed_limb_fails_verify(self):
+    # Supersession note: the former byte changed limb,
+    # test_byte_changed_limb_fails_verify, asserted plan
+    # Section 2.5 against decisions D-KF-14-HASHSELF and
+    # D-KF-14-RENDER and brief grill Q12, and stands
+    # restated on the Step 19 case adjudication U-01
+    # (design/audit/step-19-case-u01.md) as the two tests
+    # below.
+
+    def test_byte_changed_last_entry_passes_internal_only(self):
         """Row plan Section 1.3 S0 entry 14 form, byte changed
-        limb. Oracle: plan Part 1 Section 2.5: verify fails
-        over the vector home with one stated byte changed in
-        one stated entry, the changed limb running in the
-        home of the vector whose entry stands changed. Run
-        here over V-01, V-08, and V-16 in its chain home."""
+        limb, last entry form. Oracle: decision
+        D-KF-14-RENDER (no hash comparison stands as a
+        verify step for the last entry; verify claims
+        internal consistency only) with decision
+        D-KF-14-HASHSELF and brief grill Q12. Run here over
+        V-01, V-08, and V-16 in its chain home, each changed
+        entry standing as the last entry of its home."""
         _, _, text, _ = VECTOR_BY_ID["V-01"]
         changed = text.replace("Example Product", "Example Producu")
         self.write_journal([changed.encode("utf-8")])
-        self.assertFalse(service.verify(home=self.home)["passed"])
+        result = service.verify(home=self.home)
+        self.assertTrue(result["passed"])
+        self.assertEqual(result["claim"],
+                         "internal consistency only")
         _, _, text8, _ = VECTOR_BY_ID["V-08"]
         changed8 = text8.replace("110000", "110001")
         self.write_journal([changed8.encode("utf-8")])
-        self.assertFalse(service.verify(home=self.home)["passed"])
+        result = service.verify(home=self.home)
+        self.assertTrue(result["passed"])
+        self.assertEqual(result["claim"],
+                         "internal consistency only")
         lines = [VECTOR_BY_ID["V-15"][2].encode("utf-8"),
                  VECTOR_BY_ID["V-16"][2].replace(
                      "Chain answer", "Chain answeq").encode("utf-8")]
+        self.write_journal(lines)
+        result = service.verify(home=self.home)
+        self.assertTrue(result["passed"])
+        self.assertEqual(result["claim"],
+                         "internal consistency only")
+
+    def test_byte_changed_non_last_entry_fails_verify(self):
+        """Row plan Section 1.3 S0 entry 14 form, byte changed
+        limb, non last entry form. Oracle: decision
+        D-KF-14-RENDER, verify hash basis limb (the
+        recomputed hash stands compared against the
+        previous_hash the next entry carries). Run here over
+        the V-15 and V-16 chain home with one character
+        changed in the first entry, V-15, the second entry
+        standing unchanged, so its link from V-16 breaks."""
+        lines = [VECTOR_BY_ID["V-15"][2].replace(
+                     '"round_label":"r2"',
+                     '"round_label":"r3"').encode("utf-8"),
+                 VECTOR_BY_ID["V-16"][2].encode("utf-8")]
         self.write_journal(lines)
         self.assertFalse(service.verify(home=self.home)["passed"])
 
