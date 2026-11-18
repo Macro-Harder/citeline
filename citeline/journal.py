@@ -1331,7 +1331,16 @@ def verify_chain(home):
     return {
         "passed": passed,
         "chain_fails": not passed,
-        "entry_count": scan.entry_count,
+        # The reported count counts valid entries only:
+        # the verified prefix of the chain. A complete
+        # corrupt line stands reported as the chain failure
+        # in this same result and is not counted as an
+        # entry, exactly as a torn partial line, which
+        # stands outside the scanned lines, is not counted.
+        # scan.entry_count keeps the standing line count
+        # for the sequence, cap, and anchor position logic
+        # that reads it inside this module.
+        "entry_count": scan.verified,
         "head_hash": scan.head_hash,
         "claim": "internal consistency only",
         "exit_code": 0 if passed else 5,
@@ -1553,8 +1562,11 @@ def status_snapshot(home):
     Status runs and reports over a journal that does not
     recompute, printing the head of the last entry whose
     link recomputes, or the distinct absence forms, and it
-    returns 0 in every case. The service home wraps this
-    snapshot as its status result.
+    returns 0 in every case over a home that stands. A
+    missing home is the one exception: the service status
+    route over a missing home returns exit 2 with
+    HOME_MISSING, on plan row U-6. The service home wraps
+    this snapshot as its status result.
 
     The warnings the home config parse formed stand in the
     snapshot as config_warnings, in the parse form (an
@@ -1581,10 +1593,31 @@ def status_snapshot(home):
     else:
         head_hash = scan.head_hash
         head = scan.head_hash
+    if head_hash is not None:
+        # The head hash duty stands manual, and the hash
+        # stands stored outside the home, in version 1: no
+        # product operation accepts the hash back, so this
+        # snapshot cannot know a recording was made, and it
+        # states the recording as due wherever a head hash
+        # stands, in plain words beside the hash itself.
+        recording_due = True
+        recording = (
+            "Head hash recording stands due: record the "
+            "head hash %s outside the product home."
+            % head_hash)
+    else:
+        recording_due = False
+        recording = (
+            "No head hash recording stands due: no head "
+            "hash stands in this home.")
     return {
         "head": head,
         "head_hash": head_hash,
-        "entry_count": scan.entry_count,
+        "head_hash_recording_due": recording_due,
+        "head_hash_recording": recording,
+        # The reported count counts valid entries only, as
+        # in verify_chain: the verified prefix of the chain.
+        "entry_count": scan.verified,
         "home_path": home,
         "home_size": size,
         "capacity_outlook": {
@@ -3365,9 +3398,15 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
     """Append one entry, as one complete write, or nothing.
 
     The append recomputes the chain before it writes: over
-    a journal that does not recompute, over a divergent
-    anchor recording, and at either cap, the append stands
-    refused and the head stands unchanged. The audit date
+    a journal that does not recompute, and at either cap,
+    the append stands refused and the head stands
+    unchanged. A stale, missing, or malformed anchor
+    recording never refuses the append: the append
+    proceeds, rewrites the anchor, and reports the
+    disagreement in its result. A divergent anchor
+    recording, a head standing nowhere in the chain,
+    still refuses the append, on the honest forgery pair
+    terms the plan states. The audit date
     input names the calling run date where a caller states
     one; the entry form itself carries no date field, and
     no clock is read here.
@@ -3427,26 +3466,51 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
         values, _warnings, _present = _read_config_values(home)
         anchor_path = values.get("anchor_path")
         resolved_anchor = None
+        anchor_disagreement = None
         if anchor_path:
             resolved_anchor = _resolve_anchor_path(home, anchor_path)
             anchor_state, recorded = _read_anchor(resolved_anchor)
-            # A configured anchor that is absent, emptied,
-            # unreadable, malformed, stale, or divergent over a
-            # standing journal is an integrity state that bars
-            # the append: the append is the act that would
-            # rewrite the anchor and erase the signal. Over an
-            # empty journal an absent anchor bars nothing: the
-            # first append establishes it.
-            if anchor_state == "malformed" or (
-                    anchor_state == "ok"
-                    and _agreement_for(recorded, scan) != "matching"
-            ) or (
-                    anchor_state == "absent" and scan.entry_count > 0
-            ):
+            # Anchor disagreement is a reported position,
+            # never a barring ground, for the three forms
+            # delegated decision 1 names: an append over a
+            # stale, missing, or malformed anchor proceeds
+            # and rewrites the anchor, and the disagreement
+            # that stood at the append stands reported in
+            # the append result, in the form status and
+            # verify report it, until the rewritten anchor
+            # agrees again. Over an empty journal an absent
+            # anchor is no disagreement: the first append
+            # establishes it. A divergent recording, a head
+            # that stands nowhere in the chain, is not one
+            # of the three forms: it is the honest forgery
+            # case of the plan pair IM2-INV-3, whose facts
+            # decision 1 does not reach, and its bar stands
+            # exactly as it stood.
+            if anchor_state == "ok" and \
+                    _agreement_for(recorded, scan) == "divergent":
                 raise JournalError(
                     "the anchor recording does not stand as the "
                     "standing head; appends stand barred",
                     row="I-2", token="JOURNAL_VERIFY_FAILED")
+            if anchor_state == "malformed":
+                anchor_disagreement = {
+                    "agreement": "torn",
+                    "recorded_head": None,
+                    "recorded_sequence": None,
+                    "anchor_path": anchor_path}
+            elif anchor_state == "ok" and \
+                    _agreement_for(recorded, scan) != "matching":
+                anchor_disagreement = {
+                    "agreement": _agreement_for(recorded, scan),
+                    "recorded_head": recorded["head_hash"],
+                    "recorded_sequence": recorded["sequence"],
+                    "anchor_path": anchor_path}
+            elif anchor_state == "absent" and scan.entry_count > 0:
+                anchor_disagreement = {
+                    "agreement": "absent",
+                    "recorded_head": None,
+                    "recorded_sequence": None,
+                    "anchor_path": anchor_path}
         if entry_kind == "limit_raise":
             key = _member_to_key(payload.get("limit"))
             if key is None:
@@ -3679,6 +3743,11 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
         if claim_state == "claimed" and claimed_context is not None:
             claimed_context.spent = (
                 entry["sequence"], entry["entry_hash"])
+        if anchor_disagreement is not None:
+            # The disagreement stands reported in the append
+            # result only: it is no part of the stored entry,
+            # whose canonical form stands already written.
+            entry["anchor_disagreement"] = anchor_disagreement
         return entry
 
 

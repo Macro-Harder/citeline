@@ -251,7 +251,13 @@ class AnchorTests(HomeCase):
         # Step 19 item R19-035 supersedes the divergent
         # reading of this case: a part record that does not
         # parse as a head hash with its sequence stands
-        # reported as torn. The bar stands as it stood.
+        # reported as torn. Restated at Step 20 under
+        # delegated decision 1 (register item R19-033, fix
+        # paper step-20-fix-05-journal-status): the bar no
+        # longer stands. The append proceeds over the torn
+        # anchor, reports the disagreement in its result,
+        # and rewrites the anchor to matching. The method
+        # name stands as it stood in the suite.
         anchor = self.anchored_home(3)
         head1 = hashlib.sha256(self.journal_lines()[0]).hexdigest()
         self.truncate_journal(1)
@@ -259,8 +265,12 @@ class AnchorTests(HomeCase):
             handle.write(head1 + "\n")
         state = journal.status_snapshot(self.home)
         self.assertEqual(state["anchor"]["agreement"], "torn")
-        with self.assertRaises(journal.JournalError):
-            self.append_product("Product 9", "p-9")
+        result = self.append_product("Product 9", "p-9")
+        self.assertEqual(
+            result["anchor_disagreement"]["agreement"], "torn")
+        self.assertEqual(
+            journal.status_snapshot(self.home)["anchor"]["agreement"],
+            "matching")
 
     def test_x001b_anchor_bad_sequence_forms_and_extra_tokens(self):
         for suffix in ("notanint", "2.0", "1 EXTRA GARBAGE"):
@@ -281,20 +291,44 @@ class AnchorTests(HomeCase):
             state = journal.status_snapshot(home)
             self.assertEqual(state["anchor"]["agreement"], "torn",
                              msg=suffix)
-            with self.assertRaises(journal.JournalError, msg=suffix):
-                journal.append_entry(home, "product_registered",
-                                     product_payload("B", "p-b"))
+            # Restated at Step 20 under delegated decision
+            # 1 (R19-033): a malformed anchor no longer bars
+            # the append; the append proceeds, reports the
+            # disagreement, and rewrites the anchor.
+            result = journal.append_entry(
+                home, "product_registered",
+                product_payload("B", "p-b"))
+            self.assertEqual(
+                result["anchor_disagreement"]["agreement"],
+                "torn", msg=suffix)
+            self.assertEqual(
+                journal.status_snapshot(home)["anchor"]["agreement"],
+                "matching", msg=suffix)
 
     def test_x002_deleted_or_emptied_anchor_bars_append(self):
+        # Restated at Step 20 under delegated decision 1
+        # (R19-033): a deleted or emptied anchor no longer
+        # bars the append. Each append proceeds, reports
+        # the absent disagreement, and rewrites the anchor.
+        # The method name stands as it stood in the suite.
         anchor = self.anchored_home(3)
         self.truncate_journal(1)
         os.unlink(anchor)
-        with self.assertRaises(journal.JournalError):
-            self.append_product("Product 9", "p-9")
+        result = self.append_product("Product 9", "p-9")
+        self.assertEqual(
+            result["anchor_disagreement"]["agreement"], "absent")
+        self.assertEqual(
+            journal.status_snapshot(self.home)["anchor"]["agreement"],
+            "matching")
         with open(anchor, "w") as handle:
             handle.write("")
-        with self.assertRaises(journal.JournalError):
-            self.append_product("Product 9", "p-9")
+        journal._scan_cache.clear()
+        result = self.append_product("Product 10", "p-10")
+        self.assertEqual(
+            result["anchor_disagreement"]["agreement"], "absent")
+        self.assertEqual(
+            journal.status_snapshot(self.home)["anchor"]["agreement"],
+            "matching")
 
     def test_x003_relative_anchor_path_resolves_against_home(self):
         journal.write_config(self.home, "anchor_path = ../outside.txt\n")
@@ -338,6 +372,12 @@ class AnchorTests(HomeCase):
         self.assertTrue(journal.verify_chain(self.home)["passed"])
 
     def test_x006_stale_anchor_bars_append(self):
+        # Restated at Step 20 under delegated decision 1
+        # (R19-033): a stale anchor no longer bars the
+        # append. The status report of stale stands as it
+        # stood; the append then proceeds, reports the
+        # disagreement, and rewrites the anchor. The method
+        # name stands as it stood in the suite.
         anchor = self.anchored_home(3)
         first_head = hashlib.sha256(self.journal_lines()[0]).hexdigest()
         with open(anchor, "w") as handle:
@@ -345,9 +385,13 @@ class AnchorTests(HomeCase):
         journal._scan_cache.clear()
         state = journal.status_snapshot(self.home)
         self.assertEqual(state["anchor"]["agreement"], "stale")
-        with self.assertRaises(journal.JournalError):
-            self.append_product("Product 9", "p-9")
-        self.assertEqual(len(self.journal_lines()), 3)
+        result = self.append_product("Product 9", "p-9")
+        self.assertEqual(
+            result["anchor_disagreement"]["agreement"], "stale")
+        self.assertEqual(len(self.journal_lines()), 4)
+        self.assertEqual(
+            journal.status_snapshot(self.home)["anchor"]["agreement"],
+            "matching")
 
 
 class LimitRaiseTests(HomeCase):

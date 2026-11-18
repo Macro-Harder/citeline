@@ -150,12 +150,18 @@ class BatchIntentStartingStateTests(HomeCase):
             self.home, "anchor_path = %s\n" % other)
         self.assertTrue(journal.recover_interrupted_batch(self.home))
         # The partial batch stands removed and the record
-        # stands acted, not cleared unacted. The recovery
-        # record append itself meets the repointed config
-        # anchor gate and stands under the round 3 append
-        # failure discipline recorded, so no record
-        # stands here.
-        self.assertEqual(self.kinds(), ["product_registered"])
+        # stands acted, not cleared unacted. Restated at
+        # Step 20 under delegated decision 1 (register item
+        # R19-033, fix paper step-20-fix-05-journal-status):
+        # the recovery record append meets the repointed
+        # config anchor, which stands missing at its new
+        # path, and a missing anchor no longer bars an
+        # append, so the recovery record now stands here
+        # where the round 3 append failure discipline
+        # formerly barred it. The genuine record limb
+        # below stands as it stood.
+        self.assertEqual(self.kinds(), ["product_registered",
+                                        "failure_record"])
         self.assertTrue(journal.verify_chain(self.home)["passed"])
         self.assertFalse(self.intent_standing())
         with open(anchor, "rb") as handle:

@@ -428,17 +428,20 @@ class TestExitBehaviour(unittest.TestCase):
 
     def test_status_returns_0_in_every_case(self):
         """Pins item 126 per operation reading for status. Oracle: plan
-        Section 4.2 status row: status returns 0 in every case, and
-        over a journal that does not recompute its report states the
-        chain failure in full."""
+        Section 4.2 status row: status returns 0 in every case
+        over a home that stands, a missing home excepted at
+        exit 2 with HOME_MISSING (Step 20 delegated decision
+        2, register item R19-036), and over a journal that
+        does not recompute its report states the chain
+        failure in full."""
         _, _, home = make_home(self)
         self.assertEqual(shell.main(["status", "--home", str(home)]), 0)
 
     def test_status_returns_0_and_reports_chain_failure(self):
         """Pins item 126 status row, non recomputing journal limb.
         Oracle: plan Section 4.2 status row: status returns 0 in
-        every case and its report states the chain failure and the
-        failing position."""
+        every case over a home that stands and its report
+        states the chain failure and the failing position."""
         _, _, home = make_home(self)
         seed_product(self, home)
         journal_files = [p for p in home.rglob("*") if p.is_file()]

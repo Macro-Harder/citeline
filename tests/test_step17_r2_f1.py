@@ -285,8 +285,19 @@ class AnchorReaderTests(HomeCase):
         # form: Step 19 item R19-035 supersedes the divergent
         # form this assertion pinned before that cure.
         self.assertEqual(state["anchor"]["agreement"], "torn")
-        with self.assertRaises(journal.JournalError):
-            self.append_product("Product 9", "p-9")
+        # Restated at Step 20 under delegated decision 1
+        # (register item R19-033, fix paper
+        # step-20-fix-05-journal-status): a malformed
+        # anchor no longer bars the append. The append
+        # proceeds, reports the torn disagreement in its
+        # result, and rewrites the anchor to matching. The
+        # no crash limb above stands as it stood.
+        result = self.append_product("Product 9", "p-9")
+        self.assertEqual(
+            result["anchor_disagreement"]["agreement"], "torn")
+        self.assertEqual(
+            journal.status_snapshot(self.home)["anchor"]["agreement"],
+            "matching")
 
     def test_r2_004_signed_and_padded_sequence_forms_are_not_matching(self):
         for token in ("+2", "002"):
@@ -313,10 +324,19 @@ class AnchorReaderTests(HomeCase):
             # assertion pinned before that cure.
             self.assertEqual(state["anchor"]["agreement"], "torn",
                              msg=token)
-            with self.assertRaises(journal.JournalError, msg=token):
-                journal.append_entry(
-                    home, "product_registered",
-                    product_payload("P9", "p-9"))
+            # Restated at Step 20 under delegated decision
+            # 1 (R19-033): a malformed anchor no longer bars
+            # the append; the append proceeds, reports the
+            # torn disagreement, and rewrites the anchor.
+            result = journal.append_entry(
+                home, "product_registered",
+                product_payload("P9", "p-9"))
+            self.assertEqual(
+                result["anchor_disagreement"]["agreement"],
+                "torn", msg=token)
+            self.assertEqual(
+                journal.status_snapshot(home)["anchor"]["agreement"],
+                "matching", msg=token)
 
 
 class ReplayAnchorAndWriteTests(HomeCase):

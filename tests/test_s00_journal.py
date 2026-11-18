@@ -694,8 +694,19 @@ class VerifyAndStatusTests(HomeCase):
         journal holds entries and fails verify at its first
         entry, status prints for the head the distinct head
         only absence form in these exact words: no head: the
-        journal does not recompute from its first entry,
-        with the true entry count printed as it stands."""
+        journal does not recompute from its first entry.
+        Restated at Step 20 under delegated decision 12
+        (register item R19-038, fix paper
+        step-20-fix-05-journal-status): the count limb of
+        this pin is restated from 1 to 0. Decision 12
+        governs the count: entry_count counts valid entries
+        only, and this home holds no valid entry, so the
+        true count is 0. The brief item 138 text governs
+        the head limb: the distinct absence form stands on
+        the head text itself and on chain_fails, not on the
+        count, so the form stands distinct from the empty
+        journal form (the words no entries, chain sound)
+        at the restated count."""
         line = bytearray(canonical_line(
             {"name": "Example Product", "product_id": "p-example"},
             1, None))
@@ -706,7 +717,8 @@ class VerifyAndStatusTests(HomeCase):
             state["head"],
             "no head: the journal does not recompute from its "
             "first entry")
-        self.assertEqual(state["entry_count"], 1)
+        self.assertNotEqual(state["head"], "no entries")
+        self.assertEqual(state["entry_count"], 0)
         self.assertTrue(state["chain_fails"])
 
     def test_sequence_gap_repeat_reorder_fail(self):
