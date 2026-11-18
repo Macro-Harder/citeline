@@ -442,8 +442,8 @@ def parse_robots(text):
         if field_name == "user-agent":
             note_unknown(value)
             if not value:
-                # An empty agent value names no group, as
-                # round 1 established on this surface: no
+                # An empty agent value names no group on
+                # this surface: no
                 # group record stands for it, and the rules
                 # that follow it belong to no group, so they
                 # count as orphan rules and the warning the

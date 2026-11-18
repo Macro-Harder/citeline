@@ -223,9 +223,8 @@ _SHORT_ESCAPES = {
 # quote and the backslash, the control characters below
 # 0x20, and the surrogate range. A string holding none of
 # them renders as itself between quotes, byte for byte as
-# the slow path renders it (Step 19 items R19-039 and
-# R19-040: the per character loop stood at most of the
-# scan cost at the journal cap).
+# the slow path renders it (the per character loop
+# stood at most of the scan cost at the journal cap).
 _STRING_NEEDS_WORK = re.compile(r'["\\\x00-\x1f\ud800-\udfff]')
 
 
@@ -889,8 +888,7 @@ def _is_plausible_entry_prefix(partial):
     # tracks the container frame each token stands in and
     # the place the frame stands, not the shape of one
     # token alone. Brace led text in any other shape is no
-    # entry prefix, whoever holds the lock (reopened at
-    # round 4).
+    # entry prefix, whoever holds the lock.
     stack = []
     root_done = False
     in_string = False
@@ -1104,8 +1102,8 @@ def _correction_form_ok(payload, position=None, target_kind=None):
     a supplied chain carrying one does not verify and does
     not replay. A correction superseding its own sequence
     stands inside that range and outside that refusal, so
-    the standing vector V-10 keeps its governed form
-    (reopened at round 3 and at round 4)."""
+    the standing vector V-10 keeps its governed form.
+    """
     supersedes = payload.get("supersedes_sequence")
     if type(supersedes) is not int:
         return False
@@ -1165,7 +1163,7 @@ def _scan(home, partial_mode="probe"):
         # standing file holds no partial line, the two
         # scans are the same scan, so a cached sibling scan
         # over the same file state stands reused instead of
-        # recomputed (Step 19 item R19-039: a writing
+        # recomputed: a writing
         # invocation whose readers ran the probe scan no
         # longer pays for a second full scan under the
         # torn key). A sibling scan that saw a partial line
@@ -1254,7 +1252,7 @@ def _scan(home, partial_mode="probe"):
                         # is a property of the chain, not of
                         # one writing route: a supplied chain
                         # carrying two raises for one run and
-                        # limit does not verify . The raise
+                        # limit does not verify. The raise
                         # key stands judged by equality, as
                         # the append path and effective_limits
                         # judge it, so numeric spellings of
@@ -1278,8 +1276,8 @@ def _scan(home, partial_mode="probe"):
         # entry hash is the hash of its raw bytes, since
         # the canonical rendering comparison above has
         # already established that the raw bytes are the
-        # canonical form (Step 19 items R19-039 and
-        # R19-040). Readers that need entry hashes read
+        # canonical form. Readers that need entry
+        # hashes read
         # them from here instead of rendering every entry
         # a second time.
         scan.line_hashes.append(scan.head_hash)
@@ -1300,7 +1298,7 @@ def _entries_with_hash(scan):
             # cache, every member it carries and not the
             # payload only, so a caller mutation of a fold
             # result cannot write back into what later reads
-            # in this process return (reopened at round 4).
+            # in this process return.
             entry = copy.deepcopy(parsed)
             if position <= len(scan.line_hashes):
                 # The scan verified this line: its entry
@@ -1308,8 +1306,7 @@ def _entries_with_hash(scan):
                 # bytes, the canonical rendering comparison
                 # in the scan having established the two
                 # forms are the same bytes, so no second
-                # rendering stands computed here (Step 19
-                # items R19-039 and R19-040).
+                # rendering stands computed here.
                 entry["entry_hash"] = scan.line_hashes[
                     position - 1]
             else:
@@ -1340,10 +1337,9 @@ def verify_chain(home):
         "exit_code": 0 if passed else 5,
         # The error_value field carries the vocabulary
         # token, as every other record field of this name
-        # does: the closed vocabulary at CL19-197 and
-        # CL19-151 admits no other value form here, and
+        # does: the closed vocabulary admits no other
+        # value form here, and
         # the integer 5 stands only in the exit_code field
-        # (Step 19 item R19-094).
         "error_value": None if passed else "JOURNAL_VERIFY_FAILED",
         "row": None if passed else "I-2",
         "token": None if passed else "JOURNAL_VERIFY_FAILED",
@@ -1367,8 +1363,7 @@ _HOME_PRODUCT_TEMP_PREFIXES = (
 
 def _home_size(home):
     """The size the home size cap charges: the files the
-    product created, and no other file (Step 19 item
-    R19-022).
+    product created, and no other file.
 
     The product creates a closed set of files directly
     inside the home: the journal, the config, the two
@@ -1402,7 +1397,7 @@ def _resolve_anchor_path(home, value):
 
     Config validation and every anchor read and write use
     this one resolved path, so the anchor the product uses
-    is the anchor it checked ."""
+    is the anchor it checked."""
     if os.path.isabs(value):
         return os.path.normpath(value)
     return os.path.normpath(os.path.join(str(home), value))
@@ -1425,9 +1420,9 @@ def _read_anchor(path):
     dropped.
 
     The read itself stands guarded, on the descriptor
-    discipline the batch intent reader stands under (Step
-    19 item R19-034): the path stands opened with the non
-    blocking flag, so a FIFO standing at the path never
+    discipline the batch intent reader stands under:
+    the path stands opened with the non blocking flag,
+    so a FIFO standing at the path never
     wedges the open; the opened handle stands judged a
     regular file before any byte is read, so a device or
     another non regular form stands answered "malformed"
@@ -1537,8 +1532,8 @@ def _anchor_status(home, scan):
         # not parse as a head hash with its sequence: the
         # design states that position as torn, with no
         # agreement claimed, and no unparsed first token
-        # stands printed as a recorded head (Step 19 item
-        # R19-035). Divergent stands for a recording that
+        # stands printed as a recorded head.
+        # Divergent stands for a recording that
         # parses whole and stands nowhere in the chain.
         return {"agreement": "torn",
                 "recorded_head": None,
@@ -1659,8 +1654,7 @@ def parse_config(text, home=None):
     value stands at or above the resolved
     evidence_spans_per_check value; a combination in
     breach of either relation fails as CONFIG_INVALID
-    with the refusal naming the relation (Step 19 item
-    R19-105).
+    with the refusal naming the relation.
     Returns a pair of the values found and the warnings.
     """
     values = {}
@@ -1707,7 +1701,7 @@ def parse_config(text, home=None):
                 # A digit string past the integer conversion
                 # limit is a value far past its hard ceiling,
                 # refused in the vocabulary, never a raw
-                # error .
+                # error.
                 raise ConfigError(
                     "a config value past its hard ceiling: %s"
                     % (key,), row="X-1", token="CONFIG_INVALID")
@@ -1726,8 +1720,8 @@ def parse_config(text, home=None):
         elif key in ("home_path", "anchor_path"):
             values[key] = raw_value
             # home_path carries its specified effect at
-            # home selection (plan Section 3 EC-15 row 43;
-            # Step 19 item R19-106): selected_home below
+            # home selection (plan Section 3 EC-15 row
+            # 43): selected_home below
             # reads this value, and the shell defaulting
             # and the service home handling resolve the
             # home a call governs through it. The parse
@@ -1742,7 +1736,7 @@ def parse_config(text, home=None):
     # where the config keys stand specified in this
     # module and named in each refusal, so no individually
     # valid combination fails on an unstated relation
-    # (Step 19 item R19-105; the relations themselves
+    # (the relations themselves
     # stand stated in the design plan at decision
     # D-KF-15-RANGE as forced dependencies under row X-1):
     # front_matter_size_after_alias_expansion stands at
@@ -1775,7 +1769,7 @@ def parse_config(text, home=None):
         # The check runs on the real location, not the
         # lexical spelling: a path through a symlinked
         # directory whose real location is inside the home
-        # is inside the home .
+        # is inside the home.
         candidate_real = os.path.realpath(candidate)
         home_real = os.path.realpath(str(home))
         if candidate_real == home_real \
@@ -1806,7 +1800,7 @@ def _install_config_candidates(home):
     the home it governs in its home key. Where that key
     stands overwritten, a lone standing candidate governs
     the home beside it, as the one installation that home
-    can belong to (Step 19 item R19-049).
+    can belong to.
     """
     home_abs = os.path.abspath(str(home))
     parent = os.path.dirname(home_abs)
@@ -1847,7 +1841,7 @@ def _install_config_values(home):
     The install config file is the governing config file
     the brief states at Section 3.5 point 5: config values
     are read from that file, so a value it states governs
-    the runs of the home it names (Step 19 item R19-049).
+    the runs of the home it names.
     A home config value for the same key stands as the
     later statement of the same operator and governs over
     the install file value for that key, as every other
@@ -1900,7 +1894,7 @@ def _read_config_values(home):
     if not os.path.isfile(path):
         # A config path that stands but is not a file (a
         # directory at the path) is a config failure, not
-        # an absent config .
+        # an absent config.
         raise ConfigError(
             "the config path stands but is not a file",
             row="X-1", token="CONFIG_INVALID")
@@ -1965,7 +1959,7 @@ def write_config(home, text):
 
     The writing half applies the parse the reading half applies on
     every read, so the product cannot write a config it will itself
-    refuse to read ."""
+    refuse to read."""
     home = str(home)
     parse_config(text, home=home)
     _ensure_home_directory(home, lambda: ConfigError(
@@ -2314,7 +2308,7 @@ class _WriteLock:
                 # payload deepcopy hook among them, can join:
                 # it stands contended at row X-10 and stores
                 # nothing, exactly as a caller in another
-                # process does (reopened at round 3).
+                # process does.
                 handle, depth, owner_thread, invocation, \
                     owner_pid = held
                 permit_join = \
@@ -2609,8 +2603,7 @@ class _join_authorization:
     presents stands answered by that landed entry itself, at
     the journal head, and stores nothing further; a second
     call that finds it claimed but unspent calls the append
-    without the token and stands contended (reopened at round
-    6)."""
+    without the token and stands contended."""
 
     def __init__(self, path, entry_kind, payload):
         self.path = path
@@ -2907,7 +2900,7 @@ def _write_batch_intent(home, journal_size, anchor_path, anchor_bytes,
     # home holding the record content. The write stands
     # refused, and the batch caller bars the batch in the
     # journal vocabulary on that report, as it bars it on
-    # any intent write failure (reopened at round 5).
+    # any intent write failure.
     try:
         descriptor = _open_home_file_descriptor(intent_path, "w")
     except (OSError, _UnsafeHomeFile):
@@ -2959,8 +2952,7 @@ def _home_total_size(home):
     mixed state judgement below, whose governed question
     is the state of the home as it stood at the append.
     The home size cap itself charges only the files the
-    product created: see _home_size (Step 19 item
-    R19-022)."""
+    product created: see _home_size."""
     total = 0
     for root, _dirs, files in os.walk(str(home)):
         for name in files:
@@ -2985,9 +2977,9 @@ def _size_cap_also_met(home):
     length cap deferral reported over a truncation that has
     already landed. The reading is the whole home reading,
     _home_total_size: the judgement's governed question is
-    the home's state at the append, and the Step 19 cure at
-    item R19-022, which charges the cap itself with product
-    created files only, does not name this judgement."""
+    the home's state at the append, and the reading
+    that charges the cap itself with product created
+    files only does not name this judgement."""
     try:
         limits = effective_limits(home)
     except Exception:
@@ -3024,8 +3016,7 @@ def recover_interrupted_batch(home):
     against the state the batch started, so a later
     config change or config fault does not destroy a
     genuine record, and a landed recovery appends its own
-    failure record stating that it ran (round 3, under
-    the Manager ruling recorded in the step record).
+    failure record stating that it ran.
     Returns True where a recovery landed. Where the home
     stands held by a live batch, or no record stands,
     nothing happens here: the live batch owns its own
@@ -3034,9 +3025,7 @@ def recover_interrupted_batch(home):
     length cap, the recovery does not stand reported as
     landed: this call returns False and the record
     stands, so the recovery can land whole once the state
-    that bars it is repaired or the cap is raised (round
-    4, the second on the terms of the round 4 disposition
-    ruling (d))."""
+    that bars it is repaired or the cap is raised."""
     home = str(home)
     intent_path = _batch_intent_path(home)
     if not os.path.lexists(intent_path):
@@ -3153,7 +3142,7 @@ def recover_interrupted_batch(home):
             # completed, and the record carries that
             # token's row, class, and exit code beside it,
             # so no value outside the closed set stands in
-            # the stored journal (Step 19 item R19-095).
+            # the stored journal.
             # The rule that fired keeps its own name in the
             # rule_fired field, as the standing failure
             # record vectors carry a rule name beside their
@@ -3493,7 +3482,7 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
             # other special payload kind is: its target must
             # be a whole sequence naming a standing entry
             # that is not itself a correction, and its
-            # corrected record must be a record .
+            # corrected record must be a record.
             supersedes = payload.get("supersedes_sequence")
             corrected = payload.get("corrected_record")
             if type(supersedes) is not int \
@@ -3545,9 +3534,9 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
         # is resolved here, under the write lock, at the
         # moment the sequence stands assigned, so no caller
         # side count read can mint an identity another
-        # append also mints (cured at the service seam in
-        # seat F7 with this one mechanism in the append
-        # path). Resolution stands confined to the identity
+        # append also mints, with this one mechanism in
+        # the append path. Resolution stands confined to
+        # the identity
         # fields, so caller text in every other field
         # stands stored as written.
         entry["payload"] = _resolve_sequence_identity(
@@ -3678,7 +3667,7 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
                 # An anchor write that fails is not swallowed:
                 # the append stands rolled back and the
                 # failure is reported, so no append reports
-                # success with no anchor standing .
+                # success with no anchor standing.
                 _restore_journal_size(path, original_size)
                 for cache_key in [key for key in _scan_cache
                                   if key[0] == path]:
@@ -3803,7 +3792,6 @@ def append_entries_atomic(home, entries, audit_date=None, run_id=None):
                 # so no ambient append inside the batch
                 # window, and no code running in the grant
                 # prologue of this call, joins the batch
-                # (reopened at round 5).
                 with _join_authorization(
                         _lock_path(home), entry_kind, payload):
                     appended.append(append_entry(
@@ -3998,7 +3986,7 @@ def replay(home, entries, resume=False):
     stated lines stand appended to the chain as it stands, so a replay
     from a mid chain state reaches the same head as the full replay.
 
-    The replay validates before it writes : the entries argument must
+    The replay validates before it writes: the entries argument must
     be a collection of entry lines (a single string, a bytes object, a
     mapping, and a non line element are each refused as a malformed
     call, before anything is written), the resulting chain must
@@ -4100,7 +4088,7 @@ def replay(home, entries, resume=False):
                 refusal_context="append_cap", limit_number=39)
         # The home size cap stands enforced here as
         # append_entry enforces it, not the journal length
-        # cap alone (Step 19 item R19-021): the projected
+        # cap alone: the projected
         # home size with the candidate journal standing in
         # place of the standing journal must fit the cap
         # before anything is written.

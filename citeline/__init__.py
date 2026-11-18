@@ -20,7 +20,7 @@ def enforce_python_floor(version=None):
     names the floor in the product's own words, so an old
     interpreter meets a Citeline statement of the floor
     and not an interpreter error in whatever form that
-    Python raises (Step 19 register entry R19-068).
+    Python raises.
     """
     standing = tuple(version or sys.version_info[:3])
     if standing < PYTHON_FLOOR + (0,):

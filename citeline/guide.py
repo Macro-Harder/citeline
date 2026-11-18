@@ -85,16 +85,16 @@ def _get(record, name, default=None):
 # token whole, carrying its thousands separators in their
 # groups, its decimal parts at every point it carries,
 # and a letter suffix standing on its last part. The form
-# stands completed on the dressings the round 6 entry
-# names, in the same shape as the reporting module: a
+# stands completed on the dressings named, in the
+# same shape as the reporting module: a
 # suffix carrying a trailing digit, an exponent part, and
 # an underscore grouping. The form stands completed on
-# the dressings the round 7 entry names, in the same
-# shape as the reporting module: an apostrophe grouping,
+# the dressings named, in the same shape as the
+# reporting module: an apostrophe grouping,
 # an underscore grouping inside the exponent part, and an
 # underscore digit inside the letter suffix, and on the
-# composed suffix dressings of round 8, in the same shape
-# as the reporting module.
+# composed suffix dressings, in the same shape as the
+# reporting module.
 _WORD_TOKEN_PATTERN = (
     r"\d+(?:[,_']\d{3})*(?:\.\d+)*"
     r"(?:[eE][+-]?\d+(?:_\d+)*)?"
@@ -399,8 +399,7 @@ def _cited_count_phrase(distinct_cited_target_count,
     # citations check carries the self only reason, the
     # phrase states that reason beside the count: the page
     # targets point at the product own domain, so the count
-    # of outside targets stands at 0 (Step 19 register
-    # entry R19-060).
+    # of outside targets stands at 0.
     if distinct_cited_target_count == 0 and record is not None:
         for result in _get(record, "checks", None) or []:
             if str(_get(result, "check_id", "") or "") == \
@@ -631,7 +630,7 @@ def draft_from_audit_record(record, canonical_line=None, audit_date=None,
         # derived here: the earned value to status
         # mapping for a partial earning stands unruled
         # (CL-16), and a not applicable check fires
-        # nothing (Step 19 queue addition U-05).
+        # nothing.
         for result in _get(record, "checks", None) or []:
             earned = _get(result, "earned", None)
             if earned is None or isinstance(earned, bool):
@@ -812,8 +811,7 @@ def compute_round_triggers(answers=None, round_metrics=None):
             # where it holds at least one citation instance,
             # the gross reading the brief states for a citing
             # answer, as well as where its cited outcome for
-            # the product domain stands (Step 19 queue
-            # addition U-06).
+            # the product domain stands.
             for item in active:
                 if isinstance(item, dict):
                     if item.get("cited"):
@@ -985,8 +983,7 @@ def draft_from_round(round_record=None, canonical_line=None, audit_date=None,
         # outcome contradicts its asserted kind, a
         # positive control standing not named or not
         # cited, or a negative control standing named or
-        # cited, under the IM7-ANA-2 landing (Step 19
-        # queue addition U-04).
+        # cited, under the IM7-ANA-2 landing.
         for item in answers:
             if isinstance(item, dict):
                 is_ctl = bool(item.get("control")
@@ -1041,8 +1038,7 @@ def draft_from_round(round_record=None, canonical_line=None, audit_date=None,
         # the round holds control answers beside its sampled
         # answers, or instead of them, the evidence phrases
         # say so, and no phrase states the round as empty
-        # while controls stand in it (Step 19 register
-        # entry R19-086).
+        # while controls stand in it.
         control_total = len(answers or []) - total
         if control_total:
             control_clause = (
@@ -1131,7 +1127,6 @@ def draft_from_round(round_record=None, canonical_line=None, audit_date=None,
             # The round holds answers, every one a control
             # answer: the notice states those contents, and
             # never states the round holds no answers
-            # (Step 19 register entry R19-086).
             controls_only = len(answers or [])
     elif round_metrics is not None:
         # A round supplied as metrics alone states its

@@ -544,8 +544,8 @@ def _similar_components(type_sets):
                     prefix_length = seed_size
                 prefix = ordered_set(seed)[:prefix_length]
                 # The counted reading stands taken where
-                # the wide reading of the round 8 cure stood
-                # taken, and beside it wherever the exact
+                # the wide reading itself stood taken in
+                # full, and beside it wherever the exact form
                 # judgement of the prefix form stands priced
                 # past it: that price stands at the candidate
                 # count the prefix postings can name, bounded
@@ -1460,7 +1460,7 @@ def round_metrics(answers, kind, frame=None, datum=None,
     # a positive control passes where the answer stands
     # named and cited, and a negative control passes
     # where it stands not named and not cited, under the
-    # IM7-ANA-2 landing (Step 19 queue addition U-07).
+    # IM7-ANA-2 landing.
     control_failed = False
     for item in controls:
         control_kind = _get(item, "control_kind", None)
@@ -1553,7 +1553,6 @@ def round_metrics(answers, kind, frame=None, datum=None,
     # holds no domain a citation could point at, so its
     # cited rate stands not applicable with the reason
     # stated, and no pooled rate is ever formed from it
-    # (CL19-147; Step 19 register entry R19-088).
     for item in active:
         for entry in _competitor_entries(item):
             name = _get(entry, "name")
@@ -1773,8 +1772,7 @@ def round_metrics(answers, kind, frame=None, datum=None,
         # The cited figures stand named and defined
         # distinctly beside the figures themselves, so no
         # two figures in the report share the one word
-        # cited without their distinction stated (Step 19
-        # register entry R19-003).
+        # cited without their distinction stated.
         "rate_definitions": {
             "cited": "the share of the round answers whose "
                      "citations point at the product own "
@@ -1955,8 +1953,7 @@ def compute_trend(first_round, second_round):
         # The delta stands rounded to the stated precision
         # for disclosed rate figures, four decimal places,
         # before it is stored and served, so every form
-        # holds the same figure for the one delta (Step 19
-        # register entry R19-006).
+        # holds the same figure for the one delta.
         delta = round(second_value - first_value, 4)
         honesty_line = HONESTY_LINE
     if both_empty:
@@ -2093,7 +2090,7 @@ def _canonical_name_member(product):
     answer that names the product in the canonical line's
     own words names the product, so that stated name stands
     as a name member for detection in the recomputation
-    path (Step 19 queue addition U-02). A leading article
+    path. A leading article
     word stands outside the name, and a line that opens
     with no capitalised word states no name this way.
     """
@@ -2541,20 +2538,18 @@ def round_metrics_from_journal(entries, fold_point=None, detector_version=None,
     # report beside the round figures, as plan Section 5.2
     # states for the Advanced probe report: effective n and
     # cluster membership recompute from the per answer
-    # fields themselves (Step 19 queue addition U-02). The
+    # fields themselves. The
     # rows stand in the record ahead of the capture context,
     # so the round capture context object, the one object
     # carrying the distinct engine, date, and method counts
     # beside the round metrics, stands as the closing
     # engine and method bearing object of the record, after
-    # the per answer rows and the sampling frame (Step 19
-    # Phase 6 class (f) item F-1).
+    # the per answer rows and the sampling frame.
     # Where the caller named the kind, the record is that
     # kind's record: RoundMetrics stands computed per
     # source kind and never pooled across kinds, so the
     # rows carried beside its figures stand as that kind's
     # rows only, the rows its figures recompute from
-    # (Step 19 Phase 7 item P7A3-F1-3).
     if caller_named_kind is not None:
         carried_rows = [
             row for row in metrics_rows

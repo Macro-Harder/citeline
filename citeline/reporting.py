@@ -40,8 +40,8 @@ field of it: the shell boundary check pins that formatting
 adds no field of its own and removes none, so the carry
 stands in the artefact exactly as it stands in the record,
 and the questions its presence raises for the trace field
-set stand recorded in this seat's fix paper, not settled by
-dropping fields here.
+set stand recorded, not settled by dropping fields
+here.
 """
 
 import copy
@@ -467,8 +467,7 @@ def _failure_record_payloads(body):
     at is the greatest count it stands at in any one
     form, never the sum over forms. Two identical stored
     records inside one form still stand as two, as a
-    retried failure stands (and round 4 for the
-    composition over forms).
+    retried failure stands.
 
     The gathering stands by position, blind to nothing: a
     payload standing inside another carry form stands
@@ -799,13 +798,13 @@ def _apply_control_failure_notice(body):
     # failure state of those rows stands stated once in
     # the record's control_failed field, so a control_flag
     # inside an answer_metrics row states no failed control
-    # in this pass (Step 19 Phase 6 class (f) item F-2). The
+    # in this pass. The
     # exception binds the row's own field in a list of
     # rows, in the shape the metrics component writes: a
     # flag nested below a row's own fields, or standing on
     # a bare object under the key where no list of rows
     # stands, is no row field and stands judged as a flag
-    # anywhere else (Step 19 Phase 7 item P7A3-F2-2).
+    # anywhere else.
     flag_components = (
         ("control", "failed"), ("control", "failure"),
         ("control", "flag"))
@@ -818,8 +817,7 @@ def _apply_control_failure_notice(body):
         # stands excepted. A flag nested inside a row, and
         # a flag on a bare object under the key, which is
         # no list of rows, stand judged as a flag anywhere
-        # else stands judged (Step 19 Phase 7 item
-        # P7A3-F2-2).
+        # else stands judged.
         nonlocal flagged
         if isinstance(node, dict):
             for key in node:
@@ -1065,8 +1063,8 @@ def _advanced_body(record):
     # hash, and the report objects the brief names carry
     # the honesty sentence field among them: the probe
     # report, the guide, the query set report, and the
-    # staleness view stand named in Step 19 register entry
-    # R19-096 beside the audit object itself.
+    # staleness view stand named beside the audit
+    # object itself.
     if _is_guide(body) or _is_probe_like(body) or \
             _is_query_set_report(body) or \
             _is_staleness_view(body):
@@ -1085,16 +1083,15 @@ def _advanced_body(record):
 # of this set, so a key holding the letters of a component
 # inside a longer word that segments no such way, as
 # accurate holds the letters of rate, keeps that component
-# standing outside it, as the Yellow boundary states. The
-# set stands completed on the product nouns the round 7
-# entry names: citation, citations, evidence, quotation,
+# standing outside it. The set stands completed on the
+# product nouns named: citation, citations, evidence,
+# quotation,
 # quotations, statistics, freshness, and sampling. The
 # word metrics stands in the set on the same rule, so the
 # fused form answermetrics segments as answer and
 # metrics, the components of its separated form, and the
 # answer_metrics container in the control failure notice
 # pass stands judged on it as on the separated form
-# (Step 19 Phase 7 item P7A3-F2-1).
 _FUSED_COMPONENT_WORDS = frozenset((
     "action", "actions", "answer", "answers", "applicable",
     "audit", "band", "basis", "capture", "captured", "card",
@@ -1192,13 +1189,13 @@ def _names_rate(key):
     names no rate, and a rate at the head of a compound
     whose next component is no rate qualifier, as
     rate_card stands, names none either, no product field
-    standing in that shape (with the Yellow adjacent run
-    of round 5 at). The fused forms stand read by the same
+    standing in that shape. The fused forms stand read
+    by the same
     components as their separated forms, and the head
     position limb stands judged on the same component
     reading, its qualifier set completed on the qualifiers
-    the round 6 entry names beside the five the round 5
-    cure names: low, high, count, interval, share, ratio,
+    named beside the five named: low, high, count,
+    interval, share, ratio,
     mean, and total."""
     parts = _key_components(key)
     if not parts:
@@ -1442,7 +1439,7 @@ def render(record, form="advanced"):
 # the plan Section 1.5 reverse trace table: every field the
 # artefact carries stands traced to the stored AuditRun
 # record, and no field outside the set stands in the
-# artefact (Step 19 queue addition U-11, reporting limb).
+# artefact.
 _AUDIT_TRACED_FIELDS = (
     "run_id", "product_id", "snapshot_id", "snapshot_sha256",
     "evaluated_page_path", "path_defaulted", "snapshot_format",
@@ -1680,7 +1677,7 @@ def _rate_line(name, node):
             # only clause stands in the form that speaks of
             # the count alone, and the small sample warning
             # the stored record holds stands beside the
-            # interval (Step 19 item R19-056).
+            # interval.
             line = (
                 "%s: %s %s, interval %d to %d percent, tier "
                 "count only: count only means the round rests "
@@ -2113,7 +2110,7 @@ def _render_query_set_simple(body):
     # The total the form counts relate to stands first,
     # before the counts themselves, and every count and
     # name at the foot of the form stands in defined plain
-    # words (Step 19 register entry R19-063).
+    # words.
     if body.get("total_count") is not None:
         lines.append(
             "The set holds %s query strings in total."
@@ -2146,8 +2143,7 @@ def _render_query_set_simple(body):
             # record: its recorded state and, where one
             # stands, its version value. The Simple form
             # states that state in plain words and never
-            # renders the raw record (Phase 8 finding
-            # P8O-04).
+            # renders the raw record.
             if not marker.get("recorded") or \
                     marker.get("state") == "not_recorded":
                 marker = None
@@ -2732,8 +2728,7 @@ def _failure_record_line(failure):
     # standing form renders, a date and a rule among
     # them, and the figure fields a recovery record
     # carries, and a payload holding any of them does
-    # not stand stated as holding no fields (merging
-    # reporting GR-8 and White W-04).
+    # not stand stated as holding no fields.
     parts = []
     stated = set()
     for key, label in (
@@ -2771,7 +2766,7 @@ def _failure_record_line(failure):
 
 def _simple_opening_summary(body):
     """The prose opening of a Simple artefact on the generic
-    surfaces (Step 19 item R19-055).
+    surfaces.
 
     The Simple form is a prose artefact: it opens with a
     summary in plain words stating what the record is and
@@ -2834,7 +2829,7 @@ def _render_simple(body):
     if _is_staleness_view(body):
         # The staleness view carries no score, so the honesty
         # sentence, which speaks of this score, does not
-        # close it (Step 19 register entry R19-059).
+        # close it.
         lines = _render_staleness_simple(body)
         return "\n".join(lines) + "\n"
     if _is_guide(body):
@@ -2849,11 +2844,11 @@ def _render_simple(body):
         if _is_probe_like(body):
             # The probe report carries the anchor limit
             # sentence in its closing block, not as a field
-            # line (Step 19 register entry R19-097).
+            # line.
             top_suppress.add("anchor_limit")
             # The cited figure definitions stand in the
             # closing block in plain words, not as a raw
-            # nested field (Step 19 register entry R19-003).
+            # nested field.
             top_suppress.add("rate_definitions")
         suppress_anchor_bare = False
         if _is_invocation_computed(body):
@@ -2869,8 +2864,7 @@ def _render_simple(body):
         if body.get("control_failure_notice"):
             # The notice stands in Simple in its own words,
             # as a line of its own, never as a field line
-            # and never in a warning list (Step 19 queue
-            # addition U-07).
+            # and never in a warning list.
             top_suppress.add("control_failure_notice")
             top_suppress.add("control_failed")
             lines.append(
@@ -2882,8 +2876,7 @@ def _render_simple(body):
             # The status figures carry their units, the
             # head hash stands once in one vocabulary, and
             # the answer average states what it averages
-            # and in what unit (Step 19 register entry
-            # R19-061).
+            # and in what unit.
             top_suppress.update(
                 ("head", "head_hash", "home_size",
                  "entry_count", "capacity_outlook"))
@@ -2935,7 +2928,7 @@ def _render_simple(body):
             # The robots result for the evaluated path
             # stands in plain words at the head, and the
             # labels the findings carry stand defined on
-            # the surface (Step 19 register entry R19-062).
+            # the surface.
             allowed = sum(
                 1 for finding in findings
                 if isinstance(finding, dict)
@@ -2961,7 +2954,6 @@ def _render_simple(body):
                 # of the path. The summary names them as
                 # controls, so every listed crawler stands
                 # accounted for in the headline figures
-                # (Phase 8 finding P8O-03).
                 summary += (
                     " The other %d of the listed crawlers "
                     "are control rows: a control row governs "
@@ -3020,7 +3012,6 @@ def _render_simple(body):
             # a call that failed while the round was
             # built can name work the guide reader still
             # has to do, and the guide does not hide it
-            # (Phase 8 finding P8O-05).
             lines.append(
                 "The guide carries these records because "
                 "a call that failed while this home was "
@@ -3050,8 +3041,8 @@ def _render_simple(body):
     # block of every Simple report artefact, the audit,
     # guide, probe report, and query set report included,
     # so the limit travels with the artefact when it is
-    # copied on its own (brief Section 5.5 commitment (c);
-    # Step 19 register entry R19-097).
+    # copied on its own (brief Section 5.5 commitment
+    # (c)).
     if _is_audit_record(body) or _is_guide(body) or \
             _is_probe_like(body) or _is_query_set_report(body):
         lines.append(ANCHOR_LIMIT_SENTENCE)
@@ -3061,7 +3052,7 @@ def _render_simple(body):
     # and trend, and the robots report. An operation result
     # that produces no score, a product registration, a
     # round naming, an import, a status, a verify, does not
-    # close with it (Step 19 register entry R19-059).
+    # close with it.
     if _is_audit_record(body) or _is_guide(body) or \
             _is_probe_like(body) or "findings" in body or \
             "robots_file" in body or "delta" in body or \
@@ -3109,12 +3100,12 @@ def _fold(text):
 # decimal parts at every point it carries, and a letter
 # suffix standing on its last part, so no separator the
 # number is written with splits it. The form stands
-# completed on the dressings the round 6 entry names: a
+# completed on the dressings named: a
 # suffix carrying a trailing digit stands on the last part
 # with its digit, an exponent part stands in the number,
 # and an underscore grouping stands as a thousands
 # grouping does. The form stands completed on the
-# dressings the round 7 entry names: an apostrophe
+# dressings named: an apostrophe
 # grouping stands as a thousands grouping, an underscore
 # grouping stands inside the exponent part, and an
 # underscore digit stands inside the letter suffix. The
@@ -3594,7 +3585,7 @@ def assemble_robots_preview(first, second, evaluated_page_path="/",
     finding under the first, or where a group rule text the
     evaluations carry stands written differently in the
     second file. A defect flag change stands only where a
-    search purpose row carries one, on the DQ-3 terms the
+    search purpose row carries one, on the terms the
     stored findings state. Both capture date fields stand in
     the artefact in every case: a supplied date stands as its
     value, and an unsupplied date stands null beside its

@@ -792,7 +792,7 @@ def _saying_verb_pattern():
 _SAYING_VERB_PATTERN = _saying_verb_pattern()
 
 # The saying verb forms standing past the built stem
-# list, round 17, read on the form of the verb itself:
+# list, read on the form of the verb itself:
 # a word carrying a verb form ending, its past form in
 # ed, its participle form in ing, or its present form
 # in s, beside the invariant form forecast and the
@@ -969,7 +969,7 @@ def _curly_single_is_internal(text, pos):
         # standing directly after the determiner there.
         # The places stand judged on the composition
         # itself past the closed sets of the earlier
-        # cures, round 17: the determiner place reads
+        # cures: the determiner place reads
         # the determiner class in its full form, the
         # articles, the demonstrative and possessive
         # forms, and the quantifier determiners, as in
@@ -1070,7 +1070,7 @@ def _curly_single_is_internal(text, pos):
             return False
         # The places standing between the determiner and
         # the copula stand read on the composition
-        # itself, round 17: the adverb place and the
+        # itself: the adverb place and the
         # predeterminer place carry whatever words the
         # wording carries there, a single adverb in any
         # form, an adverbial phrase, a negation, or a
@@ -1280,7 +1280,7 @@ def _curly_single_is_internal(text, pos):
             # common noun phrase alike, as in replied
             # Priya Nair, said she, and said the chair,
             # the charge stating no verb limit and no
-            # name form limit. Round 17: a saying verb
+            # name form limit. A saying verb
             # standing past the built stem list stands
             # read on the form of the verb itself at
             # _SAYING_VERB_MORPH_PATTERN, in its past,
@@ -1876,7 +1876,7 @@ def _statistic_analysis(page):
     month_alt_early = (
         month_names_early + "|" + _MONTH_ABBREVIATIONS)
     # The joiner standing between a date and its time,
-    # in either order, round 17, in any written form of
+    # in either order, in any written form of
     # the composition: a joiner word of the composition,
     # at, on, and, by, before, during, circa, until,
     # till, to, around, about, or after, a comma standing
@@ -1908,10 +1908,10 @@ def _statistic_analysis(page):
     marker_early = r"(?:AM|PM|A\.M\.?|P\.M\.?)"
     for date_pattern in (
         # The joiner forms past the comma and space
-        # compositions, round 15, standing first on the
+        # compositions, standing first on the
         # same ground, and standing in any joiner form
-        # in round 16 in the form the joiner set above
-        # states: a full date standing first with a
+        # in the form the joiner set above states: a
+        # full date standing first with a
         # spaced marker time standing after it, the
         # marker standing spaced after the time or
         # standing glued against it in the same
@@ -1949,7 +1949,7 @@ def _statistic_analysis(page):
         + joiner_early
         + r"(?:" + month_alt_early + r")\.?\s+"
         r"\d{1,2}(?:st|nd|rd|th)?\s*,?\s*\d{2,4}\b",
-        # The orders the sets below still omit, round 7,
+        # The orders the sets below still omit,
         # standing first because the plainer composites
         # below would otherwise take the date part and
         # leave the time standing: a comma standing
@@ -1961,7 +1961,7 @@ def _statistic_analysis(page):
         # fragment standing with its time, in either
         # fragment order.
         # The dressings the sets below still omit,
-        # round 8, standing first on the same ground:
+        # standing first on the same ground:
         # a year and month fragment standing with its
         # time in dotted form, standing after its time
         # in either form, or standing with a comma
@@ -1978,7 +1978,7 @@ def _statistic_analysis(page):
         # or PM marker, and a marker standing glued or
         # spaced after the time of a hyphen date.
         # The composed dressings the sets below still
-        # omit, round 9, standing first on the same
+        # omit, standing first on the same
         # ground: a fragment standing after its time
         # with a comma between the time and the
         # fragment, in hyphen and in dotted form; a
@@ -2027,7 +2027,7 @@ def _statistic_analysis(page):
         r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|A\.M\.|P\.M\.)"
         r"(?:\s*,\s*|\s+)\d{1,2}/\d{1,2}/\d{2,4}\b",
         # The plain time form of the same time first
-        # compositions, round 13, a time carrying no
+        # compositions, a time carrying no
         # marker standing before a slash full date and
         # before a dotted full date in year first
         # order, in the space composition and in the
@@ -2046,7 +2046,7 @@ def _statistic_analysis(page):
         # The plain time form of the time first
         # composition standing before a month name
         # full date in day first order spelled with a
-        # comma before its year, round 14, in the space
+        # comma before its year, in the space
         # composition and in the comma composition
         # alike, on the same ground as the marker
         # dressings of the same composition below and
@@ -2069,7 +2069,7 @@ def _statistic_analysis(page):
         # admit, the marker standing spaced or glued and
         # in either case. The marker of the compositions
         # the entries of rounds 9 and 10 mask stands also
-        # in its dotted written form, round 11, a full
+        # in its dotted written form, a full
         # stop standing after each letter of the marker,
         # spaced or glued and in either case, the limbs
         # whose marker stands at the limb end closing on
@@ -2130,7 +2130,7 @@ def _statistic_analysis(page):
         r"\d{1,2}:\d{2}(?::\d{2})?\b",
         # The fragment first comma composition where
         # the time after the comma carries its marker,
-        # round 10, in spaced and in glued form alike:
+        # in spaced and in glued form alike:
         # the plain limbs above end at the time, and a
         # glued marker stands against the time with no
         # word boundary standing between them for those
@@ -2151,7 +2151,7 @@ def _statistic_analysis(page):
         r"(?!\w)",
         # A year and month fragment in slash form
         # standing first, with its time standing after
-        # it, round 10, with a comma or a space between
+        # it, with a comma or a space between
         # the fragment and the time and with the time
         # carrying no marker or a spaced or glued
         # marker, in either fragment order, guarded as
@@ -2171,7 +2171,7 @@ def _statistic_analysis(page):
         r"\d{1,2}:\d{2}(?::\d{2})?"
         r"(?:\s*(?:AM|PM|A\.M\.|P\.M\.))?(?!\w)",
         # A full date standing first with a glued
-        # marker time standing after it, round 12, in
+        # marker time standing after it, in
         # the month name form in month first and in day
         # first order and in the numeric full date
         # forms, with a comma or a space standing
@@ -2234,7 +2234,7 @@ def _statistic_analysis(page):
         r"(?!\w)",
         # A full date standing first in month name
         # day first order with a spaced marker time
-        # standing after it, round 14, in full,
+        # standing after it, in full,
         # abbreviated, ordinal, and single digit day
         # forms, with a comma or a space standing
         # between the date and the time, the marker
@@ -2255,7 +2255,7 @@ def _statistic_analysis(page):
         r"\d{1,2}:\d{2}(?::\d{2})?\s+"
         r"(?:AM|PM|A\.M\.|P\.M\.)(?!\w)",
         # A year and month fragment in month name form,
-        # round 11, the month name or its abbreviation
+        # the month name or its abbreviation
         # standing before the year, in the compositions
         # the numeric fragments stand masked in above:
         # standing first with a comma between the
@@ -2270,7 +2270,7 @@ def _statistic_analysis(page):
         # full month name date standing around it, the
         # year standing followed by a comma and a day
         # in that date. The marker of these limbs stands
-        # also in its dotted written form, round 12,
+        # also in its dotted written form,
         # spaced and glued and in either case, in the
         # fragment first comma composition, in the time
         # first marker composition, and in the fragment

@@ -88,10 +88,10 @@ class ProbeImportError(Exception):
         # The error message length limit (limit 33, 500
         # characters) binds every surface the product emits,
         # the message raised to a library caller included, not
-        # only the recorded and printed forms (entry
-        # S17-R2-088). The token stands at the head of the
-        # message, so bounding the message keeps the token and
-        # the opening of the detail standing.
+        # only the recorded and printed forms. The token
+        # stands at the head of the message, so bounding the
+        # message keeps the token and the opening of the
+        # detail standing.
         if len(message) > ERROR_MESSAGE_LIMIT:
             message = message[:ERROR_MESSAGE_LIMIT]
         super().__init__(message)
@@ -119,7 +119,7 @@ def _parse_date(value, field_name):
         # date form the contract states, and comparing one
         # against a plain date raises a raw TypeError on the
         # worksheet seam, outside the recorded vocabulary
-        # (entry S17-R2-041). It refuses here, in the
+        # It refuses here, in the
         # vocabulary, on every route alike.
         _fail("IMPORT_VALIDATION_FAILED",
               field_name + " must stand as ISO date text in the "
@@ -152,8 +152,7 @@ def _require_text_inputs(values):
     mapping) fails validation here, before any store write,
     instead of being stringified into a form no operator
     asserted or dying later at the journal write with no
-    failure record standing (entries S17-R1-036 and
-    S17-R1X-031).
+    failure record standing.
     """
     for name in _TEXT_INPUT_FIELDS:
         value = values.get(name)
@@ -247,7 +246,7 @@ def _is_default_ignorable(char):
     stand here. They render as nothing in stored text,
     so a file whose only head material renders as
     nothing holds no visible mark in front of the
-    material behind it (entry S17-R4-027).
+    material behind it.
     """
     code = ord(char)
     return any(low <= code <= high
@@ -262,15 +261,13 @@ def _is_head_char(char):
     reading removes them in any interleaving and in any
     number, so a mark standing after a control byte or a
     space, a third mark, and a zero width space shield
-    nothing behind them (entry S17-R2-033, completing the
-    S17-R1-032 cure, which removed one mark and then the
-    control bytes in that order and only at the very
-    start). Whitespace in this set stands as the whole
-    Unicode space separator category, as this docstring
-    has always stated it, not the ASCII space forms only
-    (entry S17-R4-026), and the default ignorable forms
-    stand in the set on the ground entry S17-R4-027
-    states.
+    nothing behind them (the reading removed one mark
+    and then the control bytes in that order and only at
+    the very start). Whitespace in this set stands as the
+    whole Unicode space separator category, as this
+    docstring has always stated it, not the ASCII space
+    forms only, and the default ignorable forms stand in
+    the set on the ground stated.
     """
     return (
         char == "\ufeff"
@@ -297,8 +294,7 @@ def _strip_head_edges(text):
     and head material standing at the end of a fence line,
     stands removed on the completed head predicate, as
     head material standing in front of a judged text
-    stands removed by _strip_head (entries S17-R6-028
-    and S17-R6-030).
+    stands removed by _strip_head.
     """
     start = 0
     while start < len(text) and _is_head_char(text[start]):
@@ -317,8 +313,7 @@ def _remove_interior_head(text):
     fence, stands removed as head material at an edge
     stands removed, while whitespace standing inside the
     form stands as written, so a form whose parts stand
-    separated by spaces stands in its written form
-    (entries S17-R7-029 and S17-R7-031).
+    separated by spaces stands in its written form.
     """
     return "".join(
         char for char in text
@@ -328,14 +323,14 @@ def _remove_interior_head(text):
 def _judged_key(key):
     """One front matter key as the duplicate judgement
     reads it: head material removed at both edges and at
-    any position inside the name (entry S17-R7-029)."""
+    any position inside the name."""
     return _remove_interior_head(_strip_head_edges(key))
 
 
 def _judged_fence(line):
     """One fence line as the fence judgement reads it:
     head material removed at both edges and between the
-    fence characters themselves (entry S17-R7-031)."""
+    fence characters themselves."""
     return _remove_interior_head(_strip_head_edges(line))
 
 
@@ -345,7 +340,7 @@ def _detection_text(text):
     A byte order mark stripped under item 107 and any
     leading control bytes stand removed for the tests, so a
     mark or a control byte at the head cannot shield the
-    material behind it from the tests (entry S17-R1-032).
+    material behind it from the tests.
     The stored text keeps its own form; only the tests read
     through this head.
     """
@@ -359,7 +354,7 @@ def _raw_variants(raw_bytes):
     head material in front of them, so a container
     signature stands found wherever a mark, a control
     byte, or a zero width form stands in front of it, in
-    any order and in any number (entry S17-R2-033). The
+    any order and in any number. The
     raw reading strips the same material the text
     reading strips: the head of the bytes stands decoded
     one character at a time, and every character the
@@ -367,8 +362,7 @@ def _raw_variants(raw_bytes):
     category among them, stands removed in its encoded
     form, not only the seven byte sequences an earlier
     form of this reading listed, so a format character
-    outside that list shields nothing (entry
-    S17-R3-024).
+    outside that list shields nothing.
     """
     variants = [raw_bytes]
     body = raw_bytes
@@ -380,7 +374,7 @@ def _raw_variants(raw_bytes):
             # signature opening with 0x1F among them, stands
             # whole in the stripped variant, so a container
             # behind head material stands found in its own
-            # form (entry S17-R6-027).
+            # form.
             break
         first = body[0]
         if first < 0x20 or first == 0x7f or first == 0x20:
@@ -414,8 +408,7 @@ def _loads_json(text):
 
     A nesting depth past the platform recursion bound fails
     validation in the recorded vocabulary, never as a raw
-    RecursionError carrying its message as an error value
-    (entry S17-R1-033).
+    RecursionError carrying its message as an error value.
     """
     try:
         return json.loads(text), True
@@ -435,8 +428,7 @@ def _is_tar_header(variant):
     A pre POSIX V7 tar carries no ustar marker and no head
     magic: its header stands judged by its own checksum
     field, the stored octal sum standing against the sum
-    of the header bytes with that field held as spaces
-    (entry S17-R5-060).
+    of the header bytes with that field held as spaces.
     """
     if len(variant) < 512:
         return False
@@ -464,8 +456,8 @@ def _is_tar_header(variant):
     # type flag stands as a V7 type, so a plain text block
     # that satisfies the checksum alone, its remaining
     # fields standing as prose letters, reads as no tar
-    # (entry S17-R6-026). The uid and gid fields stand in
-    # the same octal form beside them (entry S17-R7-028).
+    # The uid and gid fields stand in
+    # the same octal form beside them.
     return (
         _is_octal_field(block[100:108])
         and _is_octal_field(block[108:116])
@@ -497,11 +489,10 @@ def _is_cpio_odc_header(variant):
     characters as octal digits, NUL bytes, or spaces, so
     plain text that opens with the signature characters
     as prose, its following characters standing as prose
-    letters, reads as the text it is (entry S17-R7-027,
-    on the ground of entry S17-R6-025), and it reads the
+    letters, reads as the text it is, and it reads the
     field structure behind the signature, each field
     standing closed by a NUL byte at its stated field
-    end (entry S17-R8-013).
+    end.
     """
     if len(variant) < 76:
         return False
@@ -518,7 +509,7 @@ def _is_cpio_odc_header(variant):
     # end, so prose holding digits and spaces alone for
     # seventy characters, with no field boundary and no
     # NUL terminator at any field position, reads as the
-    # text it is (entry S17-R8-013).
+    # text it is.
     field_ends = (11, 17, 23, 29, 35, 41, 47, 58, 64, 75)
     if not all(variant[end] == 0 for end in field_ends):
         return False
@@ -531,8 +522,7 @@ def _is_cpio_odc_header(variant):
     # field can hold and reads as the text it is. A field
     # standing wholly as NUL bytes holds the empty value of
     # the signature pin form and stands under the reading
-    # above as it stood (entry S17-R9-009, in the form of
-    # the S17-R6-025 cure).
+    # above as it stood.
     field_starts = (6, 12, 18, 24, 30, 36, 42, 48, 59, 65)
     values = []
     name_size_field_all_nul = False
@@ -565,7 +555,7 @@ def _is_cpio_odc_header(variant):
     # alone, and a stated name stands closed by the NUL
     # byte the format writes at its end, so a name
     # standing open in prose letters reads as the text it
-    # is (entry S17-R10-005). The signature pin form,
+    # is. The signature pin form,
     # whose name size field stands wholly as NUL bytes and
     # holds the empty value of that form, stands under the
     # reading above as it stood.
@@ -586,7 +576,7 @@ def _is_cpio_odc_header(variant):
         # stated size holds bytes no header of this
         # format writes there, the NUL padding standing
         # behind a name in this format holding NUL bytes
-        # alone past that terminator (entry S17-R11-006).
+        # alone past that terminator.
         stated_name = variant[76:76 + name_size]
         first_nul = stated_name.find(b"\x00")
         if first_nul < 1:
@@ -608,8 +598,7 @@ def _is_cpio_newc_header(variant):
     text, so plain text that opens with the signature
     characters as prose, its following characters
     standing outside the hexadecimal form in the first
-    field itself, reads as the text it is (entry
-    S17-R6-025).
+    field itself, reads as the text it is.
     """
     if len(variant) < 110:
         return False
@@ -624,21 +613,19 @@ def _is_cpio_newc_header(variant):
     # stand long enough to hold the member name and the
     # member data those lengths name, so a run of
     # hexadecimal prose carrying no member name and no
-    # member data reads as the text it is (entry
-    # S17-R7-028).
+    # member data reads as the text it is.
     name_size = int(variant[94:102], 16)
     file_size = int(variant[54:62], 16)
-    # The signature pin allowance stands on the pin
-    # form itself, in its own terms: the pin form states
-    # no field, its twelve fields standing as zero
-    # values, and holds its name size at zero, so a check
-    # field standing as no hexadecimal text stands under
-    # the allowance on that form alone, and a complete
-    # header standing in stated form, stating a field
-    # value of its own, stands judged on the field
-    # values it states and reads as text where its check
-    # field stands as no hexadecimal text (entry
-    # S17-R11-008).
+    # The signature pin allowance stands on the pin form
+    # itself, in its own terms: the pin form states no
+    # field, its twelve fields standing as zero values,
+    # and holds its name size at zero, so a check field
+    # standing as no hexadecimal text stands under the
+    # allowance on that form alone, and a complete header
+    # standing in stated form, stating a field value of
+    # its own, stands judged on the field values it
+    # states and reads as text where its check field
+    # stands as no hexadecimal text.
     check_field_is_hex = all(
         byte in b"0123456789abcdefABCDEF"
         for byte in variant[102:110])
@@ -655,7 +642,7 @@ def _is_cpio_newc_header(variant):
     # the bytes behind the header hold that name closed
     # by the NUL byte the format writes at its end, so a
     # name standing open in prose letters reads as text
-    # (entry S17-R8-014). The signature pin form, whose
+    # The signature pin form, whose
     # check field does not stand as hexadecimal text,
     # stands under the reading above as it stood.
     if all(
@@ -674,7 +661,7 @@ def _is_cpio_newc_header(variant):
             # terminator holds no name: the member name
             # stands empty in the reading the format
             # states, in the form the name size of one
-            # stands refused on below (entry S17-R10-006).
+            # stands refused on below.
             return False
         if name_size >= 2:
             # The stated name stands judged whole, not at
@@ -684,8 +671,7 @@ def _is_cpio_newc_header(variant):
             # bytes no header of this format writes
             # there, the padding standing behind a name
             # inside the stated size holding NUL bytes
-            # alone past that terminator (entry
-            # S17-R11-007).
+            # alone past that terminator.
             stated_name = variant[110:110 + name_size]
             first_nul = stated_name.find(b"\x00")
             if first_nul >= 0 and any(
@@ -701,7 +687,7 @@ def _is_cpio_newc_header(variant):
         # member stands named, and the prose standing
         # behind the header where a member name with
         # content or a trailer would stand reads as the
-        # text it is (entry S17-R9-010).
+        # text it is.
         return False
     if all(
             byte in b"0123456789abcdefABCDEF"
@@ -713,10 +699,10 @@ def _is_cpio_newc_header(variant):
         # the member data for the 070702 signature, so a
         # complete header whose check field states a
         # value its signature and its member data do not
-        # hold reads as the text it is (entry
-        # S17-R10-006). The signature pin form, whose
-        # check field does not stand as hexadecimal text,
-        # stands under the reading above as it stood.
+        # hold reads as the text it is. The signature pin
+        # form, whose check field does not stand as
+        # hexadecimal text, stands under the reading
+        # above as it stood.
         check_value = int(variant[102:110], 16)
         if variant[:6] == b"070702":
             if len(variant) < 110 + name_size + file_size:
@@ -729,7 +715,7 @@ def _is_cpio_newc_header(variant):
             # the data standing at that padded position,
             # beside the direct position the earlier
             # reading computed and the standing controls
-            # pin (entry S17-R11-014).
+            # pin.
             direct_sum = sum(variant[
                 110 + name_size:
                 110 + name_size + file_size])
@@ -743,7 +729,7 @@ def _is_cpio_newc_header(variant):
             # over data that does not stand in the stream
             # states no sum of the member data, so no
             # padded sum stands beside the direct sum on
-            # such a stream (entry S17-R12-007).
+            # such a stream.
             padded_sum = None
             if len(variant) >= padded_start + file_size:
                 padded_sum = sum(variant[
@@ -764,8 +750,7 @@ def _is_cab_header(variant):
     offsets 4 and 12, that stand as zero in the form the
     format writes, so plain text that opens with the
     signature characters as prose, its following words
-    standing in those fields, reads as the text it is
-    (entry S17-R6-025).
+    standing in those fields, reads as the text it is.
     """
     if len(variant) < 36:
         return False
@@ -780,16 +765,14 @@ def _is_cab_header(variant):
     # the signature pin form or within the bytes standing
     # here, so prose letters standing in those fields,
     # stating lengths no standing bytes hold, read as the
-    # text they are (entry S17-R7-028).
-    # The judgement stands on the remaining header fields
-    # beside the lengths: the third reserved field at
-    # offset 20 stands as zero in the form the format
-    # writes, and the version bytes at offsets 24 and 25
-    # stand as the zero bytes of the signature pin form
-    # or as the version the format writes, a minor of 3
-    # and a major of 1, so prose standing in the remaining
-    # header fields reads as the text it is (entry
-    # S17-R8-014).
+    # text they are. The judgement stands on the remaining
+    # header fields beside the lengths: the third reserved
+    # field at offset 20 stands as zero in the form the
+    # format writes, and the version bytes at offsets 24
+    # and 25 stand as the zero bytes of the signature pin
+    # form or as the version the format writes, a minor of
+    # 3 and a major of 1, so prose standing in the
+    # remaining header fields reads as the text it is.
     if variant[20:24] != b"\x00\x00\x00\x00":
         return False
     if not ((variant[24] == 0 and variant[25] == 0)
@@ -807,7 +790,7 @@ def _is_cab_header(variant):
     # bytes standing: a cabinet stating a size below 36
     # states a cabinet that cannot hold its own 36 byte
     # header, so such a stated size reads as the text it
-    # is (entry S17-R10-006). The signature pin form,
+    # is. The signature pin form,
     # whose cabinet size stands at zero, stands under the
     # reading above as it stood.
     if 0 < cabinet_size < 36:
@@ -824,7 +807,7 @@ def _is_cab_header(variant):
     # bits alone, so prose letters standing in those
     # fields, stating counts no cabinet of the stated
     # size holds and flag bits no header carries, read
-    # as the text they are (entry S17-R9-010). The set
+    # as the text they are. The set
     # identifier and cabinet index fields carry no value
     # set a judgement can stand on and stand read for
     # their place in the header alone. The signature pin
@@ -842,8 +825,7 @@ def _is_cab_header(variant):
     # so a cabinet stating a size of zero while its
     # counts stand states a cabinet holding entries
     # inside a size that holds nothing, and stands
-    # judged on the counts it states (entry
-    # S17-R11-008).
+    # judged on the counts it states.
     if cabinet_size == 0 and (folder_count or file_count):
         return False
     if cabinet_size:
@@ -856,8 +838,7 @@ def _is_cab_header(variant):
             # the first file offset: a folder entry
             # standing partly past the stated cabinet
             # size stands inside a cabinet that cannot
-            # hold the entry its own count names (entry
-            # S17-R11-009).
+            # hold the entry its own count names.
             return False
         if file_count and (
                 first_file_offset == 0
@@ -880,7 +861,7 @@ def _is_cab_header(variant):
         # letters, stating an offset no cabinet of the
         # stated size holds, a compression type no folder
         # carries, and a folder index naming no folder,
-        # read as the text they are (entry S17-R10-014).
+        # read as the text they are.
         # The set identifier and cabinet index fields
         # stand in no part of this reading, carrying no
         # value set a judgement can stand on, as the
@@ -917,7 +898,7 @@ def _pdf_header_at_line_start(variant):
     reading itself uses, and head material standing on the
     line itself, between the break and the header, stands
     skipped as the head reading skips it at the head of a
-    file (entry S17-R5-027). The header stands judged by
+    file. The header stands judged by
     where it starts, so a header starting inside the
     window stands found whole even where its own bytes
     run past the window end.
@@ -1056,7 +1037,7 @@ def check11_form(raw_bytes, text):
                 # The odc signature stands judged on the
                 # header behind it, in the branch below, as
                 # the newc and CAB signatures stand judged
-                # on theirs (entry S17-R7-027).
+                # on theirs.
                 continue
             if variant.startswith(magic):
                 return "archive"
@@ -1069,11 +1050,11 @@ def check11_form(raw_bytes, text):
             # header behind their signature, as the V7
             # limb judges its header, so signature
             # characters alone refuse no plain text
-            # (entry S17-R6-025). The odc signature of the
+            # The odc signature of the
             # same family stands judged on its header in
-            # the branch above (entry S17-R7-027), and the
+            # the branch above, and the
             # binary magic stands in the archive magic set
-            # itself (entry S17-R6-024).
+            # itself.
             return "archive"
         if variant.startswith(b"MSCF") \
                 and _is_cab_header(variant):
@@ -1085,12 +1066,11 @@ def check11_form(raw_bytes, text):
                 # standard reader locates the archive behind
                 # the prefix, so the zip family stands read
                 # behind a prefix as no other family does
-                # (entry S17-R5-028).
                 return "archive"
         if len(variant) >= 262 and variant[257:262] == b"ustar":
             # A tar archive carries no head magic: its
             # ustar marker stands at offset 257 of the
-            # first header block (entry S17-R4-064).
+            # first header block.
             return "archive"
         if _is_tar_header(variant):
             return "archive"
@@ -1099,9 +1079,8 @@ def check11_form(raw_bytes, text):
         if _pdf_header_at_line_start(variant):
             # A PDF header standing at the start of a
             # line near the head of the file, after a
-            # junk first line, stands as a PDF header
-            # (entry S17-R4-064, completed at entry
-            # S17-R5-027).
+            # junk first line, stands as a PDF
+            # header.
             return "pdf"
     first = _detection_text(text)
     lowered = first.casefold()
@@ -1190,7 +1169,7 @@ def _form_refusal(form):
 
     The refusal names the form in plain words and states
     the next step, with no internal check vocabulary on the
-    operator surface (entry S17-R1-106).
+    operator surface.
     """
     _fail("IMPORT_VALIDATION_FAILED",
           _FORM_REFUSAL_TEXT.get(
@@ -1219,7 +1198,7 @@ def _front_matter_key_value(line):
 
     A key written in quotes names the same key as its plain
     form: the quoted form and the plain form of one key are
-    one key for the duplicate control (entry S17-R2-040).
+    one key for the duplicate control.
     The key reading therefore removes one pair of matching
     quote characters around the key, and a colon inside a
     quoted key does not split the line.
@@ -1258,7 +1237,7 @@ class _WrittenNumber(str):
 
     The JSON form value length check measures a numeric
     value by its written form, as it measures a string
-    by its length (entry S17-R4-034). Parsing a number
+    by its length. Parsing a number
     into a plain int or float loses that form, a float
     in particular rendering far shorter than it stands
     written, so the reader holds the token text itself.
@@ -1275,7 +1254,7 @@ def _remove_interior_head_except_marks(text):
     stands judged as the follower it stands as in the
     written text even where the interior head reading
     would remove it, whitespace standing as written as
-    on that reading (entry S17-R14-001).
+    on that reading.
     """
     return "".join(
         char for char in text
@@ -1292,7 +1271,7 @@ _WIDENED_FOLLOWER_CHARS = set("-.+$~;/=@^`?\\()<:") | {
 
 def _position_scan_holds(text):
     """True where a construct stands held on the position
-    scan the round 15 cure lands, judged on the text as
+    scan, judged on the text as
     written, one construct position at a time, so no
     match pass consumes a position a later construct
     needs. A construct position stands judged where,
@@ -1305,8 +1284,7 @@ def _position_scan_holds(text):
     is a mark of the union of general category Mn, Mc,
     or Me, or stands as head material and stands in the
     follower set through a word character or through
-    one of the widened follower characters (entries
-    S17-R15-002, S17-R15-003, and S17-R15-010). The
+    one of the widened follower characters. The
     follower judgement stands reached past head gap
     material standing between the construct character
     and its follower: where the character standing
@@ -1320,8 +1298,7 @@ def _position_scan_holds(text):
     character stands judged as a follower on the
     standing limbs; where no such character stands past
     the run, the construct stands unjudged on that
-    follower ground (entries S17-R16-009 and
-    S17-R16-010).
+    follower ground.
     """
     def follower_judged(char):
         return unicodedata.category(char) in (
@@ -1373,8 +1350,7 @@ def _holds_tag_construct(text):
     an alias, a tag, or a directive spelling after the
     first word), an angle bracket tag spelling anywhere in
     the text, and a block scalar opening standing as the
-    value all stand refused (entries S17-R4-032,
-    S17-R5-031, and S17-R5-067).
+    value all stand refused.
     """
     # The judgement stands on the text with head material
     # standing at any interior position removed, on the
@@ -1385,36 +1361,32 @@ def _holds_tag_construct(text):
     # letter, or between an angle bracket and its opening
     # character, stands removed before the positions stand
     # judged, so such a character moves no construct off
-    # its judged position (entry S17-R10-013).
-    # The follower judgement stands reached on a sole
-    # follower mark of the union even where the interior
-    # head reading would remove that mark: the helper
-    # first judges the follower on the text with head
-    # material removed at any position except a mark of
-    # the union, which stands as written, so a construct
-    # whose name opens on one of the union marks that
-    # also stand as head material, standing as sole
-    # follower with nothing judged standing after it, at
-    # the end of the judged text or before only
+    # its judged position. The follower judgement stands
+    # reached on a sole follower mark of the union even
+    # where the interior head reading would remove that
+    # mark: the helper first judges the follower on the
+    # text with head material removed at any position
+    # except a mark of the union, which stands as written,
+    # so a construct whose name opens on one of the union
+    # marks that also stand as head material, standing as
+    # sole follower with nothing judged standing after it,
+    # at the end of the judged text or before only
     # whitespace or head material, stands judged on that
-    # reading, the interior head reading then standing
-    # as it stood for every other judgement of the
-    # helper (entry S17-R14-001).
-    # The follower judgement stands reached on the text
-    # as written at every construct position in turn, on
-    # the position scan at _position_scan_holds: a
-    # construct standing behind head material at a judged
-    # position stands judged as the scan reads back over
-    # that material, a second construct standing after a
-    # first stands judged at its own position, and a sole
+    # reading, the interior head reading then standing as
+    # it stood for every other judgement of the helper.
+    # The follower judgement stands reached on the text as
+    # written at every construct position in turn, on the
+    # position scan at _position_scan_holds: a construct
+    # standing behind head material at a judged position
+    # stands judged as the scan reads back over that
+    # material, a second construct standing after a first
+    # stands judged at its own position, and a sole
     # follower character of the follower set that also
     # stands as head material stands judged in the word
-    # character form as in the mark form (entries
-    # S17-R15-002, S17-R15-003, and S17-R15-010), the
-    # follower judgement of the scan standing reached
-    # past head gap material standing between the
-    # construct character and its follower (entries
-    # S17-R16-009 and S17-R16-010).
+    # character form as in the mark form, the follower
+    # judgement of the scan standing reached past head gap
+    # material standing between the construct character
+    # and its follower.
     if _position_scan_holds(text):
         return True
     for match in re.finditer(
@@ -1430,12 +1402,11 @@ def _holds_tag_construct(text):
             r"<[A-Za-z0-9\-._;/?:@&=+$,!~*'()%\[\]\^#][^>]*>", text):
         # An angle bracket spelling opens on any URI
         # character, a digit, a hyphen, or an underscore
-        # among them, as a verbatim tag spelling admits
-        # (entry S17-R6-029), the caret among them as a
-        # verbatim tag spelling admits it (entry
-        # S17-R7-030), and the hash among them, standing
-        # as the fragment delimiter of the same character
-        # set (entry S17-R8-015).
+        # among them, as a verbatim tag spelling admits,
+        # the caret among them as a verbatim tag spelling
+        # admits it, and the hash among them, standing as
+        # the fragment delimiter of the same character
+        # set.
         return True
     if re.search(
             r"(?:^|[\s!\"#\$%&'\(\)\*\+,\-\./:;<=>\?@\[\\\]\^_`{|}~])"
@@ -1444,46 +1415,42 @@ def _holds_tag_construct(text):
         # A construct stands judged at the start of the
         # text, after whitespace, and directly after a
         # flow opening bracket, the flow positions
-        # standing inside a flow collection (entries
-        # S17-R5-067 and S17-R6-051), and directly after
-        # the separator standing between two flow items,
-        # after the colon of a flow mapping, after a
-        # semicolon, after a quote, and after an opening
-        # parenthesis (entry S17-R7-030), and directly
-        # after a closing bracket, the closing square
-        # bracket, the closing curly brace, and the
-        # closing parenthesis standing as judged positions
-        # beside their opening counterparts (entry
-        # S17-R8-015), and directly after any remaining
-        # punctuation character, the position set standing
-        # whole as the whole punctuation set beside
-        # whitespace (entry S17-R9-011). The character
-        # standing after the construct character stands
-        # judged as the opening of the name the construct
-        # spells: an anchor spelling, an alias spelling,
-        # and a tag spelling name their target in
-        # characters wider than the plain alphabet, a name
-        # opening on a digit, on an underscore, on a
-        # hyphen, and on letters outside the plain
-        # alphabet, so the follower set stands as any word
-        # character or a hyphen (entry S17-R10-007).
-        # The names those spellings state open on
+        # standing inside a flow collection, and directly
+        # after the separator standing between two flow
+        # items, after the colon of a flow mapping, after
+        # a semicolon, after a quote, and after an opening
+        # parenthesis, and directly after a closing
+        # bracket, the closing square bracket, the closing
+        # curly brace, and the closing parenthesis
+        # standing as judged positions beside their
+        # opening counterparts, and directly after any
+        # remaining punctuation character, the position
+        # set standing whole as the whole punctuation set
+        # beside whitespace. The character standing after
+        # the construct character stands judged as the
+        # opening of the name the construct spells: an
+        # anchor spelling, an alias spelling, and a tag
+        # spelling name their target in characters wider
+        # than the plain alphabet, a name opening on a
+        # digit, on an underscore, on a hyphen, and on
+        # letters outside the plain alphabet, so the
+        # follower set stands as any word character or a
+        # hyphen. The names those spellings state open on
         # characters standing outside that set as well,
         # none of them standing as a flow indicator and
         # none standing reserved, so the follower set
-        # stands widened to those openings: a full stop,
-        # a plus sign, a dollar sign, a tilde, a
-        # semicolon, a slash, an equals sign, an at sign,
-        # a caret, a backtick, a combining mark, and an
-        # undertie (entry S17-R11-010).
-        # The names those spellings state open on six
-        # further characters standing on the same ground,
-        # none of them standing as a flow indicator and
-        # none standing reserved, so the follower set
-        # stands widened to those openings as well: a
-        # question mark, a backslash, an opening
-        # parenthesis, a closing parenthesis, a less than
-        # sign, and a colon (entry S17-R12-008).
+        # stands widened to those openings: a full stop, a
+        # plus sign, a dollar sign, a tilde, a semicolon,
+        # a slash, an equals sign, an at sign, a caret, a
+        # backtick, a combining mark, and an undertie. The
+        # names those spellings state open on six further
+        # characters standing on the same ground, none of
+        # them standing as a flow indicator and none
+        # standing reserved, so the follower set stands
+        # widened to those openings as well: a question
+        # mark, a backslash, an opening parenthesis, a
+        # closing parenthesis, a less than sign, and a
+        # colon.
         return True
     for match in re.finditer(
             r"(?:^|[\s!\"#\$%&'\(\)\*\+,\-\./:;<=>\?@\[\\\]\^_`{|}~])"
@@ -1497,22 +1464,19 @@ def _holds_tag_construct(text):
         # judged position stands as that opening, at any
         # code point, beside the range the earlier cure
         # landed and beside the word character set, each
-        # of which the reading above already refuses
-        # (entry S17-R12-006). The generic term stands as
-        # the union of the mark categories, so a character
-        # of general category Mc or of general category Me
-        # standing at the same position stands as that
-        # opening in the same form, at any code point
-        # (entry S17-R13-004, on ruling (c) of the round
-        # 13 disposition).
+        # of which the reading above already refuses. The
+        # generic term stands as the union of the mark
+        # categories, so a character of general category
+        # Mc or of general category Me standing at the
+        # same position stands as that opening in the same
+        # form, at any code point.
         if unicodedata.category(match.group(1)) in (
                 "Mn", "Mc", "Me"):
             return True
     if re.match(r"^[|>](?:[+-]?[0-9]?|[0-9][+-])?(?:\s|$)", text):
         # A block scalar header admits both indicator
         # orders, the chomping sign before the indentation
-        # digit and the digit before the sign (entry
-        # S17-R6-029).
+        # digit and the digit before the sign.
         return True
     return False
 
@@ -1522,8 +1486,7 @@ def _json_holds_tag_construct(value):
     depth, in a key or in a value, holds a tag construct.
 
     The JSON form of a front matter block stands under the
-    same control set as the line form, whole (entry
-    S17-R5-067).
+    same control set as the line form, whole.
     """
     if isinstance(value, _WrittenNumber):
         return False
@@ -1547,8 +1510,7 @@ def _render_written(value):
     a number standing inside a container stands measured by
     its written form as a number standing as a whole value
     does, and no conversion of the number, to an integer, to
-    a float, or to infinity, discards that form (entry
-    S17-R5-033).
+    a float, or to infinity, discards that form.
     """
     if isinstance(value, _WrittenNumber):
         return str(value)
@@ -1559,9 +1521,7 @@ def _render_written(value):
         # stands measured by its length in characters, the
         # one measure a string standing as a whole value
         # stands measured by, while a number inside a
-        # container keeps its written form above (entry
-        # S17-R6-031, completing entry S17-R5-033 at the
-        # string position).
+        # container keeps its written form above.
         return '"' + value + '"'
     if isinstance(value, dict):
         return "{" + ", ".join(
@@ -1584,8 +1544,7 @@ def _container_value_measure(value):
     by its written form, as a number standing as a whole
     value does: the container marks, the quote marks,
     and the separators of the rendering count for
-    nothing in the measure (entry S17-R7-032, completing
-    entry S17-R6-031 at the container marks).
+    nothing in the measure.
     """
     if isinstance(value, _WrittenNumber):
         return len(value)
@@ -1595,8 +1554,7 @@ def _container_value_measure(value):
         # A string standing as a key inside a container
         # stands measured by its length in characters, as
         # a string standing as a value inside a container
-        # stands measured, at any depth (entry S17-R8-016,
-        # completing entry S17-R7-032 at the key position).
+        # stands measured, at any depth.
         return sum(
             _container_value_measure(key)
             + _container_value_measure(item)
@@ -1642,13 +1600,13 @@ def extract_front_matter(text):
     brief states. Returns (body_text, had_front_matter).
     A text with no head block returns itself unchanged.
     """
-    # Head material in front of the fence (a control byte,
-    # a mark, a zero width form) does not move the block off
+    # Head material in front of the fence (a control byte, a
+    # mark, a zero width form) does not move the block off
     # the head: the block stands read where it stands once
     # that material is skipped, as the check 11 tests read
-    # through the same head (entry S17-R2-033, front matter
-    # limb). A text whose head holds no fence after that
-    # material returns itself unchanged, head included.
+    # through the same head. A text whose head holds no
+    # fence after that material returns itself unchanged,
+    # head included.
     working = _strip_head(text)
     lines = working.splitlines()
     if not lines or _judged_fence(lines[0]) != "---":
@@ -1656,7 +1614,6 @@ def extract_front_matter(text):
         # head predicate, not on whitespace stripping
         # alone, so an opening fence carrying head
         # material at its end reads as the block it opens
-        # (entry S17-R6-030).
         return text, False
     text = working
     lines = text.splitlines()
@@ -1667,9 +1624,7 @@ def extract_front_matter(text):
             # completed head predicate at both edges, as
             # the opening fence stands judged, so a closing
             # fence carrying head material at its trailing
-            # edge stands read as a closing fence (entry
-            # S17-R7-031, on the page side form seat F2
-            # landed at entry S17-R7-014).
+            # edge stands read as a closing fence.
             closing = index
             break
     if closing is None:
@@ -1682,7 +1637,7 @@ def extract_front_matter(text):
     # The Section 5.11 size family of the same control set
     # stands enforced here, in both front matter forms and
     # in worksheet slot bodies, which run through this same
-    # reading (entry S17-R2-037): limit 11, block size
+    # reading: limit 11, block size
     # 16 KiB, measured in bytes as the page side measures
     # it; limit 12, key count 100; limit 17, value length
     # 4,096 characters; and limit 18, JSON nesting depth
@@ -1694,7 +1649,6 @@ def extract_front_matter(text):
     # with the terminators the file closes them with, at
     # their file width, so a terminator wider than one
     # byte counts at its width on every block line
-    # (entry S17-R7-033).
     kept_lines = text.splitlines(keepends=True)
     block_in_file = "".join(kept_lines[1:closing])
     if len(block_in_file.encode("utf-8")) \
@@ -1751,12 +1705,11 @@ def extract_front_matter(text):
             # stands measured: the loop over the members of
             # the object measures each key beside the
             # measure of its value, so a key past the limit
-            # stands refused at that position (entry
-            # S17-R9-012). The key positions inside a
-            # container stand measured as cured at entry
-            # S17-R8-016, and the seam refusal of entry
-            # S17-R7-032 stands in its exact stated form
-            # beside this cure, untouched.
+            # stands refused at that position. The key
+            # positions inside a container stand measured
+            # as stated, and the seam refusal stands in
+            # its exact stated form beside this reading,
+            # untouched.
             if isinstance(top_key, str) \
                     and len(top_key) > FRONT_MATTER_VALUE_LIMIT:
                 _fail("LIMIT_EXCEEDED",
@@ -1794,7 +1747,6 @@ def extract_front_matter(text):
                     # on it as on a top level line: its text
                     # counts toward that value length, and a
                     # tag construct on it stands refused
-                    # (entry S17-R3-027).
                     continuation = block_line.strip()
                     current_value_length += len(continuation)
                     if current_value_length \
@@ -1815,8 +1767,7 @@ def extract_front_matter(text):
                             != continuation.count("}")):
                         # The not closed bracket check the
                         # key line path runs stands on
-                        # continuation lines whole (entry
-                        # S17-R4-033).
+                        # continuation lines whole.
                         _fail("IMPORT_VALIDATION_FAILED",
                               "a front matter value is not "
                               "closed: " + continuation[:60])
@@ -1844,12 +1795,9 @@ def extract_front_matter(text):
             # key, head material removed at both edges, as
             # the construct judgements stand, so a second
             # key dressed with head material behind its
-            # name or after it stands as the key it is
-            # (entry S17-R6-028, completing entry
-            # S17-R5-031 at the duplicate judgement), and
-            # head material standing inside the key name
-            # stands removed on the same predicate (entry
-            # S17-R7-029).
+            # name or after it stands as the key it is,
+            # and head material standing inside the key
+            # name stands removed on the same predicate.
             judged_key = _judged_key(key)
             if judged_key in seen_keys:
                 _fail("IMPORT_VALIDATION_FAILED",
@@ -1862,9 +1810,8 @@ def extract_front_matter(text):
             # standing in front of the judged text removed, so
             # one such character, or a space inside a quoted
             # key, does not move a construct off the judged
-            # position (entry S17-R5-031), and the bracket
+            # position, and the bracket
             # judgement stands on the key as on the value
-            # (entry S17-R5-032).
             judged_value = _strip_head(value)
             if _holds_tag_construct(judged_key) \
                     or _holds_tag_construct(_strip_head(key)):
@@ -1879,10 +1826,8 @@ def extract_front_matter(text):
                 # stands removed in that text before the
                 # follower judgement runs, and the judgement
                 # stands reached on it in the key as written
-                # past its head (entry S17-R14-001).
-                # The line form checks stand on the key
-                # position as on the value side (entry
-                # S17-R4-032).
+                # past its head. The line form checks stand
+                # on the key position as on the value side.
                 _fail("IMPORT_VALIDATION_FAILED",
                       "the front matter block holds a tag "
                       "construct, which the front matter "
@@ -2016,7 +1961,7 @@ def validate_adapter_inputs(*, answer_file=None, product=None,
         # record through this validation, so the limit stands
         # checked here, on the asserted value itself, and not
         # only on the value the call carries at the service
-        # seam (entry S17-R2-038).
+        # seam.
         _fail("LIMIT_EXCEEDED",
               "capture method text length limit is 2,000 "
               "code points")
@@ -2266,8 +2211,7 @@ def _resolve_standing_marker(value, base=None, record=None):
     base stands supplied, the position counts from that
     base, and where none stands supplied it counts from
     the batch position itself, the sequence the module
-    surface knows, as the worksheet cure at entry
-    S17-R3-028 states. An identity holding no marker
+    surface knows, as the worksheet cure at states. An identity holding no marker
     stands as it stands.
     """
     text = str(value)
@@ -2355,7 +2299,6 @@ def _record_from_body(validated, *, body_text, raw_bytes,
         # matter block stands at the positions the tests
         # read in the body itself, and material a
         # standalone file refuses stands refused here
-        # (entry S17-R5-060).
         form = check11_form(body_text.encode("utf-8"), body_text)
     if form is not None:
         _form_refusal(form)
@@ -2390,8 +2333,7 @@ def _record_from_body(validated, *, body_text, raw_bytes,
             # The refusal names the standing answer by the
             # identity it stands under in the journal, never
             # by an unresolved marker the batch append would
-            # have resolved at its storing sequence (entry
-            # S17-R2-097).
+            # have resolved at its storing sequence.
             standing_id = standing_id_resolver(
                 standing_id, record=standing)
         name = (" (standing answer " + str(standing_id) + ")"
@@ -2429,9 +2371,7 @@ def _worksheet_lines(text):
     skipped, whether that material stands on its own line
     or mixed with spaces, and head material standing on
     the header line itself stands stripped, so the sheet
-    reads as the sheet it is (entry S17-R2-034, completed
-    at entry S17-R3-025 for head material on its own
-    line). The header line stands first in the returned
+    reads as the sheet it is. The header line stands first in the returned
     list, where one stands.
     """
     lines = text.splitlines()
@@ -2452,7 +2392,7 @@ def _worksheet_lines(text):
         # text, or inside it, stands removed for the
         # judgement, and a line that reads as the header
         # once that material stands removed stands as
-        # the header line itself (entry S17-R4-028).
+        # the header line itself.
         # The word structure of the header stands judged:
         # head material that is not the ordinary space
         # stands removed for the judgement, and the spaces
@@ -2460,7 +2400,7 @@ def _worksheet_lines(text):
         # so a line the export never wrote, with no
         # separation, with doubled spaces, with a space
         # between letters, or with tabs in place of the
-        # spaces, reads as no header (entry S17-R5-029).
+        # spaces, reads as no header.
         judged = "".join(
             char for char in candidate
             if not _is_head_char(char) or char == " ")
@@ -2480,8 +2420,7 @@ def is_worksheet_text(text):
     import route reads a returned sheet by. A sheet
     standing behind a blank line or a control byte reads
     as a sheet here, so it meets the worksheet route or
-    its refusal, and never the plain answer path (entry
-    S17-R2-034).
+    its refusal, and never the plain answer path.
     """
     if not isinstance(text, str):
         return False
@@ -2526,24 +2465,22 @@ def _parse_slot_line(line):
     line this parser reads, and returns None. The index
     stands in the form the export writes, plain ASCII
     digits with no leading zero, and no field marker
-    stands twice on a slot line (entries S17-R4-029 and
-    S17-R4-030).
+    stands twice on a slot line.
     """
     match = re.match(r"^slot ([0-9]+):(.*)$", line)
     if not match:
         return None
     digits = match.group(1)
     if len(digits) > 1 and digits.startswith("0"):
-        # The export writes no leading zero (entry
-        # S17-R4-029).
+        # The export writes no leading zero.
         return None
     if len(digits) > 10:
         # An index in a form no sheet the export writes
         # can carry stands unread as an index, without
         # the raw conversion error a very long digit
-        # string raises (entry S17-R4-031). The line
+        # string raises. The line
         # stands as answer text where a slot body stands
-        # open, on the judgement limb of S17-R2-036.
+        # open, on the judgement limb of.
         return None
     rest = match.group(2)
     # A field marker stands counted in every separator
@@ -2553,15 +2490,13 @@ def _parse_slot_line(line):
     # marker it is, so a second copy dressed in another
     # separator stands counted, and a line whose markers
     # do not stand exactly once each, in the exported
-    # order, is no slot line (entries S17-R4-030 and
-    # S17-R5-030). The separator set the count reads
-    # stands completed on the head predicate of entries
-    # S17-R5-023 and S17-R5-024: a character of the
-    # completed head set standing in front of a field
-    # name, standing on either side of its equals sign,
-    # or standing inside the field name itself, stands
-    # as the separator it is, and the marker stands
-    # counted in that dressing too (entry S17-R6-023).
+    # order, is no slot line. The separator set the
+    # count reads stands completed on the head predicate:
+    # a character of the completed head set standing in
+    # front of a field name, standing on either side of
+    # its equals sign, or standing inside the field name
+    # itself, stands as the separator it is, and the
+    # marker stands counted in that dressing too.
     assignments = _slot_assignments(rest)
     if [name for name, _start, _end in assignments] \
             != list(_SLOT_FIELDS):
@@ -2589,7 +2524,7 @@ def _slot_assignments(rest):
     head set beside the whitespace forms, and head
     characters standing inside the name or between the
     name and its equals sign stand skipped as the
-    separators they are (entry S17-R6-023).
+    separators they are.
     """
     assignments = []
     index = 0
@@ -2606,16 +2541,14 @@ def _slot_assignments(rest):
             # slash, a vertical bar, a colon, an equals
             # sign, or a full stop standing in front of a
             # field name counts the marker it stands in
-            # front of (entry S17-R7-026), and the remaining
-            # punctuation forms stand in the same set, the
-            # closing brackets, the single quote, the
-            # question and exclamation marks, the at sign,
-            # the hash, the dollar and percent signs, the
-            # caret, the ampersand, the asterisk, the plus
-            # sign, the tilde, the grave accent, the
-            # backslash, the angle brackets, and the opening
-            # square bracket and curly brace (entry
-            # S17-R8-012).
+            # front of, and the remaining punctuation forms
+            # stand in the same set, the closing brackets,
+            # the single quote, the question and exclamation
+            # marks, the at sign, the hash, the dollar and
+            # percent signs, the caret, the ampersand, the
+            # asterisk, the plus sign, the tilde, the grave
+            # accent, the backslash, the angle brackets, and
+            # the opening square bracket and curly brace.
             index += 1
             continue
         matched = None
@@ -2682,7 +2615,7 @@ def parse_worksheet(text):
         slot_match = re.match(r"^slot ([0-9]+):", line)
         if slot_match and slots_open:
             # Slot lines stand judged against the sheet the
-            # export wrote (entry S17-R2-036): a slot line
+            # export wrote: a slot line
             # the export wrote stands in the slots section,
             # carries its five fields in the exported order,
             # and carries the next index in the sequence the
@@ -2804,16 +2737,14 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
     # their standing order. A record whose bucket key
     # cannot be keyed stands in the overflow list and
     # stands read on the bucket field equality reading
-    # at the selection below (entry S17-R6-032,
-    # completed at entry S17-R7-034). Preparation
-    # therefore costs time near linear in the number of
-    # filled slots on the spread shapes entry
-    # S17-R4-036 measures and on the single bucket
-    # distribution a returned sheet presents, where
-    # every slot shares one bucket (entry S17-R5-035),
-    # and its duplicate and contradiction judgements
-    # stand exactly as the whole list comparison stood,
-    # as the same engine controls in the seat tests pin.
+    # at the selection below. Preparation therefore
+    # costs time near linear in the number of filled
+    # slots on the spread shapes entry measures and on
+    # the single bucket distribution a returned sheet
+    # presents, where every slot shares one bucket, and
+    # its duplicate and contradiction judgements stand
+    # exactly as the whole list comparison stood, as the
+    # same engine controls pin.
     sub_by_hash = {}
     sub_by_date = {}
     overflow = []
@@ -2826,7 +2757,7 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
         # stands equal to, and a field standing in a form
         # that cannot be hashed and stands equal to no
         # candidate field keys under a form no candidate
-        # key carries (entry S17-R7-034).
+        # key carries.
         if isinstance(value, str):
             try:
                 return str(value)
@@ -2838,8 +2769,7 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
                 # the raising stands answered inside the
                 # recorded error vocabulary at the
                 # selection below and never as a raw error
-                # to the caller at the keying (entry
-                # S17-R11-011).
+                # to the caller at the keying.
                 return ("citeline-unhashable",
                         type(value).__name__,
                         "citeline-unreadable-string")
@@ -2851,12 +2781,11 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
             # same placeholder, so the raising stands
             # answered inside the recorded error vocabulary
             # at the selection below and never as a raw
-            # error to the caller (entry S17-R9-013). The
-            # placeholder stands built without a reading
-            # that can itself raise: a field whose repr
-            # raises beside its hash keys under a fixed
-            # marker in place of its repr (entry
-            # S17-R11-011).
+            # error to the caller. The placeholder stands
+            # built without a reading that can itself
+            # raise: a field whose repr raises beside its
+            # hash keys under a fixed marker in place of
+            # its repr.
             try:
                 shown = repr(value)
             except Exception:
@@ -2875,7 +2804,7 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
         # and is no string subclass stands keyed under a
         # placeholder no candidate key carries, so a key
         # reading alone never compares it, whatever its
-        # equality test answers (entry S17-R8-017).
+        # equality test answers.
         if isinstance(value, str):
             return False
         try:
@@ -2896,20 +2825,18 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
         # so the key reading alone never compares it,
         # whatever its equality test answers, and the
         # bucket field equality reading at the selection
-        # below runs on it in every such form (entry
-        # S17-R9-013, completing entry S17-R8-017 past the
-        # form that cannot be hashed). A string form
-        # standing as a subclass of the plain string form
-        # stands in the overflow list on the same ground:
-        # it stands keyed by the characters it carries,
-        # and a subclass whose equality answers apart from
-        # the string it stands keyed under, answering as a
-        # target string its characters do not stand as or
-        # answering true against any candidate, stands
-        # reached by no candidate key, so the equality
-        # reading stands to run on it in the overflow list
-        # as it runs on every other such form (entry
-        # S17-R10-008).
+        # below runs on it in every such form.
+        # A string form standing as a subclass of the
+        # plain string form stands in the overflow list on
+        # the same ground: it stands keyed by the
+        # characters it carries, and a subclass whose
+        # equality answers apart from the string it stands
+        # keyed under, answering as a target string its
+        # characters do not stand as or answering true
+        # against any candidate, stands reached by no
+        # candidate key, so the equality reading stands to
+        # run on it in the overflow list as it runs on
+        # every other such form.
         if isinstance(value, str):
             return type(value) is not str
         if value is None:
@@ -2936,7 +2863,7 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
                 # stands answered inside the recorded
                 # error vocabulary at the selection and
                 # never as a raw error to the caller at
-                # the indexing (entry S17-R11-011).
+                # the indexing.
                 date_key = "citeline-unreadable-date"
         # Each sub index stands entered on its own: a
         # record whose content hash cannot be hashed
@@ -2944,7 +2871,7 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
         # in the date index, where a contradiction can
         # meet it, and a record whose bucket key cannot
         # be hashed stands in neither index and falls to
-        # the overflow list (entry S17-R6-032).
+        # the overflow list.
         indexed = False
         try:
             sub_by_hash.setdefault(
@@ -2972,16 +2899,13 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
             # key stands in the indexes, and no candidate
             # key carries that placeholder, so the indexes
             # alone would never compare it, while its
-            # equality test can answer as the candidate
-            # (entry S17-R8-017, completing entry
-            # S17-R7-034 past the string subclass form),
-            # and a record carrying such a field in a form
-            # whose hash stands apart from its equality, or
-            # whose hash raises outside TypeError, stands
-            # in the overflow list on the same ground, its
-            # key standing under its own hash or under the
-            # placeholder where no candidate key reaches
-            # it (entry S17-R9-013).
+            # equality test can answer as the candidate, and
+            # a record carrying such a field in a form whose
+            # hash stands apart from its equality, or whose
+            # hash raises outside TypeError, stands in the
+            # overflow list on the same ground, its key
+            # standing under its own hash or under the
+            # placeholder where no candidate key reaches it.
             overflow.append(entry)
 
     for standing in running_standing:
@@ -2995,8 +2919,7 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
             # standing records that raises in any form
             # stands answered inside the recorded error
             # vocabulary at the indexing itself, and
-            # never as a raw error to the caller (entry
-            # S17-R11-011).
+            # never as a raw error to the caller.
             _fail("DUPLICATE_IMPORT",
                   "a standing record keying reading raised "
                   "at the indexing of the standing records, "
@@ -3045,16 +2968,15 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
             if record is None or not any(
                     record is item for item in _prepared):
                 # The resolver judges only the identities
-                # its own batch prepared (entry
-                # S17-R4-035), judged on the record itself,
-                # never on its identity string: a supplied
-                # standing identity carrying the marker
-                # spelling stands as supplied, even where a
-                # record this batch prepared carries the
-                # same string, so no supplied identity
-                # stands rewritten against this batch base
-                # into a name no entry stands under (entry
-                # S17-R5-034).
+                # its own batch prepared, judged on the
+                # record itself, never on its identity
+                # string: a supplied standing identity
+                # carrying the marker spelling stands as
+                # supplied, even where a record this batch
+                # prepared carries the same string, so no
+                # supplied identity stands rewritten
+                # against this batch base into a name no
+                # entry stands under.
                 return text
             # The prefix and its base stand tied together on
             # this surface as on the service route: where no
@@ -3062,7 +2984,7 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
             # against the batch position itself, the sequence
             # this module surface knows, so the refusal names
             # a resolved identity and never the unresolved
-            # marker (entry S17-R3-028).
+            # marker.
             return _resolve_standing_marker(text, _base)
 
         candidate_raw = (
@@ -3083,11 +3005,11 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
             # compared on its bucket fields by equality, so
             # a field standing equal to the candidate under
             # a form that cannot be hashed stands compared
-            # as a plain field stands compared (entry
-            # S17-R7-034). The raw bucket fields stand
-            # carried on the entry itself, taken once at
-            # indexing, so the reading costs one equality
-            # test per field per slot (entry S17-R8-017).
+            # as a plain field stands compared. The raw
+            # bucket fields stand carried on the entry
+            # itself, taken once at indexing, so the
+            # reading costs one equality test per field per
+            # slot.
             record = entry[1]
             raw_bucket = entry[2]
             try:
@@ -3101,7 +3023,7 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
                 # vocabulary at the selection, as a field
                 # whose hash raises stands answered on the
                 # reading above, and never as a raw error
-                # to the caller (entry S17-R10-009).
+                # to the caller.
                 _fail("DUPLICATE_IMPORT",
                       "a standing record bucket field equality "
                       "test raised, so the standing record "
@@ -3112,20 +3034,19 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
                 selected[entry[0]] = record
         # The overflow list stands outside the sub index
         # selection, and a slot reads it only on the
-        # bucket field equality reading above (entry
-        # S17-R6-032, completed at entry S17-R7-034). A
-        # record stands in the overflow list only where
-        # its bucket key cannot be keyed even in the
-        # keyed form the index reading states, and a
-        # record whose bucket key keys stands in one
-        # index or the other whatever its content hash
-        # form, so its duplicate and contradiction
-        # judgements stand exactly as they stood. The
-        # list and mapping forms the round 6 ground names
-        # stand equal to no candidate bucket field, which
-        # validation stands as strings in every case, and
-        # the equality reading passes over them at that
-        # unequal field in every case.
+        # bucket field equality reading above. A record
+        # stands in the overflow list only where its
+        # bucket key cannot be keyed even in the keyed
+        # form the index reading states, and a record
+        # whose bucket key keys stands in one index or
+        # the other whatever its content hash form, so
+        # its duplicate and contradiction judgements
+        # stand exactly as they stood. The list and
+        # mapping forms stand equal to no candidate
+        # bucket field, which validation stands as
+        # strings in every case, and the equality reading
+        # passes over them at that unequal field in every
+        # case.
         try:
             record = _record_from_body(
                 slot_validated, body_text=body,
@@ -3152,7 +3073,7 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
             # answered inside the recorded error vocabulary
             # at the comparison, as it stands answered at
             # the selection above, and never as a raw error
-            # to the caller (entry S17-R10-009).
+            # to the caller.
             _fail("DUPLICATE_IMPORT",
                   "a standing record field equality test "
                   "raised at the duplicate comparison, so "
@@ -3263,8 +3184,7 @@ def _worksheet_limits_in_force(home):
     Returns (answers bound, queries bound) for limits 22
     and 27 as the home states them, through the journal
     limits in force, or the brief defaults where no home
-    stands named or its limits cannot be read (entry
-    S17-R2-084).
+    stands named or its limits cannot be read.
     """
     answers = WORKSHEET_ANSWERS_LIMIT
     queries = WORKSHEET_QUERIES_LIMIT
@@ -3350,7 +3270,7 @@ def _sheet_line_text(value):
     characters stand replaced by a space, so a value can
     never forge a worksheet line, a slot line, or a second
     product or round line, and no control byte reaches the
-    sheet (entry S17-R1X-024).
+    sheet.
     """
     text = "" if value is None else str(value)
     out = []
@@ -3362,7 +3282,7 @@ def _sheet_line_text(value):
             # separator and the paragraph separator are line
             # breaks to the worksheet parser, so a value
             # carrying one would otherwise write a new sheet
-            # line of its own (entry S17-R2-035).
+            # line of its own.
             out.append(" ")
         else:
             out.append(char)
@@ -3451,14 +3371,13 @@ def export_capture_worksheet(*, output_path=None, product=None,
     where the home is named, an occupied destination
     stands refused as DESTINATION_EXISTS, and any other
     write failure carries DESTINATION_WRITE_FAILED with
-    the cause named, never the occupied token (entries
-    S17-R1X-023 and S17-R1X-025).
+    the cause named, never the occupied token.
     """
     # The count bounds read the limits in force for the
     # home the sheet is written for, in both directions, as
-    # the import side of the same limits reads them (entry
-    # S17-R2-084). With no home named, the brief defaults
-    # govern, as they governed before this plumbing.
+    # the import side of the same limits reads them. With
+    # no home named, the brief defaults govern, as they
+    # governed before this plumbing.
     answers_limit, queries_limit = _worksheet_limits_in_force(home)
     output_text = _validate_worksheet_inputs(
         output_path=output_path, queries=queries,
@@ -3469,7 +3388,6 @@ def export_capture_worksheet(*, output_path=None, product=None,
         # The destination stands judged on its resolved
         # path: a symbolic link in a parent component that
         # lands inside the home stands inside the home
-        # (entry S17-R2-039).
         home_abs = os.path.realpath(str(home))
         target_abs = os.path.realpath(output_text)
         if target_abs == home_abs or target_abs.startswith(

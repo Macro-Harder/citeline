@@ -163,8 +163,7 @@ def _judge_product_identity(product_id):
     that is not a string among them, stands refused in the
     recorded vocabulary here instead of the fold keying its
     dict by the raw value and a reader meeting it raw
-    outside the vocabulary (extended to this fold at round
-    6)."""
+    outside the vocabulary."""
     if not isinstance(product_id, str):
         _fail("VALIDATION_FAILED",
               "the stored registry record carries product_id "
@@ -226,8 +225,7 @@ def _journal_version(home):
     correction appended through the journal among them,
     landed inside the cycle, and the cycle judges again on
     the fresh state instead of writing on the superseded view
-    its first read returned (reading the journal discipline
-    the round 4 F1 seat landed)."""
+    its first read returned."""
     journal = _journal()
     verify = getattr(journal, "verify_chain", None)
     if verify is None:
@@ -732,13 +730,12 @@ def _snapshots(home):
 # Competitor and list forms.
 # ----------------------------------------------------------------
 
-# Section 5.11 limits that bind registry lists. The
-# constants state the brief defaults; the limit that binds
-# a call is the limit in force for its home, read from the
-# config in force through the journal limits record, so a
-# config that lowers or raises one of these limits governs
-# the registry as it governs every other reader (register
-# item R19-019).
+# Section 5.11 limits that bind registry lists. The constants
+# state the brief defaults; the limit that binds a call is the
+# limit in force for its home, read from the config in force
+# through the journal limits record, so a config that lowers or
+# raises one of these limits governs the registry as it governs
+# every other reader.
 _LIMIT_COMPETITORS = 100
 _LIMIT_ALIASES = 100
 _LIMIT_QUERIES = 1000
@@ -1079,7 +1076,7 @@ def _add_product_cycle(home, name, candidate, stated, audit_date):
             # so no success answer names a record a
             # correction has already superseded. The
             # judgement stands judged against the landed
-            # round 6 authorization form at: inside the
+            # authorization form at: inside the
             # sealed hold an append attempted by any other
             # writer, a correction among them, stands
             # contended and stores nothing, so the record
@@ -1373,8 +1370,7 @@ def register_page(home, product=None, snapshot=None, audit_date=None,
                 # A repeat call on a snapshot already marked
                 # stands as the add-product no change rule
                 # stands: it writes nothing and returns the
-                # standing record (register item R19-008,
-                # brief CL19-177).
+                # standing record.
                 return copy.deepcopy(standing)
             base = copy.deepcopy(standing)
             base["snapshot_id"] = snapshot_id
@@ -1399,7 +1395,7 @@ def register_page(home, product=None, snapshot=None, audit_date=None,
 
 
 # Round declaration values. The plan Section 5.1 values stand
-# in full phrase form. The Step 13 suite also carries code
+# in full phrase form. The suite also carries code
 # forms and short forms for the same three values of each
 # field; the normalised key of every accepted form is decided
 # here, once, and every accepted form of one value stands

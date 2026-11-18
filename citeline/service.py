@@ -230,9 +230,8 @@ def _resolve_home(home):
     """The home in force for a call naming home.
 
     The home_path config key names the product home
-    where it differs from the home the call names
-    (plan Section 3 EC-15 row 43; Step 19 item
-    R19-106): where the config standing at the named
+    where it differs from the home the call names:
+    where the config standing at the named
     home sets home_path to another directory, that
     directory is the home this call governs. Where it
     sets nothing, or names the home itself, the named
@@ -240,7 +239,7 @@ def _resolve_home(home):
     home under the named home whose config carries it,
     never a home under the caller's working directory,
     so the governed home stands fixed by the config
-    alone (Step 19 Phase 7 item S19-P7A2-06).
+    alone.
     """
     try:
         selected = _journal().selected_home(home)
@@ -265,8 +264,7 @@ def _require_named_home(home):
     it enumerates, and the watch round takes the home
     its verify governed, so enumeration through this
     check reads the governed home at every such caller
-    and the named home at a direct caller (Step 19
-    item R19-106 repair).
+    and the named home at a direct caller.
     """
     if not os.path.isdir(str(home)):
         _fail(
@@ -284,7 +282,7 @@ def _recover_interrupted_batch(home):
     rolled them away and silently falsified the report
     already handed out. Every reading route of this layer
     now runs the journal recovery first, on the discipline
-    the journal seat landed: the recovery itself validates
+    the journal discipline: the recovery itself validates
     the intent record, restores the journal and the anchor,
     and appends its own record of having run. Where no home
     stands, or the home stands held by a live batch,
@@ -329,8 +327,8 @@ def _signal_deferred_recovery(home, journal,
     batch intent record still stands, the killed batch's
     partial entries stand as the journal's ordinary state,
     and a route that proceeds hands out an artefact, a
-    figure, or a standing record on that state in silence
-    (merging White W-02 and Seams SEAMS-4). The route
+    figure, or a standing record on that state in
+    silence. The route
     therefore stands refused in the recorded vocabulary at
     the cap the deferral stands, token JOURNAL_CAP_EXCEEDED,
     and hands out nothing. The judgement stands bounded to
@@ -357,7 +355,7 @@ def _signal_deferred_recovery(home, journal,
     recovery that landed inside the validation itself leaves
     no record standing and no signal stands over the healed
     home. The signal names only the genuine record the cap
-    defers, as the round 5 cure states. Its own reading of
+    defers. Its own reading of
     the intent record stands under the non blocking
     descriptor discipline the journal intent reader stands
     under: the record stands read through the journal read
@@ -479,7 +477,7 @@ def _validate_audit_date(audit_date):
     object is recorded as its ISO date text, and an integer
     in the basic ISO form is normalised to the same text,
     so no stored record carries a date in a form no other
-    record carries . Every route assigns the returned value
+    record carries. Every route assigns the returned value
     back over its input before any record is built or
     stored from it."""
     if audit_date is None:
@@ -553,8 +551,8 @@ def _round_record(home, product_record, round_label):
             # a form that is not a string, an unhashable
             # form among them, refuses in the recorded
             # vocabulary instead of crashing the fold raw,
-            # as the sibling folds cured in round 5 refuse
-            # the same class of swap.
+            # as the sibling folds refuse the same class
+            # of swap.
             _fail(
                 "VALIDATION_FAILED",
                 "the stored round record carries round_id "
@@ -615,7 +613,7 @@ def _honesty_sentence():
 
 
 # The methods note version of version 1, ruled at the
-# Step 15 opening: the integer 1, stamped at assembly from
+# opening: the integer 1, stamped at assembly from
 # the methods note artefact's own version onto the AuditRun
 # and RoundMetrics record shapes under the field name
 # methods_note_version, the GuideDraft taking the stamp
@@ -1057,7 +1055,7 @@ def status(*, home):
     does not recompute: its record states the chain failure
     and the failing position in full, and no error value of
     its own stands. Its capacity outlook states only the
-    figures stored records hold (Step 19 entry R19-098):
+    figures stored records hold:
     no per entry kind division stands in it, because no
     stored record holds one and the design states none.
 
@@ -1067,7 +1065,7 @@ def status(*, home):
     The Section 4.2 status behaviour above runs over homes
     that stand, including barred and broken chain homes.
 
-    Status reads the clock (Step 19 entry R19-010): limit
+    Status reads the clock: limit
     41, the per run wall clock backstop, aborts the call
     before its record stands returned.
     """
@@ -1138,7 +1136,7 @@ def verify(*, home):
     position, and no record from that journal stands
     claimed as verified.
 
-    Verify reads the clock (Step 19 entry R19-010): limit
+    Verify reads the clock: limit
     41, the per run wall clock backstop, aborts the call
     before its record stands returned.
     """
@@ -1382,7 +1380,7 @@ def _staleness_row(record_kind, record_id, payload, axes,
         if axis not in bound:
             # A mapped axis this record binds no value for
             # stands listed as not recorded, beside the
-            # axes its class does not store : the lexicon
+            # axes its class does not store: the lexicon
             # axis on every real record, the crawler table
             # axis of an audit run with no robots file,
             # and every axis of a round named and never
@@ -1492,7 +1490,7 @@ def staleness_view(*, home):
     the words no entries beside the anchor limit sentence,
     not an error and not an empty graph reading as current.
 
-    The view reads the clock (Step 19 entry R19-010):
+    The view reads the clock:
     limit 41, the per run wall clock backstop, aborts the
     call before its record stands returned.
     """
@@ -1521,7 +1519,7 @@ def staleness_view(*, home):
             answers_by_round.setdefault(
                 payload["round_id"], []).append(payload)
     rows = []
-    # One row per standing round (Step 19 entry R19-007):
+    # One row per standing round:
     # a round stands named once and stamped again at its
     # first import, and the standing record of the round is
     # its last payload, as every other round reader takes
@@ -1759,7 +1757,7 @@ def name_round(*, home, product, round_label,
 def _judge_folded_product_identity(product_id):
     """Judge one product identity on the journal fold road.
 
-    The registry fold judgement, seat F2, stands as the
+    The registry fold judgement stands as the
     reference reading: an identity that is not a string
     refuses VALIDATION_FAILED naming product_id, in the
     registry fold's own words, so the service listing that
@@ -1801,7 +1799,7 @@ def list_products(*, home):
     journal = _journal()
     # A journal that does not parse stands signalled in
     # the governed value its sibling readers give, never
-    # as an empty home : the fold failure reaches the
+    # as an empty home: the fold failure reaches the
     # caller as it stands.
     state = journal.fold_registry(str(home))
     if isinstance(state, dict) and state:
@@ -2015,7 +2013,7 @@ def robots(*, home, robots_file, evaluated_page_path=None,
     requested form, as every report home of this layer
     does.
 
-    The route reads the clock (Step 19 entry R19-010):
+    The route reads the clock:
     limit 42, the per file parse time backstop, guards
     the robots file parse, and limit 41, the per run wall
     clock backstop, aborts the call as a whole.
@@ -2167,7 +2165,7 @@ def robots_preview(*, home, first_robots_file, second_robots_file,
             evaluated_page_path=evaluated_page_path,
             audit_date=audit_date)
         # Limit 42 guards each file parse and limit 41
-        # the call as a whole (Step 19 entry R19-010).
+        # the call as a whole.
         _check_parse_backstop(home, run_started)
         second = _robots_evaluation(
             home=home, robots_file=second_robots_file,
@@ -2262,9 +2260,9 @@ def _fence_form(line):
     """One fence line as the fence judgement reads it.
 
     The service fence readings stand on the completed
-    head predicate the import reading states at (the F4
-    seam stated for this seat): head material at both
-    edges of the line and between the fence characters
+    head predicate the import reading states: head
+    material at both edges of the line and between the
+    fence characters
     themselves stands removed, through the import
     module's own judged fence helper where it stands,
     instead of the line standing judged on whitespace
@@ -2952,7 +2950,7 @@ def _audit_body(*, home, page_file=None, robots_file=None,
     # Where the config changed during the run, the change
     # stands recorded beside them, in the limits the
     # record was read under at its assembly, so the run
-    # can show the change .
+    # can show the change.
     limits_record = start_limits if start_limits is not None \
         else _limits_in_force(home, run_candidate)
     current_limits = _limits_in_force(home, run_candidate)
@@ -2994,7 +2992,7 @@ def _audit_body(*, home, page_file=None, robots_file=None,
         "checks": check_results,
         "score": score,
         # No facts_counts field stands on the record
-        # (Step 19 queue addition U-11): the field stands
+        #: the field stands
         # as a blocked gap on L-CC-4, outside the traced
         # field set of the audit artefact, and a
         # placeholder for a blocked gap is not a traced
@@ -3185,7 +3183,7 @@ def _import_judgement_lock(home):
 
 def _preflight_refusal(limit_number, operation="import"):
     # The refusal context and message name the operation
-    # refused (Step 19 entry R19-011): an audit refused at
+    # refused: an audit refused at
     # the cap carries the audit context, not an import
     # preflight refusal about an import that never
     # happened.
@@ -3231,7 +3229,7 @@ def _import_preflight(home, answer_file, extra_entries):
     try:
         snapshot = journal.status_snapshot(str(home))
         # The snapshot nests the size remaining figure in
-        # its capacity outlook (Step 19 entry R19-009): the
+        # its capacity outlook: the
         # preflight reads it there, so the limit 40 limb
         # can fire.
         outlook = snapshot.get("capacity_outlook") or {}
@@ -3281,7 +3279,7 @@ def _service_container_value_measure(value):
     """The container measure in this module's own form.
 
     The measure stands identical to the import reading
-    measure, completed at the key position at: a string
+    measure: a string
     standing inside a container, as a value or as a key,
     stands measured by its length in characters, a number
     standing inside it by its written form (a written
@@ -3292,8 +3290,7 @@ def _service_container_value_measure(value):
     of _import_front_matter_limits where the import
     module's measure does not stand, in place of any
     rendered measure, so no rendered fallback reopens the
-    split at the sizes works (the F2 and F4 seams stated
-    for this seat)."""
+    split at the sizes works."""
     if isinstance(value, str):
         return len(value)
     if isinstance(value, dict):
@@ -3352,8 +3349,8 @@ def _import_front_matter_limits(home, answer_file):
     # The block size stands measured on the block as it
     # stands in the file, the lines between the fences
     # taken with their terminators at their file width,
-    # as the import reading measures it at (the F4 seam
-    # stated for this seat), not on the lines rejoined
+    # as the import reading measures it, not on the
+    # lines rejoined
     # with newline characters.
     kept_lines = working.splitlines(keepends=True)
     block_in_file = "".join(kept_lines[1:closing])
@@ -3445,8 +3442,7 @@ def _import_front_matter_limits(home, answer_file):
                 elif isinstance(value, (dict, list)):
                     # A container stands measured on the
                     # container measure the import reading
-                    # states at (the F4 seam stated for this
-                    # seat): a string inside the container
+                    # states: a string inside the container
                     # by its length in characters, a number
                     # inside it by its written form, and the
                     # container marks, quote marks, and
@@ -3457,8 +3453,7 @@ def _import_front_matter_limits(home, answer_file):
                     # module's own form at
                     # _service_container_value_measure, keys
                     # counted beside values, and no rendered
-                    # measure stands as a fallback (the F2
-                    # and F4 seams stated for this seat).
+                    # measure stands as a fallback.
                     container_measure = getattr(
                         import_module,
                         "_container_value_measure", None)
@@ -3926,9 +3921,7 @@ def _surface_failure_records(record, home):
 
 # The cap refusal tokens of the shipped vocabulary: a
 # refusal carrying any one of them stores nothing on
-# every route (Step 19 item R19-041, completed by the
-# Phase 7 items P7A1-01 and P7A1-02 for the two tokens
-# the first cure did not name).
+# every route.
 _CAP_REFUSAL_TOKENS = frozenset([
     "LIMIT_EXCEEDED",
     "JOURNAL_CAP_EXCEEDED",
@@ -3943,7 +3936,7 @@ def _append_failure_record(home, operation, exc, subject, audit_date):
                      or getattr(exc, "error_value", None))
     if refusal_token in _CAP_REFUSAL_TOKENS:
         # A cap refusal stores nothing on every route
-        # (Step 19 item R19-041): the add product route
+        #: the add product route
         # stores nothing at its cap, through its _fail
         # path, and the routes that append a failure
         # record beside a refusal store nothing at a cap
@@ -4208,7 +4201,7 @@ def _check_run_backstop(home, started):
 
 def _check_parse_backstop(home, started):
     """The per file parse time backstop, limit 42, at this
-    seam, on a robots reading run (Step 19 entry R19-010).
+    seam, on a robots reading run.
 
     At the backstop the run aborts with the recorded
     error LIMIT_EXCEEDED and produces no report.
@@ -4267,9 +4260,8 @@ def probe_report(*, home, product, round, form=None,
     Simple form and the record object or its envelope in
     the structured forms, never the raw assembly.
 
-    Probe report is a non appending operation (brief
-    CL19-177): a failed report appends no failure record
-    (Step 19 entry R19-017). The recorded error stands as
+    Probe report is a non appending operation: a failed report appends no failure record
+  . The recorded error stands as
     the caller response only.
     """
     audit_date = _validate_audit_date(audit_date)
@@ -4287,8 +4279,8 @@ def probe_report(*, home, product, round, form=None,
         # during the assembly enters neither side of this
         # artefact in place of the other, and the whole
         # corrected basis stands read by the next report
-        # over the home. The round 4 head surfacing of
-        # stands inside this wider instant unchanged.
+        # over the home. The head surfacing stands
+        # inside this wider instant unchanged.
         fold_token = _FOLD_SNAPSHOT.set(
             _fold(home, apply_corrections=True))
         try:
@@ -4300,9 +4292,8 @@ def probe_report(*, home, product, round, form=None,
                 audit_date=audit_date)
             _check_run_backstop(home, run_started)
             # Standing failure record payloads stay out of
-            # the probe report record (Step 19 entry
-            # R19-018): the determinism contract at CL19-146
-            # and CL19-181 binds this report, and state left
+            # the probe report record: the determinism
+            # contract binds this report, and state left
             # behind by other calls is no input of it.
             from citeline import reporting
             return reporting.render(result, form=form or "advanced")
@@ -4360,9 +4351,8 @@ def probe_trend(*, home, product, round_a, round_b, form=None,
     the assembled trend in the requested form, as the
     probe report home does.
 
-    Probe trend is a non appending operation (brief
-    CL19-177): a failed trend appends no failure record
-    (Step 19 entry R19-017).
+    Probe trend is a non appending operation: a failed
+    trend appends no failure record.
     """
     audit_date = _validate_audit_date(audit_date)
     run_started = _clock()
@@ -4418,11 +4408,10 @@ def query_set_report(*, home, product, form=None, audit_date=None):
     The home returns the reporting pipeline rendering of
     the derived report in the requested form.
 
-    Query-set-report is a non appending operation (brief
-    CL19-177): a failed report appends no failure record
-    (Step 19 entry R19-017).
+    Query-set-report is a non appending operation: a
+    failed report appends no failure record.
 
-    The report reads the clock (Step 19 entry R19-010):
+    The report reads the clock:
     limit 41, the per run wall clock backstop, aborts the
     call before its record stands returned.
     """
@@ -4448,10 +4437,10 @@ def export_capture_worksheet(*, home, product, round, queries=None,
     where the call names no query list, the product query set for
     the round stands as the list, and a named query that stands in
     no query set of the product stands refused here, before any
-    file stands written . The inputs travel to the worksheet writer
+    file stands written. The inputs travel to the worksheet writer
     as they stand, with no string or integer coercion at this seam,
     so a malformed input meets the writer validation in its own
-    form and refuses in a recorded error value ."""
+    form and refuses in a recorded error value."""
     audit_date = _validate_audit_date(audit_date)
     # The home check stands here as it stands on
     # list_products, and the batch recovery stands at
@@ -4640,7 +4629,7 @@ def _guide_impl(*, home, run_id=None, product=None,
     vocabulary holds no run specific token, and the joined
     table assigns guide its missing references at U-4.
 
-    Repeat bound (Step 19 entry R19-023): plan trade T-9
+    Repeat bound: plan trade T-9
     grants that each repeat call over an unchanged record
     appends a new guide_record, and that grant stands.
     The route reads the clock: every call stands under

@@ -1392,8 +1392,8 @@ def _similar_components(type_sets):
                     prefix_length = seed_size
                 prefix = ordered_set(seed)[:prefix_length]
                 # The counted reading stands taken where
-                # the wide reading of the round 8 cure stood
-                # taken, and beside it wherever the exact
+                # the wide reading itself stood taken in
+                # full, and beside it wherever the exact form
                 # judgement of the prefix form stands priced
                 # past it: that price stands at the candidate
                 # count the prefix postings can name, bounded

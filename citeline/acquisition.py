@@ -812,10 +812,10 @@ def _content_format(text):
                 # in the probe list whole, as the roots do: a
                 # document led by a child element of either
                 # vocabulary is a form the probe exists to
-                # decide (completed at round 6, and completed on
-                # the SVG font face spellings and the two MathML
-                # alignment spellings at round 7; the spelling
-                # font stands outside that completion).
+                # decide (the SVG font face spellings and the
+                # two MathML alignment spellings stand in the
+                # probe list whole; the spelling font stands
+                # outside that completion).
                 r"altGlyph|altGlyphDef|altGlyphItem|animate|"
                 r"animateColor|animateMotion|animateTransform|"
                 r"circle|clipPath|color-profile|cursor|"
@@ -961,13 +961,11 @@ def _scan_tag_end(text, start):
     processing instruction form stand read as the parser
     reads them, ending at the first bracket, and a closing
     tag stands read on the same attribute terms as an
-    opening tag, as round 3 states for it (completed at
-    round 5 on the equals sign forms that entry names).
+    opening tag.
     Returns -1 where no closing bracket stands."""
     if text[start:start + 9].casefold() == "<!doctype":
         # A doctype declaration stands read whole across
-        # its quoted literals, as the round 2 container
-        # reading states: its quoted strings are
+        # its quoted literals: its quoted strings are
         # declaration text, not attribute values, so the
         # attribute reading below does not govern it.
         quote = None
@@ -1050,7 +1048,7 @@ def _tag_self_closed(chunk, name_end):
     opens the value, and a quoted form with no closing
     quote stands as no value at all, its quote standing as
     the first character of the next attribute name
-    (completed at this sibling scan at round 6)."""
+  ."""
     index = name_end
     length = len(chunk)
     while index < length:
@@ -1537,7 +1535,7 @@ _FM_WIDENED_FOLLOWER_CHARS = set("-.+$~;/=@^`?\\()<:") | {
 
 def _fm_position_scan_holds(text):
     """True where a construct stands held on the position
-    scan the round 15 cure lands, judged on the text as
+    scan, judged on the text as
     written, one construct position at a time, so no
     match pass consumes a position a later construct
     needs. A construct position stands judged where,
@@ -1611,90 +1609,73 @@ def _fm_holds_tag_construct(text):
     standing at the start of the text, a construct spelling
     standing as its own word later in the text, an angle
     bracket tag spelling anywhere in the text, and a block
-    scalar opening standing as the value (completed at round
-    7 on the three limbs the import side completions of
-    round 6 landed: an angle bracket spelling opens on any
-    URI character, a digit, a hyphen, or an underscore among
-    them; a block scalar header admits both indicator
-    orders, the chomping sign before the indentation digit
-    and the digit before the sign; and a construct stands
-    judged directly after a flow opening bracket, as after
-    the start of the text and after whitespace, completed at
-    round 8 to the import side landed forms of round 7: an
-    angle bracket spelling opens on the caret, and a
-    construct stands judged directly after the separator
-    standing between two flow items, after the colon of a
-    flow mapping, after a semicolon, after a quote, and
-    after an opening parenthesis, completed at round 9 to
-    the import side forms cured at round 8: an angle bracket
-    spelling opens on the hash, and a construct stands
-    judged directly after a closing bracket, the closing
-    square bracket, the closing curly brace, and the closing
-    parenthesis, and completed at round 9 at the remaining
+    scalar opening standing as the value (the reading also
+    stands on these further terms: an angle bracket spelling
+    opens on any URI character, a digit, a hyphen, or an
+    underscore among them; a block scalar header admits both
+    indicator orders, the chomping sign before the
+    indentation digit and the digit before the sign; and a
+    construct stands judged directly after a flow opening
+    bracket, as after the start of the text and after
+    whitespace. An angle bracket spelling opens on the
+    caret, and a construct stands judged directly after the
+    separator standing between two flow items, after the
+    colon of a flow mapping, after a semicolon, after a
+    quote, and after an opening parenthesis. An angle
+    bracket spelling opens on the hash, and a construct
+    stands judged directly after a closing bracket, the
+    closing square bracket, the closing curly brace, and
+    the closing parenthesis, and at the remaining
     punctuation positions, so a construct stands judged
     directly after any punctuation character, the position
-    set standing whole, and completed at round 10 on the
-    interior head reading the duplicate judgement and the
-    fence judgement apply: the judgement stands on the text
+    set standing whole. The judgement stands on the text
     with head material removed at any position, whitespace
     standing as written, so a construct standing behind
-    interior head material at a judged position, between the
-    construct character and its letter, or between an angle
-    bracket and its opening character stands judged as the
-    construct it spells, completed at round 11 on the
-    follower set: the character standing after the construct
-    character stands judged as any word character or a
-    hyphen, the import side set the cure at round 10 landed,
-    so a name opening on a digit, on an underscore, on a
-    hyphen, or on a letter outside the plain alphabet stands
-    judged at every judged position, completed at round 12
-    on the widened set the cure at round 11 landed at the
-    import side reading: the character standing after the
-    construct character stands judged beside any word
-    character or a hyphen on a full stop, a plus sign, a
-    dollar sign, a tilde, a semicolon, a slash, an equals
-    sign, an at sign, a caret, a backtick, a combining mark,
-    and an undertie, as the import side set stands cured,
-    and completed at the same entry on the page side limb of
-    round 12 on the six further openings that entry names: a
-    question mark, a backslash, an opening parenthesis, a
-    closing parenthesis, a less than sign, and a colon,
-    completed at round 13 on the combining mark opening in
-    the generic form the cure at round 11 names: the
-    character standing after the construct character stands
-    judged as that opening where it stands as a combining
-    mark as such, a mark of general category Mn, Mc, or Me
-    at any code point, beside the range the earlier cure
-    landed and beside the word character set, each of which
-    the reading above already refuses, the page side limb of
-    round 13 standing inside the same completion on the
-    category Mc and Me marks, and completed at round 14 on
-    the sole follower reading: the follower judgement stands
-    reached on a sole follower mark of the union even where
-    the interior head reading would remove that mark, the
-    helper first judging the follower on the text with head
-    material removed at any position except a mark of the
-    union, which stands as written, so a construct whose
-    name opens on one of the union marks that also stand as
-    head material, standing as sole follower with nothing
-    judged standing after it, at the end of the judged text
-    or before only whitespace or head material, stands
-    judged on that reading, the interior head reading then
-    standing as it stood for every other judgement of the
-    helper, and completed at round 15, and on the position
-    scan at _fm_position_scan_holds: the follower judgement
-    stands reached on the text as written at every construct
-    position in turn, a construct standing behind head
-    material at a judged position standing judged as the
-    scan reads back over that material, a second construct
-    standing after a first standing judged at its own
-    position, and a sole follower character of the follower
-    set that also stands as head material standing judged in
-    the word character form as in the mark form, and
-    completed at round 16 on the gap reach of that scan: the
-    follower judgement stands reached past head gap material
-    standing between the construct character and its
-    follower, in the form the scan states)."""
+    interior head material at a judged position, between
+    the construct character and its letter, or between an
+    angle bracket and its opening character stands judged
+    as the construct it spells. The character standing
+    after the construct character stands judged as any word
+    character or a hyphen, so a name opening on a digit, on
+    an underscore, on a hyphen, or on a letter outside the
+    plain alphabet stands judged at every judged position.
+    The character standing after the construct character
+    stands judged beside any word character or a hyphen on
+    a full stop, a plus sign, a dollar sign, a tilde, a
+    semicolon, a slash, an equals sign, an at sign, a
+    caret, a backtick, a combining mark, and an undertie,
+    and on a question mark, a backslash, an opening
+    parenthesis, a closing parenthesis, a less than sign,
+    and a colon. The character standing after the construct
+    character stands judged as that opening where it stands
+    as a combining mark as such, a mark of general category
+    Mn, Mc, or Me at any code point, beside the mark range
+    and beside the word character set, each of which the
+    reading above already refuses. The follower judgement
+    stands reached on a sole follower mark of the union
+    even where the interior head reading would remove that
+    mark, the helper first judging the follower on the text
+    with head material removed at any position except a
+    mark of the union, which stands as written, so a
+    construct whose name opens on one of the union marks
+    that also stand as head material, standing as sole
+    follower with nothing judged standing after it, at the
+    end of the judged text or before only whitespace or
+    head material, stands judged on that reading, the
+    interior head reading then standing as it stood for
+    every other judgement of the helper. The follower
+    judgement stands reached on the text as written at
+    every construct position in turn, a construct standing
+    behind head material at a judged position standing
+    judged as the scan reads back over that material, a
+    second construct standing after a first standing judged
+    at its own position, and a sole follower character of
+    the follower set that also stands as head material
+    standing judged in the word character form as in the
+    mark form. The follower judgement stands reached past
+    head gap material standing between the construct
+    character and its follower, in the form the scan
+    states)."""
     if _fm_position_scan_holds(text):
         return True
     for match in re.finditer(
@@ -1782,11 +1763,9 @@ def _fm_container_value_measure(value):
     container stands measured by its written form, as a
     number standing as a whole value does, and the
     container marks, the quote marks, and the separators
-    of the rendering count for nothing in the measure (on
-    the cure at round 7, completed at round 9 at the key
-    position, on the form the import side cure at round 8
-    states: a string standing as a key inside a container
-    stands measured by its length in characters beside the
+    of the rendering count for nothing in the measure (a
+    string standing as a key inside a container stands
+    measured by its length in characters beside the
     measure of its value, at any depth)."""
     if isinstance(value, _FmWrittenNumber):
         return len(value)
@@ -1899,9 +1878,9 @@ def _front_matter(text, fmt, notes, block_limit_bytes=None,
     # opening fence, or at either edge of either fence
     # line, does not move the block off the reading, as
     # the import side reading states for its opening
-    # fence, completed at round 8 on head material
-    # standing between the fence characters themselves,
-    # through _fm_judged_fence at both fences.
+    # fence, on head material standing between the fence
+    # characters themselves, through _fm_judged_fence at
+    # both fences.
     working = _fm_strip_head(text)
     lines = working.splitlines()
     if not lines or _fm_judged_fence(lines[0]) != "---":
@@ -1915,8 +1894,7 @@ def _front_matter(text, fmt, notes, block_limit_bytes=None,
             # closes them, at their file width, so a
             # carriage return standing in a terminator
             # counts at its width on every block line, as
-            # the import side reading cured at round 7
-            # measures it.
+            # the import side reading measures it.
             kept_lines = working.splitlines(keepends=True)
             block_in_file = "".join(kept_lines[1:index])
             if len(block_in_file.encode("utf-8")) \
@@ -1930,7 +1908,7 @@ def _front_matter(text, fmt, notes, block_limit_bytes=None,
             # as no value at all, and an indented
             # continuation line stands accumulated into
             # the value above it, as the import side
-            # reading cured at accumulates it. The line
+            # reading accumulates it. The line
             # form stands judged by the one reading the
             # import side stands, _front_matter_key_value
             # above: a line holding no key of its own, an
@@ -3034,9 +3012,8 @@ def _extract_inner(home, product_id, page_path, declared_format,
     # The extracted text limit in force over this home
     # governs the extraction, not only the brief default:
     # a config set value reaches this path through the
-    # journal limits in force (cured at the service seam
-    # in seat F7 with this one reading in the extraction
-    # path). Where no limit can be read, the brief
+    # journal limits in force (this reading stands in the
+    # extraction path). Where no limit can be read, the brief
     # default constant governs, as before.
     extracted_text_limit = _EXTRACTED_TEXT_LIMIT
     stated_text_limit = (

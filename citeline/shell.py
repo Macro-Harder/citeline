@@ -119,7 +119,6 @@ _SURFACE = {
 # names the documented spelling, so a call carrying the old
 # spelling, or both spellings of one input, stands refused
 # in the open and never silently discards one value
-# (register item R19-101).
 _RETIRED_SPELLINGS = {
     "set_category": {"category": "category_terms"},
     "robots_preview": {
@@ -373,8 +372,7 @@ def _exit_code_for(exc):
     # operation rule (plan EC-126 subsection 4.2): the call
     # died carrying no error value, and code 1, the code
     # the EC-126 table reserves in practice for that death,
-    # stands returned, never the domain code 3 (register
-    # item R19-074).
+    # stands returned, never the domain code 3.
     return 1
 
 
@@ -389,10 +387,9 @@ def _parse_flags_detailed(tokens, allowed, operation):
     The pair stands as (inputs, None) on a clean parse and as
     (None, fault) on a malformed one, where the fault names
     what stands wrong where the parser can name it. Repetition
-    stands admitted for list valued inputs only (brief
-    CL19-044): a scalar flag standing repeated stands refused
-    here, so its last value never silently governs (register
-    item R19-099).
+    stands admitted for list valued inputs only: a
+    scalar flag standing repeated stands refused here,
+    so its last value never silently governs.
     """
     inputs = {}
     aliases = _FLAG_ALIASES.get(operation, {})
@@ -470,8 +467,7 @@ def _parse_flags_detailed(tokens, allowed, operation):
 # still stand nested past this depth on a runtime whose
 # parser reads deeper, so the intake judges the depth of
 # the parsed structure itself and never passes a deeper
-# structure on to field validation (completed at Step 19
-# entry U-13).
+# structure on to field validation.
 _LIST_INTAKE_DEPTH = 100
 
 
@@ -579,8 +575,7 @@ def _print_rendered(rendered):
 
 # Next steps named by error value, stated in the shell
 # failure rendering so an operator can act on a failure
-# without already knowing the system (register item
-# R19-044, brief CL19-183 and CL19-176).
+# without already knowing the system.
 _NEXT_STEPS = {
     "HOME_MISSING": (
         "run the installer for the home, or check the "
@@ -600,7 +595,7 @@ def _plain_wording(text):
     Raw operating system wording and raw parser wording
     stand replaced with the plain statement of the same
     fact, so no errno text and no Python wording reaches
-    the operator (register item R19-044).
+    the operator.
     """
     text = re.sub(
         r"\[Errno \d+\]\s*No such file or directory",
@@ -618,8 +613,7 @@ def _print_error(exc):
     The printed failure states the fact in plain words,
     then a next step, then what was stored: nothing was
     stored for the failed subject by the call, no report,
-    no score, and no stored entry for that subject
-    (register item R19-044).
+    no score, and no stored entry for that subject.
     """
     try:
         record = service.recorded_error(exc)
@@ -653,7 +647,7 @@ def _print_error(exc):
 
 def _default_home():
     """The stated default product home: a directory named
-    .citeline in the operator home directory."""
+  .citeline in the operator home directory."""
     return os.path.join(os.path.expanduser("~"), ".citeline")
 
 
@@ -719,7 +713,7 @@ def _usage_error(detail, home=None, operation="citeline",
     Prints the MALFORMED_CALL value with its message to
     standard error and nothing to standard output, so the
     one line cause stands alone and no full help text floods
-    the output (register item R19-043). Appends the failure
+    the output. Appends the failure
     record where the named home chain accepts appends, and
     returns the usage exit code 2. The full help text stands
     printed by the help subcommand alone.
@@ -859,7 +853,7 @@ def main(argv=None):
         # under the one error name MALFORMED_CALL regardless
         # of whether the audit_date value parses, so the one
         # combination never reports under two error names
-        # from two layers (register item R19-102). Which
+        # from two layers. Which
         # calls stand refused does not change: a call naming
         # no fresh input beside the run identity stands
         # admitted here as before, and an audit date that is
@@ -885,9 +879,9 @@ def main(argv=None):
         # standing there once, at its own home seam, as it
         # does for a call that names the default home
         # directly, so a call through this shell and a
-        # direct call govern the same home (plan Section 3
-        # EC-15 row 43; Step 19 items R19-106 and
-        # S19-P7A2-05). Resolving the selection here as
+        # direct call govern the same home (plan Section
+        # 3 EC-15 row 43). Resolving the selection here
+        # as
         # well would apply it twice where selections chain
         # and govern a home one hop further on than the
         # direct call governs.

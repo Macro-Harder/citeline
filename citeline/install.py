@@ -45,7 +45,7 @@ PRODUCT_FILE_NAME = "citeline.py"
 # config file of the installation, as brief Section 3.5
 # point 5 states: config values are read from that file at
 # run start, and the journal config reading reads it for
-# the home its home key names (Step 19 item R19-049). The
+# the home its home key names. The
 # config.txt a home may also carry states values for its
 # own runs beside it, under the journal reading's stated
 # precedence.
@@ -278,7 +278,7 @@ def _temporary_process_number(name, destination_name):
     """The process number a B4 temporary name carries, or
     None where the name is not a temporary of the
     destination, on the parse form decision D-KF-18-TEMP
-    states: the destination name, the suffix .tmp-, the
+    states: the destination name, the suffix.tmp-, the
     journal sequence digit run, a hyphen separator, and
     the process number digit run at the end of the name."""
     prefix = destination_name + ".tmp-"
@@ -469,7 +469,7 @@ def _config_valid(path, home):
 def _config_fault_detail(path):
     """The cause, the rule broken, and the line at fault
     for a config file that does not parse, in the three
-    causes the brief distinguishes at CL19-164: a line
+    causes the brief distinguishes: a line
     that cannot be parsed, a value of the wrong form, and
     a duplicate key. Returns a short statement naming all
     three, or a general statement where no line fault of
@@ -558,8 +558,7 @@ def _install_impl(location=None, home=None):
     # The Python floor stands enforced before any file
     # is placed: Citeline requires Python 3.11 or later,
     # and an older interpreter meets a recorded install
-    # error naming the floor (Step 19 register entry
-    # R19-068).
+    # error naming the floor.
     if tuple(sys.version_info[:2]) < (3, 11):
         raise InstallError(
             "PYTHON_FLOOR",

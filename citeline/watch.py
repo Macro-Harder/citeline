@@ -109,9 +109,9 @@ def _clock():
 
 
 def _check_round_backstop(home, started):
-    """The round level backstop of limit 41 (Step 19 entry
-    R19-010, watch limb): a watch round is one invocation,
-    so its whole run stands under the per run backstop,
+    """The round level backstop of limit 41: a watch
+    round is one invocation, so its whole run stands
+    under the per run backstop,
     not only each target under its own operation clock.
     At the backstop the round aborts with the recorded
     error LIMIT_EXCEEDED and produces no artefact.
@@ -1094,8 +1094,7 @@ def run_watch(*, plan_file, form=None):
     # where the home_path selection moved the verify call
     # to the selected home, the enumeration and the
     # snapshot count read that same home, as the verify
-    # record names it in its home_path field (Step 19
-    # item R19-106 repair).
+    # record names it in its home_path field.
     home = str(verification.get("home_path") or home)
     products = service.list_products(home=home)
     standing_snapshot_count, standing_snapshot_paths = \
