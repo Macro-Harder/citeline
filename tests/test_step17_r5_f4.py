@@ -458,6 +458,15 @@ class Test035SingleBucketCost(ImportBase):
         self.assertLess(elapsed, 6.0)
 
     def test_same_bucket_judgements_hold(self):
+        """S17-R5-035 judgements companion, as ruled in part
+        under R19-048; inside one comparison bucket on the
+        worksheet route, an equal content slot stands refused
+        as a duplicate whatever its capture date does, and a
+        distinct content slot for the same round, same
+        normalised engine label, same query, and same
+        captured_on as an earlier slot of the same sheet is
+        admitted as a second record beside the first, at the
+        one worksheet call for the sheet."""
         path = self.temp_file(sheet_text({
             1: "Same answer text standing here.",
             2: "Same answer text standing here."},
@@ -469,10 +478,22 @@ class Test035SingleBucketCost(ImportBase):
             1: "First answer text standing here.",
             2: "Second answer text standing here."},
             dates={1: "2026-11-10", 2: "2026-11-10"}), "con.txt")
-        with self.assertRaises(Exception) as caught:
-            self.prepare_sheet(path)
-        self.assertEqual(token_of(caught.exception),
-                         "CONTRADICTORY_IMPORT")
+        records = self.prepare_sheet(path)
+        self.assertEqual(len(records), 2)
+        self.assertEqual(records[0]["answer_text"],
+                         "First answer text standing here.")
+        self.assertEqual(records[1]["answer_text"],
+                         "Second answer text standing here.")
+        first_hash = hashlib.sha256(
+            "First answer text standing here.".encode(
+                "utf-8")).hexdigest()
+        second_hash = hashlib.sha256(
+            "Second answer text standing here.".encode(
+                "utf-8")).hexdigest()
+        self.assertNotEqual(records[0]["content_hash"],
+                            records[1]["content_hash"])
+        self.assertEqual(records[0]["content_hash"], first_hash)
+        self.assertEqual(records[1]["content_hash"], second_hash)
 
 
 class Test067TagConstructWhole(ImportBase):
