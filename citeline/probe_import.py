@@ -2101,12 +2101,16 @@ def _record_field(record, *names):
 
 
 def compare_standing(standing_records, candidate):
-    """The duplicate and contradiction comparison, contract C2.
+    """The duplicate comparison, contract C2 as relaxed.
 
     The comparison runs in the same product namespace and the
     same kind class; kind classes do not cross, and a record
     held for a different product stands as neither. Returns
-    "duplicate", "contradiction", or None for a new record.
+    "duplicate" or None for a new record. A standing record
+    holding a different answer for the same round, engine,
+    query, and capture date stands as no bar: repeated
+    sampling admits it, and the candidate stands as a new
+    record under its own identity.
     """
     for record in standing_records or []:
         if _record_field(record, "kind") != candidate["kind"]:
@@ -2133,10 +2137,6 @@ def compare_standing(standing_records, candidate):
         if _record_field(record, "content_hash") == candidate[
                 "content_hash"]:
             return "duplicate"
-        standing_captured = _record_field(record, "captured_on")
-        if standing_captured is not None and str(
-                standing_captured) == candidate["captured_on"]:
-            return "contradiction"
     return None
 
 
@@ -2327,25 +2327,6 @@ def _record_from_body(validated, *, body_text, raw_bytes,
               "the same answer already stands imported for "
               "this round, engine, and query, so this import "
               "would count it twice and stands refused")
-    if outcome == "contradiction":
-        standing_id = _record_field(standing, "answer_id")
-        if standing_id is not None and standing_id_resolver is not None:
-            # The refusal names the standing answer by the
-            # identity it stands under in the journal, never
-            # by an unresolved marker the batch append would
-            # have resolved at its storing sequence.
-            standing_id = standing_id_resolver(
-                standing_id, record=standing)
-        name = (" (standing answer " + str(standing_id) + ")"
-                if standing_id is not None else "")
-        _fail("CONTRADICTORY_IMPORT",
-              "a different answer already stands for the "
-              "same round, engine, query, and capture date"
-              + name + ". Only one answer stands for that "
-              "combination, so this import stores nothing. "
-              "To import this answer, give it a different "
-              "capture date, or import it under a different "
-              "round, engine, or query")
     return build_answer_record(
         validated, text=body_text, content_hash=content_hash,
         form_marks=[], product_id=product_id, round_id=round_id,
