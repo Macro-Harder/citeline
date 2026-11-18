@@ -3724,9 +3724,18 @@ def probe_import(*, home, answer_file=None, product=None,
         from citeline import probe_import as import_module
         try:
             if worksheet:
-                control_count = sum(
-                    1 for item in standing
-                    if item.get("control_flag"))
+                # The designated control cap stands per
+                # source kind, and a worksheet may carry
+                # slots of more than one kind, so the
+                # standing count stands counted per kind,
+                # as the plain route below counts it for
+                # the one kind its call names.
+                control_counts = {}
+                for item in standing:
+                    if item.get("control_flag"):
+                        item_kind = item.get("kind")
+                        control_counts[item_kind] = (
+                            control_counts.get(item_kind, 0) + 1)
                 records = import_module.prepare_worksheet_import(
                     answer_file=str(answer_file), product=product,
                     round=round, engine_label=engine_label,
@@ -3736,7 +3745,7 @@ def probe_import(*, home, answer_file=None, product=None,
                     audit_date=audit_date, known_round=True,
                     query_set=list(product_record.get("query_set") or []),
                     standing_records=standing,
-                    control_count=control_count,
+                    control_count=control_counts,
                     product_id=product_id, round_id=round_id,
                     answer_id_prefix="ans-{sequence}",
                     registry_version_at_import=product_record.get(

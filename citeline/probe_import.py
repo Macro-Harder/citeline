@@ -2009,8 +2009,15 @@ def read_answer_file(answer_file, home=None):
     decoded as UTF-8; an undecodable file fails validation.
     """
     path_text = str(answer_file)
+    if "\x00" in path_text:
+        _fail("SUPPLIED_PATH_UNSAFE",
+              "a supplied path holding a NUL byte cannot be "
+              "stated and is rejected")
     try:
         pre = os.lstat(path_text)
+    except ValueError as error:
+        _fail("SUPPLIED_PATH_UNSAFE",
+              "supplied path cannot be stated: " + str(error))
     except OSError as error:
         _fail("IMPORT_VALIDATION_FAILED",
               "answer file cannot be read: " + str(error))
@@ -2042,6 +2049,9 @@ def read_answer_file(answer_file, home=None):
         flags |= os.O_NONBLOCK
     try:
         descriptor = os.open(path_text, flags)
+    except ValueError as error:
+        _fail("SUPPLIED_PATH_UNSAFE",
+              "supplied path cannot be stated: " + str(error))
     except OSError as error:
         _fail("IMPORT_VALIDATION_FAILED",
               "answer file cannot be read: " + str(error))
@@ -2507,11 +2517,69 @@ def _slot_assignments(rest):
     name and its equals sign stand skipped as the
     separators they are.
     """
+    # The scan stands linear in the length of the line.
+    # A name trial at any starting position reads only
+    # the characters that are not head characters, in
+    # order: head characters standing inside a name stand
+    # skipped, and the first character that is not a head
+    # character and does not stand as the next name
+    # character ends the trial. The outcome of a trial
+    # therefore depends only on the first character that
+    # is not a head character at or after the starting
+    # position, never on the starting position itself, so
+    # each trial stands computed once and read back for
+    # every starting position that shares it. A long run
+    # of head characters, a run of spaces among them,
+    # costs one pass over the run in total, where the
+    # earlier form walked the rest of the run again at
+    # every position inside it for every field name, and
+    # the cost of the line grew with the square of the
+    # run. The starting position recorded for an
+    # assignment stands as it stood: the first eligible
+    # position whose trial matches, so the value standing
+    # in front of the assignment ends where it ended.
+    length = len(rest)
+    head = [_is_head_char(char) for char in rest]
+    plain_positions = [position for position in range(length)
+                       if not head[position]]
+    plain_text = "".join(rest[position]
+                         for position in plain_positions)
+    plain_ordinal = {}
+    for ordinal, position in enumerate(plain_positions):
+        plain_ordinal[position] = ordinal
+    next_plain = [length] * (length + 1)
+    following = length
+    for position in range(length - 1, -1, -1):
+        if not head[position]:
+            following = position
+        next_plain[position] = following
+    next_after = [length] * (length + 1)
+    following = length
+    for position in range(length - 1, -1, -1):
+        if not (head[position] or rest[position].isspace()):
+            following = position
+        next_after[position] = following
+    trials = {}
+
+    def _trial(ordinal):
+        if ordinal not in trials:
+            result = None
+            for name in _SLOT_FIELDS:
+                if plain_text[ordinal:ordinal + len(name)] != name:
+                    continue
+                last = plain_positions[ordinal + len(name) - 1]
+                after = next_after[last + 1]
+                if after < length and rest[after] == "=":
+                    result = (name, next_after[after + 1])
+                    break
+            trials[ordinal] = result
+        return trials[ordinal]
+
     assignments = []
     index = 0
-    while index < len(rest):
+    while index < length:
         if index > 0 and not (
-                _is_head_char(rest[index - 1])
+                head[index - 1]
                 or rest[index - 1].isspace()
                 or rest[index - 1] in _SLOT_SEPARATOR_PUNCTUATION):
             # A separator drawn from the punctuation forms
@@ -2532,41 +2600,15 @@ def _slot_assignments(rest):
             # the opening square bracket and curly brace.
             index += 1
             continue
-        matched = None
-        for name in _SLOT_FIELDS:
-            cursor = index
-            position = 0
-            while position < len(name):
-                if cursor < len(rest) \
-                        and rest[cursor] == name[position]:
-                    cursor += 1
-                    position += 1
-                    continue
-                if cursor < len(rest) \
-                        and _is_head_char(rest[cursor]):
-                    cursor += 1
-                    continue
-                break
-            if position < len(name):
-                continue
-            after = cursor
-            while after < len(rest) and (
-                    _is_head_char(rest[after])
-                    or rest[after].isspace()):
-                after += 1
-            if after < len(rest) and rest[after] == "=":
-                end = after + 1
-                while end < len(rest) and (
-                        _is_head_char(rest[end])
-                        or rest[end].isspace()):
-                    end += 1
-                matched = (name, index, end)
-                break
+        plain_start = next_plain[index]
+        if plain_start >= length:
+            break
+        matched = _trial(plain_ordinal[plain_start])
         if matched is None:
             index += 1
             continue
-        assignments.append(matched)
-        index = matched[2]
+        assignments.append((matched[0], index, matched[1]))
+        index = matched[1]
     return assignments
 
 
@@ -2702,30 +2744,54 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
               "slot line, then import the sheet again")
     records = []
     running_standing = list(standing_records or [])
-    running_controls = control_count
+    # The designated control cap stands at 5 in one round
+    # for one source kind, so the running count stands
+    # kept per kind, never pooled across kinds. The
+    # service route hands its count as a per kind mapping
+    # counted from the standing records. A caller handing
+    # the standing records themselves stands counted from
+    # those records per kind, and a scalar count computed
+    # from the same records stands as no second count. A
+    # scalar count handed with no standing records stands
+    # as the count for the kind the call names, as the
+    # plain import route reads its scalar count.
+    controls_by_kind = {}
+    if isinstance(control_count, dict):
+        for count_kind, count_value in control_count.items():
+            controls_by_kind[count_kind] = count_value
+    else:
+        for standing in running_standing:
+            if _record_field(standing, "control_flag"):
+                standing_kind = _record_field(standing, "kind")
+                controls_by_kind[standing_kind] = (
+                    controls_by_kind.get(standing_kind, 0) + 1)
+        if not running_standing and control_count:
+            controls_by_kind[kind] = (
+                controls_by_kind.get(kind, 0) + control_count)
     prepared_records = []
     # The standing records stand bucketed by the three
     # fields the comparison judges before any outcome
     # can stand: kind, normalised engine label, and
     # query. Inside a bucket, a candidate can stand as a
     # duplicate only of a record holding its own content
-    # hash, and as a contradiction only of a record
-    # holding its own capture date, on the comparison
-    # rule itself, so each bucket stands sub-indexed by
-    # content hash and by capture date and the
-    # comparison for each slot reads only the records
-    # standing under its own hash or its own date, in
-    # their standing order. A record whose bucket key
-    # cannot be keyed stands in the overflow list and
-    # stands read on the bucket field equality reading
-    # at the selection below. Preparation therefore
-    # costs time near linear in the number of filled
-    # slots on the spread shapes entry measures and on
-    # the single bucket distribution a returned sheet
-    # presents, where every slot shares one bucket, and
-    # its duplicate and contradiction judgements stand
-    # exactly as the whole list comparison stood, as the
-    # same engine controls pin.
+    # hash, on the comparison rule itself, so each
+    # bucket stands sub-indexed by content hash and by
+    # capture date and the comparison for each slot
+    # reads only the records standing under its own
+    # hash or its own date, in their standing order.
+    # The date index stands as a selection index only:
+    # it widens the set the duplicate judgement reads,
+    # and no judgement of its own stands on it. A record
+    # whose bucket key cannot be keyed stands in the
+    # overflow list and stands read on the bucket field
+    # equality reading at the selection below.
+    # Preparation therefore costs time near linear in
+    # the number of filled slots on the spread shapes
+    # entry measures and on the single bucket
+    # distribution a returned sheet presents, where
+    # every slot shares one bucket, and its duplicate
+    # judgement stands exactly as the whole list
+    # comparison stood, as the same engine controls pin.
     sub_by_hash = {}
     sub_by_date = {}
     overflow = []
@@ -2849,10 +2915,10 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
         # Each sub index stands entered on its own: a
         # record whose content hash cannot be hashed
         # stands outside the hash index and still stands
-        # in the date index, where a contradiction can
-        # meet it, and a record whose bucket key cannot
-        # be hashed stands in neither index and falls to
-        # the overflow list.
+        # in the date index, where the duplicate
+        # judgement selection can meet it, and a record
+        # whose bucket key cannot be hashed stands in
+        # neither index and falls to the overflow list.
         indexed = False
         try:
             sub_by_hash.setdefault(
@@ -2932,7 +2998,8 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
             or capture_method,
             control_designation=control_designation,
             audit_date=audit_date, known_round=known_round,
-            query_set=query_set, control_count=running_controls)
+            query_set=query_set, control_count=controls_by_kind.get(
+                fields.get("kind") or kind, 0))
         body, _fm = extract_front_matter(slot["body"].strip())
         body_bytes = body.encode("utf-8")
         body_hash = hashlib.sha256(body_bytes).hexdigest()
@@ -3021,8 +3088,8 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
         # form the index reading states, and a record
         # whose bucket key keys stands in one index or
         # the other whatever its content hash form, so
-        # its duplicate and contradiction judgements
-        # stand exactly as they stood. The list and
+        # its duplicate judgement stands exactly as it
+        # stood. The list and
         # mapping forms stand equal to no candidate
         # bucket field, which validation stands as
         # strings in every case, and the equality reading
@@ -3070,7 +3137,9 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
         _index_standing(record, record_key, standing_index)
         standing_index += 1
         if record.get("control_flag"):
-            running_controls += 1
+            record_kind = record.get("kind")
+            controls_by_kind[record_kind] = (
+                controls_by_kind.get(record_kind, 0) + 1)
     return records
 
 
@@ -3154,6 +3223,18 @@ def probe_import(*, answer_file=None, product=None, round=None,
               "plain text or Markdown file, then import "
               "that file")
     except TypeError as error:
+        _fail("IMPORT_VALIDATION_FAILED",
+              "adapter call does not match the contract inputs: "
+              + str(error))
+    except ValueError as error:
+        # A value no filesystem call can state, a path
+        # holding a NUL byte among them, stands refused in
+        # the governed vocabulary at this seam, as the
+        # service and shell routes refuse the same input,
+        # and never escapes as a raw error to the caller.
+        if "\x00" in str(error) or "null" in str(error):
+            _fail("SUPPLIED_PATH_UNSAFE",
+                  "supplied path cannot be stated: " + str(error))
         _fail("IMPORT_VALIDATION_FAILED",
               "adapter call does not match the contract inputs: "
               + str(error))
