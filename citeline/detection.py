@@ -30,7 +30,6 @@ no wrapper outcome is produced for a wrapped target, which is
 recorded as the target as written.
 """
 
-from bisect import bisect_left, bisect_right
 from html import unescape as _html_unescape
 import re
 import unicodedata

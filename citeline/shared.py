@@ -45,7 +45,7 @@ def _honesty_sentence():
     try:
         from citeline import reporting
         return reporting.HONESTY_SENTENCE
-    except Exception:
+    except (ImportError, AttributeError):
         return (
             "This score is a signal index. It measures the "
             "presence of citability signals. It is not "

@@ -13,7 +13,6 @@ call inputs, read as asserted values only. No date is read
 from a clock here.
 """
 
-from bisect import bisect_left, bisect_right
 import copy
 import math
 import re
