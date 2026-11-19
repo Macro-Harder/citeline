@@ -29,7 +29,6 @@ import io
 import json
 import os
 import re
-import stat
 import unicodedata
 from datetime import date, datetime
 
@@ -2009,84 +2008,69 @@ def read_answer_file(answer_file, home=None):
     decoded as UTF-8; an undecodable file fails validation.
     """
     path_text = str(answer_file)
-    if "\x00" in path_text:
-        _fail("SUPPLIED_PATH_UNSAFE",
-              "a supplied path holding a NUL byte cannot be "
-              "stated and is rejected")
+    limit_bytes, limit_value = _answer_file_limit_bytes(home)
+    # The open protocol stands in citeline.shared, as one
+    # implementation for every intake; this wrapper states
+    # its refusals in this intake's vocabulary.
+    from citeline import shared
     try:
-        pre = os.lstat(path_text)
-    except ValueError as error:
-        _fail("SUPPLIED_PATH_UNSAFE",
-              "supplied path cannot be stated: " + str(error))
-    except OSError as error:
-        _fail("IMPORT_VALIDATION_FAILED",
-              "answer file cannot be read: " + str(error))
-    if stat.S_ISLNK(pre.st_mode):
-        _fail("SUPPLIED_PATH_UNSAFE",
-              "a supplied path that is itself a symbolic link "
-              "is rejected")
-    if not stat.S_ISREG(pre.st_mode):
-        if stat.S_ISDIR(pre.st_mode):
+        raw = shared.read_supplied_file(
+            path_text, limit_bytes=limit_bytes)
+    except shared.SuppliedFileRefusal as refusal:
+        stage = refusal.stage
+        error = refusal.exc
+        if stage == "nul":
+            _fail("SUPPLIED_PATH_UNSAFE",
+                  "a supplied path holding a NUL byte cannot be "
+                  "stated and is rejected")
+        elif stage == "missing":
+            _fail("IMPORT_VALIDATION_FAILED",
+                  "answer file cannot be read: " + str(error))
+        elif stage in ("unencodable", "unstatable",
+                       "unopenable"):
+            if isinstance(error, ValueError):
+                _fail("SUPPLIED_PATH_UNSAFE",
+                      "supplied path cannot be stated: "
+                      + str(error))
+            _fail("IMPORT_VALIDATION_FAILED",
+                  "answer file cannot be read: " + str(error))
+        elif stage == "symlink":
+            _fail("SUPPLIED_PATH_UNSAFE",
+                  "a supplied path that is itself a symbolic link "
+                  "is rejected")
+        elif stage == "directory":
             _fail("IMPORT_VALIDATION_FAILED",
                   "answer file cannot be read: Is a directory: "
                   + path_text)
-        _fail("SUPPLIED_PATH_UNSAFE",
-              "a supplied path that does not name a regular "
-              "file is rejected")
-    if pre.st_nlink > 1:
-        _fail("SUPPLIED_PATH_UNSAFE",
-              "a supplied file with a hard link count above 1 "
-              "is rejected; this reading rests on the "
-              "filesystem maintaining a truthful link count, "
-              "and where a platform cannot give that count the "
-              "invocation refuses the supplied file and fails "
-              "closed")
-    limit_bytes, limit_value = _answer_file_limit_bytes(home)
-    flags = os.O_RDONLY
-    if hasattr(os, "O_NOFOLLOW"):
-        flags |= os.O_NOFOLLOW
-    if hasattr(os, "O_NONBLOCK"):
-        flags |= os.O_NONBLOCK
-    try:
-        descriptor = os.open(path_text, flags)
-    except ValueError as error:
-        _fail("SUPPLIED_PATH_UNSAFE",
-              "supplied path cannot be stated: " + str(error))
-    except OSError as error:
-        _fail("IMPORT_VALIDATION_FAILED",
-              "answer file cannot be read: " + str(error))
-    try:
-        opened = os.fstat(descriptor)
-        if (opened.st_dev, opened.st_ino) != (pre.st_dev, pre.st_ino):
+        elif stage == "not_regular":
             _fail("SUPPLIED_PATH_UNSAFE",
-                  "the opened handle does not match the pre "
-                  "open stat")
-        if not stat.S_ISREG(opened.st_mode):
+                  "a supplied path that does not name a regular "
+                  "file is rejected")
+        elif stage == "hard_links":
             _fail("SUPPLIED_PATH_UNSAFE",
-                  "the opened handle does not name a regular file")
-        if opened.st_nlink > 1:
+                  "a supplied file with a hard link count above 1 "
+                  "is rejected; this reading rests on the "
+                  "filesystem maintaining a truthful link count, "
+                  "and where a platform cannot give that count the "
+                  "invocation refuses the supplied file and fails "
+                  "closed")
+        elif stage == "opened_hard_links":
             _fail("SUPPLIED_PATH_UNSAFE",
                   "a supplied file with a hard link count above 1 "
                   "is rejected")
-        chunks = []
-        total = 0
-        while True:
-            chunk = os.read(descriptor, 65536)
-            if not chunk:
-                break
-            chunks.append(chunk)
-            total += len(chunk)
-            if total > limit_bytes:
-                _fail("LIMIT_EXCEEDED",
-                      "answer file limit is %s MiB in force "
-                      "for this home" % ("%g" % (limit_value,)))
-        raw = b"".join(chunks)
-    finally:
-        os.close(descriptor)
-    if len(raw) > limit_bytes:
-        _fail("LIMIT_EXCEEDED",
-              "answer file limit is %s MiB in force "
-              "for this home" % ("%g" % (limit_value,)))
+        elif stage == "mismatch":
+            _fail("SUPPLIED_PATH_UNSAFE",
+                  "the opened handle does not match the pre "
+                  "open stat")
+        elif stage == "opened_not_regular":
+            _fail("SUPPLIED_PATH_UNSAFE",
+                  "the opened handle does not name a regular file")
+        elif stage == "too_large":
+            _fail("LIMIT_EXCEEDED",
+                  "answer file limit is %s MiB in force "
+                  "for this home" % ("%g" % (limit_value,)))
+        else:
+            raise error
     try:
         text = raw.decode("utf-8")
     except UnicodeDecodeError:
