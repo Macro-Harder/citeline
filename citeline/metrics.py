@@ -2138,7 +2138,20 @@ def _canonical_name_member(product):
     return member
 
 
-def _fallback_detect(text, product, competitors):
+def _detect_answer(text, product, competitors):
+    """Run the one detector over one answer for the
+    recomputation.
+
+    The product the detector sees carries the canonical
+    line's stated name as an alias member where that name
+    stands (see _canonical_name_member): an answer naming
+    the product in the canonical line's own words names
+    the product. Detection itself is the detection
+    module's detect_answer, the only detector: an error
+    inside it surfaces to the caller of the
+    recomputation, and no second, cruder reading of the
+    answer stands behind it to take over silently.
+    """
     member = _canonical_name_member(product or {})
     if member:
         product = dict(product or {})
@@ -2146,115 +2159,8 @@ def _fallback_detect(text, product, competitors):
         if member not in aliases:
             aliases.append(member)
         product["aliases"] = aliases
-    try:
-        from citeline import detection as detection_module
-        result = detection_module.detect_answer(text, product, competitors)
-        return result
-    except Exception:
-        pass
-    prose, references = _split_references(text or "")
-    name = _get(product, "name", "") or ""
-    aliases = list(_get(product, "aliases", None) or [])
-    members = []
-    if name:
-        members.append(name)
-    for alias in aliases:
-        if alias not in members:
-            members.append(alias)
-    members.sort(key=len, reverse=True)
-
-    matched = []
-    first_offset = None
-    first_word_position = None
-    for member in members:
-        start = 0
-        while True:
-            index = prose.casefold().find(member.casefold(), start)
-            if index < 0:
-                break
-            before = prose[index - 1] if index > 0 else ""
-            after_pos = index + len(member)
-            after = prose[after_pos] if after_pos < len(prose) else ""
-            if (before and (before.isalpha() or before.isdigit())) or (
-                after and (after.isalpha() or after.isdigit())
-            ):
-                start = index + 1
-                continue
-            if member not in matched:
-                matched.append(member)
-            if first_offset is None or index < first_offset:
-                first_offset = index
-            break
-    # matched_aliases order stands by first appearance.
-    def appearance(member):
-        pos = prose.casefold().find(member.casefold())
-        return pos if pos >= 0 else len(prose)
-
-    matched.sort(key=appearance)
-    named = bool(matched)
-    if first_offset is not None:
-        words_before = prose[:first_offset].split()
-        first_word_position = len(words_before) + 1
-    named_early = bool(
-        named and first_word_position is not None and first_word_position <= 100
-    )
-
-    urls = re.findall(r"https?://[^\s)\]\"'<>]+", prose)
-    domain = _get(product, "domain", "") or ""
-    cited = any(_host_matches(_host_of(url), domain) for url in urls)
-    self_instances = sum(1 for url in urls if _host_matches(_host_of(url), domain))
-    citation_instances = len(urls)
-
-    per_competitor = []
-    competitor_named_any = False
-    for comp in competitors or []:
-        comp_name = _get(comp, "name", "") or ""
-        comp_aliases = list(_get(comp, "aliases", None) or [])
-        comp_members = [comp_name] + [a for a in comp_aliases if a != comp_name]
-        comp_named = False
-        for member in comp_members:
-            if not member:
-                continue
-            pos = prose.casefold().find(member.casefold())
-            while pos >= 0:
-                before = prose[pos - 1] if pos > 0 else ""
-                after_pos = pos + len(member)
-                after = prose[after_pos] if after_pos < len(prose) else ""
-                if not ((before and (before.isalpha() or before.isdigit())) or (
-                    after and (after.isalpha() or after.isdigit())
-                )):
-                    comp_named = True
-                    break
-                pos = prose.casefold().find(member.casefold(), pos + 1)
-            if comp_named:
-                break
-        comp_domain = _get(comp, "domain", "") or ""
-        if comp_domain == "":
-            comp_cited = None
-            comp_reason = "competitor domain stands empty"
-        else:
-            comp_cited = any(_host_matches(_host_of(url), comp_domain) for url in urls)
-            comp_reason = None
-        if comp_named:
-            competitor_named_any = True
-        entry = {"name": comp_name, "named": comp_named, "cited": comp_cited}
-        if comp_reason is not None:
-            entry["cited_reason"] = comp_reason
-        per_competitor.append(entry)
-
-    return {
-        "named": named,
-        "named_early": named_early,
-        "cited": cited,
-        "first_offset": first_offset,
-        "matched_aliases": matched,
-        "per_competitor": per_competitor,
-        "unresolved_form_count": 0,
-        "references_section_split_counts": {"prose": 0, "references": 0},
-        "competitor_named": competitor_named_any,
-        "citation_instances": citation_instances,
-        "self_citation_instances": self_instances,
-    }
+    from citeline import detection as detection_module
+    return detection_module.detect_answer(text, product, competitors)
 
 
 def _fold_registry(entries, fold_point):
@@ -2350,9 +2256,9 @@ def answer_metrics_from_journal(entries, fold_point=None, detector_version=None)
     Entries are folded to the stated fold point. Registry
     entries inside the fold supply the product and its
     competitors. Detection runs in this invocation, through
-    the detection module where it stands available, and
-    otherwise through the bounded fallback in this module,
-    which is recorded in the builder paper.
+    the detection module's detect_answer alone: an error
+    inside detection surfaces to the caller, and no second
+    reading of an answer stands behind it.
     """
     entries = sorted(
         list(entries or []),
@@ -2381,7 +2287,7 @@ def answer_metrics_from_journal(entries, fold_point=None, detector_version=None)
     }
     results = []
     for index, payload in enumerate(selected):
-        detected = _fallback_detect(texts[index], product_for_detection, competitors)
+        detected = _detect_answer(texts[index], product_for_detection, competitors)
         if isinstance(detected, dict):
             detected_dict = dict(detected)
         else:
