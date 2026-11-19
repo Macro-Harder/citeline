@@ -2183,56 +2183,173 @@ _BLOCK_ELEMENTS = {
 _HEADING_TAGS = {"h1", "h2", "h3", "h4", "h5", "h6"}
 
 
-class _ScriptStyleScanner(HTMLParser):
-    """Count script and style elements as the parser reads
-    them. The parser itself decides what stands inside a
-    comment, what stands inside a quoted attribute value,
-    where a comment ends, which closing spellings close an
-    element, and where the raw text of an open element
-    ends, so the count and the extraction parser can no
-    longer read the same material two ways."""
+def _gate_tag_end(text, index):
+    """The end of one tag, read from just past its name.
 
-    def __init__(self):
-        super().__init__(convert_charrefs=True)
-        self.open_tag = None
-        self.stray = []
-
-    def handle_starttag(self, tag, attrs):
-        if tag in ("script", "style") and self.open_tag is None:
-            self.open_tag = tag
-
-    def handle_startendtag(self, tag, attrs):
-        # A self closed element is complete with no body
-        # and no closing tag: it counts as no opening.
-        pass
-
-    def handle_endtag(self, tag):
-        if tag in ("script", "style"):
-            if self.open_tag == tag:
-                self.open_tag = None
+    Returns (end, self_closing): end is the index just past
+    the closing bracket, or None where the file ends inside
+    the tag. Quoted attribute values stand consumed whole,
+    so a bracket inside a quoted value does not end the
+    tag. A slash stands as the self closing mark only where
+    it stands immediately before the closing bracket,
+    outside any value: a slash inside an unquoted value is
+    part of the value, and a slash standing alone between
+    attributes is passed over.
+    """
+    n = len(text)
+    i = index
+    while i < n:
+        char = text[i]
+        if char == ">":
+            return i + 1, False
+        if char in " \t\r\n\f":
+            i += 1
+            continue
+        if char == "/":
+            if i + 1 < n and text[i + 1] == ">":
+                return i + 2, True
+            i += 1
+            continue
+        while i < n and text[i] not in " \t\r\n\f=/>":
+            i += 1
+        while i < n and text[i] in " \t\r\n\f":
+            i += 1
+        if i < n and text[i] == "=":
+            i += 1
+            while i < n and text[i] in " \t\r\n\f":
+                i += 1
+            if i < n and text[i] in "\"'":
+                quote = text[i]
+                i += 1
+                while i < n and text[i] != quote:
+                    i += 1
+                if i < n:
+                    i += 1
             else:
-                self.stray.append(tag)
+                while i < n and text[i] not in " \t\r\n\f>":
+                    i += 1
+    return None, False
+
+
+def _gate_comment_end(text, index):
+    """The index just past the comment that opens at index,
+    or None where the comment never closes and the rest of
+    the file stands inside it. A comment closes at -->, at
+    --!>, and in the abrupt forms <!--> and <!--->.
+    """
+    if text.startswith("<!-->", index):
+        return index + 5
+    if text.startswith("<!--->", index):
+        return index + 6
+    plain = text.find("-->", index + 4)
+    bang = text.find("--!>", index + 4)
+    ends = [pos for pos in (plain, bang) if pos >= 0]
+    if not ends:
+        return None
+    pos = min(ends)
+    return pos + (4 if text.startswith("--!>", pos) else 3)
+
+
+def _script_style_state(text):
+    """Read the script and style elements of one page in
+    file order. Returns (open_tag, stray): the element left
+    open at the end of the file, if any, and the closing
+    spellings that stood with no element open for them, in
+    order.
+
+    The reading is this module's own, on stated rules, so
+    an extraction outcome never depends on how the
+    interpreter's HTML parser happens to read a spelling
+    in one patch release or another. The rules: a comment
+    shields everything inside it and closes on the forms
+    _gate_comment_end states; a quoted attribute value shields
+    everything inside it on any tag; the body of an open
+    script or style element is raw text that only that
+    element's own closing spelling ends; a closing spelling
+    may carry attributes, read to the tag's real end; a
+    self closed element counts as no opening.
+    """
+    n = len(text)
+    i = 0
+    open_tag = None
+    stray = []
+    while i < n:
+        if open_tag is not None:
+            close = re.compile(
+                "</" + open_tag + "(?=[ \t\r\n\f/>])",
+                re.IGNORECASE)
+            match = close.search(text, i)
+            if match is None:
+                return open_tag, stray
+            end, _self_closing = _gate_tag_end(text, match.end())
+            if end is None:
+                return open_tag, stray
+            i = end
+            open_tag = None
+            continue
+        lt = text.find("<", i)
+        if lt < 0:
+            break
+        i = lt
+        if text.startswith("<!--", i):
+            end = _gate_comment_end(text, i)
+            if end is None:
+                break
+            i = end
+            continue
+        if text.startswith("<!", i) or text.startswith("<?", i):
+            end, _self_closing = _gate_tag_end(text, i + 2)
+            if end is None:
+                break
+            i = end
+            continue
+        if text.startswith("</", i):
+            j = i + 2
+            start = j
+            while j < n and text[j] not in " \t\r\n\f/>":
+                j += 1
+            name = text[start:j].lower()
+            end, _self_closing = _gate_tag_end(text, j)
+            if end is None:
+                break
+            if name in ("script", "style"):
+                stray.append(name)
+            i = end
+            continue
+        if i + 1 < n and text[i + 1].isalpha():
+            j = i + 1
+            start = j
+            while j < n and text[j] not in " \t\r\n\f/>":
+                j += 1
+            name = text[start:j].lower()
+            end, self_closing = _gate_tag_end(text, j)
+            if end is None:
+                break
+            if name in ("script", "style") and not self_closing:
+                open_tag = name
+            i = end
+            continue
+        i += 1
+    return open_tag, stray
 
 
 def _check_script_style(text):
-    # The count reads the elements in file order, through
-    # the same parser the extraction reads: an element the
-    # parser leaves open at the end of the file stands
-    # unclosed, and a closing spelling the parser reads
-    # with no element open for it leaves the content
-    # ambiguous, as a closing tag standing inside a script
-    # body does when a second closing spelling follows it.
-    scanner = _ScriptStyleScanner()
-    scanner.feed(text)
-    scanner.close()
-    if scanner.open_tag is not None:
+    # The gate reads the elements in file order, on the
+    # stated rules of _script_style_state: an element left
+    # open at the end of the file stands unclosed, and a
+    # closing spelling that stands with no element open for
+    # it leaves the content ambiguous, as a closing tag
+    # standing inside a script body does when a second
+    # closing spelling follows it.
+    open_tag, stray = _script_style_state(text)
+    if open_tag is not None:
         _fail("PAGE_EXTRACTION_FAILED",
               "an unclosed %s element fails closed"
-              % scanner.open_tag)
-    if scanner.stray:
+              % open_tag)
+    if stray:
         _fail("PAGE_EXTRACTION_FAILED",
               "content inside a %s element stands ambiguous "
-              "and fails closed" % scanner.stray[0])
+              "and fails closed" % stray[0])
 
 
 class _PageHTMLParser(HTMLParser):
