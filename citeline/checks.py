@@ -11,10 +11,13 @@ Seams honoured here, as the design plan states them:
 
 1. SEAM-STATUS. Status is assigned only inside the
    assign_status seam in this module. The mapping from an
-   earned value to pass, warn, or fail is unruled, so the
-   seam invents no threshold. It returns the applicability
-   outcome not_applicable where a check does not apply,
-   and None where the unruled mapping would be needed.
+   earned value to pass, warn, or fail stands ruled: a
+   check that earns its full weight stands pass, a check
+   that earns part of its weight stands warn, and a check
+   that earns none of its weight stands fail. The seam
+   returns the applicability outcome not_applicable where
+   a check does not apply, and None where an applicable
+   check carries no earned value to derive a status from.
    An applicability outcome is not a derivation from an
    earned value.
 2. SEAM-LISTS. The list dependent limbs stand built:
@@ -119,18 +122,38 @@ def _round_score(value):
     )
 
 
-def assign_status(check_id, applicable=True, empty=False):
+def assign_status(check_id, applicable=True, empty=False,
+                  earned=None, weight=None):
     """The SEAM-STATUS seam, the only place status is set.
 
     Applicability outcomes stand decided in the brief and
-    are returned here. Every other status would need the
-    earned value to status mapping, which stands unruled,
-    so the seam returns None for an applicable check on a
-    non empty page rather than inventing a threshold.
+    are returned here. For an applicable check on a non
+    empty page the status derives from the earned value
+    under the ruled mapping: a check that earns its full
+    weight stands pass, a check that earns part of its
+    weight stands warn, and a check that earns none of
+    its weight stands fail. The seam returns None where
+    an applicable check carries no earned value, because
+    no status can be derived from a value that does not
+    stand.
     """
     if empty or not applicable:
         return "not_applicable"
-    return None
+    if earned is None:
+        return None
+    fraction = _round3(earned)
+    if weight:
+        points = Decimal(str(fraction)) * Decimal(str(weight))
+        if points >= Decimal(str(weight)):
+            return "pass"
+        if points <= 0:
+            return "fail"
+        return "warn"
+    if fraction >= 1.0:
+        return "pass"
+    if fraction <= 0.0:
+        return "fail"
+    return "warn"
 
 
 # ----------------------------------------------------------------
@@ -3298,12 +3321,20 @@ def run_checks(page, facts=None, audit_date=None, **_ignored):
             # where it does not apply.
             applicable = False
             reason = "CMP_NA"
+        if not applicable or empty:
+            # A check whose status stands not_applicable
+            # carries no earned fraction, on the same terms
+            # description_consistency already states: the
+            # record stands with its status and its reason,
+            # and no computed value the status disowns.
+            earned = None
         result = {
             "check_id": check_id,
             "weight": weight,
             "earned": _round3(earned) if earned is not None else None,
             "status": assign_status(
-                check_id, applicable=applicable, empty=empty
+                check_id, applicable=applicable, empty=empty,
+                earned=earned, weight=weight
             ),
             "reason_code": reason,
             "evidence_class": evidence_class,

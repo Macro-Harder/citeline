@@ -28,6 +28,10 @@ from citeline import install as install_module
 FIXTURES = Path(__file__).parent / "fixtures"
 AUDIT_DATE = "2026-11-13"
 CANONICAL = "Example Product answers questions with citations."
+COMPARISON_PASSAGE = (
+    "Compared with Rival, Example Product answers questions "
+    "with citations in fewer steps, and the comparison table "
+    "stands at https://example.net/data.")
 PRODUCT = "Example Product"
 QUERY = "What is Example Product?"
 
@@ -300,14 +304,25 @@ class TestNoTriggerCase(GuideBase):
 
     def test_page_with_no_firing_trigger_is_canonical_alone_not_refusal(self):
         """Pins plan Section 1.3 S8, the no trigger case for a page
-        input. Oracle: brief Section 5.12 item 137: for a page input
-        with no firing trigger, the outcome is the canonical line
-        alone with an empty action list, not a refusal and not an
-        error."""
+        input, as the status ruling restands it. Oracle: brief
+        Section 5.12 item 137: for a page input with no firing
+        trigger, the outcome is the canonical line alone with an
+        empty action list, not a refusal and not an error. Under
+        the earned to status mapping Captain JP ruled for issue
+        #10 (full weight pass, part of the weight warn, none
+        fail), this page's partial earners stand warned, so
+        their WARN_ triggers fire: the draft carries exactly
+        those five warning actions, and the opening is the
+        canonical line plus the evidence sentence the selection
+        rule chooses, here the page's comparison sentence. The
+        outcome is still not a refusal and not an error."""
         record = audit_page(self.home, PAGE_STRONG)
         draft = guide_for_run(self.home, field(record, "run_id"))
-        self.assertEqual(field(draft, "opening_text"), CANONICAL)
-        self.assertEqual(field(draft, "actions"), [])
+        self.assertEqual(field(draft, "opening_text"),
+                         CANONICAL + " " + COMPARISON_PASSAGE)
+        self.assertEqual(action_codes(draft), [
+            "WARN_CITATIONS", "WARN_STATISTICS",
+            "WARN_QUOTATIONS", "WARN_COMPARISON", "WARN_KEYWORD"])
         self.assertFalse(field(draft, "refused"))
         self.assertIsNone(field(draft, "refusal_code"))
 
