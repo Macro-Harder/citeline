@@ -35,6 +35,7 @@ import os
 import time
 
 from citeline import errors
+from citeline.shared import _fail, _get, _honesty_sentence
 
 ServiceError = errors.CitelineError
 
@@ -135,10 +136,6 @@ def recorded_error(exc):
     return record
 
 
-def _fail(token, message):
-    raise errors.CitelineError(message, token=token)
-
-
 def _clock():
     """The wall clock reading for the backstop checks.
 
@@ -170,12 +167,6 @@ def _journal():
 def _registry():
     from citeline import registry
     return registry
-
-
-def _get(record, name, default=None):
-    if isinstance(record, dict):
-        return record.get(name, default)
-    return getattr(record, name, default)
 
 
 # One fold instant for one artefact assembly: where an
@@ -630,18 +621,6 @@ def _anchor_limit_sentence():
             "who replaces the whole product home can replace "
             "the chain with it. Record the head hash outside "
             "the product home.")
-
-
-def _honesty_sentence():
-    try:
-        from citeline import reporting
-        return reporting.HONESTY_SENTENCE
-    except Exception:
-        return (
-            "This score is a signal index. It measures the "
-            "presence of citability signals. It is not "
-            "validated as a predictor of citation, and it "
-            "does not verify truth.")
 
 
 # The methods note version of version 1, ruled at the
