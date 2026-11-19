@@ -27,6 +27,8 @@ import re
 import unicodedata
 from citeline.shared import _get
 
+from citeline.errors import CitelineError as _BaseError
+
 
 __all__ = [
     "RegistryError",
@@ -65,12 +67,6 @@ _TOKEN_ROWS = {
     "VALIDATION_FAILED": ("X-5", "usage", 2),
     "LIMIT_EXCEEDED": ("X-3", "integrity", 5),
 }
-
-
-try:
-    from citeline.errors import CitelineError as _BaseError
-except Exception:
-    _BaseError = Exception
 
 
 class RegistryError(_BaseError):

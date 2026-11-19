@@ -32,6 +32,8 @@ import unicodedata
 from html import unescape as _unescape
 from html.parser import HTMLParser
 
+from citeline.errors import CitelineError as _BaseError
+
 
 __all__ = [
     "AcquisitionError",
@@ -55,12 +57,6 @@ _TOKEN_ROWS = {
     "SUPPLIED_PATH_UNSAFE": ("X-4", "integrity", 5),
     "VALIDATION_FAILED": ("X-5", "usage", 2),
 }
-
-
-try:
-    from citeline.errors import CitelineError as _BaseError
-except Exception:
-    _BaseError = Exception
 
 
 class AcquisitionError(_BaseError):
@@ -117,47 +113,23 @@ _EXTENSION_FORMATS = {
 # records write only through the journal append operation.
 # ----------------------------------------------------------------
 
-def _journal_or_none():
-    try:
-        from citeline import journal
-    except Exception:
-        return None
+def _journal():
+    from citeline import journal
     return journal
 
 
 def _journal_append(home, kind, payload, audit_date):
-    journal = _journal_or_none()
-    if journal is None:
-        return None
-    append = getattr(journal, "append_entry", None)
-    if append is None:
-        append = getattr(journal, "append", None)
-    if append is None:
-        return None
-    try:
-        return append(home, kind, payload, audit_date=audit_date)
-    except TypeError:
-        return append(home, kind, payload)
+    return _journal().append_entry(
+        home, kind, payload, audit_date=audit_date)
 
 
 def _next_sequence(home):
-    journal = _journal_or_none()
-    if journal is not None:
-        fold = getattr(journal, "fold", None)
-        if fold is not None:
-            try:
-                entries = fold(home)
-                if entries is not None:
-                    return len(list(entries)) + 1
-            except Exception:
-                pass
-    key = os.path.abspath(str(home))
-    count = _LOCAL_SEQUENCE.get(key, 0) + 1
-    _LOCAL_SEQUENCE[key] = count
-    return count
-
-
-_LOCAL_SEQUENCE = {}
+    # The sequence stands on the journal fold alone: an
+    # in-process counter restarts with the process and so
+    # can hand a later process an identity an earlier one
+    # already holds.
+    entries = _journal().fold(home)
+    return len(list(entries)) + 1
 
 
 # ----------------------------------------------------------------
@@ -3202,8 +3174,8 @@ def extract_page(home, product_id=None, page_path=None, audit_date=None,
     """Extract one supplied page file, once.
 
     On success the snapshot stands registered through the
-    journal, where a journal stands available, and the
-    return carries the snapshot and the extracted page. On
+    journal, and the return carries the snapshot and the
+    extracted page. On
     failure nothing stands stored and the call fails with
     a recorded error value on the raised error.
     """
@@ -3228,19 +3200,16 @@ def extract_page(home, product_id=None, page_path=None, audit_date=None,
         # sequence marker unresolved, for the caller's
         # batch append to resolve under its lock.
         return result
-    if _journal_or_none() is not None:
-        appended = _journal_append(home, "snapshot_registered",
-                                   dict(snapshot), audit_date)
-        stored = appended.get("payload") \
-            if isinstance(appended, dict) else None
-        if isinstance(stored, dict) and stored.get("snapshot_id"):
-            # The returned snapshot is the stored record, so
-            # the identity it carries is the one the append
-            # resolved from its storing sequence.
-            result = {"snapshot": dict(stored),
-                      "extracted": result["extracted"]}
-        else:
-            snapshot["snapshot_id"] = "snap-%d" % _next_sequence(home)
+    appended = _journal_append(home, "snapshot_registered",
+                               dict(snapshot), audit_date)
+    stored = appended.get("payload") \
+        if isinstance(appended, dict) else None
+    if isinstance(stored, dict) and stored.get("snapshot_id"):
+        # The returned snapshot is the stored record, so
+        # the identity it carries is the one the append
+        # resolved from its storing sequence.
+        result = {"snapshot": dict(stored),
+                  "extracted": result["extracted"]}
     else:
         snapshot["snapshot_id"] = "snap-%d" % _next_sequence(home)
     return result
@@ -3272,10 +3241,6 @@ def extract_page_reporting(home, product_id=None, page_path=None,
             "date": audit_date,
             "rule_fired": token,
         }
-        journal = _journal_or_none()
-        if journal is None:
-            return {"snapshot": None, "extracted": None,
-                    "failure_records": [record]}
         try:
             _journal_append(home, "failure_record", dict(record),
                             audit_date)

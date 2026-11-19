@@ -388,52 +388,24 @@ def _signal_deferred_recovery(home, journal,
     plain open."""
     if record_stood_at_attempt is False:
         return
-    intent_path = getattr(journal, "_batch_intent_path", None)
-    validate = getattr(journal, "_validate_batch_intent", None)
-    held_probe = getattr(journal, "_lock_held_by_other", None)
-    if intent_path is None or validate is None:
-        return
+    intent_path = journal._batch_intent_path
+    validate = journal._validate_batch_intent
+    held_probe = journal._lock_held_by_other
     try:
         path = intent_path(str(home))
         if not os.path.lexists(path) or os.path.islink(path):
             return
         if not os.path.isfile(path):
             return
-        if held_probe is not None and held_probe(str(home)):
+        if held_probe(str(home)):
             return
         import json
-        pairs_hook = getattr(journal, "_pairs_hook", None)
-        read_descriptor = getattr(
-            journal, "_open_home_file_read_descriptor", None)
-        if read_descriptor is not None:
-            descriptor = read_descriptor(path)
-            with os.fdopen(
-                    descriptor, "r", encoding="utf-8") as handle:
-                text = handle.read()
-        else:
-            flags = os.O_RDONLY
-            if hasattr(os, "O_NOFOLLOW"):
-                flags |= os.O_NOFOLLOW
-            if hasattr(os, "O_NONBLOCK"):
-                flags |= os.O_NONBLOCK
-            descriptor = os.open(path, flags)
-            try:
-                import stat as stat_module
-                if not stat_module.S_ISREG(
-                        os.fstat(descriptor).st_mode):
-                    raise OSError(
-                        "the intent path names no regular file")
-            except BaseException:
-                os.close(descriptor)
-                raise
-            with os.fdopen(
-                    descriptor, "r", encoding="utf-8") as handle:
-                text = handle.read()
-        if pairs_hook is not None:
-            record = json.loads(
-                text, object_pairs_hook=pairs_hook)
-        else:
-            record = json.loads(text)
+        descriptor = journal._open_home_file_read_descriptor(path)
+        with os.fdopen(
+                descriptor, "r", encoding="utf-8") as handle:
+            text = handle.read()
+        record = json.loads(
+            text, object_pairs_hook=journal._pairs_hook)
         validated = validate(str(home), record)
         if not os.path.lexists(path) or os.path.islink(path) \
                 or not os.path.isfile(path):
@@ -442,7 +414,7 @@ def _signal_deferred_recovery(home, journal,
         raise
     except Exception:
         return
-    defer_marker = getattr(journal, "_DEFER_BATCH_RECOVERY", None)
+    defer_marker = journal._DEFER_BATCH_RECOVERY
     if validated is None or validated is defer_marker:
         return
     _fail(
