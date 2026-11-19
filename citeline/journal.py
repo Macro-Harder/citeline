@@ -783,13 +783,49 @@ def _stat_key(path):
     except OSError:
         return None
     # The change time stands in the key beside the inode,
-    # the size, and the modification time: a same size edit
-    # can restore its modification time, and no ordinary
-    # call restores the change time, so a tampered file
-    # never reproduces the key of the scan it would be
-    # served from.
+    # the size, and the modification time. The key is a
+    # first check only: on a filesystem whose timestamp
+    # granularity is coarse a same size edit can reproduce
+    # every field of it, so the scan cache never serves on
+    # this key alone; the content fingerprint computed in
+    # _scan over the standing bytes is what certifies a
+    # cached scan.
     return (info.st_ino, info.st_size, info.st_mtime_ns,
             info.st_ctime_ns)
+
+
+def _content_fingerprint(path):
+    """The SHA-256 of the file's standing bytes, or None
+    where the file cannot be read.
+
+    The read is a plain no follow read, not the judged
+    descriptor open: the fingerprint only decides whether
+    a cached scan may be served, and a read that races a
+    replacement simply fails to match and falls through
+    to the judged scan, which judges the path at its own
+    open as it always has. Where the bytes cannot be read
+    at all, None stands and no cached scan is served.
+    """
+    flags = os.O_RDONLY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    if hasattr(os, "O_NONBLOCK"):
+        flags |= os.O_NONBLOCK
+    try:
+        descriptor = os.open(path, flags)
+    except OSError:
+        return None
+    digest = hashlib.sha256()
+    try:
+        with os.fdopen(descriptor, "rb") as handle:
+            while True:
+                chunk = handle.read(65536)
+                if not chunk:
+                    break
+                digest.update(chunk)
+    except OSError:
+        return None
+    return digest.hexdigest()
 
 
 def _lock_held_by_other(home):
@@ -1154,9 +1190,18 @@ def _scan(home, partial_mode="probe"):
         plausible_key = _is_plausible_entry_prefix(
             _partial_tail_bytes(path))
     cache_key = (path, partial_mode, lock_key, plausible_key)
+    # A cached scan is served only where the standing
+    # bytes carry the content fingerprint the scan was
+    # stored under, beside the stat key: file metadata
+    # alone never certifies a cached scan, because a same
+    # size tamper can reproduce the stat key on a
+    # filesystem whose timestamp granularity is coarse, or
+    # where the modification time stands restored.
+    fingerprint = _content_fingerprint(path)
     cached = _scan_cache.get(cache_key)
-    if cached is not None and cached[0] == stat:
-        return cached[1]
+    if cached is not None and cached[0] == stat \
+            and cached[1] == fingerprint and fingerprint is not None:
+        return cached[2]
     if partial_mode in ("probe", "torn"):
         # The probe and torn scans differ only in how a
         # final partial line stands classified. Where the
@@ -1173,8 +1218,10 @@ def _scan(home, partial_mode="probe"):
             else "probe"
         sibling = _scan_cache.get((path, sibling_mode, None, None))
         if sibling is not None and sibling[0] == stat \
-                and not sibling[1].partial_seen:
-            return sibling[1]
+                and sibling[1] == fingerprint \
+                and fingerprint is not None \
+                and not sibling[2].partial_seen:
+            return sibling[2]
     scan = _Scan()
     try:
         descriptor = _open_home_file_descriptor(path, "r")
@@ -1185,10 +1232,13 @@ def _scan(home, partial_mode="probe"):
     except (OSError, _UnsafeHomeFile):
         # A journal path that stands but cannot be read as
         # a file (a directory at the path, a read error) is
-        # an integrity state, not an empty journal.
+        # an integrity state, not an empty journal. The
+        # stored fingerprint stands None: no content
+        # fingerprint stands over unreadable bytes, so no
+        # later read is served this scan from the cache.
         scan.failure = {"position": 1, "reason": "unreadable",
                         "row": "I-2"}
-        _scan_cache[cache_key] = (stat, scan)
+        _scan_cache[cache_key] = (stat, None, scan)
         return scan
     partial = None
     if data:
@@ -1286,7 +1336,11 @@ def _scan(home, partial_mode="probe"):
             and not scan.partial_ignored:
         scan.failure = {"position": len(scan.lines) + 1,
                         "reason": "torn_tail", "row": "I-2"}
-    _scan_cache[cache_key] = (stat, scan)
+    # The stored fingerprint is the hash of the very bytes
+    # this scan was computed over, so a later validation
+    # serves this scan only for those bytes.
+    _scan_cache[cache_key] = (
+        stat, hashlib.sha256(data).hexdigest(), scan)
     return scan
 
 
@@ -3706,9 +3760,24 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
         if stat is not None and appended_info is not None \
                 and stat[0] == appended_info.st_ino \
                 and stat[1] == original_size + len(canonical) + 1:
+            # The extended scan's content fingerprint is
+            # the hash of the file bytes as the append left
+            # them, rebuilt from the scanned lines where the
+            # source scan saw no partial tail. Where it saw
+            # one, the standing bytes cannot be rebuilt from
+            # the scan, so the fingerprint stands None and
+            # the stored scan never validates: the next read
+            # scans the path as it stands.
+            if scan.partial_seen:
+                extended_fingerprint = None
+            else:
+                extended_fingerprint = hashlib.sha256(
+                    b"".join(line + b"\n"
+                             for line in extended.lines)
+                ).hexdigest()
             for mode in ("probe", "torn"):
                 _scan_cache[(path, mode, None, None)] = (
-                    stat, extended)
+                    stat, extended_fingerprint, extended)
         else:
             for cache_key in [key for key in _scan_cache
                               if key[0] == path]:
