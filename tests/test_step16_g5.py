@@ -20,14 +20,14 @@ governed MALFORMED_CALL refusal for a fresh input beside a
 run_id stands at the shell, pinned by the shell tests below.
 run_id alone on the re-render route, in any of the three
 forms, renders the stored record and appends nothing, and a
-fresh call without run_id audits exactly as before. E-06, an
+fresh call without run_id audits exactly as before. An
 audit omitting audit_date stores audit_date null with
 audit_date_is_run_date true and no defaulted recording, and
-freshness scores FRESH_NO_DATE. Brief Section 6.2 M1 requires
-the default to be the current UTC date, recorded as defaulted
-and naming the date used: the stored record carries
-audit_date set to the current UTC date and
-audit_date_defaulted true beside it, a supplied date is
+freshness scores FRESH_NO_DATE. The default is the current
+local date, recorded as defaulted and naming the date used:
+the stored record carries audit_date set to the current
+local date and audit_date_defaulted true beside it, a
+supplied date is
 recorded as supplied with audit_date_defaulted false, and
 freshness computes on the date used."""
 
@@ -326,7 +326,7 @@ class TestE06AuditDateDefault(unittest.TestCase):
                 return payload
         self.fail("no stored audit record for %s" % run_id)
 
-    def test_omitted_date_defaults_to_current_utc_date(self):
+    def test_omitted_date_defaults_to_current_local_date(self):
         record = service.audit(home=str(self.home),
                                page_file=str(PAGE))
         self.assertEqual(record["audit_date"], today_local())
