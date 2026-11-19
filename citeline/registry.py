@@ -66,10 +66,7 @@ _TOKEN_ROWS = {
 }
 
 
-try:
-    from citeline.errors import CitelineError as _BaseError
-except Exception:
-    _BaseError = Exception
+from citeline.errors import CitelineError as _BaseError
 
 
 class RegistryError(_BaseError):
