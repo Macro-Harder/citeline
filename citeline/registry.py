@@ -107,7 +107,7 @@ class _StaleView(Exception):
 def _journal():
     try:
         from citeline import journal
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - an import failure in any form stands converted to the governed RegistryError below; the journal module is required, never optional
         raise RegistryError(
             "VALIDATION_FAILED",
             "journal module is not available: %s" % (exc,))
@@ -229,7 +229,7 @@ def _journal_version(home):
         return None
     try:
         result = verify(str(home))
-    except Exception:
+    except Exception:  # noqa: BLE001 - the cycle freshness probe answers None on any verify failure; the appends that follow judge the chain again on their own terms before writing
         return None
     if not isinstance(result, dict):
         return None
@@ -756,8 +756,8 @@ def _limit_in_force(home, key, default):
         value = limits[key]["value"]
         if type(value) is int:
             return value
-    except Exception:
-        pass
+    except Exception:  # noqa: BLE001 - a home whose limits cannot be read in any form stands judged at the default, as the docstring states
+        value = None
     return default
 
 
@@ -1276,7 +1276,7 @@ def _append_register_failure(home, token, subject, audit_date):
         chain = journal.verify_chain(str(home))
         if not chain.get("passed"):
             return
-    except Exception:
+    except Exception:  # noqa: BLE001 - this helper never raises, as its docstring states: a chain that cannot be verified accepts no failure record from here
         return
     payload = {
         "operation": "register_page",
@@ -1289,8 +1289,8 @@ def _append_register_failure(home, token, subject, audit_date):
         journal.append_entry(
             str(home), "failure_record", payload,
             audit_date=audit_date)
-    except Exception:
-        pass
+    except Exception:  # noqa: BLE001 - recording a failure must never mask the failure it records; this helper never raises
+        return
 
 
 def register_page(home, product=None, snapshot=None, audit_date=None,

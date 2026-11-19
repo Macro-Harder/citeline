@@ -3488,7 +3488,7 @@ def _rule_text_changed_rows(first, second, existing):
         from citeline.robots import CRAWLER_TABLE
         for entry in CRAWLER_TABLE:
             table[entry["token"].lower()] = entry
-    except Exception:
+    except (ImportError, KeyError, TypeError, AttributeError):
         table = {}
     # A candidate pair is already stated only where a
     # finding row of its own token carries the same two

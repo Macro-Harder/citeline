@@ -1482,7 +1482,7 @@ def _cluster_texts(texts):
     try:
         from citeline import detection as detection_module
         return list(detection_module.cluster_answers(list(texts)))
-    except Exception:
+    except Exception:  # noqa: BLE001, S110 - any failure of the shared clustering falls back to the local reading below, which computes the same components directly; the handler passes control to that reading
         pass
     parent = list(range(len(texts)))
 

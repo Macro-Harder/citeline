@@ -12,6 +12,7 @@ this module reads a clock for a record value.
 """
 
 import base64
+import contextlib
 import copy
 import errno
 import fcntl
@@ -2031,7 +2032,7 @@ def selected_home(home):
     """
     try:
         values, _warnings, _present = _read_config_values(home)
-    except Exception:
+    except Exception:  # noqa: BLE001 - a config that cannot be read in any form selects nothing and the named home stands, as the docstring states; the caller's own config handling reports the failure
         return str(home)
     named = values.get("home_path")
     if isinstance(named, str) and named:
@@ -2372,10 +2373,8 @@ class _WriteLock:
                 # The inherited handle copy stands closed
                 # here; the holder own copy still holds the
                 # lock.
-                try:
+                with contextlib.suppress(OSError):
                     held[0].close()
-                except Exception:
-                    pass
                 held = None
             if held is not None:
                 # Re-entry is judged by thread and by join
@@ -2572,10 +2571,8 @@ class _WriteLock:
             # would release the parent flock whole. The
             # child closes its own handle copies only, the
             # act that leaves the parent lock standing.
-            try:
+            with contextlib.suppress(OSError):
                 self.handle.close()
-            except Exception:
-                pass
             self.handle = None
             if self._dir_fd is not None:
                 try:
@@ -3069,7 +3066,7 @@ def _size_cap_also_met(home):
     files only does not name this judgement."""
     try:
         limits = effective_limits(home)
-    except Exception:
+    except Exception:  # noqa: BLE001 - the judgement must answer on any unreadable state: limits that cannot be read stand as the cap not met, and the recovery this judgement serves is never blocked by the judgement itself
         return False
     size_limit = limits["total_home_size"]
     cap = size_limit["value"] * _SIZE_MULTIPLIERS[size_limit["unit"]]
@@ -3187,7 +3184,7 @@ def recover_interrupted_batch(home):
             try:
                 journal_cap = effective_limits(
                     home)["journal_length"]["value"]
-            except Exception:
+            except Exception:  # noqa: BLE001 - recovery proceeds without the cap where the limits cannot be read; the cap check is a guard on the recovery record, never a bar to recovery itself
                 journal_cap = None
             if journal_cap is not None \
                     and restored_count + 1 > journal_cap:
@@ -3293,8 +3290,8 @@ def recover_interrupted_batch(home):
                                         None) == 39 \
                             and not size_cap_met_at_append:
                         record_judged_failed = True
-                except Exception:
-                    pass
+                except Exception:  # noqa: BLE001 - a failure of the failure record append itself, in any form, must not crash the recovery it serves; the record stands not judged failed and recovery proceeds
+                    record_judged_failed = False
             if record_judged_failed:
                 return False
             _clear_batch_intent(home)
@@ -3428,7 +3425,7 @@ def _validate_batch_intent(home, record):
             return None
     try:
         values, _warnings, _present = _read_config_values(home)
-    except Exception:
+    except Exception:  # noqa: BLE001 - a config that cannot be read in any form cannot judge the record, and the record stands deferred whole, as the comment below states
         # A config that does not parse cannot judge the
         # record, and the recovery record append could not
         # be judged under it either: the record stands

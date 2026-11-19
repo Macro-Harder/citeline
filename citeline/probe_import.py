@@ -1995,8 +1995,8 @@ def _answer_file_limit_bytes(home):
             value = (limits.get("answer_file_size") or {}).get("value")
             if isinstance(value, (int, float)) and value > 0:
                 return int(value * 1024 * 1024), value
-        except Exception:
-            pass
+        except Exception:  # noqa: BLE001 - a home whose limits cannot be read in any form leaves the default value governing, as the docstring states
+            value = None
     return ANSWER_FILE_LIMIT, ANSWER_FILE_LIMIT // (1024 * 1024)
 
 
@@ -2412,7 +2412,7 @@ def is_worksheet_file(answer_file):
     """
     try:
         _raw, text, _hash = read_answer_file(answer_file)
-    except Exception:
+    except (ProbeImportError, OSError, ValueError):
         return False
     return is_worksheet_text(text)
 
@@ -2792,7 +2792,7 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
         if isinstance(value, str):
             try:
                 return str(value)
-            except Exception:
+            except Exception:  # noqa: BLE001 - a hostile string form can raise in any form from its reading, and every form keys under the placeholder, as the comment states
                 # A string form whose string reading
                 # raises stands keyed under a placeholder
                 # no candidate key carries, as a field
@@ -2806,7 +2806,7 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
                         "citeline-unreadable-string")
         try:
             hash(value)
-        except Exception:
+        except Exception:  # noqa: BLE001 - a hostile field can raise in any form from its hash, and every form keys under the placeholder, as the comment states
             # A field whose hash raises in any form, a
             # TypeError or any other error, keys under the
             # same placeholder, so the raising stands
@@ -2819,7 +2819,7 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
             # its repr.
             try:
                 shown = repr(value)
-            except Exception:
+            except Exception:  # noqa: BLE001 - a hostile field can raise in any form from its repr, and every form keys under the fixed marker, as the comment states
                 shown = "citeline-unrepresentable"
             return ("citeline-unhashable", type(value).__name__,
                     shown)
@@ -2840,7 +2840,7 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
             return False
         try:
             hash(value)
-        except Exception:
+        except Exception:  # noqa: BLE001 - a hostile field can raise in any form from its hash, and every form stands as unhashable here, as at the keying above
             return True
         return False
 
@@ -2886,7 +2886,7 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
         else:
             try:
                 date_key = str(captured)
-            except Exception:
+            except Exception:  # noqa: BLE001 - a hostile capture date can raise in any form from its string reading, and every form stands entered under the fixed marker, as the comment states
                 # A capture date whose string reading
                 # raises, through a repr that raises,
                 # stands entered under a fixed marker no
@@ -2908,14 +2908,14 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
             sub_by_hash.setdefault(
                 (bucket_key, content_hash), []).append(entry)
             indexed = True
-        except Exception:
-            pass
+        except TypeError:
+            indexed = False
         try:
             sub_by_date.setdefault(
                 (bucket_key, date_key), []).append(entry)
             indexed = True
-        except Exception:
-            pass
+        except TypeError:
+            indexed = False
         if not indexed:
             overflow.append(entry)
         elif any(_overflow_field(value) for value in raw_bucket) \
@@ -2945,7 +2945,7 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
                             standing_index)
         except ProbeImportError:
             raise
-        except Exception:
+        except Exception:  # noqa: BLE001 - the keying readings run the hash and equality of standing record fields, which can raise in any form, and every form stands answered in the recorded vocabulary below, as the comment states
             # A keying reading at the indexing of the
             # standing records that raises in any form
             # stands answered inside the recorded error
@@ -3049,7 +3049,7 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
                     raw_bucket[0] == candidate_raw[0]
                     and raw_bucket[1] == candidate_raw[1]
                     and raw_bucket[2] == candidate_raw[2])
-            except Exception:
+            except Exception:  # noqa: BLE001 - a hostile field can raise in any form from its equality test, and every form stands answered in the recorded vocabulary at the selection, as the comment states
                 # A field whose equality test raises stands
                 # answered inside the recorded error
                 # vocabulary at the selection, as a field
@@ -3097,7 +3097,7 @@ def prepare_worksheet_import(*, answer_file=None, product=None,
                 standing_id_resolver=resolve_standing_id)
         except ProbeImportError:
             raise
-        except Exception:
+        except Exception:  # noqa: BLE001 - the comparison runs the equality readings of the standing records, which can raise in any form, and every form stands answered in the recorded vocabulary below, as the comment states
             # The comparison the selection hands its
             # records runs the equality readings of the
             # standing records against the candidate, and a
@@ -3239,12 +3239,12 @@ def _worksheet_limits_in_force(home):
     try:
         from citeline import journal
         limits = journal.effective_limits(str(home))
-    except Exception:
+    except Exception:  # noqa: BLE001 - a home whose limits cannot be read in any form leaves the default values governing, as the docstring states
         return answers, queries
     try:
         answers = int(limits["answers_per_round"]["value"])
         queries = int(limits["queries_per_product"]["value"])
-    except Exception:
+    except (KeyError, TypeError, ValueError):
         return WORKSHEET_ANSWERS_LIMIT, WORKSHEET_QUERIES_LIMIT
     return answers, queries
 

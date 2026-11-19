@@ -3055,7 +3055,7 @@ def _extract_inner(home, product_id, page_path, declared_format,
             from citeline import journal as journal_module
             limits_in_force = journal_module.effective_limits(
                 str(home), run_id=run_id) or {}
-        except Exception:
+        except Exception:  # noqa: BLE001 - limits that cannot be read in any form leave the stated defaults in force for this reading; the enforcement gates below judge on those values
             limits_in_force = {}
     page_size_value = (
         limits_in_force.get("page_file_size") or {}).get("value")
@@ -3212,7 +3212,7 @@ def extract_page_reporting(home, product_id=None, page_path=None,
         result = extract_page(home, product_id=product_id,
                               page_path=page_path, audit_date=audit_date,
                               **kwargs)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - this boundary converts any failure the process lives to report into exactly one failure record, as the docstring states
         token = getattr(exc, "error_value", None) or \
             getattr(exc, "token", None) or "PAGE_EXTRACTION_FAILED"
         record = {
@@ -3225,7 +3225,7 @@ def extract_page_reporting(home, product_id=None, page_path=None,
         try:
             _journal_append(home, "failure_record", dict(record),
                             audit_date)
-        except Exception:
+        except Exception:  # noqa: BLE001 - on the excepted cases the docstring names, no failure record can stand and the list stands empty; the append failure never replaces the extraction failure it records
             return {"snapshot": None, "extracted": None,
                     "failure_records": []}
         return {"snapshot": None, "extracted": None,

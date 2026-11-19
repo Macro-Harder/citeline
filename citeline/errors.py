@@ -156,7 +156,7 @@ def error_for_row(row):
         return None
     try:
         return _BY_ROW.get(row)
-    except Exception:
+    except Exception:  # noqa: BLE001 - a hostile string subclass can raise any exception form from its hash or equality, and the vocabulary reading must stand as no entry for every such form, as the docstrings above state
         return None
 
 
@@ -175,7 +175,7 @@ def error_for_token(token):
         return None
     try:
         return _BY_TOKEN.get(token)
-    except Exception:
+    except Exception:  # noqa: BLE001 - a hostile string subclass can raise any exception form from its hash or equality, and the vocabulary reading must stand as no entry for every such form, as the docstrings above state
         return None
 
 
@@ -212,7 +212,7 @@ class CitelineError(Exception):
         if token is not None:
             try:
                 entry = _BY_TOKEN.get(token)
-            except Exception:
+            except Exception:  # noqa: BLE001 - a hostile string subclass can raise any exception form from its hash or equality, and the vocabulary reading must stand as no entry for every such form, as the docstrings above state
                 # A string subclass with no hash stands as
                 # a value the vocabulary cannot hold, in
                 # the same ValueError form as every other
@@ -229,7 +229,7 @@ class CitelineError(Exception):
         elif row is not None:
             try:
                 entry = _BY_ROW.get(row)
-            except Exception:
+            except Exception:  # noqa: BLE001 - a hostile string subclass can raise any exception form from its hash or equality, and the vocabulary reading must stand as no entry for every such form, as the docstrings above state
                 entry = None
             if entry is None:
                 raise ValueError(
@@ -239,7 +239,7 @@ class CitelineError(Exception):
                 and token is not None:
             try:
                 mismatch = entry["row"] != row
-            except Exception:
+            except Exception:  # noqa: BLE001 - a hostile string subclass can raise any exception form from its hash or equality, and the vocabulary reading must stand as no entry for every such form, as the docstrings above state
                 mismatch = True
             if mismatch:
                 raise ValueError(
