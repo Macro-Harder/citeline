@@ -619,25 +619,36 @@ def draft_from_audit_record(record, canonical_line=None, audit_date=None,
         # stored check result itself, so the draft
         # selection rule of item 137 can run on a page
         # whose checks earned nothing on a named check.
-        # No threshold for partial earnings stands
-        # derived here: the earned value to status
-        # mapping for a partial earning stands unruled
-        # (the settled claim), and a not applicable check fires
-        # nothing.
+        # A check that earned in part stands warned in
+        # the same plain words: its WARN_ trigger fires,
+        # so a partial earning also names its work in the
+        # draft. A check that earned in full fires
+        # nothing, and a not applicable check fires
+        # nothing. This derivation is the guide's own
+        # reading of the stored results; the earned value
+        # to status mapping on the check records
+        # themselves stands unruled
+        # and is not derived here.
         for result in _get(record, "checks", None) or []:
             earned = _get(result, "earned", None)
             if earned is None or isinstance(earned, bool):
                 continue
             if _get(result, "status", None) == "not_applicable":
                 continue
-            if earned != 0:
-                continue
-            stem = _STEM_BY_CHECK_ID.get(
-                str(_get(result, "check_id", "") or ""))
-            if stem is not None:
-                code = "FAIL_" + stem
-                if code not in triggers:
-                    triggers.append(code)
+            if earned == 0:
+                stem = _STEM_BY_CHECK_ID.get(
+                    str(_get(result, "check_id", "") or ""))
+                if stem is not None:
+                    code = "FAIL_" + stem
+                    if code not in triggers:
+                        triggers.append(code)
+            elif earned < 1:
+                stem = _STEM_BY_CHECK_ID.get(
+                    str(_get(result, "check_id", "") or ""))
+                if stem is not None:
+                    code = "WARN_" + stem
+                    if code not in triggers:
+                        triggers.append(code)
 
     if cap_operates is None:
         score = _get(record, "score", None)

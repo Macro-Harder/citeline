@@ -326,6 +326,44 @@ class TestNoTriggerCase(GuideBase):
         self.assertFalse(field(draft, "refused"))
         self.assertIsNone(field(draft, "refusal_code"))
 
+    def test_page_with_all_checks_earned_in_full_is_canonical_alone_not_refusal(self):
+        """Pins plan Section 1.3 S8, the no trigger case for a page
+        input. Oracle: brief Section 5.12 item 137: for a page input
+        with no firing trigger, the outcome is the canonical line
+        alone with an empty action list, not a refusal and not an
+        error. The case stands on a record whose checks all earned
+        in full: the strong page's partial earnings fire WARN_
+        triggers under the partial earning derivation, so it no
+        longer stands as a no trigger page."""
+        record = {
+            "run_id": "run-1",
+            "product_id": "p-example-product",
+            "canonical_line": CANONICAL,
+            "product_name": PRODUCT,
+            "audit_date": AUDIT_DATE,
+            "checks": [
+                {"check_id": check_id, "earned": 1.0,
+                 "status": None, "weight": weight}
+                for check_id, weight in (
+                    ("answer_first", 12), ("citations", 16),
+                    ("statistics", 13), ("quotations", 11),
+                    ("comparison", 10), ("freshness", 8),
+                    ("description_consistency", 8),
+                    ("keyword_stuffing", 8), ("fluff", 7),
+                    ("unproven_superlatives", 7))],
+            "score": {"value": 100.0},
+        }
+        draft = guide.draft_from_audit_record(
+            record,
+            sentences=[
+                "Example Product recorded 42 percent growth in "
+                "the 2025 review."],
+            distinct_cited_target_count=2)
+        self.assertEqual(field(draft, "opening_text"), CANONICAL)
+        self.assertEqual(field(draft, "actions"), [])
+        self.assertFalse(field(draft, "refused"))
+        self.assertIsNone(field(draft, "refusal_code"))
+
     def test_round_with_no_firing_trigger_is_canonical_alone(self):
         """Pins plan Section 1.3 S8, the no trigger case for a round
         input. Oracle: brief Section 5.12 item 137: no firing round
