@@ -3315,6 +3315,13 @@ def run_checks(page, facts=None, audit_date=None, **_ignored):
             # where it does not apply.
             applicable = False
             reason = "CMP_NA"
+        if not applicable or empty:
+            # A check whose status stands not_applicable
+            # carries no earned fraction, on the same terms
+            # description_consistency already states: the
+            # record stands with its status and its reason,
+            # and no computed value the status disowns.
+            earned = None
         result = {
             "check_id": check_id,
             "weight": weight,
