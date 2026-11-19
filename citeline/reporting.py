@@ -1487,6 +1487,7 @@ _AUDIT_TRACED_FIELDS = (
     "evaluated_page_path", "path_defaulted", "snapshot_format",
     "checks", "score", "cap_status", "robots_summary",
     "honesty_sentence", "anchor_limit", "audit_date",
+    "audit_date_defaulted",
     "ruleset_version", "detector_version", "registry_version",
     "query_set_version", "head_hash", "entry_count",
     "methods_note_version", "bounds",

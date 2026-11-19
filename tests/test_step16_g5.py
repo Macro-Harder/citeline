@@ -20,14 +20,14 @@ governed MALFORMED_CALL refusal for a fresh input beside a
 run_id stands at the shell, pinned by the shell tests below.
 run_id alone on the re-render route, in any of the three
 forms, renders the stored record and appends nothing, and a
-fresh call without run_id audits exactly as before. E-06, an
+fresh call without run_id audits exactly as before. An
 audit omitting audit_date stores audit_date null with
 audit_date_is_run_date true and no defaulted recording, and
-freshness scores FRESH_NO_DATE. Brief Section 6.2 M1 requires
-the default to be the current UTC date, recorded as defaulted
-and naming the date used: the stored record carries
-audit_date set to the current UTC date and
-audit_date_defaulted true beside it, a supplied date is
+freshness scores FRESH_NO_DATE. The default is the current
+local date, recorded as defaulted and naming the date used:
+the stored record carries audit_date set to the current
+local date and audit_date_defaulted true beside it, a
+supplied date is
 recorded as supplied with audit_date_defaulted false, and
 freshness computes on the date used."""
 
@@ -58,9 +58,8 @@ LIST_MARKERS = (
 )
 
 
-def today_utc():
-    return datetime.datetime.now(
-        datetime.timezone.utc).date().isoformat()
+def today_local():
+    return datetime.datetime.now().date().isoformat()
 
 
 def make_home(case):
@@ -327,17 +326,17 @@ class TestE06AuditDateDefault(unittest.TestCase):
                 return payload
         self.fail("no stored audit record for %s" % run_id)
 
-    def test_omitted_date_defaults_to_current_utc_date(self):
+    def test_omitted_date_defaults_to_current_local_date(self):
         record = service.audit(home=str(self.home),
                                page_file=str(PAGE))
-        self.assertEqual(record["audit_date"], today_utc())
+        self.assertEqual(record["audit_date"], today_local())
         self.assertIs(record["audit_date_defaulted"], True)
 
     def test_omitted_date_default_is_stored_not_only_returned(self):
         record = service.audit(home=str(self.home),
                                page_file=str(PAGE))
         stored = self.stored_payload(record["run_id"])
-        self.assertEqual(stored["audit_date"], today_utc())
+        self.assertEqual(stored["audit_date"], today_local())
         self.assertIs(stored["audit_date_defaulted"], True)
         self.assertIs(stored["audit_date_is_run_date"], True)
 
@@ -348,7 +347,7 @@ class TestE06AuditDateDefault(unittest.TestCase):
         # date the run runs on.
         record = service.audit(home=str(self.home),
                                page_file=str(PAGE))
-        self.assertEqual(record["audit_date"], today_utc())
+        self.assertEqual(record["audit_date"], today_local())
         self.assertIs(record["audit_date_is_run_date"], True)
 
     def test_freshness_computes_on_the_defaulted_date(self):
@@ -393,12 +392,12 @@ class TestE06AuditDateDefault(unittest.TestCase):
              "--page_file", str(PAGE), "--form", "advanced"])
         self.assertEqual(code, 0, err)
         body = json.loads(out)
-        self.assertEqual(body["audit_date"], today_utc())
-        # The artefact limb of this pin stood restated by the
-        # The settled cure: the Advanced audit artefact carries
-        # only the traced field set, so the defaulted flag is
-        # read on the stored record the shell run wrote, which
-        # is the surface brief Section 6.2 M1 governs.
+        self.assertEqual(body["audit_date"], today_local())
+        # The defaulted flag stands in the artefact's traced
+        # field set beside the date, and on the stored record
+        # the shell run wrote, which is the surface brief
+        # Section 6.2 M1 governs.
+        self.assertIs(body["audit_date_defaulted"], True)
         stored = self.stored_payload(body["run_id"])
         self.assertIs(stored["audit_date_defaulted"], True)
 
@@ -407,7 +406,7 @@ class TestE06AuditDateDefault(unittest.TestCase):
             ["audit", "--home", str(self.home),
              "--page_file", str(PAGE)])
         self.assertEqual(code, 0, err)
-        self.assertIn("audit_date: %s" % today_utc(), out)
+        self.assertIn("audit_date: %s" % today_local(), out)
 
 
 if __name__ == "__main__":

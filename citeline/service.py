@@ -2662,14 +2662,14 @@ def _audit_body(*, home, page_file=None, robots_file=None,
 
     The audit date of a fresh audit stands under brief
     Section 6.2, M1: where no audit date stands supplied,
-    the date defaults to the current date in UTC, that date
+    the date defaults to the current local date, that date
     is the date the run runs, and the stored record carries
     it in audit_date with audit_date_defaulted true beside
     it, naming the date used; a supplied date is recorded
     as supplied, with audit_date_defaulted false. Where the
     date was defaulted, audit_date_is_run_date is true by
     construction, because the default audit date is the
-    current date in UTC; the stored boolean otherwise
+    current local date; the stored boolean otherwise
     stands exactly as it stood before this recording.
 
     The snapshot stands produced by the acquisition
@@ -2736,8 +2736,7 @@ def _audit_body(*, home, page_file=None, robots_file=None,
     audit_date_defaulted = audit_date is None
     if audit_date_defaulted:
         import datetime
-        audit_date = datetime.datetime.now(
-            datetime.timezone.utc).date().isoformat()
+        audit_date = datetime.datetime.now().date().isoformat()
     journal = _journal()
     products = list_products(home=home)
     product_record = None
