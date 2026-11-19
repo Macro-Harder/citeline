@@ -25,7 +25,7 @@ def _fail(token, message):
 
 def _flush_directory(directory):
     """Flush one directory to storage, the directory
-    flush step of the pinned B4 write sequence."""
+    flush step of the pinned write sequence."""
     descriptor = os.open(directory, os.O_RDONLY)
     try:
         os.fsync(descriptor)
