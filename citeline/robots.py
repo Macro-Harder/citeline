@@ -16,9 +16,7 @@ Dates arrive as call inputs, never from a clock.
 """
 
 import hashlib
-import os
 import re
-import stat
 
 __all__ = [
     "TABLE_VERSION",
@@ -889,127 +887,115 @@ def evaluate_robots_text(text, evaluated_page_path=None,
 def _read_supplied_file(path):
     """Read one supplied robots file under boundary B1.
 
-    The open protocol stands as entry 13 row X-4 states
-    it and as the page intake implements it: a stat that
-    does not follow the final component, refusal of a
-    symbolic link, of a path that does not name a regular
-    file, and of a file with a hard link count above 1,
-    a non blocking no follow open, a device and inode
-    match against the pre open stat, and a bounded read
-    of the opened handle, so the stated size limit can
-    fire and a FIFO or device stands refused at once
-    instead of hanging the invocation. Every refusal on
-    this intake carries the row X-4 token
-    SUPPLIED_PATH_UNSAFE, the form the sister intakes
-    already return.
+    The open protocol stands in citeline.shared, as one
+    implementation for every intake: a stat that does not
+    follow the final component, refusal of a symbolic
+    link, of a path that does not name a regular file,
+    and of a file with a hard link count above 1, a non
+    blocking no follow open, a device and inode match
+    against the pre open stat, and a bounded read of the
+    opened handle, so the stated size limit can fire and
+    a FIFO or device stands refused at once instead of
+    hanging the invocation. This wrapper states the
+    protocol's refusals in this intake's vocabulary:
+    every refusal on this intake carries the row X-4
+    token SUPPLIED_PATH_UNSAFE, the form the sister
+    intakes already return, beside this intake's own
+    decoding and validation forms.
     """
     path_text = str(path)
+    from citeline import shared
     try:
-        pre = os.lstat(path_text)
-    except UnicodeEncodeError as exc:
-        # A path holding a lone surrogate does not encode
-        # for the stat call: that is the decoding failure
-        # in the path argument, and it stands answered in
-        # the recorded vocabulary, never as the encoder's
-        # raw error.
-        raise RobotsError(
-            "ROBOTS_DECODING_FAILED",
-            "the supplied path does not encode in UTF-8, "
-            "so it does not decode in UTF-8 strictly",
-        ) from exc
-    except ValueError as exc:
-        # A path holding a NUL character raises ValueError
-        # from the stat call itself, an embedded null byte:
-        # that is the same decoding failure in the path
-        # argument, and it stands answered in the recorded
-        # vocabulary, as the dispatch route answers the
-        # same string, never as the raw error.
-        raise RobotsError(
-            "ROBOTS_DECODING_FAILED",
-            "the supplied path holds a NUL character, so "
-            "it does not decode in UTF-8 strictly",
-        ) from exc
-    except FileNotFoundError as exc:
-        # A supplied path that does not exist is an
-        # operator input fault and takes the input class,
-        # not the integrity class of row X-4, which
-        # governs paths that exist but are not regular
-        # files or are unsafe.
-        raise RobotsError(
-            "VALIDATION_FAILED",
-            "the supplied robots file does not exist: %s"
-            % (path_text,),
-        ) from exc
-    except OSError as exc:
-        raise RobotsError(
-            "SUPPLIED_PATH_UNSAFE",
-            "supplied path cannot be stated: %s" % (exc,),
-        ) from exc
-    if stat.S_ISLNK(pre.st_mode):
-        raise RobotsError(
-            "SUPPLIED_PATH_UNSAFE",
-            "a supplied path that is itself a symbolic link "
-            "is rejected",
-        )
-    if not stat.S_ISREG(pre.st_mode):
-        raise RobotsError(
-            "SUPPLIED_PATH_UNSAFE",
-            "a supplied path that does not name a regular "
-            "file is rejected",
-        )
-    if pre.st_nlink > 1:
-        raise RobotsError(
-            "SUPPLIED_PATH_UNSAFE",
-            "a supplied file with a hard link count above 1 "
-            "is rejected",
-        )
-    flags = os.O_RDONLY
-    if hasattr(os, "O_NOFOLLOW"):
-        flags |= os.O_NOFOLLOW
-    if hasattr(os, "O_NONBLOCK"):
-        flags |= os.O_NONBLOCK
-    try:
-        descriptor = os.open(path_text, flags)
-    except OSError as exc:
-        raise RobotsError(
-            "SUPPLIED_PATH_UNSAFE",
-            "supplied path cannot be opened: %s" % (exc,),
-        ) from exc
-    try:
-        opened = os.fstat(descriptor)
-        if (opened.st_dev, opened.st_ino) != (pre.st_dev, pre.st_ino):
+        return shared.read_supplied_file(
+            path_text, limit_bytes=ROBOTS_FILE_LIMIT_BYTES)
+    except shared.SuppliedFileRefusal as refusal:
+        stage = refusal.stage
+        if stage == "nul":
+            # A path holding a NUL character: that is the
+            # decoding failure in the path argument, and it
+            # stands answered in the recorded vocabulary,
+            # as the dispatch route answers the same string,
+            # never as the raw error.
+            raise RobotsError(
+                "ROBOTS_DECODING_FAILED",
+                "the supplied path holds a NUL character, so "
+                "it does not decode in UTF-8 strictly",
+            ) from refusal
+        if stage == "unencodable":
+            # A path holding a lone surrogate does not
+            # encode for the stat call: that is the decoding
+            # failure in the path argument, and it stands
+            # answered in the recorded vocabulary, never as
+            # the encoder's raw error.
+            raise RobotsError(
+                "ROBOTS_DECODING_FAILED",
+                "the supplied path does not encode in UTF-8, "
+                "so it does not decode in UTF-8 strictly",
+            ) from refusal
+        if stage == "missing":
+            # A supplied path that does not exist is an
+            # operator input fault and takes the input class,
+            # not the integrity class of row X-4, which
+            # governs paths that exist but are not regular
+            # files or are unsafe.
+            raise RobotsError(
+                "VALIDATION_FAILED",
+                "the supplied robots file does not exist: %s"
+                % (path_text,),
+            ) from refusal
+        if stage == "unstatable":
+            if isinstance(refusal.exc, ValueError):
+                raise RobotsError(
+                    "ROBOTS_DECODING_FAILED",
+                    "the supplied path holds a NUL character, so "
+                    "it does not decode in UTF-8 strictly",
+                ) from refusal
             raise RobotsError(
                 "SUPPLIED_PATH_UNSAFE",
-                "the opened handle does not match the pre "
-                "open stat",
-            )
-        if not stat.S_ISREG(opened.st_mode):
+                "supplied path cannot be stated: %s"
+                % (refusal.exc,),
+            ) from refusal
+        if stage == "symlink":
             raise RobotsError(
                 "SUPPLIED_PATH_UNSAFE",
-                "the opened handle does not name a regular file",
+                "a supplied path that is itself a symbolic link "
+                "is rejected",
             )
-        if opened.st_nlink > 1:
+        if stage in ("directory", "not_regular"):
+            raise RobotsError(
+                "SUPPLIED_PATH_UNSAFE",
+                "a supplied path that does not name a regular "
+                "file is rejected",
+            )
+        if stage in ("hard_links", "opened_hard_links"):
             raise RobotsError(
                 "SUPPLIED_PATH_UNSAFE",
                 "a supplied file with a hard link count above 1 "
                 "is rejected",
             )
-        chunks = []
-        total = 0
-        while True:
-            chunk = os.read(descriptor, 65536)
-            if not chunk:
-                break
-            chunks.append(chunk)
-            total += len(chunk)
-            if total > ROBOTS_FILE_LIMIT_BYTES:
-                raise RobotsError(
-                    "LIMIT_EXCEEDED",
-                    "robots file total size over 512 KiB",
-                )
-        return b"".join(chunks)
-    finally:
-        os.close(descriptor)
+        if stage == "unopenable":
+            raise RobotsError(
+                "SUPPLIED_PATH_UNSAFE",
+                "supplied path cannot be opened: %s"
+                % (refusal.exc,),
+            ) from refusal
+        if stage == "mismatch":
+            raise RobotsError(
+                "SUPPLIED_PATH_UNSAFE",
+                "the opened handle does not match the pre "
+                "open stat",
+            )
+        if stage == "opened_not_regular":
+            raise RobotsError(
+                "SUPPLIED_PATH_UNSAFE",
+                "the opened handle does not name a regular file",
+            )
+        if stage == "too_large":
+            raise RobotsError(
+                "LIMIT_EXCEEDED",
+                "robots file total size over 512 KiB",
+            )
+        raise refusal.exc
 
 
 def evaluate_robots_file(path, evaluated_page_path=None,

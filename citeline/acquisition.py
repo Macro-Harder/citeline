@@ -27,7 +27,6 @@ import hashlib
 import json
 import os
 import re
-import stat
 import unicodedata
 from html import unescape as _unescape
 from html.parser import HTMLParser
@@ -1269,92 +1268,74 @@ def _read_supplied_file(page_path, size_limit_bytes=None):
     # the limits in force governs this gate and the service
     # preflight gate, so the brief default constant stands
     # only where no value in force reaches this reading.
+    # The open protocol itself stands in citeline.shared;
+    # this wrapper states its refusals in this intake's
+    # vocabulary.
     limit_bytes = size_limit_bytes if isinstance(
         size_limit_bytes, (int, float)) else _PAGE_FILE_LIMIT
     limit_label = "%s MiB" % (
         "%g" % (limit_bytes / (1024 * 1024)),)
     path_text = str(page_path)
-    if "\x00" in path_text:
-        _fail("SUPPLIED_PATH_UNSAFE",
-              "a supplied path holding a NUL byte cannot be "
-              "stated and is rejected")
+    from citeline import shared
     try:
-        pre = os.lstat(path_text)
-    except FileNotFoundError:
-        # A supplied path that does not exist is an
-        # operator input fault and takes the input class
-        # at row X-14, not the integrity class of row
-        # X-4: row X-4 governs paths that exist but are
-        # not regular files or are unsafe.
-        _fail("PAGE_EXTRACTION_FAILED",
-              "the supplied page file does not exist: %s"
-              % (path_text,))
-    except (OSError, ValueError) as exc:
-        _fail("SUPPLIED_PATH_UNSAFE",
-              "supplied path cannot be stated: %s" % (exc,))
-    if stat.S_ISLNK(pre.st_mode):
-        _fail("SUPPLIED_PATH_UNSAFE",
-              "a supplied path that is itself a symbolic link "
-              "is rejected")
-    if not stat.S_ISREG(pre.st_mode):
-        _fail("SUPPLIED_PATH_UNSAFE",
-              "a supplied path that does not name a regular "
-              "file is rejected")
-    if pre.st_nlink > 1:
-        _fail("SUPPLIED_PATH_UNSAFE",
-              "a supplied file with a hard link count above 1 "
-              "is rejected; this reading rests on the "
-              "filesystem maintaining a truthful link count, "
-              "and where a platform cannot give that count the "
-              "invocation refuses the supplied file and fails "
-              "closed")
-    flags = os.O_RDONLY
-    if hasattr(os, "O_NOFOLLOW"):
-        flags |= os.O_NOFOLLOW
-    if hasattr(os, "O_NONBLOCK"):
-        flags |= os.O_NONBLOCK
-    try:
-        descriptor = os.open(path_text, flags)
-    except FileNotFoundError:
-        _fail("PAGE_EXTRACTION_FAILED",
-              "the supplied page file does not exist: %s"
-              % (path_text,))
-    except (OSError, ValueError) as exc:
-        _fail("SUPPLIED_PATH_UNSAFE",
-              "supplied path cannot be opened: %s" % (exc,))
-    try:
-        opened = os.fstat(descriptor)
-        if (opened.st_dev, opened.st_ino) != (pre.st_dev, pre.st_ino):
+        return shared.read_supplied_file(
+            path_text, limit_bytes=limit_bytes)
+    except shared.SuppliedFileRefusal as refusal:
+        stage = refusal.stage
+        if stage == "nul":
             _fail("SUPPLIED_PATH_UNSAFE",
-                  "the opened handle does not match the pre "
-                  "open stat")
-        if not stat.S_ISREG(opened.st_mode):
+                  "a supplied path holding a NUL byte cannot be "
+                  "stated and is rejected")
+        elif stage in ("unencodable", "unstatable"):
             _fail("SUPPLIED_PATH_UNSAFE",
-                  "the opened handle does not name a regular file")
-        if opened.st_nlink > 1:
+                  "supplied path cannot be stated: %s"
+                  % (refusal.exc,))
+        elif stage == "missing":
+            # A supplied path that does not exist is an
+            # operator input fault and takes the input class,
+            # not the integrity class: the integrity class
+            # governs paths that exist but are
+            # not regular files or are unsafe.
+            _fail("PAGE_EXTRACTION_FAILED",
+                  "the supplied page file does not exist: %s"
+                  % (path_text,))
+        elif stage == "symlink":
+            _fail("SUPPLIED_PATH_UNSAFE",
+                  "a supplied path that is itself a symbolic link "
+                  "is rejected")
+        elif stage in ("directory", "not_regular"):
+            _fail("SUPPLIED_PATH_UNSAFE",
+                  "a supplied path that does not name a regular "
+                  "file is rejected")
+        elif stage == "hard_links":
+            _fail("SUPPLIED_PATH_UNSAFE",
+                  "a supplied file with a hard link count above 1 "
+                  "is rejected; this reading rests on the "
+                  "filesystem maintaining a truthful link count, "
+                  "and where a platform cannot give that count the "
+                  "invocation refuses the supplied file and fails "
+                  "closed")
+        elif stage == "opened_hard_links":
             _fail("SUPPLIED_PATH_UNSAFE",
                   "a supplied file with a hard link count above 1 "
                   "is rejected")
-        if opened.st_size > limit_bytes:
+        elif stage == "unopenable":
+            _fail("SUPPLIED_PATH_UNSAFE",
+                  "supplied path cannot be opened: %s"
+                  % (refusal.exc,))
+        elif stage == "mismatch":
+            _fail("SUPPLIED_PATH_UNSAFE",
+                  "the opened handle does not match the pre "
+                  "open stat")
+        elif stage == "opened_not_regular":
+            _fail("SUPPLIED_PATH_UNSAFE",
+                  "the opened handle does not name a regular file")
+        elif stage == "too_large":
             _fail("LIMIT_EXCEEDED",
                   "page file size limit is %s, with rejection "
                   "and no partial record" % (limit_label,))
-        chunks = []
-        total = 0
-        while True:
-            chunk = os.read(descriptor, 65536)
-            if not chunk:
-                break
-            chunks.append(chunk)
-            total += len(chunk)
-            if total > limit_bytes:
-                _fail("LIMIT_EXCEEDED",
-                      "page file size limit is %s, with "
-                      "rejection and no partial record"
-                      % (limit_label,))
-        return b"".join(chunks)
-    finally:
-        os.close(descriptor)
+        else:
+            raise refusal.exc
 
 
 # ----------------------------------------------------------------

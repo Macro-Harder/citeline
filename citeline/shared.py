@@ -9,6 +9,7 @@ vocabulary, so no import cycle can run through it.
 
 import os
 from bisect import bisect_left, bisect_right
+import stat
 
 from citeline import errors
 
@@ -783,3 +784,97 @@ def _similar_components(type_sets):
             frontier = joined_list
         components.append(component)
     return components
+
+
+class SuppliedFileRefusal(Exception):
+    """One refusal of the supplied file open protocol.
+
+    stage names the step that refused: "nul",
+    "unencodable", "unstatable", "missing", "symlink",
+    "directory", "not_regular", "hard_links",
+    "unopenable", "mismatch", "opened_not_regular",
+    "opened_hard_links", "too_large", or "unreadable".
+    exc carries the operating system error where one
+    stands. Each intake translates the refusal into its
+    own governed vocabulary; the protocol itself stands
+    in one place here.
+    """
+
+    def __init__(self, stage, exc=None):
+        super().__init__(stage)
+        self.stage = stage
+        self.exc = exc
+
+
+def read_supplied_file(path_text, limit_bytes=None):
+    """Read one supplied file under the open protocol and
+    return its bytes.
+
+    The protocol: refuse a path holding a NUL byte; stat
+    the path without following its final component;
+    refuse a symbolic link, a path that names no regular
+    file, and a file with a hard link count above 1; open
+    without following links and without blocking; check
+    the opened handle against the pre open stat (device,
+    inode, regular file, link count); read the handle in
+    chunks, refusing past limit_bytes where a limit
+    stands. Every refusal raises SuppliedFileRefusal with
+    the stage that refused.
+    """
+    path_text = str(path_text)
+    if "\x00" in path_text:
+        raise SuppliedFileRefusal("nul")
+    try:
+        pre = os.lstat(path_text)
+    except UnicodeEncodeError as exc:
+        raise SuppliedFileRefusal("unencodable", exc) from exc
+    except FileNotFoundError as exc:
+        raise SuppliedFileRefusal("missing", exc) from exc
+    except (OSError, ValueError) as exc:
+        raise SuppliedFileRefusal("unstatable", exc) from exc
+    if stat.S_ISLNK(pre.st_mode):
+        raise SuppliedFileRefusal("symlink")
+    if stat.S_ISDIR(pre.st_mode):
+        raise SuppliedFileRefusal("directory")
+    if not stat.S_ISREG(pre.st_mode):
+        raise SuppliedFileRefusal("not_regular")
+    if pre.st_nlink > 1:
+        raise SuppliedFileRefusal("hard_links")
+    flags = os.O_RDONLY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    if hasattr(os, "O_NONBLOCK"):
+        flags |= os.O_NONBLOCK
+    try:
+        descriptor = os.open(path_text, flags)
+    except FileNotFoundError as exc:
+        raise SuppliedFileRefusal("missing", exc) from exc
+    except OSError as exc:
+        import errno
+        if exc.errno in (errno.ELOOP, errno.EMLINK):
+            raise SuppliedFileRefusal("symlink", exc) from exc
+        raise SuppliedFileRefusal("unopenable", exc) from exc
+    try:
+        opened = os.fstat(descriptor)
+        if (opened.st_dev, opened.st_ino) != (pre.st_dev, pre.st_ino):
+            raise SuppliedFileRefusal("mismatch")
+        if not stat.S_ISREG(opened.st_mode):
+            raise SuppliedFileRefusal("opened_not_regular")
+        if opened.st_nlink > 1:
+            raise SuppliedFileRefusal("opened_hard_links")
+        chunks = []
+        total = 0
+        while True:
+            try:
+                chunk = os.read(descriptor, 65536)
+            except OSError as exc:
+                raise SuppliedFileRefusal("unreadable", exc) from exc
+            if not chunk:
+                break
+            chunks.append(chunk)
+            total += len(chunk)
+            if limit_bytes is not None and total > limit_bytes:
+                raise SuppliedFileRefusal("too_large")
+        return b"".join(chunks)
+    finally:
+        os.close(descriptor)
