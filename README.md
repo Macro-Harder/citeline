@@ -113,6 +113,13 @@ journal stand for removal:
 
     python install.py uninstall [location] [home]
 
+The installer places a launcher named citeline.py
+in the install location. Run the installed tool
+through the launcher, one subcommand per call,
+with the subcommand's flags after it:
+
+    python3 <install location>/citeline.py <subcommand> [flags]
+
 Material imported into the home is retained until
 the operator deletes the home by hand. Version 1
 ships no in product deletion route for imported
@@ -171,11 +178,15 @@ run and runs no audit.
    from the audit record as the --snapshot value.
 4. Name the round with name-round. A round must
    be named before answers import into it.
-5. Import each sampled answer with probe import,
+5. Set the product's query set with
+   set-query-set, naming the queries the round's
+   answers answer. probe import refuses an answer
+   whose query is not in the product's query set.
+6. Import each sampled answer with probe import,
    naming the product and the round label from
    step 4.
-6. Read the round with probe report.
-7. Draft the guide with guide. The guide identity
+7. Read the round with probe report.
+8. Draft the guide with guide. The guide identity
    a guide call needs is exactly one of two
    forms: the audit run_id alone, or the product
    together with its round label.
