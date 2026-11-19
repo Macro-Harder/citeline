@@ -68,6 +68,7 @@ import stat
 import time
 
 from citeline import errors, service
+from citeline.shared import _fail, _flush_directory, _honesty_sentence
 
 WatchError = errors.CitelineError
 
@@ -92,10 +93,6 @@ CONTENTION_FAILURE_RECORD = (
 )
 
 _FORMS = ("simple", "advanced", "agentic")
-
-
-def _fail(token, message):
-    raise errors.CitelineError(message, token=token)
 
 
 def _clock():
@@ -1092,18 +1089,6 @@ def _cadence_interval_days(cadence):
     return None
 
 
-def _honesty_sentence():
-    try:
-        from citeline import reporting
-        return reporting.HONESTY_SENTENCE
-    except Exception:
-        return (
-            "This score is a signal index. It measures the "
-            "presence of citability signals. It is not "
-            "validated as a predictor of citation, and it "
-            "does not verify truth.")
-
-
 def _bounds():
     return {
         "establishes": [
@@ -1613,16 +1598,6 @@ def _remove_orphaned_temporaries(directory, destination_name):
             os.unlink(os.path.join(directory, name))
         except OSError:
             pass
-
-
-def _flush_directory(directory):
-    """Flush one directory to storage, the directory
-    flush step of the pinned B4 write sequence."""
-    descriptor = os.open(directory, os.O_RDONLY)
-    try:
-        os.fsync(descriptor)
-    finally:
-        os.close(descriptor)
 
 
 def _last_journal_sequence(home):

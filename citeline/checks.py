@@ -41,6 +41,7 @@ import unicodedata
 from decimal import Decimal, ROUND_HALF_UP
 from html import unescape as _html_unescape
 from urllib.parse import unquote
+from citeline.shared import _get, _host_from_authority
 
 __all__ = [
     "STATUS_VALUES",
@@ -100,14 +101,6 @@ _MONTHS = {
     "november": 11,
     "december": 12,
 }
-
-
-def _get(record, name, default=None):
-    if record is None:
-        return default
-    if isinstance(record, dict):
-        return record.get(name, default)
-    return getattr(record, name, default)
 
 
 def _round3(value):
@@ -366,16 +359,6 @@ def _decoded_authority_parts(target):
         decoded[split:],
         rest[raw_end:],
     )
-
-
-def _host_from_authority(authority):
-    host = authority.rsplit("@", 1)[-1]
-    if host.startswith("["):
-        closing = host.find("]")
-        host = host[:closing + 1] if closing >= 0 else host
-    else:
-        host = host.split(":", 1)[0]
-    return host
 
 
 def _host_of(target):

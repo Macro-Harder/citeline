@@ -25,6 +25,7 @@ import fcntl
 import os
 import re
 import unicodedata
+from citeline.shared import _get
 
 
 __all__ = [
@@ -332,12 +333,6 @@ def _as_record(value):
         if hasattr(value, name):
             record[name] = copy.deepcopy(getattr(value, name))
     return record
-
-
-def _get(record, name, default=None):
-    if isinstance(record, dict):
-        return record.get(name, default)
-    return getattr(record, name, default)
 
 
 # ----------------------------------------------------------------

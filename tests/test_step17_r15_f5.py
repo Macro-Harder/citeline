@@ -257,14 +257,19 @@ def _cyclic_family(count, width=6, block=500, core=100):
 
 
 class TestR15F5ByteIdentity(unittest.TestCase):
-    # The two copies of _similar_components stand byte
-    # identical in the cured reading.
+    # _similar_components stands in one place, in the
+    # shared module: both modules expose that one
+    # function, and its text stands at the pinned length
+    # the two copies stood at.
 
     def test_similar_components_copies_byte_identical(self):
-        detection_text = _function_text(detection)
-        metrics_text = _function_text(metrics)
-        self.assertEqual(detection_text, metrics_text)
-        self.assertEqual(len(detection_text), 34856)
+        from citeline import shared
+        self.assertIs(detection._similar_components,
+                      shared._similar_components)
+        self.assertIs(metrics._similar_components,
+                      shared._similar_components)
+        shared_text = _function_text(shared)
+        self.assertEqual(len(shared_text), 34856)
 
 
 class TestR15F5CureCorrectnessDifferentials(unittest.TestCase):

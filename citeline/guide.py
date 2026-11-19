@@ -13,6 +13,7 @@ Dates are call inputs. No date is read from a clock here.
 
 import re
 import unicodedata
+from citeline.shared import _get
 
 FAIL_CODES = [
     "FAIL_CITATIONS",
@@ -70,14 +71,6 @@ FIRST_IMPORT_STAMP_KEYS = (
 )
 
 STAMP_KEYS = VERSION_KEYS + FIRST_IMPORT_STAMP_KEYS
-
-
-def _get(record, name, default=None):
-    if record is None:
-        return default
-    if isinstance(record, dict):
-        return record.get(name, default)
-    return getattr(record, name, default)
 
 
 # The one word token form, in the same shape as the

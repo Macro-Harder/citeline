@@ -39,6 +39,7 @@ import os
 import shutil
 import stat
 import sys
+from citeline.shared import _flush_directory
 
 PRODUCT_FILE_NAME = "citeline.py"
 # The config file at the install location is the governing
@@ -364,16 +365,6 @@ def _remove_orphaned_temporaries(directory, destination_name):
             os.unlink(os.path.join(directory, name))
         except OSError:
             pass
-
-
-def _flush_directory(directory):
-    """Flush one directory to storage, the directory
-    flush step of the pinned B4 write sequence."""
-    descriptor = os.open(directory, os.O_RDONLY)
-    try:
-        os.fsync(descriptor)
-    finally:
-        os.close(descriptor)
 
 
 def _last_journal_sequence(home):
