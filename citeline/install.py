@@ -166,15 +166,16 @@ class InstallError(Exception):
         self.error_value = token
         row, exit_code, precedence = _TOKEN_FORMS.get(
             token, ("X-9", 3, "domain"))
+        entry = None
         try:
             from citeline import errors
             entry = errors.error_for_token(token)
-            if entry is not None:
-                row = entry["row"]
-                exit_code = entry["exit_code"]
-                precedence = entry["precedence_class"]
-        except Exception:
-            pass
+        except (ImportError, KeyError, TypeError, AttributeError):
+            entry = None
+        if entry is not None:
+            row = entry["row"]
+            exit_code = entry["exit_code"]
+            precedence = entry["precedence_class"]
         self.row = row
         self.exit_code = exit_code
         self.precedence_class = precedence
@@ -383,7 +384,7 @@ def _last_journal_sequence(home):
                 if line.strip():
                     count += 1
         return count
-    except Exception:
+    except (OSError, ValueError):
         return 0
 
 
@@ -589,7 +590,7 @@ def _config_check(path, home):
             sys.path.insert(0, _PRODUCT_DIR)
         from citeline import journal as journal_module
         journal = journal_module
-    except Exception:
+    except Exception:  # noqa: BLE001 - the installer must stand where the package journal cannot be imported at all; the local line test then stands as the floor, as the docstring states
         journal = None
     if journal is not None:
         try:
@@ -601,7 +602,7 @@ def _config_check(path, home):
             _values, warnings = journal.parse_config(
                 text, home=str(home))
             return True, _surface_warnings(warnings)
-        except Exception:
+        except Exception:  # noqa: BLE001 - any failure of the package parse, the governed parse error among them, stands as the config unvalidated by the package here; the local reading below still runs
             return False, []
     try:
         with open(path, "r", encoding="utf-8") as handle:
@@ -637,7 +638,7 @@ def _config_fault_detail(path):
         from citeline import journal as journal_module
         limit_keys = tuple(
             getattr(journal_module, "_LIMIT_DEFAULT", {}) or {})
-    except Exception:
+    except (ImportError, TypeError, AttributeError):
         limit_keys = ()
     if text.startswith("\ufeff"):
         text = text[1:]

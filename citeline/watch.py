@@ -748,7 +748,7 @@ def _page_age_days(record, audit_date, extracted_text=None):
                 if value is not None:
                     found = value
                     break
-    except Exception:
+    except (ValueError, TypeError, AttributeError):
         return None
     if found is None:
         return None
@@ -775,7 +775,7 @@ def _audit_entry(home, plan, product, target):
             "evaluated_page_path"]
     try:
         record = service.audit(**kwargs)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - a watch round completes its other targets on any failure of one target's audit; the failure stands recorded in the target's entry, which is the round's record of it
         entry = {"product": product, "target_kind": "audit"}
         entry.update(_failure_fields(exc))
         return entry
@@ -812,7 +812,7 @@ def _audit_entry(home, plan, product, target):
             if isinstance(extraction, dict) else None
         if isinstance(extracted, dict):
             extracted_text = extracted.get("running_text")
-    except Exception:
+    except (errors.CitelineError, OSError, ValueError, TypeError):
         extracted_text = None
     entry["page_age_days"] = _page_age_days(
         record, audit_date, extracted_text)
@@ -827,7 +827,7 @@ def _audit_entry(home, plan, product, target):
                 "record_identity": draft.get("guide_id"),
                 "source_run_id": run_id,
             })
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - a watch round completes its other rows on any failure of one guide draft; the failure stands recorded in the row
             fields = _failure_fields(exc)
             row = {
                 "kind": "guide",
@@ -855,7 +855,7 @@ def _probe_entry(home, plan, product, round_label, scope_rounds):
         service.probe_report(
             home=str(home), product=product, round=round_label,
             form=form, audit_date=audit_date)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - a watch round completes its other targets on any failure of one target's probe report; the failure stands recorded in the target's entry
         entry = {"product": product, "target_kind": "probe"}
         entry.update(_failure_fields(exc))
         return entry, 0
@@ -890,7 +890,7 @@ def _probe_entry(home, plan, product, round_label, scope_rounds):
                     "outcome": "completed",
                     "record_identity": round_label,
                 })
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - a watch round completes its other rows on any failure of one trend reading; the failure stands recorded in the entry's trend_error
                 entry["trend_error"] = service.recorded_error(exc)
                 rows.append({
                     "kind": "trend",
@@ -925,7 +925,7 @@ def _standing_product_page_snapshot_count(home, products):
         # counts as no standing product page snapshot
         # here, as it counts nowhere else.
         entries = journal.fold(str(home), apply_corrections=True)
-    except Exception:
+    except (OSError, ValueError, errors.CitelineError):
         return 0, set()
     latest = {}
     order = []
@@ -1423,7 +1423,7 @@ def _write_output(result, output_path, form):
     try:
         from citeline import reporting
         rendered = reporting.render(result, form=form)
-    except Exception:
+    except (ValueError, TypeError, KeyError, AttributeError):
         rendered = result
     if not isinstance(rendered, str):
         rendered = json.dumps(rendered, sort_keys=True, indent=2)
@@ -1578,7 +1578,7 @@ def _last_journal_sequence(home):
                 if line.strip():
                     count += 1
         return count
-    except Exception:
+    except (ImportError, OSError, ValueError):
         return 0
 
 

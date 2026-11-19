@@ -178,8 +178,8 @@ def _config_key_lines():
             elif key == "anchor_path":
                 lines.append(
                     "  anchor_path: default none, unset")
-    except Exception:
-        pass
+    except (KeyError, TypeError, AttributeError, ValueError):
+        return lines
     return lines
 
 
@@ -374,13 +374,14 @@ def _exit_code_for(exc):
     token = getattr(exc, "token", None) or getattr(
         exc, "error_value", None)
     if token is not None:
+        entry = None
         try:
             from citeline import errors
             entry = errors.error_for_token(token)
-            if entry is not None:
-                return entry["exit_code"]
-        except Exception:
-            pass
+        except (ImportError, KeyError, TypeError, AttributeError):
+            entry = None
+        if entry is not None:
+            return entry["exit_code"]
     # No reported error value stands on the exception, so
     # no class code stands assigned to it under the per
     # operation rule (plan EC-126 subsection 4.2): the call
@@ -638,7 +639,7 @@ def _print_error(exc):
         record = service.recorded_error(exc)
         value = record.get("error_value")
         message = record.get("message") or str(exc)
-    except Exception:
+    except Exception:  # noqa: BLE001 - the error printer must never itself fail: any failure of the recorded reading falls back to the exception's own token and text here
         value = getattr(exc, "token", None) or getattr(
             exc, "error_value", None)
         message = str(exc)
@@ -690,7 +691,7 @@ def _home_from_plan(plan_path):
     try:
         with open(plan_path, "r", encoding="utf-8") as handle:
             plan = json.load(handle)
-    except Exception:
+    except (OSError, ValueError, TypeError):
         return None
     if isinstance(plan, dict):
         home = plan.get("home")
@@ -725,8 +726,8 @@ def _append_malformed_record(home, operation, audit_date=None):
         journal.append_entry(
             str(home), "failure_record", payload,
             audit_date=audit_date)
-    except Exception:
-        pass
+    except Exception:  # noqa: BLE001 - this helper never raises: where the chain does not accept the record in any form, the caller response stands as the only record, as the docstring states
+        return
 
 
 def _usage_error(detail, home=None, operation="citeline",
@@ -761,7 +762,7 @@ def _missing_required(operation, inputs):
     """
     try:
         signature = inspect.signature(getattr(service, operation))
-    except Exception:
+    except (ValueError, TypeError, AttributeError):
         return []
     present = set(inputs)
     missing = []
@@ -893,15 +894,15 @@ def main(argv=None):
             # selection at this layer.
             try:
                 record_home = service._resolve_home(record_home)
-            except Exception:
-                pass
+            except Exception:  # noqa: BLE001 - the home resolution inside the malformed call path is best effort in any form: where it fails, the home stands as the call named it
+                record_home = inputs.get("home")
         return _usage_error(
             "the call stands malformed against the inputs "
             "the subcommand accepts",
             home=record_home,
             operation=subcommand,
             audit_date=inputs.get("audit_date"))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - the dispatch boundary: any failure of a service call stands printed in the governed form with its governed exit code, never as a raw traceback
         _print_error(exc)
         return _exit_code_for(exc)
     if isinstance(record, str):
@@ -915,8 +916,8 @@ def main(argv=None):
             rendered = _render_for_print(
                 record, form=form or "simple")
             _print_rendered(rendered)
-        except Exception:
-            pass
+        except Exception:  # noqa: BLE001 - a rendering failure on a computed record never changes the call's outcome; the verify exit code below derives from the record, not the print
+            rendered = None
     if operation == "verify":
         return 0 if record.get("passed") else 5
     return 0
@@ -955,15 +956,15 @@ def _run_watch(tokens):
             "inputs the subcommand accepts",
             home=_home_from_plan(inputs.get("plan")),
             operation="watch")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - the watch dispatch boundary, on the same terms as the main dispatch: any failure stands printed in the governed form with its governed exit code
         _print_error(exc)
         return _exit_code_for(exc)
     try:
         rendered = _render_for_print(
             result, form=form or result.get("form") or "simple")
         _print_rendered(rendered)
-    except Exception:
-        pass
+    except Exception:  # noqa: BLE001 - a rendering failure on a computed record never changes the call's outcome
+        rendered = None
     return 0
 
 

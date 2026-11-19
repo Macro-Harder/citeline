@@ -189,7 +189,7 @@ def _fold(home, apply_corrections=False):
     try:
         entries = journal.fold(
             str(home), apply_corrections=apply_corrections)
-    except Exception:
+    except (OSError, ValueError, errors.CitelineError):
         return []
     return list(entries or [])
 
@@ -203,7 +203,8 @@ def _entry_count(home):
     journal = _journal()
     try:
         return int(journal.verify_chain(str(home))["entry_count"])
-    except Exception:
+    except (OSError, ValueError, TypeError, KeyError,
+            errors.CitelineError):
         return len(_fold(home))
 
 
@@ -211,7 +212,8 @@ def _barred_check(home):
     journal = _journal()
     try:
         result = journal.verify_chain(str(home))
-    except Exception:
+    except (OSError, ValueError, TypeError,
+            errors.CitelineError):
         return
     if not result.get("passed"):
         _fail(
@@ -264,7 +266,7 @@ def _resolve_home(home):
         seen.append(marker)
         try:
             selected = _journal().selected_home(current)
-        except Exception:
+        except (OSError, ValueError, errors.CitelineError):
             return current
         if str(selected) == current:
             return current
@@ -332,11 +334,11 @@ def _recover_interrupted_batch(home):
         try:
             stood_at_attempt = os.path.lexists(
                 intent_path_fn(str(home)))
-        except Exception:
+        except (OSError, ValueError, TypeError, AttributeError):
             stood_at_attempt = None
     try:
         recover(str(home))
-    except Exception:
+    except Exception:  # noqa: BLE001, S110 - the recovery attempt's failure, in any form, is exactly what the deferred signal below judges; absorbing it here hands the judgement to that signal
         pass
     _signal_deferred_recovery(
         home, journal, record_stood_at_attempt=stood_at_attempt)
@@ -412,7 +414,7 @@ def _signal_deferred_recovery(home, journal,
             return
     except errors.CitelineError:
         raise
-    except Exception:
+    except Exception:  # noqa: BLE001 - this probe reads a possibly damaged intent record through journal internal helpers; any failure of that reading stands as no signal, and the governed errors above still raise
         return
     defer_marker = journal._DEFER_BATCH_RECOVERY
     if validated is None or validated is defer_marker:
@@ -587,7 +589,7 @@ def _anchor_limit_sentence():
     try:
         from citeline import reporting
         return reporting.ANCHOR_LIMIT_SENTENCE
-    except Exception:
+    except (ImportError, AttributeError):
         return (
             "Verify proves internal consistency only. A writer "
             "who replaces the whole product home can replace "
@@ -654,7 +656,7 @@ def _limits_in_force(home, run_id=None):
     journal = _journal()
     try:
         limits = journal.effective_limits(str(home), run_id=run_id)
-    except Exception:
+    except Exception:  # noqa: BLE001 - limits that cannot be read in any form leave no limits standing for this statement; the enforcement paths read them again on their own terms
         limits = {}
     raised = any(
         isinstance(value, dict) and value.get("source") == "raise"
@@ -685,7 +687,7 @@ def _limit_value(home, key, run_id=None):
         entry = limits.get(key) or {}
         value = entry.get("value")
         return value if isinstance(value, (int, float)) else None
-    except Exception:
+    except Exception:  # noqa: BLE001 - where no value can be read, None stands and the caller applies no bound of its own, as the docstring states
         return None
 
 
@@ -1066,7 +1068,8 @@ def status(*, home):
         try:
             chain = journal.verify_chain(str(home))
             position = chain.get("failing_sequence")
-        except Exception:
+        except (OSError, ValueError, TypeError,
+                errors.CitelineError):
             position = None
         result["failing_position"] = position
         result["position"] = position
@@ -1143,8 +1146,8 @@ def verify(*, home):
         result["anchor"] = snapshot.get("anchor")
         result["head"] = snapshot.get("head")
         result["config_warnings"] = snapshot.get("config_warnings")
-    except Exception:
-        pass
+    except Exception:  # noqa: BLE001 - status still answers where the snapshot cannot be read, with the snapshot fields omitted, as the issue record for this route states; the omission is the record of the failure
+        snapshot = None
     result["anchor_limit"] = _anchor_limit_sentence()
     result["anchor_limit_sentence"] = _anchor_limit_sentence()
     result["honesty_sentence"] = _honesty_sentence()
@@ -1226,13 +1229,13 @@ def _version_in_force(axis, product_record):
         try:
             from citeline import checks as checks_module
             return checks_module.SCORE_RULESET_VERSION
-        except Exception:
+        except (ImportError, AttributeError):
             return None
     if axis == "crawler_table_version":
         try:
             from citeline import robots as robots_module
             return robots_module.TABLE_VERSION
-        except Exception:
+        except (ImportError, AttributeError):
             return None
     return None
 
@@ -1819,7 +1822,7 @@ def list_products(*, home):
         records = list(registry.list_products(str(home)) or [])
     except errors.CitelineError:
         raise
-    except Exception:
+    except (OSError, ValueError, TypeError, AttributeError):
         return []
     order = []
     for entry in _fold(home):
@@ -1920,7 +1923,7 @@ def _robots_evaluation(*, home, robots_file, evaluated_page_path,
     try:
         from citeline import robots as robots_module
         module = robots_module
-    except Exception:
+    except ImportError:
         module = None
     if module is not None:
         for name in ("evaluate", "evaluate_robots",
@@ -2089,7 +2092,7 @@ def _with_group_rules(evaluation, robots_file):
     try:
         text, _notes = robots_module.decode_robots_bytes(raw)
         parsed = robots_module.parse_robots(text)
-    except Exception:
+    except (errors.CitelineError, ValueError, TypeError):
         return evaluation
     enriched = dict(evaluation)
     enriched["groups"] = parsed.get("groups") or []
@@ -2254,7 +2257,7 @@ def _fence_form(line):
         from citeline import probe_import as import_module
         judged_fence = getattr(
             import_module, "_judged_fence", None)
-    except Exception:
+    except ImportError:
         judged_fence = None
     if judged_fence is not None:
         return judged_fence(line)
@@ -2726,8 +2729,9 @@ def _audit_body(*, home, page_file=None, robots_file=None,
                 raise _preflight_refusal(39, operation="audit")
         except errors.CitelineError:
             raise
-        except Exception:
-            pass
+        except (OSError, ValueError, TypeError, AttributeError,
+                KeyError):
+            cap = None
         _audit_preflight_limits(home, page_file, start_limits)
     if page_file is None:
         _fail(
@@ -3141,7 +3145,7 @@ def _detector_version():
     try:
         from citeline import detection
         return getattr(detection, "DETECTOR_VERSION", 1)
-    except Exception:
+    except (ImportError, AttributeError):
         return 1
 
 
@@ -3211,7 +3215,7 @@ def _import_preflight(home, answer_file, extra_entries):
     journal = _journal()
     try:
         limits = journal.effective_limits(str(home))
-    except Exception:
+    except Exception:  # noqa: BLE001 - limits that cannot be read in any form leave this preflight with nothing to refuse on; the import route reads them again under its own refusals
         return
     count = _entry_count(home)
     needed = 1 + int(extra_entries)
@@ -3239,7 +3243,7 @@ def _import_preflight(home, answer_file, extra_entries):
             raise _preflight_refusal(40)
     except errors.CitelineError:
         raise
-    except Exception:
+    except (OSError, ValueError, TypeError, AttributeError):  # noqa: S110 - a size probe that cannot read states no refusal; the audit proceeds and its own reads judge the home
         pass
 
 
@@ -3322,7 +3326,7 @@ def _import_front_matter_limits(home, answer_file):
         from citeline import probe_import as import_module
         _raw, text, _hash = import_module.read_answer_file(
             str(answer_file), home=home)
-    except Exception:
+    except (errors.CitelineError, OSError, ValueError):
         return
     strip = getattr(import_module, "_strip_head", None)
     working = strip(text) if strip is not None else text
@@ -3367,7 +3371,7 @@ def _import_front_matter_limits(home, answer_file):
             else:
                 parsed = json.loads(
                     block, object_pairs_hook=_flow_pairs_hook)
-        except Exception:
+        except (ValueError, TypeError, RecursionError):
             return
         if not isinstance(parsed, dict):
             return
@@ -3520,7 +3524,7 @@ def _worksheet_record_count(answer_file, home=None):
         _raw, text, _hash = import_module.read_answer_file(
             str(answer_file), home=home)
         sheet = import_module.parse_worksheet(text)
-    except Exception:
+    except (errors.CitelineError, OSError, ValueError, TypeError):
         return None
     return sum(1 for slot in sheet.get("slots", [])
                if str(slot.get("body") or "").strip())
@@ -3532,7 +3536,7 @@ def _first_import_extra(home, product, round_label):
         product_record = _require_product(home, product)
         round_record = _require_round(home, product_record,
                                       round_label)
-    except Exception:
+    except (errors.CitelineError, OSError, ValueError):
         return 0
     if round_record.get("registry_version_at_first_import") is None:
         return 1
@@ -3609,7 +3613,7 @@ def probe_import(*, home, answer_file=None, product=None,
     if recover is not None:
         try:
             recover(str(home))
-        except Exception:
+        except Exception:  # noqa: BLE001, S110 - a recovery that cannot run here leaves the chain as it stands; the barred check and the import's own journal reads judge that state under their own refusals
             pass
     _barred_check(home)
     run_started = _clock()
@@ -3922,7 +3926,8 @@ def _surface_failure_records(record, home):
         # silence covers a fold that cannot stand, not a
         # judged field.
         raise
-    except Exception:
+    except (OSError, ValueError, TypeError, AttributeError,
+            KeyError):
         return record
     if payloads:
         record["failure_records"] = payloads
@@ -3973,7 +3978,7 @@ def _append_failure_record(home, operation, exc, subject, audit_date):
         chain = journal.verify_chain(str(home))
         if not chain.get("passed"):
             return
-    except Exception:
+    except Exception:  # noqa: BLE001 - this helper never raises: a chain that cannot be verified accepts no failure record, and the caller response stands as the only record
         return
     token = getattr(exc, "token", None) or getattr(
         exc, "error_value", None) or str(exc)
@@ -4010,8 +4015,8 @@ def _append_failure_record(home, operation, exc, subject, audit_date):
         journal.append_entry(
             str(home), "failure_record", payload,
             audit_date=audit_date)
-    except Exception:
-        pass
+    except Exception:  # noqa: BLE001 - recording a failure must never mask the failure it records; this helper never raises
+        return
 
 
 def _bound_product_record(home, product_record, round_record):
