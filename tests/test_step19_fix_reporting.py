@@ -213,7 +213,7 @@ class TestU08SelectionStatementsEveryForm(unittest.TestCase):
     def _draft_and_forms(self, page_name):
         import json
 
-        import test_s09_reporting as shipped
+        from tests import test_s09_reporting as shipped
 
         root, home = shipped.make_home(self)
         shipped.seed_product(home)
@@ -401,7 +401,7 @@ class TestR19096AdvancedCommonFields(unittest.TestCase):
     honesty sentence field."""
 
     def test_fields_stand_on_each_report_object(self):
-        import test_s09_reporting as shipped
+        from tests import test_s09_reporting as shipped
         from citeline import service
 
         root, home = shipped.make_home(self)
@@ -443,7 +443,7 @@ class TestR19097AnchorSentenceClosingBlock(unittest.TestCase):
     NEEDLE = "Verify proves internal consistency only"
 
     def test_sentence_in_closing_block(self):
-        import test_s09_reporting as shipped
+        from tests import test_s09_reporting as shipped
         from citeline import service
 
         root, home = shipped.make_home(self)
@@ -625,7 +625,7 @@ class TestR19003CitedFiguresDefined(unittest.TestCase):
     them."""
 
     def test_definitions_in_every_form(self):
-        import test_s09_reporting as shipped
+        from tests import test_s09_reporting as shipped
 
         root, home = shipped.make_home(self)
         shipped.seed_product(home)

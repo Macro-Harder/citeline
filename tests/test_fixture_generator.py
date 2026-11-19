@@ -10,7 +10,7 @@ written before the generator.
 import hashlib
 import unittest
 
-import fixture_generator as fg
+from tests import fixture_generator as fg
 
 
 class ScalingRouteTests(unittest.TestCase):
