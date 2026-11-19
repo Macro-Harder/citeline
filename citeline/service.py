@@ -4715,7 +4715,7 @@ def _guide_impl(*, home, run_id=None, product=None,
             "guide takes exactly one of run_id, or product "
             "with round label; no complete selector stands "
             "named")
-    journal = _journal()
+    _journal()
     from citeline import guide as guide_module
     if run_id is not None:
         audit_record = None

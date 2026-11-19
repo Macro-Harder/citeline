@@ -569,7 +569,6 @@ def canonical_form(target):
         # key stands as the target as written, never as
         # the key of the host it would decode to twice.
         return text
-    scheme = (parts.scheme or "").casefold()
     try:
         port = parts.port
     except ValueError:

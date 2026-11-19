@@ -1687,7 +1687,6 @@ def round_metrics(answers, kind, frame=None, datum=None,
     engine_values = [_first(item, ("engine_label", "engine"), "") for item in active]
     query_values = [_get(item, "query", "") for item in active]
     day_values = [_get(item, "captured_on", "") for item in active]
-    method_values = [_first(item, ("capture_method", "method"), "") for item in active]
     # The capture context stands over every answer
     # standing in the round for the kind, designated
     # controls included, and the same set governs the
@@ -2055,7 +2054,6 @@ def _split_references(text):
         else:
             break
     if len(trailing) >= 2:
-        keep = prose_split[:len(prose_split) - len(trailing)]
         # The empty line scan above may overreach, so the
         # trailing set is recomputed from the end directly.
         tail_lines = []
