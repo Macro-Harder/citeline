@@ -800,7 +800,6 @@ def _page_age_days(record, audit_date, extracted_text=None):
 
 def _audit_entry(home, plan, product, target):
     audit_date = plan.get("audit_date")
-    form = plan.get("form") or "simple"
     kwargs = {
         "home": str(home),
         "page_file": str(target["page_file"]),
