@@ -201,7 +201,17 @@ class TestD06SimpleAuditProse(F1Base):
         lines = text.splitlines()
         self.assertLess(len(lines), 250)
         self.assertEqual(text.count("answer_first"), 1)
-        self.assertEqual(text.count("keyword_stuffing"), 1)
+        # Under the earned to status mapping Captain JP ruled
+        # for issue #10, keyword_stuffing earns part of its
+        # weight on this page and stands warned, so the Top
+        # adverse reasons section names it once, in that form.
+        # That approved mention is the only second naming: the
+        # check's own record still stands exactly once, and no
+        # record repeats.
+        adverse = text.split("Top adverse reasons:")[1].split(
+            "Checks:")[0]
+        self.assertIn("keyword_stuffing: warned", adverse)
+        self.assertEqual(text.count("keyword_stuffing"), 2)
         self.assertNotIn("evidence_spans:", text)
         self.assertNotIn("detail_counts:", text)
 
