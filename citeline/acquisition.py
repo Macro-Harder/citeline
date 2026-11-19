@@ -32,6 +32,8 @@ import unicodedata
 from html import unescape as _unescape
 from html.parser import HTMLParser
 
+from citeline.errors import CitelineError as _BaseError
+
 
 __all__ = [
     "AcquisitionError",
@@ -55,9 +57,6 @@ _TOKEN_ROWS = {
     "SUPPLIED_PATH_UNSAFE": ("X-4", "integrity", 5),
     "VALIDATION_FAILED": ("X-5", "usage", 2),
 }
-
-
-from citeline.errors import CitelineError as _BaseError
 
 
 class AcquisitionError(_BaseError):
