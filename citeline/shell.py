@@ -312,13 +312,15 @@ def help_text():
         "developing at 60 or more, thin at 40 or more, and "
         "poor below 40, on a scale of 0 to 100, in that "
         "order from highest to lowest.",
-        "Fixture example, a complete valid import:",
+        "Fixture example, a complete valid import (the "
+        "query stands in the product's query set first, "
+        "set by set-query-set or at add-product):",
         "  probe import --home <home> --answer_file "
-        "fixture-answer.txt --product Example Product "
-        "--round round-1 --engine_label Fixture Engine "
-        "--query What is Example Product? --kind fixture "
-        "--captured_on 2026-08-16 --capture_method manual "
-        "copy --control_designation positive --audit_date "
+        "fixture-answer.txt --product \"Example Product\" "
+        "--round round-1 --engine_label \"Fixture Engine\" "
+        "--query \"What is Example Product?\" --kind fixture "
+        "--captured_on 2026-08-16 --capture_method \"manual "
+        "copy\" --control_designation positive --audit_date "
         "2026-08-16",
     ]
     lines.extend(_config_key_lines())
