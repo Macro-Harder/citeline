@@ -2345,7 +2345,7 @@ def _front_matter_block_depth(block):
     return deepest
 
 
-def _front_matter_key_count(page_file):
+def _front_matter_key_count(page_file, raw=None):
     """The top level key count of one page's front matter block.
 
     The count stands taken over the whole block, not inside a
@@ -2367,11 +2367,12 @@ def _front_matter_key_count(page_file):
     lines alike. The line form counts the lines the parser's own
     line reading judges as key value pairs, blank lines and
     comment lines among the lines it passes over."""
-    try:
-        with open(str(page_file), "rb") as handle:
-            raw = handle.read()
-    except (OSError, ValueError, UnicodeError):
-        return None
+    if raw is None:
+        try:
+            with open(str(page_file), "rb") as handle:
+                raw = handle.read()
+        except (OSError, ValueError, UnicodeError):
+            return None
     # The count stands taken on the same text the parser
     # parses: the extraction path strips one leading
     # byte order mark before it parses the block, so
@@ -2448,25 +2449,31 @@ def _audit_preflight_limits(home, page_file, start_limits):
     count, stand enforced here before any extraction runs, at
     the values in force for the run the service assigns: a
     config set value governs the audit path, not the hardcoded
-    default of the component below."""
+    default of the component below.
+
+    The page file stands judged through the safe supplied
+    file reader before any other read of it on this route,
+    and limit 1 stands enforced inside that reading, at the
+    value in force: a supplied path that names no regular
+    file (a device, a FIFO, a link) stands refused in the
+    governed vocabulary before any unbounded read can run
+    on it, and the bytes that reading returns, read once
+    under the limit, are the bytes the key count below runs
+    over, so no plain unbounded read of a supplied path
+    stands anywhere on the audit route."""
     by_limit = (start_limits or {}).get("by_limit") or {}
     size_entry = by_limit.get("page_file_size") or {}
     size_limit = size_entry.get("value")
+    from citeline import acquisition as acquisition_module
+    size_limit_bytes = None
     if isinstance(size_limit, (int, float)):
-        try:
-            size = os.path.getsize(str(page_file))
-        except OSError:
-            size = None
-        if size is not None and size > size_limit * 1024 * 1024:
-            _fail(
-                "LIMIT_EXCEEDED",
-                "page file size limit is %s MiB in force "
-                "for this run, with rejection and no "
-                "partial record" % (size_limit,))
+        size_limit_bytes = size_limit * 1024 * 1024
+    raw = acquisition_module._read_supplied_file(
+        page_file, size_limit_bytes=size_limit_bytes)
     key_entry = by_limit.get("front_matter_key_count") or {}
     key_limit = key_entry.get("value")
     if isinstance(key_limit, (int, float)):
-        count = _front_matter_key_count(page_file)
+        count = _front_matter_key_count(page_file, raw=raw)
         if count is not None and count > key_limit:
             _fail(
                 "LIMIT_EXCEEDED",
