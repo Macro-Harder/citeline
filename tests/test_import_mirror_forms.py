@@ -9,7 +9,8 @@ limbs of in citeline/probe_import.py at its position scan, in the
 F2 rule exact form, over the charged forms and past them in the
 broadened forms of the earlier round import paper, and the key
 judgements of standing alike between the modules and inside each
-module. The two F4 category count pins of test_step17_r13_f4.py
+module. The two category count pins of
+test_import_mark_categories.py
 stand outside this file in their the settled rule form and no pin here
 rests on them. Every pin runs in memory, so no pin stands on a
 temporary directory."""

@@ -29,7 +29,7 @@ link. A created item path that stands as a link loses the
 link itself only, and the file the link names stands
 untouched. The home the installer created stands removed
 with everything in it, journal contents included, as the
-brief and the README promise: uninstall removes
+README promises: uninstall removes
 everything the installer created, so no imported answer
 survives undisclosed and no reinstall resurrects the old
 history.
@@ -43,8 +43,8 @@ from citeline.shared import _flush_directory
 
 PRODUCT_FILE_NAME = "citeline.py"
 # The config file at the install location is the governing
-# config file of the installation, as brief Section 3.5
-# point 5 states: config values are read from that file at
+# config file of the installation, as the config
+# rule states: config values are read from that file at
 # run start, and the journal config reading reads it for
 # the home its home key names. The
 # config.txt a home may also carry states values for its
@@ -106,10 +106,10 @@ def main(argv=None):
             "citeline." + "shell")
     except Exception as exc:
         print(
-            "citeline: DESTINATION_EXISTS: the installed "
-            "product package cannot be loaded from this "
-            "install location, so the installation stands "
-            "broken and nothing was run: %s"
+            "citeline: the installed product package cannot "
+            "be loaded from this install location (an import "
+            "error: %s), so the installation stands broken "
+            "and nothing was run"
             % type(exc).__name__, file=sys.stderr)
         return 3
     return shell_module.main(
@@ -124,8 +124,8 @@ if __name__ == "__main__":
 _CONFIG_MARKER = "created_by = citeline installer"
 
 # The row, exit code, and class of each token this module
-# raises, as the joined entry 13 table states them. The
-# shared error vocabulary carries the same values; this
+# raises. The shared error vocabulary carries the same
+# values; this
 # table stands so the module also runs as a shipped file
 # standing alone, where the package may not stand imported
 # yet.
@@ -140,11 +140,13 @@ _TOKEN_FORMS = {
 def _filesystem_error(route, exc):
     """The governed error for a filesystem failure on one
     route. A failure that is a destination standing in the
-    way (a FileExistsError) carries row X-9, the one row
-    whose condition that failure is. Every other filesystem
+    way (a FileExistsError) carries the DESTINATION_EXISTS
+    row, the one row whose condition that failure is.
+    Every other filesystem
     failure (a permission refusal, a read only filesystem,
-    a missing parent, and the rest) carries row X-12, the
-    vocabulary row for a platform or filesystem that cannot
+    a missing parent, and the rest) carries the
+    LOCK_UNAVAILABLE row, the vocabulary row for a platform
+    or filesystem that cannot
     perform the operation, and never states that a
     destination exists where none was found."""
     if isinstance(exc, FileExistsError):
@@ -215,7 +217,7 @@ def _is_within(path, parent):
 
 
 def _check_no_overlap(location):
-    """The plan Section 8.3 overlap check, before any write.
+    """The overlap check, before any write.
 
     Runs over the two resolved paths, the shipped product
     directory and the requested or defaulted install
@@ -255,9 +257,8 @@ def _restrict(path, mode):
 
 
 def _create_file_exclusive(path, text, home=None):
-    """Create one installer file by the pinned B4 write
-    sequence (plan EC-18 subsection 8.1, decisions
-    the settled decision and the settled decision): a complete temporary
+    """Create one installer file by the pinned write
+    sequence: a complete temporary
     file in the destination directory, flushed to storage;
     a hard link from the temporary name to the destination
     name, which fails where the destination exists, so a
@@ -268,7 +269,7 @@ def _create_file_exclusive(path, text, home=None):
     unlinked. An interrupted create leaves no partial file
     at the named path, and a platform that cannot perform
     a step of the sequence fails the install closed on
-    row X-12."""
+    the LOCK_UNAVAILABLE row."""
     directory = os.path.dirname(os.path.abspath(path))
     destination_name = os.path.basename(path)
     _remove_orphaned_temporaries(directory, destination_name)
@@ -319,10 +320,10 @@ def _create_file_exclusive(path, text, home=None):
 
 
 def _temporary_process_number(name, destination_name):
-    """The process number a B4 temporary name carries, or
+    """The process number a write temporary name carries, or
     None where the name is not a temporary of the
-    destination, on the parse form the settled decision
-    states: the destination name, the suffix.tmp-, the
+    destination, on the stated parse form: the destination
+    name, the suffix.tmp-, the
     journal sequence digit run, a hyphen separator, and
     the process number digit run at the end of the name."""
     prefix = destination_name + ".tmp-"
@@ -337,9 +338,9 @@ def _temporary_process_number(name, destination_name):
 
 
 def _remove_orphaned_temporaries(directory, destination_name):
-    """Remove the orphaned B4 temporaries of one
+    """Remove the orphaned write temporaries of one
     destination standing in its directory, before this
-    invocation writes (the settled decision): an orphan
+    invocation writes: an orphan
     is a file matching the temporary naming pattern that
     this invocation did not create and whose process
     number names no live process. A temporary whose
@@ -371,7 +372,7 @@ def _remove_orphaned_temporaries(directory, destination_name):
 def _last_journal_sequence(home):
     """The sequence of the journal's last entry as this
     invocation reads it, or 0 over a home whose journal
-    stands empty or absent (the settled decision, the
+    stands empty or absent (the
     form for a writing invocation that appends no entry,
     as the install writes do not)."""
     if not home:
@@ -449,7 +450,7 @@ def _surface_warnings(warnings):
     return surfaced
 
 
-# The limit keys and their brief defaults, carried here
+# The limit keys and their defaults, carried here
 # so the fallback config floor below can judge a limit
 # value in the same terms the journal parse does, on the
 # occasions the journal module cannot stand imported. The
@@ -574,9 +575,9 @@ def _config_check(path, home):
     The parse is the config parse itself, at journal
     strength: a file that cannot be parsed, holds a value
     of the wrong form, or holds a duplicate key stands
-    invalid, on plan config rule 5. An unknown key stands
-    valid and stands in the warnings pair, on brief
-    Section 3.5 point 5 and plan Section 3.2 rule 4, so
+    invalid, on the config rules. An unknown key stands
+    valid and stands in the warnings pair, on the same
+    config rules, so
     the caller can report it as a warning instead of the
     warning standing computed and discarded. Where the
     package journal cannot stand imported, the local line
@@ -621,7 +622,7 @@ def _config_valid(path, home):
 def _config_fault_detail(path):
     """The cause, the rule broken, and the line at fault
     for a config file that does not parse, in the three
-    causes the brief distinguishes: a line
+    causes the config rules distinguish: a line
     that cannot be parsed, a value of the wrong form, and
     a duplicate key. Returns a short statement naming all
     three, or a general statement where no line fault of
@@ -676,7 +677,7 @@ def _config_fault_detail(path):
                 "its key states), at line %d" % number)
     return (
         "cause: the file does not stand valid under the "
-        "config rules the brief states at CL19-164")
+        "config rules")
 
 
 def install(location=None, home=None, **_ignored):
@@ -687,8 +688,8 @@ def install(location=None, home=None, **_ignored):
     the call. The report also carries, under warnings, each
     warning the parse of a standing config file formed, in
     parse form naming its key: an unknown key is reported
-    as a warning and is not an install failure, on brief
-    Section 3.5 point 5, so the call succeeds and the
+    as a warning and is not an install failure, on the
+    config rules, so the call succeeds and the
     warning stands in the report for the caller to print.
 
     A filesystem failure on the install route stands
@@ -696,7 +697,7 @@ def install(location=None, home=None, **_ignored):
     operating system error reaching the caller: the
     wrapping below carries every OSError the route raises
     into the InstallError form, whose code stands in the
-    item 126 exit table."""
+    exit code table."""
     try:
         return _install_impl(location=location, home=home)
     except OSError as exc:
@@ -709,12 +710,13 @@ def _install_impl(location=None, home=None):
     # and an older interpreter meets a recorded install
     # error naming the floor.
     if tuple(sys.version_info[:2]) < (3, 11):
-        # The refusal carries row X-12, the vocabulary row
-        # for a platform that cannot perform the operation:
+        # The refusal carries the LOCK_UNAVAILABLE row, the
+        # vocabulary row for a platform that cannot perform
+        # the operation:
         # the shared error vocabulary is a closed set and
         # holds no interpreter floor value, so no value
         # outside that set may ship for this refusal, and
-        # the row X-9 destination exists fallback the
+        # the DESTINATION_EXISTS fallback the
         # constructor would otherwise supply states a
         # failure this refusal is not.
         raise InstallError(
@@ -1001,7 +1003,7 @@ def _home_is_product_home(home):
 def _home_is_used(home):
     """True where the home holds product work: the journal
     or its write lock, the records a used home stands
-    removed whole for under the settled cure."""
+    removed whole for."""
     for name in ("journal.jsonl", ".citeline-write.lock"):
         if os.path.lexists(os.path.join(home, name)):
             return True
@@ -1275,7 +1277,7 @@ def _uninstall_impl(location=None, home=None):
         elif stat.S_ISDIR(info.st_mode):
             if installer_linked and _home_is_used(home):
                 # The used home of a genuine installation,
-                # removed whole under the settled cure: the
+                # removed whole: the
                 # installer config names this home and the
                 # home holds the product's own work.
                 _remove_home_tree(home, removed)

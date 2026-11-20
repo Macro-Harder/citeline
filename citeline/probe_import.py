@@ -1,4 +1,4 @@
-"""Probe import of supplied answer files, slice S5.
+"""Probe import of supplied answer files.
 
 Supplied words are taken exactly as they stand. This module is
 the only entry point for sampled answers: it reads a supplied
@@ -8,16 +8,17 @@ for duplicates and contradictions runs inside one product
 namespace and one kind class only; kind classes are never
 pooled and never cross.
 
-The module owns the AnswerRecord shape (plan Section 5.1),
+The module owns the AnswerRecord shape,
 the adapter contract validation (the nine adapter inputs,
 validation completing before any store write), validation
-check 11 and the uncovered forms rule (item 147), and the
-duplicate and contradiction comparison of contracts C2 and
-C3. The journal write itself, the round stamp write at
-SEAM-ROUND-STAMP, and the failure record append belong to
+check 11 and the uncovered forms rule, and the
+duplicate and contradiction comparison. The journal write
+itself, the round stamp write, and the failure record
+append belong to
 the journal and service modules; this module returns the
 record to store and raises the recorded error value for the
-caller to record, on the scoped terms contract C1 states.
+caller to record, on the scoped terms the failure record
+scoping rule states.
 Dates are call inputs: the capture date is compared against
 the audit_date supplied to the import call, and no clock is
 read here.
@@ -76,7 +77,7 @@ _SPEAKER_RE = re.compile(
 class ProbeImportError(Exception):
     """A recorded import error from the closed vocabulary.
 
-    The error_value attribute carries the entry 13 token, and
+    The error_value attribute carries the vocabulary token, and
     the token stands in the message text as well.
     """
 
@@ -104,7 +105,7 @@ def normalise_engine_label(label):
     """The normalised engine label: trimmed and case folded.
 
     The folding operation is full Unicode case folding, locale
-    independent (item 153 as carried to the plan): a sharp s
+    independent: a sharp s
     folds to ss and a ligature folds to its letters, where
     simple lowering would leave both unchanged.
     """
@@ -336,7 +337,7 @@ def _judged_fence(line):
 def _detection_text(text):
     """The text the form tests read, at the head of a file.
 
-    A byte order mark stripped under item 107 and any
+    A byte order mark stripped and any
     leading control bytes stand removed for the tests, so a
     mark or a control byte at the head cannot shield the
     material behind it from the tests.
@@ -1342,7 +1343,7 @@ def _position_scan_holds(text):
 def _holds_tag_construct(text):
     """True where a key or value text holds a tag construct.
 
-    The D17 control set states no allowance for a tag
+    The control set states no allowance for a tag
     construct in front matter, at any position: a construct
     standing at the start of the text, a construct spelling
     standing as its own word later in the text (an anchor,
@@ -1589,14 +1590,14 @@ def extract_front_matter(text):
 
     A block at the head, opened and closed by a line of
     three dashes (a closing line of three dots also closes
-    it), stands under the D17 control set: duplicate keys
+    it), stands under the control set: duplicate keys
     are rejected, tag constructs are rejected, a block in
     JSON object form is read with duplicate keys rejected,
     and any failure fails the import closed, with no
     partial metadata read. A passing block is excluded
     from the answer text the record stores, while the
-    content hash stands over the whole raw file, as the
-    brief states. Returns (body_text, had_front_matter).
+    content hash stands over the whole raw file. Returns
+    (body_text, had_front_matter).
     A text with no head block returns itself unchanged.
     """
     # Head material in front of the fence (a control byte, a
@@ -1633,15 +1634,15 @@ def extract_front_matter(text):
               "then import the file again")
     block_lines = lines[1:closing]
     block = "\n".join(block_lines).strip()
-    # The Section 5.11 size family of the same control set
+    # The size family of the same control set
     # stands enforced here, in both front matter forms and
     # in worksheet slot bodies, which run through this same
-    # reading: limit 11, block size
+    # reading: the block size limit,
     # 16 KiB, measured in bytes as the page side measures
-    # it; limit 12, key count 100; limit 17, value length
-    # 4,096 characters; and limit 18, JSON nesting depth
-    # 100 on the JSON form. The adapter receives no home,
-    # so the brief values govern here, as they govern the
+    # it; the key count limit, 100; the value length
+    # limit, 4,096 characters; and the JSON nesting depth
+    # limit, 100 on the JSON form. The adapter receives no home,
+    # so the default values govern here, as they govern the
     # answer file size at this same seam.
     # The block size stands measured on the block as it
     # stands in the file: the lines between the fences
@@ -1855,7 +1856,7 @@ def is_transcript_form(text):
     """A Markdown transcript of a whole conversation.
 
     A form meeting none of the six check 11 tests, rejected as
-    a class under the uncovered forms rule at item 147. The
+    a class under the uncovered forms rule. The
     marks read here are a heading naming a transcript, or two
     or more speaker turns opening lines of the file.
     """
@@ -1985,7 +1986,7 @@ def _answer_file_limit_bytes(home):
     Where a home stands named, the limit the home config
     publishes governs, read through the journal limits in
     force. Where no home stands named or its limits cannot
-    be read, the brief value governs, as before. Returns
+    be read, the default value governs, as before. Returns
     (limit_bytes, limit_value_in_mib).
     """
     if home is not None:
@@ -2077,7 +2078,7 @@ def read_answer_file(answer_file, home=None):
         _fail("IMPORT_VALIDATION_FAILED",
               "answer file is not UTF-8 text")
     if text.startswith("\ufeff"):
-        # Item 107: a single leading byte order mark is
+        # A single leading byte order mark is
         # stripped once. The content hash above stands over
         # the raw bytes, mark included.
         text = text[1:]
@@ -2095,7 +2096,7 @@ def _record_field(record, *names):
 
 
 def compare_standing(standing_records, candidate):
-    """The duplicate comparison, contract C2 as relaxed.
+    """The duplicate comparison, as relaxed.
 
     The comparison runs in the same product namespace and the
     same kind class; kind classes do not cross, and a record
@@ -2234,12 +2235,13 @@ def prepare_import(*, answer_file=None, product=None, round=None,
     Validation completes before any store write: this function
     writes nothing. It returns the record for the caller to
     store as one journal entry, or raises ProbeImportError
-    carrying the entry 13 token for the recorded error the
+    carrying the vocabulary token for the recorded error the
     caller appends as the one failure record, on the scoped
-    terms contract C1 states. The round stamps at first import
+    terms the failure record scoping rule states. The round
+    stamps at first import
     are written by the caller through the journal, from the
-    registry and detector versions this record carries, at
-    SEAM-ROUND-STAMP; this module is their sole computing
+    registry and detector versions this record carries; this
+    module is their sole computing
     source and writes no stamp itself.
     """
     validated = validate_adapter_inputs(
@@ -3136,7 +3138,7 @@ FAILURE_RECORD_BARRED_TOKENS = (
 
 def failure_record_allowed(error_value=None, *, chain_barred=False,
                            chain_at_cap=False, contended=False):
-    """The failure record scoping rule, contract C1 and item 158.
+    """The failure record scoping rule.
 
     A failed import leaves exactly one failure record where
     the chain accepts appends. On a barred chain, at the
@@ -3227,9 +3229,10 @@ def probe_import(*, answer_file=None, product=None, round=None,
 def _worksheet_limits_in_force(home):
     """The worksheet count bounds in force for one home.
 
-    Returns (answers bound, queries bound) for limits 22
-    and 27 as the home states them, through the journal
-    limits in force, or the brief defaults where no home
+    Returns (answers bound, queries bound) for the two
+    worksheet count limits as the home states them, through
+    the journal
+    limits in force, or the defaults where no home
     stands named or its limits cannot be read.
     """
     answers = WORKSHEET_ANSWERS_LIMIT
@@ -3422,7 +3425,7 @@ def export_capture_worksheet(*, output_path=None, product=None,
     # The count bounds read the limits in force for the
     # home the sheet is written for, in both directions, as
     # the import side of the same limits reads them. With
-    # no home named, the brief defaults govern, as they
+    # no home named, the defaults govern, as they
     # governed before this plumbing.
     answers_limit, queries_limit = _worksheet_limits_in_force(home)
     output_text = _validate_worksheet_inputs(

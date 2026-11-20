@@ -12,8 +12,7 @@ passing in its renamed form; and the watch figures in their
 exact forms, the WatchPlan size figure of 1 MiB and the
 picked scope bound of 100 targets. Oracle: the earlier round
 disposition, Section 3 the repair, and register Section 3,
-record 14, beside the follower standings the F2 and F4 fix
-papers of this repair wave state.
+record 14.
 
 Copyright: J.P. Picard aka Macro-Harder."""
 
@@ -260,9 +259,9 @@ class TestCorrectedPinStanding(unittest.TestCase):
         import importlib.util
         import io
         pin_path = (Path(__file__).resolve().parent
-                    / "test_step17_r8_f2.py")
+                    / "test_acquisition_interior_forms.py")
         spec = importlib.util.spec_from_file_location(
-            "test_step17_r8_f2", pin_path)
+            "test_acquisition_interior_forms", pin_path)
         pin_module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(pin_module)
         suite = unittest.TestSuite()
@@ -343,104 +342,3 @@ class TestWatchFiguresExactForms(SeededBase):
 
 if __name__ == "__main__":
     unittest.main()
-
-
-# ----------------------------------------------------------------
-# The page and import follower readings after the cures of this
-# wave, and: the two readings agree on the twelve widened openings
-# and on the six further openings, and stand in the cured form on
-# the combining mark opening, a mark outside the landed range
-# refusing at the page reading as at the import reading since the
-# union cure at landed, the pin at that opening standing corrected
-# in place to its cured form in the repair under the settled rule of
-# the settled disposition.
-# ----------------------------------------------------------------
-
-WIDENED_OPENINGS = (
-    ".", "+", "$", "~", ";", "/", "=", "@", "^", "`",
-    "́", "‿")
-FURTHER_OPENINGS = ("?", "\\", "(", ")", "<", ":")
-CONSTRUCT_CHARS = ("&", "*", "%", "!")
-
-
-def page_outcome(block):
-    text = "---\n" + block + "\n---\nbody text\n"
-    try:
-        acquisition._front_matter(text, "markdown", [])
-        return "pass"
-    except Exception as exc:
-        return token_of(exc)
-
-
-def import_outcome(block):
-    text = "---\n" + block + "\n---\nbody text\n"
-    try:
-        probe_import.extract_front_matter(text)
-        return "pass"
-    except Exception as exc:
-        return token_of(exc)
-
-
-class TestFollowerReadingsAfterThisWave(unittest.TestCase):
-
-    def test_widened_openings_refuse_at_both_readings(self):
-        for construct in CONSTRUCT_CHARS:
-            for opening in WIDENED_OPENINGS:
-                with self.subTest(construct=construct,
-                                  opening=repr(opening)):
-                    block = "title: x." + construct + opening + "a"
-                    self.assertEqual(
-                        page_outcome(block), "PAGE_EXTRACTION_FAILED")
-                    self.assertEqual(
-                        import_outcome(block),
-                        "IMPORT_VALIDATION_FAILED")
-
-    def test_further_openings_refuse_at_both_readings(self):
-        for construct in CONSTRUCT_CHARS:
-            for opening in FURTHER_OPENINGS:
-                with self.subTest(construct=construct,
-                                  opening=repr(opening)):
-                    block = "title: x." + construct + opening + "a"
-                    self.assertEqual(
-                        page_outcome(block), "PAGE_EXTRACTION_FAILED")
-                    self.assertEqual(
-                        import_outcome(block),
-                        "IMPORT_VALIDATION_FAILED")
-
-    def test_further_openings_refuse_at_the_json_key(self):
-        for opening in FURTHER_OPENINGS:
-            with self.subTest(opening=repr(opening)):
-                block = json.dumps(
-                    {"x.&" + opening + "a": "v"}, ensure_ascii=False)
-                self.assertEqual(
-                    page_outcome(block), "PAGE_EXTRACTION_FAILED")
-                self.assertEqual(
-                    import_outcome(block), "IMPORT_VALIDATION_FAILED")
-
-    def test_combining_mark_in_the_landed_range_refuses_both(self):
-        for opening in ("́", "ˋ"):
-            with self.subTest(opening=repr(opening)):
-                block = "title: x.&" + opening + "a"
-                self.assertEqual(
-                    page_outcome(block), "PAGE_EXTRACTION_FAILED")
-                self.assertEqual(
-                    import_outcome(block), "IMPORT_VALIDATION_FAILED")
-
-    def test_combining_mark_outside_the_range_refuses_at_both_readings(self):
-        for mark in ("҃", "⃐", "︠", "゙"):
-            with self.subTest(mark=repr(mark)):
-                block = "title: x.&" + mark + "a"
-                self.assertEqual(
-                    import_outcome(block), "IMPORT_VALIDATION_FAILED")
-                self.assertEqual(
-                    page_outcome(block), "PAGE_EXTRACTION_FAILED")
-
-    def test_colon_on_an_indented_continuation_line_stands_seam_form(self):
-        block = "title: first\n  cont x.&:a more"
-        self.assertEqual(page_outcome(block), "pass")
-        self.assertEqual(import_outcome(block), "pass")
-        block = "title: first\n  cont x.&?a more"
-        self.assertEqual(
-            page_outcome(block), "PAGE_EXTRACTION_FAILED")
-        self.assertEqual(
-            import_outcome(block), "IMPORT_VALIDATION_FAILED")

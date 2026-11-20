@@ -5,7 +5,7 @@ permitted acts only: it parses a call into named inputs, it
 calls one service layer operation, and it formats the
 record the operation returns, through the reporting
 pipeline under its shell name. It returns the exit code
-the item 126 table assigns to the outcome the call
+the exit code table assigns to the outcome the call
 reports: 0 where the call carries no error value, the code
 of the class of the one error value reported where it
 fails, and no code outside that table. Code 4 stands for
@@ -352,7 +352,7 @@ def format_record(record, form="simple"):
 def _render_for_print(record, form):
     """Render one record for printing in one reading form.
 
-    The printed Agentic form stands as the item 122 envelope
+    The printed Agentic form stands as the envelope
     the reporting pipeline returns, with its contract fields
     at the top level, for every command, so no printed
     Agentic artefact stands byte identical to its Advanced
@@ -384,9 +384,9 @@ def _exit_code_for(exc):
             return entry["exit_code"]
     # No reported error value stands on the exception, so
     # no class code stands assigned to it under the per
-    # operation rule (plan EC-126 subsection 4.2): the call
+    # operation rule: the call
     # died carrying no error value, and code 1, the code
-    # the EC-126 table reserves in practice for that death,
+    # the exit code table reserves in practice for that death,
     # stands returned, never the domain code 3.
     return 1
 
@@ -701,10 +701,12 @@ def _home_from_plan(plan_path):
 
 
 def _append_malformed_record(home, operation, audit_date=None):
-    """Append the row U-8 failure record for one malformed call.
+    """Append the MALFORMED_CALL failure record for one
+    malformed call.
 
     The record stands appended only where a home stands and
-    its chain verifies, on the row U-8 terms: where the chain
+    its chain verifies, on the MALFORMED_CALL terms: where
+    the chain
     accepts appends. Where no home stands named, or the chain
     does not accept an append, the caller response stands as
     the only record and nothing is created.
@@ -874,8 +876,8 @@ def main(argv=None):
         # standing there once, at its own home seam, as it
         # does for a call that names the default home
         # directly, so a call through this shell and a
-        # direct call govern the same home (plan Section
-        # 3 EC-15 row 43). Resolving the selection here
+        # direct call govern the same home. Resolving
+        # the selection here
         # as
         # well would apply it twice where selections chain
         # and govern a home one hop further on than the

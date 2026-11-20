@@ -1,9 +1,9 @@
-"""Slice S0: the journal and the store foundation.
+"""The journal and the store foundation.
 
 The journal is one append only file, one canonical JSON
 entry per line, each line terminated by one newline. This
 module owns the entry form and its hash chain, the fold,
-the home, the limits plumbing over the 42 brief limits as
+the home, the limits plumbing over the 42 limits as
 a shared guard, the config surface, and the concurrency
 exclusion. It holds no check, detection, or metric rule.
 
@@ -74,8 +74,8 @@ CONFIG_FILENAME = "config.txt"
 LOCK_FILENAME = ".citeline-write.lock"
 MAX_DEPTH = 100
 
-# The 42 brief limits, in the plan Section 5.11 order, as
-# (key, brief default value in the row unit, row unit).
+# The 42 limits, in their stated order, as
+# (key, default value in the row unit, row unit).
 _LIMIT_TABLE = [
     ("page_file_size", 2, "MiB"),
     ("answer_file_size", 1, "MiB"),
@@ -128,8 +128,8 @@ _LIMIT_INDEX = {row[0]: index + 1 for index, row in enumerate(_LIMIT_TABLE)}
 
 _SIZE_MULTIPLIERS = {"MiB": 1024 ** 2, "KiB": 1024, "GiB": 1024 ** 3}
 
-# Canonical number scales, by leaf member name, on decision
-# The settled decision: earned at 3 decimal places, the score value
+# Canonical number scales, by leaf member name:
+# earned at 3 decimal places, the score value
 # at 1, and rates, interval bounds, and shares at 6.
 _SCALE_BY_KEY = {
     "earned": 3,
@@ -340,7 +340,7 @@ def _render(value, key=None):
 
 
 def canonical_bytes(entry):
-    """Render an entry in the canonical form entry 14 fixes.
+    """Render an entry in the canonical form.
 
     Keys order by Unicode code point at every nesting
     level, the separators carry no space, escaping is
@@ -533,7 +533,8 @@ def _open_home_file_descriptor(path, mode, create=None,
             # the open: every other open failure, a
             # directory at the path among them, keeps
             # the vocabulary its own route states for
-            # it, the lock route at row X-12 among them.
+            # it, the lock route with LOCK_UNAVAILABLE among
+            # them.
             if error.errno == errno.ELOOP:
                 raise _UnsafeHomeFile(path)
             raise
@@ -887,7 +888,7 @@ def _is_plausible_entry_prefix(partial):
     """Whether partial bytes could be the standing holder own
     entry, written in part.
 
-    Brief Section 5.12 item 138 admits a final partial line
+    A final partial line stands admitted
     as a live holder append in progress only where it is
     the holder own partial write. Bytes that do not decode
     as UTF-8, or whose bracket and string structure no
@@ -1109,7 +1110,8 @@ def _raise_value_in_range(payload):
     append path could have written.
 
     The append path checks the limit member, the value
-    type, and the value range at row X-1. A supplied chain
+    type, and the value range for CONFIG_INVALID. A supplied
+    chain
     is judged by the same checks at scan and at replay, so
     a chain the append path could never write does not
     verify and its raise does not stand in force."""
@@ -1132,10 +1134,12 @@ def _correction_form_ok(payload, position=None, target_kind=None):
     correction own position in the chain stands known, at
     scan and at replay, the supersedes value must also
     name an entry standing at or before the correction
-    itself, the range the append path judges at row U-8,
+    itself, the range the append path judges for
+    MALFORMED_CALL,
     and the entry it names must stand in a kind the append
     path accepts as a target: a correction of a correction
-    stands refused at row U-8, on the ground recorded, so
+    stands refused as MALFORMED_CALL, on the ground recorded,
+    so
     a supplied chain carrying one does not verify and does
     not replay. A correction superseding its own sequence
     stands inside that range and outside that refusal, so
@@ -1620,7 +1624,7 @@ def status_snapshot(home):
     returns 0 in every case over a home that stands. A
     missing home is the one exception: the service status
     route over a missing home returns exit 2 with
-    HOME_MISSING, on plan row U-6. The service home wraps
+    HOME_MISSING. The service home wraps
     this snapshot as its status result.
 
     The warnings the home config parse formed stand in the
@@ -1808,8 +1812,7 @@ def parse_config(text, home=None):
         elif key in ("home_path", "anchor_path"):
             values[key] = raw_value
             # home_path carries its specified effect at
-            # home selection (plan Section 3 EC-15 row
-            # 43): selected_home below
+            # home selection: selected_home below
             # reads this value, and the shell defaulting
             # and the service home handling resolve the
             # home a call governs through it. The parse
@@ -1824,9 +1827,8 @@ def parse_config(text, home=None):
     # where the config keys stand specified in this
     # module and named in each refusal, so no individually
     # valid combination fails on an unstated relation
-    # (the relations themselves
-    # stand stated in the design plan at decision
-    # The settled decision as forced dependencies under row X-1):
+    # (the relations themselves stand as forced
+    # dependencies under CONFIG_INVALID):
     # front_matter_size_after_alias_expansion stands at
     # or above front_matter_block_size, and
     # evidence_spans_per_report stands at or above
@@ -1927,7 +1929,7 @@ def _install_config_values(home):
     states for this home, and its warnings.
 
     The install config file is the governing config file
-    the brief states at Section 3.5 point 5: config values
+    the config rules state: config values
     are read from that file, so a value it states governs
     the runs of the home it names.
     A home config value for the same key stands as the
@@ -2020,8 +2022,8 @@ def selected_home(home):
     """The home in force for a call naming home.
 
     The home_path config key names the product home
-    where it differs from the home the call names
-    (plan Section 3 EC-15 row 43): where the config
+    where it differs from the home the call names:
+    where the config
     standing at the named home sets home_path to
     another directory, that directory stands selected.
     Where the key stands absent, or names the home
@@ -2293,7 +2295,7 @@ def start_run(home, run_id=None, audit_date=None):
     """Open a run over a home, on the config in force at its start.
 
     Where no config file stands, the run proceeds with
-    every key at its brief value default, and the run
+    every key at its default value, and the run
     record names the config file as absent. The audit date
     is the call input given, never a clock read.
     """
@@ -2314,9 +2316,11 @@ class _WriteLock:
     The lock is the flock advisory lock on the file
     named.citeline-write.lock inside the home, taken with a
     non-blocking attempt and held for the whole writing
-    invocation. Contention fails at row X-10. A platform or
-    filesystem that cannot give the lock fails closed at row
-    X-12. No stale holder recovery act exists: the operating
+    invocation. Contention fails as WRITE_CONTENDED. A
+    platform or
+    filesystem that cannot give the lock fails closed as
+    LOCK_UNAVAILABLE. No stale holder recovery act exists:
+    the operating
     system releases the lock when the holder process ends, and
     the lock file presence on disk after a holder ends bars
     nothing.
@@ -2327,7 +2331,8 @@ class _WriteLock:
     code grants it around one of its own append calls. An append
     made by other code running on the holder thread inside the
     window, a signal handler among its forms, therefore stands
-    contended at row X-10 and stores nothing, instead of joining
+    contended as WRITE_CONTENDED and stores nothing, instead
+    of joining
     a batch whose rollback would erase it whole."""
 
     def __init__(self, home, kind="container", authorization=None):
@@ -2392,7 +2397,8 @@ class _WriteLock:
                 # that permit for its own duration, so no
                 # invocation that runs inside an append, a
                 # payload deepcopy hook among them, can join:
-                # it stands contended at row X-10 and stores
+                # it stands contended as WRITE_CONTENDED and
+                # stores
                 # nothing, exactly as a caller in another
                 # process does.
                 handle, depth, owner_thread, invocation, \
@@ -2793,8 +2799,8 @@ def _write_anchor(anchor_path, head_hash, sequence):
             preserve_target=True)
     except FileNotFoundError:
         # The temporary stands lost under its writer before
-        # its link step: the condition row X-13 names, in
-        # the vocabulary that row states.
+        # its link step: the condition TEMPORARY_LOST names,
+        # in the vocabulary that token states.
         try:
             os.unlink(temporary)
         except OSError:
@@ -3188,7 +3194,7 @@ def recover_interrupted_batch(home):
                 journal_cap = None
             if journal_cap is not None \
                     and restored_count + 1 > journal_cap:
-                # The recovery record the ruling at requires
+                # The recovery record the recovery rule requires
                 # could not land at the cap, so the recovery
                 # does not land at all in silence: it stands
                 # deferred whole, its record standing, until
@@ -3221,7 +3227,7 @@ def recover_interrupted_batch(home):
             # its evidence. The record stands built through
             # the CitelineError constructor guard, as every
             # recorded error stands: its error_value is a
-            # token of the closed vocabulary, the row X-13
+            # token of the closed vocabulary, the TEMPORARY_LOST
             # token for a writer lost before its write
             # completed, and the record carries that
             # token's row, class, and exit code beside it,
@@ -3272,16 +3278,16 @@ def recover_interrupted_batch(home):
                     # The cap judgement stands on the cap
                     # the append actually met, read from the
                     # limit number the error carries: only
-                    # the journal length cap, limit 39,
-                    # holds the deferral the ruling at
+                    # the journal length cap
+                    # holds the deferral the recovery rule
                     # states. A failure at the total home
-                    # size cap, limit 40, stands judged on
+                    # size cap stands judged on
                     # its own terms under the append failure
                     # discipline: the restore has already
                     # landed, so no deferral stands reported
                     # over it and the recovery stands as
-                    # landed below. A failure carrying limit
-                    # 39 stands judged the same way where
+                    # landed below. A failure at the journal
+                    # length cap stands judged the same way where
                     # the size cap also stands met in the
                     # mixed state, on the cap the append
                     # actually met.
@@ -3523,7 +3529,7 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
             anchor_state, recorded = _read_anchor(resolved_anchor)
             # Anchor disagreement is a reported position,
             # never a barring ground, for the three forms
-            # the settled decision names: an append over a
+            # the anchor rule names: an append over a
             # stale, missing, or malformed anchor proceeds
             # and rewrites the anchor, and the disagreement
             # that stood at the append stands reported in
@@ -3534,8 +3540,8 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
             # establishes it. A divergent recording, a head
             # that stands nowhere in the chain, is not one
             # of the three forms: it is the honest forgery
-            # case of the plan pair IM2-INV-3, whose facts
-            # the settled decision does not reach, and its bar stands
+            # case, whose facts
+            # the anchor rule does not reach, and its bar stands
             # exactly as it stood.
             if anchor_state == "ok" and \
                     _agreement_for(recorded, scan) == "divergent":
@@ -3785,7 +3791,7 @@ def append_entry(home, entry_kind, payload, audit_date=None, run_id=None):
                               entry["sequence"])
             except JournalError:
                 # A lost anchor temporary reports in its own
-                # vocabulary at row X-13; the append stands
+                # vocabulary as TEMPORARY_LOST; the append stands
                 # rolled back all the same, and the error
                 # stands as it was raised.
                 _restore_journal_size(path, original_size)
@@ -3838,7 +3844,7 @@ def append_entries_atomic(home, entries, audit_date=None, run_id=None):
     home = str(home)
     # The argument form is judged before any vocabulary
     # check inside the loop, in the form the sibling replay
-    # surface states at row U-8: the batch takes a
+    # surface states for MALFORMED_CALL: the batch takes a
     # collection of pairs, and an item that is no pair, a
     # pair of the wrong length, or a collection that is no
     # collection of pairs at all is a malformed call, never
@@ -4330,7 +4336,8 @@ def replay(home, entries, resume=False):
         else:
             # The replacing branch carries the same guard as
             # the resume branch and the append path: a write
-            # failure reports in the vocabulary at row I-2,
+            # failure reports in the vocabulary as
+            # JOURNAL_VERIFY_FAILED,
             # and its temporary file does not stand left
             # inside the home. The replacement temporary
             # stands created exclusively under a name no
@@ -4381,7 +4388,7 @@ def replay(home, entries, resume=False):
                               len(candidate))
             except JournalError:
                 # A lost anchor temporary reports in its own
-                # vocabulary at row X-13; the replay stands
+                # vocabulary as TEMPORARY_LOST; the replay stands
                 # rolled back all the same.
                 rollback_write()
                 raise

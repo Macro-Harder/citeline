@@ -1,4 +1,4 @@
-"""Robots evaluation for Citeline, slice S4.
+"""Robots evaluation for Citeline.
 
 This module owns the RobotsReport on its fixed field list,
 the shipped crawler table as versioned product data, and
@@ -309,7 +309,7 @@ class RobotsError(ValueError):
 
 
 # ----------------------------------------------------------------
-# Decoding, on the plan Section 5.4 robots decoding rules
+# Decoding
 
 
 def decode_robots_bytes(data):
@@ -419,7 +419,7 @@ def parse_robots(text):
             continue
         # A comment stands at the end of a rule line as
         # well as on a line of its own, in the RFC 9309
-        # form the brief states: the hash mark and the
+        # form: the hash mark and the
         # text after it are no part of the field value,
         # at the group name and at the rule path alike,
         # so the value stands read as the text before
@@ -776,7 +776,7 @@ def _resolve_path(evaluated_page_path, path_defaulted):
     if path_defaulted is None:
         path_defaulted = False
     path = str(evaluated_page_path)
-    # The length limit at Section 5.11 limit 38 stands on
+    # The path length limit stands on
     # the path argument as supplied, before any part of
     # it is cut, so an argument far over the limit fails
     # the call however short the path it cuts down to.
@@ -784,8 +784,8 @@ def _resolve_path(evaluated_page_path, path_defaulted):
         raise RobotsError(
             "LIMIT_EXCEEDED", "robots path argument over limit"
         )
-    # Matching is on the path only, at brief Section
-    # 5.10 item 92: no query and no fragment enters the
+    # Matching is on the path only: no query and no
+    # fragment enters the
     # comparison, so both come off the supplied value
     # before any rule is tested against it.
     for marker in ("?", "#"):
@@ -885,7 +885,8 @@ def evaluate_robots_text(text, evaluated_page_path=None,
 
 
 def _read_supplied_file(path):
-    """Read one supplied robots file under boundary B1.
+    """Read one supplied robots file under the supplied
+    file boundary.
 
     The open protocol stands in citeline.shared, as one
     implementation for every intake: a stat that does not
@@ -898,7 +899,7 @@ def _read_supplied_file(path):
     a FIFO or device stands refused at once instead of
     hanging the invocation. This wrapper states the
     protocol's refusals in this intake's vocabulary:
-    every refusal on this intake carries the row X-4
+    every refusal on this intake carries the
     token SUPPLIED_PATH_UNSAFE, the form the sister
     intakes already return, beside this intake's own
     decoding and validation forms.
@@ -935,8 +936,8 @@ def _read_supplied_file(path):
         if stage == "missing":
             # A supplied path that does not exist is an
             # operator input fault and takes the input class,
-            # not the integrity class of row X-4, which
-            # governs paths that exist but are not regular
+            # not the integrity class, which governs
+            # paths that exist but are not regular
             # files or are unsafe.
             raise RobotsError(
                 "VALIDATION_FAILED",
@@ -1006,7 +1007,7 @@ def evaluate_robots_file(path, evaluated_page_path=None,
 
     The file is opened and read inside this module, the
     component that owns this intake, under the boundary
-    B1 open protocol at _read_supplied_file.
+    open protocol at _read_supplied_file.
     """
     raw = _read_supplied_file(path)
     return evaluate_robots_bytes(
@@ -1035,7 +1036,7 @@ def evaluate_robots(source, evaluated_page_path=None, **kwargs):
         str(source)
     ):
         # A value naming a path that stands on disk is a
-        # supplied file, read under the B1 protocol at
+        # supplied file, read under the open protocol at
         # evaluate_robots_file, never evaluated as text:
         # a link, a directory, or a FIFO at that path
         # stands refused there in the stated form.

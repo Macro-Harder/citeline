@@ -10,10 +10,11 @@ component produces, the checks and score the checks
 component computes, and the report the robots component
 evaluates, and stands stored through the journal component.
 
-Contention position, in the plan form at Section 3, W-5,
-and at contract CW: a writing invocation that meets the
-home exclusion fails on the exclusion recorded error at
-entry 13 row X-10, token WRITE_CONTENDED, integrity class,
+Contention position, in the stated form,
+under the watch contract: a writing invocation that meets
+the
+home exclusion fails on the exclusion recorded error
+WRITE_CONTENDED, integrity class,
 exit code 5 at the invocation itself. The contended
 invocation stores nothing and leaves no failure record:
 its recorded error stands as caller response only. The
@@ -39,8 +40,8 @@ from citeline.shared import _fail, _get, _honesty_sentence
 
 ServiceError = errors.CitelineError
 
-# The contention recorded error fields, in the plan form at
-# entry 13 row X-10 and Section 3, W-5. A contended writing
+# The contention recorded error fields, in the stated form.
+# A contended writing
 # invocation carries these fields and no others of its own:
 # it stores nothing and appends no failure record.
 CONTENTION_ROW = "X-10"
@@ -56,7 +57,7 @@ CONTENTION_FAILURE_RECORD = (
 def contention_fields(exc=None):
     """The boundary contention fields for one contended call.
 
-    Written in the plan form at Section 3, W-5: the row and
+    Written in the stated form: the row and
     token of the exclusion recorded error, its precedence
     class, the exit code the class assigns at the invocation
     itself, the round level position that no contended
@@ -78,7 +79,7 @@ def contention_fields(exc=None):
 
 
 def is_contention(exc):
-    """True where a raised error stands at row X-10."""
+    """True where a raised error is WRITE_CONTENDED."""
     if exc is None:
         return False
     if getattr(exc, "row", None) == CONTENTION_ROW:
@@ -91,11 +92,10 @@ def is_contention(exc):
 def recorded_error(exc):
     """The recorded error of one failed call, as a plain record.
 
-    The record carries the entry 13 row and token where the
+    The record carries the row and token where the
     error carries them, its precedence class and exit code,
     and its message. A contended error carries the boundary
-    contention fields at row X-10 in full, in the plan form
-    at Section 3, W-5.
+    contention fields in full, in the stated form.
     """
     if is_contention(exc):
         return contention_fields(exc)
@@ -146,7 +146,7 @@ def _clock():
     return time.monotonic()
 
 
-# The error message length limit (limit 33), in the brief
+# The error message length limit, in the
 # default form this seam applies: no recorded error
 # message the service layer states stands past it.
 _ERROR_MESSAGE_LIMIT = 500
@@ -433,7 +433,7 @@ def _guard_supplied_path(value):
 
     A supplied page, robots, or answer path carrying a NUL
     byte, or a lone surrogate no encoding can carry, stands
-    refused in the governed vocabulary at row X-4, token
+    refused in the governed vocabulary as
     SUPPLIED_PATH_UNSAFE, at this seam, before any stat,
     open, or size read on the service routes can raise a
     bare ValueError or UnicodeEncodeError on it. The
@@ -461,10 +461,10 @@ def _validate_audit_date(audit_date):
     """Refuse an audit date input that is not a date.
 
     The audit date is an explicit input of every report
-    (brief Section 6.2, M1), recorded as supplied where one
+    recorded as supplied where one
     stands supplied. A supplied value that does not parse
-    as an ISO calendar date stands refused here, at row
-    X-5, token VALIDATION_FAILED, usage class, exit 2,
+    as an ISO calendar date stands refused here, as
+    VALIDATION_FAILED, usage class, exit 2,
     before any record is built or stored from it. A date
     object stands accepted as a date; None stands as no
     date supplied and is left to each route's own default.
@@ -896,9 +896,10 @@ def _validate_audit_payload(payload):
 
 # The stored forms of the round record importer
 # declaration: the one canonical form the round naming
-# operation stores for each of its three G1 values, and
-# the three G1 value texts themselves (plan Section 5.4
-# entity list, and brief Section 5.2 in the same words).
+# operation stores for each of its three declaration
+# values, and
+# the three declaration value texts themselves (in the same
+# words).
 _ROUND_IMPORTER_DECLARATIONS = (
     "all_captured", "stated_subset", "selection_rule_unknown",
     "all captured answers imported",
@@ -912,7 +913,8 @@ def _validate_round_stamp_fields(payload):
 
     The round stamp fields stand judged at the readers
     that surface them: the importer declaration the
-    sampling frame carries stands in one of its three G1
+    sampling frame carries stands in one of its three
+    declaration
     values, in the stored canonical form or in the value
     text itself, and the two version stamps the probe
     report artefact copies stand as version values or
@@ -1044,14 +1046,15 @@ def status(*, home):
     no per entry kind division stands in it, because no
     stored record holds one and the design states none.
 
-    A missing home stands as a usage error at row U-6,
-    token HOME_MISSING, exit 2, as with verify: status is a
-    read only invocation, and row U-6 excepts no subcommand.
-    The Section 4.2 status behaviour above runs over homes
+    A missing home stands as a usage error,
+    HOME_MISSING, exit 2, as with verify: status is a
+    read only invocation, and HOME_MISSING excepts no
+    subcommand.
+    The status behaviour above runs over homes
     that stand, including barred and broken chain homes.
 
-    Status reads the clock: limit
-    41, the per run wall clock backstop, aborts the call
+    Status reads the clock: the per run wall clock
+    backstop, aborts the call
     before its record stands returned.
     """
     run_started = _clock()
@@ -1116,9 +1119,10 @@ def status(*, home):
 def verify(*, home):
     """The verify record of one home.
 
-    A missing home stands as a usage error at row U-6. A
+    A missing home stands as a usage error, HOME_MISSING. A
     home whose chain does not recompute stands reported in
-    the record itself, on row I-2, with its failing
+    the record itself as JOURNAL_VERIFY_FAILED, with its
+    failing
     position, and no record from that journal stands
     claimed as verified.
 
@@ -1159,7 +1163,7 @@ def verify(*, home):
 
 # ----------------------------------------------------------------
 # Staleness view: the derived graph over the stored records
-# of one home, on the settled landing and contract C9.
+# of one home, on the settled landing.
 # ----------------------------------------------------------------
 
 # The stale state's wording, stated once: it states
@@ -1176,7 +1180,7 @@ STALENESS_STALE_NOTE = (
 # names the axes of the class. Each row names the axis, the
 # payload fields the class stores that axis under, and
 # whether the axis is a break axis for the class on the
-# item 130 break axes. For a round every mapped axis is a
+# break axes. For a round every mapped axis is a
 # break axis. For an AuditRun the break axes are registry,
 # detector, and lexicon; the ruleset and crawler table axes
 # stand outside that break set, so a difference on those
@@ -1211,7 +1215,7 @@ def _version_in_force(axis, product_record):
     home's current state in this invocation. The detector
     version in force is the shipped detector version, and
     the lexicon version is recorded in the detector
-    version, on the item 145 mechanic, so the lexicon
+    version, on the lexicon mechanic, so the lexicon
     version in force is the detector version in force. The
     ruleset version in force is the shipped score ruleset
     version, and the crawler table version in force is the
@@ -1446,16 +1450,16 @@ def _staleness_row(record_kind, record_id, payload, axes,
 def staleness_view(*, home):
     """The staleness view over the stored records of one home.
 
-    On the settled landing at brief Section 5.12 and
-    contract C9 in brief Section 11 and plan Section 9:
+    On the settled landing:
     the view is derived and stores nothing, recomputes no
     outcome, and prints no new rate or score. It recomputes
     the chain in its own invocation before reading, through
     the barred check every reading operation runs, and over
     a journal that does not recompute it produces no graph
     and fails with the recorded error JOURNAL_VERIFY_FAILED
-    at row I-2. A missing home refuses HOME_MISSING at row
-    U-6, as every read only invocation over a missing home
+    as JOURNAL_VERIFY_FAILED. A missing home refuses
+    HOME_MISSING, as every read only invocation over a
+    missing home
     does. The view appends nothing and offers no rebuild,
     refresh, or recompute action.
 
@@ -1464,7 +1468,7 @@ def staleness_view(*, home):
     versions in force as read from the home's current state
     at the moment of the view, and one of three states,
     current, stale with the changed axes named, or across
-    a break, on the item 130 break axes; a Round record
+    a break, on the break axes; a Round record
     takes only current and across a break, because every
     axis mapped for a round is a break axis. An axis a
     record class does not store stands as not recorded for
@@ -1579,7 +1583,7 @@ def add_product(*, home, name, canonical_line, domain,
                 audit_date=None):
     audit_date = _validate_audit_date(audit_date)
     home = _require_home(home)
-    # Limit 23, products per home, enforced at this seam
+    # The products per home limit, enforced at this seam
     # against the value in force.
     limit = _limit_value(home, "products_per_home")
     if limit is not None and len(list_products(home=home)) >= limit:
@@ -1774,7 +1778,7 @@ def list_products(*, home):
     """
     # The home check stands here in the named form: a
     # home path no filesystem call can state answers
-    # HOME_MISSING at row U-6, never a bare ValueError
+    # HOME_MISSING, never a bare ValueError
     # from the fold below, and the enumeration reads the
     # named home itself, as _require_named_home states,
     # never the home its config selects, so a product the
@@ -1850,7 +1854,7 @@ def estate_grounds(*, home, product):
     # The home check stands here as it stands on
     # list_products: a missing home, and a home path no
     # filesystem call can state, answers HOME_MISSING at
-    # row U-6, never an empty grounds record in silence
+    # HOME_MISSING, never an empty grounds record in silence
     # and never a raw error.
     home = _require_home(home)
     _recover_interrupted_batch(home)
@@ -2165,7 +2169,7 @@ def robots_preview(*, home, first_robots_file, second_robots_file,
         # The preview landing's one exception to its
         # stores nothing rule: a failure record stands
         # appended where the chain accepts appends when
-        # the preview itself fails, on item M2 terms, in
+        # the preview itself fails, in
         # the appending discipline the other routes use.
         _append_failure_record(
             home, "robots preview", exc, first_robots_file,
@@ -2617,7 +2621,8 @@ def _audit_impl(*, home, page_file=None, robots_file=None,
         # Where the judgement lands, the killed batch's
         # rollback truncates the assembly's own entries
         # with the batch's, and the audit stands refused at
-        # row I-2 instead of returning a record over
+        # JOURNAL_VERIFY_FAILED instead of returning a record
+        # over
         # truncated entries. Where the record still stands
         # unjudged after the attempt, at a deferred cap
         # among its forms, the refusal stands the same, in
@@ -2663,9 +2668,9 @@ def _audit_body(*, home, page_file=None, robots_file=None,
     stands returned only through the audit_render route,
     which renders that record and runs no audit.
 
-    The audit date of a fresh audit stands under brief
-    Section 6.2, M1: where no audit date stands supplied,
-    the date defaults to the current local date, that date
+    The audit date of a fresh audit: where no audit date
+    stands supplied, the date defaults to the current
+    local date, that date
     is the date the run runs, and the stored record carries
     it in audit_date with audit_date_defaulted true beside
     it, naming the date used; a supplied date is recorded
@@ -2907,7 +2912,7 @@ def _audit_body(*, home, page_file=None, robots_file=None,
         "score": score,
         # No facts_counts field stands on the record
         #: the field stands
-        # as a blocked gap on L-CC-4, outside the traced
+        # as a blocked gap, outside the traced
         # field set of the audit artefact, and a
         # placeholder for a blocked gap is not a traced
         # field, so the stored record carries none.
@@ -3008,7 +3013,7 @@ def audit(*, home, page_file=None, robots_file=None,
 
     A failed audit over a healthy chain far below cap
     appends exactly one failure record, as the failure
-    record claim of brief Section 5.2 states for reading
+    record claim states for reading
     and non appending operations as for writing ones; the
     barred chain, cap, and contention exceptions stand in
     the appending helper, as they stand for the import
@@ -3200,7 +3205,7 @@ def _preflight_refusal(limit_number, operation="import"):
 
 
 def _import_preflight(home, answer_file, extra_entries):
-    """The import preflight gate, row I-1.
+    """The import preflight gate.
 
     Before any byte of the incoming file is read, the
     stated cost of the import (the file size as stat
@@ -3225,8 +3230,8 @@ def _import_preflight(home, answer_file, extra_entries):
         snapshot = journal.status_snapshot(str(home))
         # The snapshot nests the size remaining figure in
         # its capacity outlook: the
-        # preflight reads it there, so the limit 40 limb
-        # can fire.
+        # preflight reads it there, so the total home size
+        # limb can fire.
         outlook = snapshot.get("capacity_outlook") or {}
         size_remaining = outlook.get("total_home_size_remaining")
         if size_remaining is None:
@@ -3303,12 +3308,12 @@ def _service_container_value_measure(value):
 def _import_front_matter_limits(home, answer_file):
     """The front matter limits in force at the import seam.
 
-    The import adapter receives no home, so the brief
-    values govern inside it, on the bound recorded at. At
+    The import adapter receives no home, so the default
+    values govern inside it, on the recorded bound. At
     this seam the home stands known, so the limits in force
     stand enforced here over the answer file's head block,
     as the audit preflight enforces its front matter key
-    count at its seam (import limb): limit 11, block size,
+    count at its seam (import limb): the block size limit,
     limit 12, key count, and limit 17, value length,
     measured in the forms the component measures on a head
     block. Worksheet slot bodies carry blocks of their own
@@ -3554,7 +3559,8 @@ def probe_import(*, home, answer_file=None, product=None,
     writes the round two at first import stamps through the
     journal where no stamp stands yet, and, where the
     import fails, appends exactly one failure record where
-    the chain accepts appends, on contract C1 terms: none
+    the chain accepts appends, on the failure record terms:
+    none
     on a barred chain, at cap, or under contention.
 
     The eleven parameter names stand as the inspected
@@ -3633,7 +3639,7 @@ def probe_import(*, home, answer_file=None, product=None,
                 preflight_extra += record_count - 1
         _import_preflight(home, answer_file, preflight_extra)
         _import_front_matter_limits(home, answer_file)
-        # Limits 31 and 3's seam companions, enforced at
+        # Two seam companion limits, enforced at
         # the values in force before the file's validation
         # runs: the capture method text length stands
         # checked here, in code points, as the engine
@@ -3834,7 +3840,7 @@ def probe_import(*, home, answer_file=None, product=None,
             # failure stage above it stands: a batch
             # failure of the route appends exactly one
             # failure record where the chain accepts
-            # appends, on the contract C1 terms the route
+            # appends, on the failure record terms the route
             # docstring states, and the failure then
             # raises to the caller as before.
             _append_failure_record(
@@ -3870,8 +3876,8 @@ def probe_import(*, home, answer_file=None, product=None,
 
 # The audit route's form request stands apart: a run
 # identity that names no standing run is refused as
-# UNKNOWN_ROUND and stores nothing, on the E-05 pin.
-# The reporting and guide routes hold no such pin, and
+# UNKNOWN_ROUND and stores nothing.
+# The reporting and guide routes hold no such rule, and
 # their lookup refusals append a failure record like
 # any other governed failure, on the worked cases of.
 _LOOKUP_REFUSAL_CODES = frozenset({
@@ -3967,7 +3973,7 @@ def _append_failure_record(home, operation, exc, subject, audit_date):
     # stands, no failure record stands appended, because
     # the journal append itself would create the home and
     # its journal for a failure whose governed refusal is
-    # that the home stands missing (on row U-6).
+    # that the home stands missing (HOME_MISSING).
     try:
         if not os.path.isdir(str(home)):
             return
@@ -3986,8 +3992,8 @@ def _append_failure_record(home, operation, exc, subject, audit_date):
         # A value outside the closed vocabulary never
         # stands in the journal as an error value: a bare
         # operating system message on a supplied path
-        # stands recorded under the row X-4 token its
-        # refusal carries.
+        # stands recorded under the SUPPLIED_PATH_UNSAFE
+        # token its refusal carries.
         if "null byte" in str(exc) or "\x00" in str(exc):
             token = "SUPPLIED_PATH_UNSAFE"
         else:
@@ -4022,7 +4028,7 @@ def _append_failure_record(home, operation, exc, subject, audit_date):
 def _bound_product_record(home, product_record, round_record):
     """The product record as it stood at a round's first import.
 
-    The binding of brief item 29: a registry change recorded
+    The round binding: a registry change recorded
     after a round's first import does not bind the round. The
     record that governs the round is the last registry record
     standing at or before the round's first imported answer, or,
@@ -4073,7 +4079,7 @@ def _round_entries(home, product_record, round_record):
     readers are, and bound to the round's first import
     basis: registry entries recorded after the round's
     first imported answer do not reach the computation,
-    on the item 29 binding, stopping at the governed
+    on the round binding, stopping at the governed
     carry for a change landing between imports of the
     round."""
     product_id = product_record.get("product_id")
@@ -4119,7 +4125,7 @@ def _round_entries(home, product_record, round_record):
 def _round_datum(entries, product_record, round_record):
     """The RoundMetrics datum of one round, from its entries.
 
-    The datum declaration at plan Section 5.1: the registry
+    The datum declaration: the registry
     version, detector version, query set version, and
     lexicon version where one is recorded, in force at the
     round's first import. The first two stand on the round
@@ -4239,7 +4245,7 @@ def _probe_report_record(home, product_record, round_record,
     RoundMetrics record the metrics component computes,
     the product and round identities, the first import
     stamps the round record carries, and the methods note
-    stamp the ruling names for the RoundMetrics shape.
+    stamp for the RoundMetrics shape.
     """
     _validate_round_stamp_fields(round_record)
     if metrics_record is None:
@@ -4269,7 +4275,7 @@ def probe_report(*, home, product, round, form=None,
 
     The report recomputes in this invocation, through the
     metrics component, from the journal entries of the
-    round alone, on contract C4 terms. The home returns
+    round alone. The home returns
     the reporting pipeline rendering of the assembled
     record in the requested form, the prose walk in the
     Simple form and the record object or its envelope in
@@ -4633,31 +4639,32 @@ def _guide_impl(*, home, run_id=None, product=None,
     in the open at the constant above, and the store
     stands judged at the store under _store_guide_draft.
 
-    The selector rule (brief Section 5.12) takes exactly
+    The selector rule takes exactly
     one of run_id, or product with round label. Both
     selectors named, neither named, or only half of the
     product with round selector named stands as a malformed
-    call at row U-8, token MALFORMED_CALL, usage class,
+    call, MALFORMED_CALL, usage class,
     exit 2. An unknown run identity carries the governed
-    value for a missing round at row U-4, token
+    value for a missing round, token
     UNKNOWN_ROUND, as the branch below states: the closed
-    vocabulary holds no run specific token, and the joined
-    table assigns guide its missing references at U-4.
+    vocabulary holds no run specific token, and the
+    vocabulary assigns guide its missing references to
+    UNKNOWN_ROUND.
 
-    Repeat bound: plan trade T-9
-    grants that each repeat call over an unchanged record
+    Repeat bound: a standing grant provides that each
+    repeat call over an unchanged record
     appends a new guide_record, and that grant stands.
     The route reads the clock: every call stands under
-    limit 41, the per run wall clock backstop, checked
+    the per run wall clock backstop, checked
     before its record stands appended, and repeat appends
-    stand bounded in total by limit 39, the journal cap,
+    stand bounded in total by the journal cap,
     as every append stands. A call whose run passes the
     backstop appends nothing.
     """
     run_started = _clock()
     audit_date = _validate_audit_date(audit_date)
     # The guide assembly runs the home existence check
-    # every sibling read only route runs, at row U-6,
+    # every sibling read only route runs, as HOME_MISSING,
     # before its barred check and its lookups, so a guide
     # over a missing home answers HOME_MISSING and creates
     # nothing.

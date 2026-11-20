@@ -1,12 +1,13 @@
-"""Metrics for Citeline, slice S7.
+"""Metrics for Citeline.
 
 This module owns RoundMetrics, the one authoritative rates
 object, the Wilson construction at effective n, tiers, per
 query and per competitor breakdowns, clustering figures as
-disclosed figures, trend computation under contract C5, and
-guards G1, G3, G4, and G8 as computations.
+disclosed figures, trend computation, and
+the importer declaration, dominance, rate overlap, and
+capture date guards as computations.
 
-Metrics consume AnswerMetrics only, on contract 4 terms.
+Metrics consume AnswerMetrics only, on the stated terms.
 Figures are computed per source kind, never pooled across
 kinds, and never across products. Dates in the inputs are
 call inputs, read as asserted values only. No date is read
@@ -110,7 +111,8 @@ def tier_for(effective_n):
 def rates_separated(first_interval, second_interval):
     """Return True where two Wilson intervals do not overlap.
 
-    Guard G4: where two compared rates have overlapping
+    The rate overlap guard: where two compared rates have
+    overlapping
     Wilson intervals, the sample does not separate them.
     Intervals that only touch at one endpoint still overlap.
     """
@@ -972,7 +974,7 @@ def round_metrics(answers, kind, frame=None, datum=None,
     engine_count, engine_percent = largest_share(engine_values)
     query_count, query_percent = largest_share(query_values)
     day_count, day_percent = largest_share(day_values)
-    # Dominance, guard G3: where any one asserted engine
+    # Dominance: where any one asserted engine
     # label, query, or day supplies more than half of a
     # round, the pooled rate carries a dominance note. The
     # rule states no exception for an axis holding one value
@@ -1128,7 +1130,7 @@ def _frame_set(frame, dict_key, list_key):
 
 
 def compute_trend(first_round, second_round):
-    """Compute a trend over two rounds under contract C5.
+    """Compute a trend over two rounds.
 
     Each input is a mapping with a metrics entry holding a
     RoundMetrics value and a frame entry holding the frame
@@ -1199,7 +1201,8 @@ def compute_trend(first_round, second_round):
             axes.append("per query answer counts")
         elif "per query answer counts" not in axes:
             # A count change beside a set change still names
-            # the axis in the G8 case the tests pin, where
+            # the axis in the capture date case the tests pin,
+            # where
             # the second frame carries new counts.
             if first_frame.get("per_query_counts") != second_frame.get("per_query_counts"):
                 axes.append("per query answer counts")
@@ -1215,8 +1218,9 @@ def compute_trend(first_round, second_round):
         axes.append("cluster composition")
 
     # A capture date difference alone triggers neither form
-    # under contract C5, so the capture dates axis stands
-    # named only beside another changed axis, as guard G8
+    # under the trend contract, so the capture dates axis stands
+    # named only beside another changed axis, as the capture
+    # date guard
     # states its four axis list.
     first_dates = first_frame.get("capture_dates")
     second_dates = second_frame.get("capture_dates")
@@ -1264,7 +1268,7 @@ def compute_trend(first_round, second_round):
     return trend
 
 
-# Journal recomputation route, plan Section 5.2. AnswerMetrics
+# Journal recomputation route. AnswerMetrics
 # are recomputed from the journal alone in the same invocation,
 # and RoundMetrics are then computed through them.
 
@@ -1328,7 +1332,7 @@ def _split_references(text):
 
 
 def _map_host_separators(text):
-    """Map the three non ASCII dot separators of item 149
+    """Map the three non ASCII dot separators
     to a full stop, as the detection host reading maps
     them, so a host written with a separator stands read
     as the host it names."""
@@ -1426,8 +1430,8 @@ def _fold_registry(entries, fold_point):
     # whose superseded entry is a registry entry inside the
     # fold range applies in sequence order: the corrected
     # record stands in place of the superseded entry record
-    # for every later point in the fold, on the plan
-    # Section 5.2 fold rule journal.py implements for
+    # for every later point in the fold, on the fold
+    # rule journal.py implements for
     # registry readers.
     ordered = sorted(
         list(entries or []),
@@ -1717,7 +1721,7 @@ def round_metrics_from_journal(entries, fold_point=None, detector_version=None,
     stamps = dict(datum or {})
     if detector_version is not None:
         stamps.setdefault("detector_version", detector_version)
-    # The sampling frame of guard G1 carries the importer
+    # The sampling frame carries the importer
     # declaration recorded at round naming. The declaration
     # stands on the round_named entry of the journal, so the
     # frame built here reads it from that entry, in sequence
@@ -1748,8 +1752,8 @@ def round_metrics_from_journal(entries, fold_point=None, detector_version=None,
         aliases=seed_aliases, competitors=seed_competitors,
     )
     # The per answer AnswerMetrics stand carried in the
-    # report beside the round figures, as plan Section 5.2
-    # states for the Advanced probe report: effective n and
+    # report beside the round figures, as the Advanced
+    # probe report states: effective n and
     # cluster membership recompute from the per answer
     # fields themselves. The
     # rows stand in the record ahead of the capture context,

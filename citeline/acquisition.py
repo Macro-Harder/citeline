@@ -1,4 +1,4 @@
-"""Acquisition and extraction for Citeline, slice S2.
+"""Acquisition and extraction for Citeline.
 
 Perspective: what a thing is gets decided once, at the
 boundary, and never re-decided downstream. This module is
@@ -11,13 +11,14 @@ format, and this module never fetches, resolves, or
 follows a link.
 
 TextSegmentation stands inside this module as a named
-sub-module (trade T-1): the segment_text operation and
+sub-module: the segment_text operation and
 the TextSegmentation class below are its surface, and
 every consumer consumes its output and no other
 segmentation.
 
-Shapes stand at plan Section 5.1: PageSnapshot and
-ExtractedPage. Input formats stand at plan Section 5.4.
+The shapes are PageSnapshot and
+ExtractedPage. The input formats are markdown, HTML,
+and text, as the format detection below states.
 Dates are call inputs (the audit_date argument), never
 clock reads.
 """
@@ -47,7 +48,7 @@ __all__ = [
 
 
 # ----------------------------------------------------------------
-# Errors: one value per call, from the closed entry 13 vocabulary.
+# Errors: one value per call, from the closed vocabulary.
 # ----------------------------------------------------------------
 
 _TOKEN_ROWS = {
@@ -59,7 +60,7 @@ _TOKEN_ROWS = {
 
 
 class AcquisitionError(_BaseError):
-    """An acquisition refusal carrying its entry 13 token."""
+    """An acquisition refusal carrying its vocabulary token."""
 
     def __init__(self, token, message):
         row, precedence_class, exit_code = _TOKEN_ROWS.get(
@@ -81,7 +82,7 @@ def _fail(token, message):
     raise AcquisitionError(token, message)
 
 
-# Section 5.11 page side limits, in the units their rows state.
+# Page side limits, in the units their rows state.
 _PAGE_FILE_LIMIT = 2 * 1024 * 1024
 _EXTRACTED_TEXT_LIMIT = 500000
 _ELEMENT_EVENT_LIMIT = 100000
@@ -108,7 +109,7 @@ _EXTENSION_FORMATS = {
 
 
 # ----------------------------------------------------------------
-# Journal access (slice S0). Snapshot registration and failure
+# Journal access. Snapshot registration and failure
 # records write only through the journal append operation.
 # ----------------------------------------------------------------
 
@@ -132,7 +133,7 @@ def _next_sequence(home):
 
 
 # ----------------------------------------------------------------
-# Word tokenisation (brief Section 5.1 item 154): words are
+# Word tokenisation: words are
 # alphanumeric tokens, a hyphenated form counts as its parts,
 # and a decimal counts as one word.
 # ----------------------------------------------------------------
@@ -177,14 +178,13 @@ def count_words(text):
 # block of running text separated from the next block by a
 # blank line. Leading and trailing blank lines form no
 # paragraph, and a text holding no line breaks is one block.
-# The HTML paragraph limb stands stopped on L-CC-2 in the
-# plan; the block element reading used for HTML extraction
-# in this module is recorded in the builder paper and
-# claims no plan test for that limb.
+# The HTML paragraph limb stands stopped; the block
+# element reading used for HTML extraction
+# in this module claims no test for that limb.
 #
 # Sections: the section map, one entry per heading, with
 # heading offset range and heading text as display only,
-# plus a references section mark under item 160.
+# plus a references section mark.
 # ----------------------------------------------------------------
 
 _ABBREVIATIONS = ("e.g.", "i.e.", "Dr.", "Mr.", "Mrs.", "Ms.", "St.", "vs.")
@@ -626,7 +626,7 @@ def segment_text(text, format="text", **kwargs):
 
 # ----------------------------------------------------------------
 # Format detection. Content first, declared format second,
-# extension last (plan Section 5.4). Detection looks at the
+# extension last. Detection looks at the
 # file's own leading content, in file order, outside any
 # fenced code block and outside any blockquote.
 # ----------------------------------------------------------------
@@ -851,7 +851,7 @@ def detect_format(content, declared_format=None, filename=None, **kwargs):
     Content stands first, an operator declared format
     second, and the file name extension last. Where no
     route decides, or the content stands ambiguous,
-    detection fails on row X-14.
+    detection fails with PAGE_EXTRACTION_FAILED.
     """
     if declared_format is None:
         declared_format = kwargs.get("declared")
@@ -902,7 +902,7 @@ def detect_format(content, declared_format=None, filename=None, **kwargs):
 
 # ----------------------------------------------------------------
 # Container rule. The container rule stands ahead of content
-# detection (plan Section 5.4). XHTML stands marked where a
+# detection. XHTML stands marked where a
 # doctype declaration naming XHTML, or the XHTML namespace
 # on the root element, stands in the file's own leading
 # structure, outside any fence and outside any blockquote.
@@ -1255,7 +1255,7 @@ def _check_containers(raw, text):
 
 
 # ----------------------------------------------------------------
-# The supplied file open protocol (boundary B1), in operating
+# The supplied file open protocol, in operating
 # system terms: a stat that does not follow the final
 # component, a non blocking no follow open, a device and
 # inode match against the pre open stat, a hard link count
@@ -1266,7 +1266,7 @@ def _read_supplied_file(page_path, size_limit_bytes=None):
     # The page file size limit in force over the run, in
     # bytes, where the caller states one: one reading of
     # the limits in force governs this gate and the service
-    # preflight gate, so the brief default constant stands
+    # preflight gate, so the default constant stands
     # only where no value in force reaches this reading.
     # The open protocol itself stands in citeline.shared;
     # this wrapper states its refusals in this intake's
@@ -1801,7 +1801,7 @@ def _fm_brackets_closed(text):
 
 def _front_matter(text, fmt, notes, block_limit_bytes=None,
                   value_limit=None):
-    """Front matter handling. Front matter that fails the D17
+    """Front matter handling. Front matter that fails the
     control set fails closed: a tag construct standing in
     front matter is that failure in this module.
 
@@ -1817,7 +1817,7 @@ def _front_matter(text, fmt, notes, block_limit_bytes=None,
     limits in force for the run where the caller states
     them: one reading of the limits in force governs the
     audit record's statement and this enforcement, so the
-    brief default constants stand only where no value in
+    default constants stand only where no value in
     force reaches this reading, as at the page size gate."""
     if not isinstance(block_limit_bytes, (int, float)):
         block_limit_bytes = _FRONT_MATTER_BLOCK_LIMIT
@@ -3093,10 +3093,10 @@ def _extract_inner(home, product_id, page_path, declared_format,
         text, fmt, notes, block_limit_bytes=fm_block_bytes,
         value_limit=fm_value_limit)
     # The extracted text limit in force over this home
-    # governs the extraction, not only the brief default:
+    # governs the extraction, not only the default:
     # a config set value reaches this path through the
     # journal limits in force (this reading stands in the
-    # extraction path). Where no limit can be read, the brief
+    # extraction path). Where no limit can be read, the
     # default constant governs, as before.
     extracted_text_limit = _EXTRACTED_TEXT_LIMIT
     stated_text_limit = (

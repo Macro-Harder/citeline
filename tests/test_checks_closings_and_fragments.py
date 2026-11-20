@@ -223,7 +223,7 @@ class Test023VersionMaskCost(unittest.TestCase):
             "sys.path.insert(0, " + repr(product_root) + ")\n"
             "sys.path.insert(0, " + repr(
                 str(Path(__file__).resolve().parent)) + ")\n"
-            "from test_step17_r7_f3 import stat_count\n"
+            "from test_checks_closings_and_fragments import stat_count\n"
             "frames = [\n"
             "    'Now on version ' + 'is ' * 30 + 'the tool "
             "brings many daily users together today.',\n"
