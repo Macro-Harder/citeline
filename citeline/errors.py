@@ -1,7 +1,7 @@
 """Shared error vocabulary and recorded error types.
 
-The vocabulary is the closed set fixed by the design plan
-at entry 13, joined with the exit code table at item 126.
+The vocabulary is the closed set of recorded error
+values, joined with the exit code table.
 Every value carries its row, its token, its precedence
 class, and the exit code its class assigns. No value
 outside this set may ship. The exception types in this
@@ -270,7 +270,7 @@ class JournalError(CitelineError):
 
 
 class ConfigError(CitelineError):
-    """A config surface failure, at rows X-1 and X-2 in the main."""
+    """A config surface failure."""
 
 
 __all__ = [

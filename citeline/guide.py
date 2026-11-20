@@ -1,4 +1,4 @@
-"""Guide for Citeline, slice S8.
+"""Guide for Citeline.
 
 This module owns GuideDraft, the closed trigger list and
 draft rules, the worklist class derivation, and the draft
@@ -97,18 +97,17 @@ _WORD_TOKEN_PATTERN = (
 
 def _word_tokens(text):
     # The same tokeniser form as the reporting module
-    # states: a decimal number counts as one word under
-    # brief Section 5.1, so a decimal point standing
+    # states: a decimal number counts as one word, so
+    # a decimal point standing
     # between digits does not split the number it
-    # stands in (the guide side pattern the reporting
-    # paper records).
+    # stands in.
     normalised = unicodedata.normalize("NFC", text or "").casefold()
     return re.findall(
         _WORD_TOKEN_PATTERN, normalised, flags=re.UNICODE)
 
 
 def _contains_term(sentence, term):
-    # The matching form the brief states for its shipped
+    # The matching form for the shipped
     # lists: case insensitive over word tokens, words as
     # alphanumeric tokens, a hyphenated form counting as
     # its parts, and a multi word entry matching as a
@@ -186,8 +185,8 @@ def _has_citation_target(sentence):
     # sentence beside the target. A listing that holds
     # targets and no words is the citations standing
     # themselves, not a sentence containing one, which is
-    # the distinction the citation only draft rule at
-    # item 137 stands on.
+    # the distinction the citation only draft rule
+    # stands on.
     if not (_MARKDOWN_TARGET_PATTERN.search(sentence)
             or _CITATION_TARGET_PATTERN.search(sentence)):
         return False
@@ -198,7 +197,7 @@ def _has_citation_target(sentence):
 
 
 def _has_statistic_token(sentence):
-    # The Section 5.7 earning rules stand in one place:
+    # The earning rules stand in one place:
     # the checks module owns them, and this test reads
     # that computation over the sentence as a page of one
     # sentence, so the guide test and the checks can
@@ -222,10 +221,10 @@ def _has_attributed_quoted_span(sentence):
 def is_quotable_evidence_sentence(sentence):
     """Return True where a sentence is quotable evidence.
 
-    Brief item 137 defines the term: a sentence of the
+    The term stands defined as: a sentence of the
     extracted page text containing a citation target, a
     statistic token, or an attributed quoted span, under
-    the Section 5.7 earning rules.
+    the earning rules.
     """
     if not sentence:
         return False
@@ -275,7 +274,7 @@ def choose_evidence_sentence(sentences, product_name=None, aliases=(),
     Preference: the first quotable evidence sentence that
     passes the naming test. Fallback: the first quotable
     evidence sentence in extracted order. Every candidate
-    stands under the quotable evidence test of item 137,
+    stands under the quotable evidence test,
     however it reached this module: a supplied sentence
     that is not quotable evidence is no candidate at all.
     """
@@ -408,11 +407,11 @@ def _cited_count_phrase(distinct_cited_target_count,
 
 
 def _action_text(code, evidence=None):
-    # One plain sentence per action, on the brief item 137
-    # rendering rule: the check or round outcome that
+    # One plain sentence per action, on the rendering
+    # rule: the check or round outcome that
     # produced the action named in words, the evidence
     # that produced it, and the next step at signal level,
-    # with a named source where guard G6 requires one. No
+    # with a named source where the guard requires one. No
     # text here presents a step as a promised result.
     if code.startswith("FAIL_") or code.startswith("WARN_"):
         stem = code[len("FAIL_"):] if code.startswith("FAIL_") \
@@ -517,7 +516,7 @@ def draft_from_audit_record(record, canonical_line=None, audit_date=None,
     defined here. FAIL_ and WARN_ codes in the closed list
     pass through as actions on those terms.
 
-    Draft rules, on the brief items this slice owns:
+    Draft rules:
     a page with no firing trigger returns the canonical
     line alone, with an empty action list, not a refusal.
     A page with a firing trigger and a quotable evidence
@@ -617,7 +616,7 @@ def draft_from_audit_record(record, canonical_line=None, audit_date=None,
         # A check that earned nothing stands failed in
         # plain words: its FAIL_ trigger fires from the
         # stored check result itself, so the draft
-        # selection rule of item 137 can run on a page
+        # selection rule can run on a page
         # whose checks earned nothing on a named check.
         # A check that earned in part stands warned in
         # the same plain words: its WARN_ trigger fires,
@@ -813,7 +812,7 @@ def compute_round_triggers(answers=None, round_metrics=None):
         def any_cited():
             # An answer stands cited for the round trigger
             # where it holds at least one citation instance,
-            # the gross reading the brief states for a citing
+            # the gross reading stated for a citing
             # answer, as well as where its cited outcome for
             # the product domain stands.
             for item in active:

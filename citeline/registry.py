@@ -1,19 +1,19 @@
-"""Registry operations for Citeline, slice S1.
+"""Registry operations for Citeline.
 
 Perspective: what a thing is gets decided once, at the
 boundary, and never re-decided downstream. This module is
 that boundary for products, competitors, and rounds. It
 validates every incoming form once, derives identity
 once, and writes the resulting record once, through the
-journal slice only (contract 2 and contract C6). Later
-slices read the records this module wrote; they do not
+journal only. Later
+modules read the records this module wrote; they do not
 re-derive identity or re-validate forms.
 
-Shapes stand at plan Section 5.1: Product, Competitor,
+The shapes are Product, Competitor,
 and Round. Journal kinds written here are
 product_registered, registry_change, round_named, and
 the is_product_page limb of snapshot_registered, for
-which this slice is sole writer after creation.
+which this module is sole writer after creation.
 
 Dates are call inputs (the audit_date argument), never
 clock reads.
@@ -56,7 +56,7 @@ __all__ = [
 
 
 # ----------------------------------------------------------------
-# Errors: one value per call, from the closed entry 13 vocabulary.
+# Errors: one value per call, from the closed vocabulary.
 # ----------------------------------------------------------------
 
 _TOKEN_ROWS = {
@@ -70,7 +70,7 @@ _TOKEN_ROWS = {
 
 
 class RegistryError(_BaseError):
-    """A registry refusal carrying its entry 13 token."""
+    """A registry refusal carrying its vocabulary token."""
 
     def __init__(self, token, message):
         row, precedence_class, exit_code = _TOKEN_ROWS.get(
@@ -99,7 +99,7 @@ class _StaleView(Exception):
 
 
 # ----------------------------------------------------------------
-# Journal access (slice S0). This module writes only through
+# Journal access. This module writes only through
 # the journal operations the plan states: append_entry as the
 # append operation, fold, fold_registry, and read_entry.
 # ----------------------------------------------------------------
@@ -198,8 +198,8 @@ def _fold_registry(home):
                 _judge_product_identity(record["product_id"])
                 records[record["product_id"]] = record
         return records
-    # Fallback reading over the plain fold, applying the plan
-    # Section 5.2 rule: a registry_change payload carries the
+    # Fallback reading over the plain fold, applying the
+    # fold rule: a registry_change payload carries the
     # full record as changed, applied at its sequence.
     for entry in _fold(home):
         kind = _get(entry, "entry_kind")
@@ -285,7 +285,7 @@ def _append_guarded(home, kind, payload, audit_date):
 def _registry_lock(home):
     """Serialise one registry read, edit, append cycle.
 
-    Contract C6 states an atomic registry write. The
+    The registry write stands atomic. The
     journal write lock covers a single append only, so a
     setter that reads the standing record, edits its own
     copy, and appends the whole record can silently lose
@@ -351,7 +351,7 @@ def validate_name(value, what="name"):
     """A name is 1 to 200 code points, no control characters.
 
     Name text is normalised to Unicode NFC before case
-    folding (brief item 151), and the normalised form is the
+    folding, and the normalised form is the
     form stored and the form identity is formed, so one name
     in its two Unicode forms is one name at this boundary. A
     lone surrogate is not encodable text and fails validation
@@ -385,13 +385,12 @@ def validate_slug(value, what="slug"):
 
 def validate_alias(value):
     """An alias is 3 characters or more, with no zero width
-    character and no other invisible format character
-    (items 47 and 152)."""
+    character and no other invisible format character."""
     if not isinstance(value, str):
         _fail("VALIDATION_FAILED", "alias must be a string")
-    # Item 151: name text is normalised to Unicode NFC before
+    # Name text is normalised to Unicode NFC before
     # it is judged, as validate_name judges its normalised
-    # form, so the minimum length of item 47 and every other
+    # form, so the minimum length rule and every other
     # judgement in this function stand on the normalised form,
     # the form detection matches. The normalised form is the
     # form returned and stored.
@@ -436,7 +435,7 @@ def validate_alias(value):
 
 
 def _normalise_domain(value):
-    """Item 42 host normalisation: NFC, case folded, compared
+    """Host normalisation: NFC, case folded, compared
     in A-label form, lowercased. A trailing dot is not stripped
     here, because the registry domain form rejects it before
     normalisation; the caller validates the raw form first."""
@@ -455,9 +454,10 @@ def _normalise_domain(value):
 
 
 def validate_domain(value, allow_empty=False):
-    """The registry domain form, item 50: a host, with no
+    """The registry domain form: a host, with no
     scheme, no port, no path, and no trailing dot, normalised
-    under item 42. An empty domain stands only where the
+    as the host normalisation states. An empty domain stands
+    only where the
     caller allows it, which is the competitor case."""
     if not isinstance(value, str):
         _fail("VALIDATION_FAILED", "domain must be a string")
@@ -475,7 +475,7 @@ def validate_domain(value, allow_empty=False):
               "domain must hold no trailing dot")
     if value != value.strip() or " " in value or _has_control(value):
         _fail("VALIDATION_FAILED", "domain form is not a host string")
-    # Item 149 dot separators map to a full stop before the
+    # The dot separators map to a full stop before the
     # host form is judged, and name text stands in NFC, so a
     # decomposed accented label is judged in composed form.
     text = unicodedata.normalize("NFC", value)
@@ -525,7 +525,7 @@ _UNRESERVED = frozenset(
 
 
 def _syntax_normalise_path(value):
-    """Item 40 limb (1) syntax normalisation on a path.
+    """Syntax normalisation on a path.
 
     A percent encoded triplet standing for an unreserved
     character is decoded to that character, a triplet for
@@ -644,7 +644,7 @@ def find_product(home, product):
     # registration: a name input stands in NFC form before
     # it is compared with the stored name, so the two
     # Unicode spellings of one name name the one product
-    # here as they do at registration (brief item 151).
+    # here as they do at registration.
     wanted = unicodedata.normalize("NFC", str(product))
     state = _fold_registry(home)
     if wanted in state:
@@ -728,8 +728,8 @@ def _snapshots(home):
 # Competitor and list forms.
 # ----------------------------------------------------------------
 
-# Section 5.11 limits that bind registry lists. The constants
-# state the brief defaults; the limit that binds a call is the
+# Limits that bind registry lists. The constants
+# state the defaults; the limit that binds a call is the
 # limit in force for its home, read from the config in force
 # through the journal limits record, so a config that lowers or
 # raises one of these limits governs the registry as it governs
@@ -743,9 +743,9 @@ def _limit_in_force(home, key, default):
     """One registry list limit in force for a home.
 
     Reads the journal limits in force, which carry the
-    config value where the config states one and the brief
+    config value where the config states one and the
     default where it does not. A home whose limits cannot
-    be read stands judged at the brief default here; the
+    be read stands judged at the default here; the
     operation's own home and chain checks govern that
     home's standing separately.
     """
@@ -916,7 +916,7 @@ def _base_product(name, canonical_line, domain, competitors,
 
 def _public_product(record):
     """The Product shape as returned: path_prefix stands absent
-    where no prefix stands, on the Section 5.1 form."""
+    where no prefix stands, on the Product form."""
     out = copy.deepcopy(record)
     if out.get("path_prefix") is None:
         out.pop("path_prefix", None)
@@ -959,7 +959,7 @@ def add_product(home, name=None, canonical_line=None, domain=None,
                 competitors=None, aliases=None, query_set=None,
                 category=None, path_prefix=None, audit_date=None,
                 **kwargs):
-    """Add a product, idempotently, under contract C6.
+    """Add a product, idempotently.
 
     Re-adding with no change returns the standing product and
     writes nothing. Re-adding with any change is a usage
@@ -1264,8 +1264,9 @@ def set_category(home, product=None, category=None, audit_date=None,
 def _append_register_failure(home, token, subject, audit_date):
     """Append one failure record for a refused register page call.
 
-    The joined entry 13 table orders a failure record for
-    row X-5 where the chain accepts appends. A barred chain,
+    A failure record stands ordered for
+    VALIDATION_FAILED where the chain accepts appends. A
+    barred chain,
     a chain at cap, and any append failure leave no record,
     and the caller response stands as the only record, on
     the same terms the service layer applies to its failure
@@ -1305,16 +1306,16 @@ def register_page(home, product=None, snapshot=None, audit_date=None,
     the standing record, on the add-product no change rule.
 
     The snapshot input names a standing snapshot of this
-    product by its snapshot_id, on brief Section 5.12. An
+    product by its snapshot_id. An
     identifier that names no standing snapshot for this
     product stands refused, and no snapshot record stands
     written for it: registration sets the field on the
     standing PageSnapshot record, and fabricates no record
-    of its own. The refusal carries row X-5, token
+    of its own. The refusal carries token
     VALIDATION_FAILED, usage class, exit code 2, with a
     failure record appended where the chain accepts
-    appends, as that joined row orders. No row of the
-    joined table names an unknown snapshot as its own
+    appends. No entry of the
+    vocabulary names an unknown snapshot as its own
     condition, and the closed vocabulary admits no new
     value, so the registry validation row governs this
     caller correctable identifier failure, as it already
@@ -1391,7 +1392,7 @@ def register_page(home, product=None, snapshot=None, audit_date=None,
               "a superseded view")
 
 
-# Round declaration values. The plan Section 5.1 values stand
+# Round declaration values. The values stand
 # in full phrase form. The suite also carries code
 # forms and short forms for the same three values of each
 # field; the normalised key of every accepted form is decided
@@ -1476,7 +1477,7 @@ _CANONICAL_SUPPLIER = {
 def name_round(home, product=None, round_label=None,
                importer_declaration=None, supplier_relation=None,
                audit_date=None, **kwargs):
-    """Name a round for a standing product, under contract C10.
+    """Name a round for a standing product.
 
     One round_named entry stands written, advancing no
     registry version. A standing label for the product is a

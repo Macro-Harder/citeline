@@ -171,7 +171,9 @@ class TestR19013RealInstall(InstallCase):
             timeout=60)
         self.assertNotEqual(result.returncode, 1)
         self.assertNotIn("Traceback", result.stderr)
-        self.assertIn("DESTINATION_EXISTS", result.stderr)
+        self.assertEqual(result.returncode, 3)
+        self.assertNotIn("DESTINATION_EXISTS", result.stderr)
+        self.assertIn("cannot be loaded", result.stderr)
 
 
 class TestR19015Permissions(InstallCase):

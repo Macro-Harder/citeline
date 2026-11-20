@@ -1,29 +1,28 @@
-"""Detection for imported answer text, slice S6.
+"""Detection for imported answer text.
 
 This module consumes imported answer text only, through the
 detect_answer input shape: the answer text, the product as
 registered, and the competitor list as registered. It reads no
 supplied file and holds no form inventory. It owns the
-AnswerMetrics per answer fields stated at plan Section 5.1:
+AnswerMetrics per answer fields:
 named, named_early, cited, first_offset, matched_aliases,
 per competitor outcomes, unresolved_form_count, the references
 section split counts, and the clustering operation whose
 per answer cluster fields the metrics slice consumes.
 
-Rules landed here, each from the brief Section 5.7 items the
-plan entry for S6 names: mention detection with masking,
-longest alias first, and offsets read from the unmasked text
-(item 46); citation detection at domain level with a dot
-boundary (items 1, 34, and 44); host normalisation (item 42);
-scheme and port handling (item 43); the canonical form
-(item 33) built by the T3 tolerance rung (item 40); bracket
-resolution (item 31); and the references section rule
-(item 160). The three normalisations stay separate named
+Rules landed here: mention detection with masking,
+longest alias first, and offsets read from the unmasked text;
+citation detection at domain level with a dot
+boundary; host normalisation;
+scheme and port handling; the canonical form
+built by the tolerance rung; bracket
+resolution; and the references section rule. The three
+normalisations stay separate named
 functions: normalise_host, syntax_normalise_path, and the
 query handling inside canonical_form. No shared normalise
 helper stands in this module.
 
-List dependent limbs stand stopped at SEAM-LISTS: no tracking
+List dependent limbs stand stopped: no tracking
 parameter beyond the named position on ref is stripped, no
 common word classification is applied to a matched alias, and
 no wrapper outcome is produced for a wrapped target, which is
@@ -159,10 +158,10 @@ _BARE_DOMAIN_TOKEN_RE = re.compile(
     # hyphen before the token. An underscore stands outside
     # it: a domain token glued to the word before it by an
     # underscore is still a domain token for the mention
-    # mask of item 46, so a name standing inside such a
+    # mention mask, so a name standing inside such a
     # token is judged as part of that host token and not
     # as a prose mention, while a name flanked by an
-    # underscore in prose counts under item 46 as the
+    # underscore in prose counts as the
     # mention scan states.
     r"(?<![A-Za-z0-9.．。｡-])(?:[A-Za-z0-9-]+[.．。｡])+[A-Za-z]{2,}"
     r"[.．。｡]?(?::[0-9]+)?[.．。｡]?(?:[/?#]\S*)?")
@@ -184,8 +183,7 @@ def _decode_link_piece(value):
     standing, such as a percent character from a double
     encoded form, is not decoded again downstream. This is
     the same decoding the checks module applies at its
-    _decode_link_piece, under items 148 and 159 and
-    decision D22."""
+    _decode_link_piece."""
     return unquote(_html_unescape(value))
 
 
@@ -245,8 +243,8 @@ def _decoded_authority_parts(target):
 
 
 def _decoded_target_text(target):
-    """The target text after the one decoding items 148
-    and 159 state, with the decoded authority standing in
+    """The target text after the one decoding the
+    standing rule states, with the decoded authority standing in
     place of the raw authority piece. A target with no
     scheme separator stands as written."""
     text = str(target).strip()
@@ -258,13 +256,13 @@ def _decoded_target_text(target):
 
 def _target_is_valid(target):
     """A target counts only where it parses with a host and a
-    well formed port, plan Section 10.4 primitive P4 and brief
-    item 155: a malformed port or a missing host makes the
+    well formed port: a malformed port or a missing host
+    makes the
     target malformed, and it counts no citation. The parse
-    stands on the target after the one decoding items 148
-    and 159 state, and a host that still holds a percent
-    character after that one decode is malformed under
-    item 148 in the same way."""
+    stands on the target after the one decoding stated,
+    and a host that still holds a percent
+    character after that one decode is malformed in
+    the same way."""
     text = _decoded_target_text(target)
     try:
         parts = urlsplit(text)
@@ -321,7 +319,7 @@ def _definition_tail(text):
 
 
 def _mask_non_answer_text(text):
-    """Mask text that item 131 keeps out of answer text: HTML
+    """Mask text kept out of answer text: HTML
     comments and reference definitions, at equal length so
     offsets stay aligned. An unclosed comment masks to the
     end of the text."""
@@ -411,11 +409,11 @@ def _names_of(entity):
 
 
 def normalise_host(host):
-    """Host normalisation, item 42 as its own named function.
+    """Host normalisation, as its own named function.
 
     The host is normalised to Unicode NFC, the non ASCII dot
     separators U+FF0E, U+3002, and U+FF61 are mapped to a full
-    stop (item 149, a limb of the host pipeline), the result is
+    stop (a limb of the host pipeline), the result is
     case folded and lowercased, one trailing dot is stripped,
     and the host is compared in its A-label form. Www stripping
     never applies inside this function; it applies at domain
@@ -447,7 +445,7 @@ def normalise_host(host):
 
 
 def syntax_normalise_path(path):
-    """Path syntax normalisation, item 40 limb (1), named alone.
+    """Path syntax normalisation, named alone.
 
     A percent encoded triplet standing for an unreserved
     character is decoded to that character; a triplet for any
@@ -490,14 +488,14 @@ def syntax_normalise_path(path):
 
 
 def _normalise_query(query):
-    """Query handling, item 40 limb (5).
+    """Query handling.
 
     The remaining query is sorted by name then value,
     duplicates kept, and a valueless parameter is sorted by
     name with an empty value. No parameter is stripped in
     version 1 on the decided limb: the ref parameter is not a
     tracking parameter, and every other list member stands
-    stopped at SEAM-LISTS.
+    stopped.
     """
     if not query:
         return ""
@@ -551,11 +549,11 @@ def canonical_form(target):
     # form strips the brackets of an IPv6 literal, so a
     # bracketed address at a port and a longer address
     # whose tail reads as that port built one key for two
-    # distinct targets, against item 33.
+    # distinct targets, against the canonical form rule.
     host = normalise_host(_host_from_authority(authority))
     if "%" in host:
         # A host still holding a percent character after
-        # the one decode is malformed under item 148; its
+        # the one decode is malformed; its
         # key stands as the target as written, never as
         # the key of the host it would decode to twice.
         return text
@@ -653,7 +651,7 @@ def _extract_targets(text):
 
 def _masked_for_mentions(text):
     """Text with link targets and bare URLs masked at equal
-    length, item 46, so masking shifts no later offset."""
+    length, so masking shifts no later offset."""
     spans = []
     for start, end, _target in _iter_links(text):
         # The target opening parenthesis is the one standing
@@ -691,11 +689,11 @@ _ZERO_WIDTH = frozenset(
 
 
 def _remove_zero_width(text):
-    """Remove the zero width characters of item 152 from a
+    """Remove the zero width characters from a
     matching copy, keeping a map from each kept position to
     its position in the supplied text. The zero width class
-    only stands removed here: the wider removal set of item
-    152 stands referred at SEAM-LISTS and no character
+    only stands removed here: the wider removal set
+    stands referred to the stopped list limbs and no character
     outside this class is removed by this function."""
     kept = []
     mapping = []
@@ -708,7 +706,7 @@ def _remove_zero_width(text):
 
 
 def _scan_mentions(masked_text, names):
-    """Longest first mention scan over masked text, item 46.
+    """Longest first mention scan over masked text.
 
     At each position the longest name is taken first and a span
     consumed by a match is not counted again. A match flanked
@@ -716,8 +714,8 @@ def _scan_mentions(masked_text, names):
     search runs case insensitively for all names. Returns a
     list of (offset, registered name) in file order.
 
-    The matching copy is built under items 151 and 152: NFC
-    first, then the zero width characters of item 152 are
+    The matching copy is built as: NFC
+    first, then the zero width characters are
     removed, then case folding, on the text side and on the
     name side alike. Offsets are read back through the two
     position maps to the supplied text, and the flank
@@ -781,7 +779,7 @@ def _domain_offsets(masked_text, domain):
     found = []
     start = 0
     supplied_text = unicodedata.normalize("NFC", masked_text)
-    # The non ASCII dot separators of item 149 are mapped to
+    # The non ASCII dot separators are mapped to
     # a full stop before the search, as normalise_host maps
     # them for the URL host reading. Each separator is one
     # character and its mapping is one character, so every
@@ -827,7 +825,7 @@ def _domain_offsets(masked_text, domain):
 def _clean_heading_text(text):
     """Clean a heading's text for the closed set comparison:
     punctuation of any kind is ignored at the head of the
-    heading text as at its tail, item 160, so a heading whose
+    heading text as at its tail, so a heading whose
     text stands wrapped in emphasis marks or quotation marks
     cleans to the same string as the plain heading."""
     cleaned = text.strip()
@@ -845,7 +843,7 @@ def _split_sections(text):
     with the other part masked by spaces at equal length, so
     offsets stay aligned with the extracted text. The heading
     set is closed, matched case insensitively ignoring
-    trailing punctuation, item 160. A references section runs
+    trailing punctuation. A references section runs
     to the next heading of the same or higher level or to the
     end of the text. An unheaded trailing list of two or more
     item lines at the end of the text, standing under no
@@ -998,7 +996,7 @@ def _bracket_number_key(number):
 
 def _resolved_target_cited(target, domain):
     """Whether a resolved references entry target counts as a
-    citation to the domain, item 31 with item 1. A target in
+    citation to the domain. A target in
     URL form stands under the ordinary validity gate. A bare
     domain target in a reference position counts as cited to
     its own host."""
@@ -1011,8 +1009,8 @@ def _resolved_target_cited(target, domain):
             and _target_is_valid(text) \
             and _host_matches_domain(host, domain)
     # A bare destination stands under the same one
-    # decoding as a destination in URL form, items 148
-    # and 159, applied before its host is cut out, so a
+    # decoding as a destination in URL form, applied
+    # before its host is cut out, so a
     # delimiter the decode produces acts as the delimiter
     # it is in this form as in the URL form.
     text = _decode_link_piece(text)
@@ -1124,7 +1122,7 @@ def detect_answer(text, product, competitors):
     product as registered (name, aliases, and domain), and the
     competitors as registered. Headline outcomes use the prose
     part only; mentions and citations in a references section
-    are reported separately under item 160.
+    are reported separately.
     """
     if text is None:
         text = ""
@@ -1240,7 +1238,7 @@ def _shingles(normalised_text):
 
 
 def cluster_answers(texts):
-    """Cluster answers by the shingle rule, item 20 of Section 5.8.
+    """Cluster answers by the shingle rule.
 
     Each answer text is normalised to NFC, case folded, and
     whitespace collapsed before its word 5 gram shingle set is

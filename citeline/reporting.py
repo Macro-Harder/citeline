@@ -92,8 +92,8 @@ ANCHOR_LIMIT_SENTENCE = (
 
 SCOPE_VALUE = "signal_presence_only"
 
-# The Agentic envelope contract fields of brief Section 5.5
-# item 122: the schema stamp naming the response schema and
+# The Agentic envelope contract fields: the schema
+# stamp naming the response schema and
 # its version, and the status token a successful response
 # carries. A failure response carries an error token from
 # the closed vocabulary in the same status field, produced
@@ -138,7 +138,7 @@ GROUP_NO_ACTION_LINE = (
 )
 
 # The importer declaration in its three values in words, as
-# brief Section 5.8 item 19 guard G1 states them, keyed by the
+# the declaration guard states them, keyed by the
 # stored code form. The Simple form states the declaration in
 # these words, marked as asserted, because the declaration is
 # operator asserted metadata; the Advanced code form carries
@@ -739,8 +739,8 @@ def _apply_guide_texts(body):
 
 def _apply_small_sample_warning_text(body):
     """Stand the fixed warning text where a rate object carries
-    the warning in its boolean stored form. The brief states
-    the warning as a fixed text; a stored true stands for that
+    the warning in its boolean stored form. The warning
+    stands as a fixed text; a stored true stands for that
     text, and the rendering states it in words in every form.
     """
     for obj in _walk(body):
@@ -1097,7 +1097,7 @@ def _advanced_body(record):
         body.setdefault("coverage_statement", _COVERAGE_STATEMENT)
     # Every Advanced report object carries the anchor
     # limit field at its top level, not only beside a head
-    # hash, and the report objects the brief names carry
+    # hash, and the named report objects carry
     # the honesty sentence field among them: the probe
     # report, the guide, the query set report, and the
     # staleness view stand named beside the audit
@@ -1402,7 +1402,7 @@ def _simple_safe_text(text):
             cleaned.append(char)
     joined = "".join(cleaned)
     # JSON object syntax stands broken in the Simple
-    # form on the brief criterion, not only in its brace
+    # form on the stated criterion, not only in its brace
     # and quote adjacency: a zero width space stands
     # after every opening brace, a character no JSON
     # reading treats as whitespace, so no value in the
@@ -1477,8 +1477,8 @@ def render(record, form="advanced"):
     return envelope
 
 
-# The traced field set of the Advanced audit artefact, per
-# the plan Section 1.5 reverse trace table: every field the
+# The traced field set of the Advanced audit artefact:
+# every field the
 # artefact carries stands traced to the stored AuditRun
 # record, and no field outside the set stands in the
 # artefact.
@@ -1931,7 +1931,8 @@ def _emit(lines, key, value, depth, suppress_anchor_bare=False,
 
 
 def _declaration_words(value):
-    """The G1 words for one stored importer declaration value,
+    """The declaration words for one stored importer
+    declaration value,
     or None where the value names none of the three values.
     A declaration carried as a record names its value under
     a value or code member; that member is read here."""
@@ -1955,7 +1956,8 @@ def _selection_rule_text(node, value):
     carries as asserted, where the record carries one: on
     the declaration record itself, or beside it on the frame
     under a selection rule member. No text is invented: a
-    declaration carrying no rule text renders its G1 words
+    declaration carrying no rule text renders its declaration
+    words
     alone."""
     if isinstance(value, dict):
         for key in ("selection_rule", "selection_rule_text",
@@ -1971,7 +1973,8 @@ def _selection_rule_text(node, value):
 
 def _declaration_line(node, value):
     """The Simple sampling frame declaration line: the
-    declaration stated in its G1 words, marked as asserted,
+    declaration stated in its declaration words, marked as
+    asserted,
     with a stated subset carrying its selection rule text as
     asserted."""
     words = _declaration_words(value)
@@ -1991,7 +1994,7 @@ _SELECTION_RULE_KEYS = ("selection_rule", "selection_rule_text")
 
 def _is_probe_like(body):
     """True where the artefact is a probe report or a probe
-    trend, the surfaces defect E-10 names: a record carrying
+    trend, the surfaces named here: a record carrying
     a sampling frame or a gross cited rate anywhere inside
     it, including inside an embedded trend round block."""
     for obj in _walk(body):
@@ -2027,8 +2030,7 @@ def _emit_dict(lines, node, depth, top=True, top_suppress=None,
             # On the probe and trend surfaces no none value
             # prints as a field value: a field holding no
             # value prints nothing. The two named trend
-            # fields stand silent on every surface, as the
-            # D-28 cure stood.
+            # fields stand silent on every surface.
             continue
         if key == "importer_declaration":
             pad = "  " * depth
@@ -3112,8 +3114,7 @@ def _render_simple(body):
     # block of every Simple report artefact, the audit,
     # guide, probe report, and query set report included,
     # so the limit travels with the artefact when it is
-    # copied on its own (brief Section 5.5 commitment
-    # (c)).
+    # copied on its own.
     if _is_audit_record(body) or _is_guide(body) or \
             _is_probe_like(body) or _is_query_set_report(body):
         lines.append(ANCHOR_LIMIT_SENTENCE)
@@ -3194,7 +3195,7 @@ _WORD_TOKEN_PATTERN = (
 
 def _word_tokens(text):
     """The word tokens of one text, on the matching form
-    the brief states at Section 5.1: case insensitive
+    the matching form states: case insensitive
     over word tokens, words as alphanumeric tokens, and
     a decimal number counting as one word, so a decimal
     point standing between digits does not split the

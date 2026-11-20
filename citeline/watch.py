@@ -13,7 +13,7 @@ the round invokes. The product keeps no cadence and
 guarantees none; an operator cadence stands in the plan
 cadence field only, read by the freshness view only.
 
-Failure isolation stands at Section 3, W-5, on contract CW
+Failure isolation stands on the watch contract
 terms. A target whose file stands missing or unreadable,
 or whose operation fails, fails that target only: the
 failure stands entered in the summary with the operation
@@ -36,14 +36,14 @@ pairing. On an estate plan the estate round reads no
 second_rounds field, and the key stands warned as
 disregarded in the round plan warnings.
 
-Contention fields, written here in the plan form at
-Section 3, W-5, discharging the W-5 boundary contention
+Contention fields, written here in the stated form,
+discharging the boundary contention
 carriage: a contended target invocation fails on the
-exclusion recorded error at entry 13 row X-10, token
-WRITE_CONTENDED, integrity class. The fields a contended
+exclusion recorded error WRITE_CONTENDED, integrity
+class. The fields a contended
 target entry carries are: outcome, the value failed;
-recorded_error, the recorded error record holding row
-X-10, error_value WRITE_CONTENDED, precedence_class
+recorded_error, the recorded error record holding
+error_value WRITE_CONTENDED, precedence_class
 integrity, exit_code 5 as the target own code, and the
 failure record behaviour that no failure record stands,
 the recorded error standing as caller response only;
@@ -75,8 +75,8 @@ PLAN_SIZE_BOUND = 1024 * 1024
 TARGET_BOUND = 100
 
 # The boundary contention fields of one contended target,
-# in the plan form at Section 3, W-5 and entry 13 row
-# X-10: the entry outcome value for a contended target,
+# in the stated form: the entry outcome value for a
+# contended target,
 # the recorded error row and token, its class, its own
 # exit code, and the round code position that the round
 # returns 0 where it completed and produced its summary.
@@ -124,10 +124,11 @@ def _check_round_backstop(home, started):
 
 
 def _contention_entry_fields(exc):
-    """The W-5 boundary contention fields for one target.
+    """The boundary contention fields for one target.
 
     The fields stand as the module head states them: the
-    outcome value, the recorded error in its row X-10
+    outcome value, the recorded error in its
+    WRITE_CONTENDED
     form, the contention mark, the stored mark standing
     false, and the round exit code position standing at
     the round own outcome code.
@@ -648,7 +649,8 @@ def _validate_plan(plan):
 def _target_identity(target):
     """The identity of one target, on the invocation it orders.
 
-    The duplicate refusal of row U-12 compares the invocation
+    The duplicate refusal, WATCH_DUPLICATE_TARGET, compares
+    the invocation
     each target orders, not the serialisation of the whole
     target object: a key the shape gives no effect, a false
     guide flag, a null field, and a path alias spelling of the
@@ -906,7 +908,7 @@ def _standing_product_page_snapshot_count(home, products):
     """The standing product page snapshots of one home.
 
     The count stands on the journal facts the round already
-    stands, on the plan Section 5.1 WatchRun definition:
+    stands, on the WatchRun definition:
     one per snapshot identity whose most recent
     snapshot_registered record stands as a product page
     (is_product_page true) and carries the PageSnapshot
@@ -1071,7 +1073,8 @@ def run_watch(*, plan_file, form=None):
     """Run one watch round over the plan the file states.
 
     The round stands as a batch of independent invocations
-    under contract CW: the plan stands opened and refused
+    under the watch contract: the plan stands opened and
+    refused
     on its bounds before any round runs, the home journal
     stands verified before any target runs, targets run in
     plan order in picked scope and in registry order in
@@ -1379,8 +1382,9 @@ def run_watch(*, plan_file, form=None):
 def _write_output(result, output_path, form):
     """Write the WatchRun artefact under the no replace rule.
 
-    Where the destination stands, the write alone fails on
-    row X-9 after every target completed: the stored
+    Where the destination stands, the write alone fails as
+    DESTINATION_EXISTS after every target completed: the
+    stored
     records stand, no artefact for this round stands
     produced, and the failure stands as caller response
     only, the watch invocation writing no journal entry of
@@ -1390,7 +1394,7 @@ def _write_output(result, output_path, form):
     # filesystem call can raise on it: a string carrying a
     # NUL character or a lone surrogate can name no
     # destination, and the write step fails on it in its
-    # stated governed form alone, row X-9,
+    # stated governed form alone,
     # DESTINATION_EXISTS, after every target completed, as
     # every other write failure of this step does.
     if isinstance(output_path, str) and "\x00" in output_path:
@@ -1427,9 +1431,8 @@ def _write_output(result, output_path, form):
         rendered = result
     if not isinstance(rendered, str):
         rendered = json.dumps(rendered, sort_keys=True, indent=2)
-    # The write itself stands in the pinned B4 sequence
-    # (plan EC-18 subsection 8.1, decisions the settled decision
-    # and the settled decision): a complete temporary file in the
+    # The write itself stands in the pinned write sequence:
+    # a complete temporary file in the
     # destination directory, flushed to storage; a hard
     # link from the temporary name to the destination
     # name, which fails where the destination exists; the
@@ -1437,7 +1440,7 @@ def _write_output(result, output_path, form):
     # name unlinked. An interrupted write therefore leaves
     # no partial file at the named path, and a platform
     # that cannot perform a step of the sequence fails
-    # the write closed on row X-12.
+    # the write closed as LOCK_UNAVAILABLE.
     directory = os.path.dirname(os.path.abspath(output_path))
     destination_name = os.path.basename(output_path)
     _remove_orphaned_temporaries(directory, destination_name)
@@ -1511,10 +1514,10 @@ def _write_output(result, output_path, form):
 
 
 def _temporary_process_number(name, destination_name):
-    """The process number a B4 temporary name carries, or
+    """The process number a write temporary name carries, or
     None where the name is not a temporary of the
-    destination, on the parse form the settled decision
-    states: the destination name, the suffix .tmp-, the
+    destination, on the stated parse form: the destination
+    name, the suffix .tmp-, the
     journal sequence digit run, a hyphen separator, and
     the process number digit run at the end of the name."""
     prefix = destination_name + ".tmp-"
@@ -1529,9 +1532,9 @@ def _temporary_process_number(name, destination_name):
 
 
 def _remove_orphaned_temporaries(directory, destination_name):
-    """Remove the orphaned B4 temporaries of one
+    """Remove the orphaned write temporaries of one
     destination standing in its directory, before this
-    invocation writes (the settled decision): an orphan
+    invocation writes: an orphan
     is a file matching the temporary naming pattern that
     this invocation did not create and whose process
     number names no live process. A temporary whose
@@ -1564,7 +1567,7 @@ def _remove_orphaned_temporaries(directory, destination_name):
 def _last_journal_sequence(home):
     """The sequence of the journal's last entry as this
     invocation reads it, or 0 over a home whose journal
-    stands empty or absent (the settled decision, the
+    stands empty or absent (the
     form for a writing invocation that appends no entry,
     as the WatchRun write does not)."""
     if not home:

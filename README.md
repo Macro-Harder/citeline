@@ -80,10 +80,13 @@ limit is stated instead of the check.
 
 ## Requirements
 
-Python 3.11 or later. Standard library only; there
-is nothing else to install. The test suite runs
-under pytest from this directory, or under unittest
-discovery: python -m unittest discover -s tests -t .
+Python 3.11 or later, on a POSIX system: the product
+locks its journal files with fcntl, which POSIX
+systems provide and other systems do not. Standard
+library only; there is nothing else to install.
+The test suite runs under pytest from this
+directory, or under unittest discovery:
+python -m unittest discover -s tests -t .
 
 ## Install
 

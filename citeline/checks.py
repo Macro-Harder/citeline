@@ -1,4 +1,4 @@
-"""Page checks and scoring for Citeline, slice S3.
+"""Page checks and scoring for Citeline.
 
 This module owns CheckResult and the ScoreObject computation.
 It consumes an ExtractedPage and the registry facts the
@@ -7,9 +7,9 @@ is_product_page, the product name, and category terms). It
 never reads a supplied file. Dates arrive as call inputs,
 never from a clock.
 
-Seams honoured here, as the design plan states them:
+Rules honoured here:
 
-1. SEAM-STATUS. Status is assigned only inside the
+1. The status seam. Status is assigned only inside the
    assign_status seam in this module. The mapping from an
    earned value to pass, warn, or fail stands ruled: a
    check that earns its full weight stands pass, a check
@@ -20,13 +20,13 @@ Seams honoured here, as the design plan states them:
    check carries no earned value to derive a status from.
    An applicability outcome is not a derivation from an
    earned value.
-2. SEAM-LISTS. The list dependent limbs stand built:
+2. The list dependent limbs stand built:
    the comparison criterion word component earns its
    share, the fluff filler booster deduction is applied,
    and the unproven superlatives hit limb is built: hits
    from the printed lexicon deduct 0.34 each, floored at
    0, and each unproven span is reported as evidence.
-3. SEAM-SCORE-EMPTY. For an empty extraction every check
+3. The empty score case. For an empty extraction every check
    stands not applicable, and compute_score returns the
    stated absence form for value and band rather than a
    number, because that case stands unruled.
@@ -124,10 +124,10 @@ def _round_score(value):
 
 def assign_status(check_id, applicable=True, empty=False,
                   earned=None, weight=None):
-    """The SEAM-STATUS seam, the only place status is set.
+    """The status seam, the only place status is set.
 
-    Applicability outcomes stand decided in the brief and
-    are returned here. For an applicable check on a non
+    Applicability outcomes stand decided by the
+    applicability rules and are returned here. For an applicable check on a non
     empty page the status derives from the earned value
     under the ruled mapping: a check that earns its full
     weight stands pass, a check that earns part of its
@@ -303,7 +303,7 @@ def _normalise_host(raw_host, _decoded=False):
             try:
                 labels.append(label.encode("idna").decode("ascii"))
             except (UnicodeError, ValueError):
-                # Item 42: an IDNA failure is malformed and
+                # An IDNA failure is malformed and
                 # counts no citation, as the neighbouring
                 # failure forms in this function already stand.
                 return None
@@ -404,7 +404,7 @@ _HEXDIGITS = "0123456789abcdefABCDEF"
 
 
 def _syntax_normalise_path(path):
-    """Path syntax normalisation, item 40 limb (1).
+    """Path syntax normalisation.
 
     A percent triplet for an unreserved character decodes
     to that character and any other triplet stands with
@@ -447,7 +447,7 @@ def _syntax_normalise_path(path):
 
 
 def _normalise_query(query):
-    """Query handling, item 40 limb (5): sorted by name
+    """Query handling: sorted by name
     then value, duplicates kept, and a valueless parameter
     sorted with an empty value."""
     if not query:
@@ -466,12 +466,13 @@ def _normalise_query(query):
 def _canonical_target(target):
     """The canonical form of one citation target.
 
-    Brief Section 5.7 items 33 and 40, in full: scheme and
-    host normalised under items 42 and 43 with http and
+    The canonical form, in full: scheme and
+    host normalised with http and
     https merged and a default port dropped, the path
-    under the syntax normalisation of limb (1) with a
+    under the syntax normalisation above with a
     trailing slash removed except for the root path, the
-    query under limb (5), and no fragment. This is the
+    query under the query handling above, and no
+    fragment. This is the
     same form the detection canonical form builds, so two
     stated equivalent forms share one key and count once.
     """
@@ -1804,7 +1805,7 @@ def _statistic_analysis(page):
     # Digits inside a link target or a bare URL are part
     # of an address, not a figure the page presents, so
     # link targets and bare URLs are masked, as mention
-    # detection masks them at item 46.
+    # detection masks them.
     masked = _mask(masked, _url_spans(masked))
     # The link spans stand collected first and masked in
     # one pass, on the same cost ground as _url_spans:
@@ -3020,8 +3021,8 @@ def _list_hits(text_value, entries):
     word entries match as consecutive token sequences, at
     each position the longest entry that matches is taken
     first, and a span consumed by a match is not matched
-    again, as brief Section 5.7 states for every printed
-    list. Returns (start, end) character spans.
+    again, as the printed list rule states for every
+    printed list. Returns (start, end) character spans.
     """
     tokens = _token_stream(text_value)
     entry_tokens = []
@@ -3314,7 +3315,7 @@ def run_checks(page, facts=None, audit_date=None, **_ignored):
             not facts.get("competitors")
             or not facts.get("category_terms")
         ):
-            # Brief Section 10.9 condition C5: comparison
+            # Comparison
             # applies only where the product has a category
             # and at least one competitor, and reports
             # CMP_NA, the code the record already carries,
@@ -3414,7 +3415,7 @@ def compute_score(results):
         "claim_type": "signal_presence_only",
         "validated_predictor": False,
         # The secondary figure on the not applicable as
-        # zero basis (brief Section 5.8, the settled landing): the
+        # zero basis: the
         # ScoreObject carries it in this field, in the
         # landing stated form. It is not a second value
         # field and it is not a ScoreObject: it is an
@@ -3432,7 +3433,7 @@ def compute_score(results):
         "secondary_figure": None,
     }
     if not applicable or applicable_weight == 0:
-        # SEAM-SCORE-EMPTY: the empty case carries the
+        # The empty score case: the empty case carries the
         # stated absence form, not an invented number.
         score["value"] = None
         score["band"] = None

@@ -1,18 +1,31 @@
 """Service, watch, seams.
 
 The repair stands in verdict form only in this round and carries
-no repair entry. The pins below stand on the cured tree as it
-stands at this run, in the standing forms the earlier round papers
-record: the container seam verdict, the three readings
-agreeing on the worked forms; the top level key position as
-cured at standing in its cured form at the service seam, in
-the primary form and in the fallback form alike; the
-corrected pin test_string_of_4096_inside_a_dict_value_refuses
-passing in its renamed form; and the watch figures in their
-exact forms, the WatchPlan size figure of 1 MiB and the
-picked scope bound of 100 targets. Oracle: the earlier round
-disposition, Section 3 the repair, and register Section 3,
-record 14.
+no repair entry. The pins below judge the F7 standings of fix
+the earlier round against the tree as it stands in this repair wave, in the
+forms the earlier round papers record and the settled round
+13 disposition sustains: the container seam verdict, the
+three readings agreeing on the worked forms; the top level
+key position as cured at standing cured at the service
+reading, in the primary form and in the fallback form alike;
+the corrected pin
+test_string_of_4096_inside_a_dict_value_refuses passing in
+its renamed form; and the watch figures in their exact forms,
+the WatchPlan size figure of 1 MiB and the picked scope bound
+of 100 targets, with both watch modes standing as options.
+The colon seam pins judge that standing again in its bounded
+observation sustained form under the settled the earlier round
+disposition, recorded and not cured and not reopened as an
+entry. The combining mark pins hold only the forms that stand
+settled on both sides of the cures charged at in this repair wave: a
+mark inside the landed range refuses at both readings, and a
+mark the word character set itself covers refuses at both
+readings. No pin in this file judges the follower limb those
+two cures stand, which stands in progress in this repair wave and
+stands judged whole in the next round. Oracle: the earlier round
+disposition, Section 3 the repair and the settled rules, and
+register Section 3, records 14 and 16, beside the earlier round
+service and seams papers.
 
 Copyright: J.P. Picard aka Macro-Harder."""
 
@@ -117,6 +130,24 @@ class LimitedBase(SeededBase):
             token_of(caught.exception), "LIMIT_EXCEEDED")
 
 
+def page_outcome(block):
+    text = "---\n" + block + "\n---\nbody text\n"
+    try:
+        acquisition._front_matter(text, "markdown", [])
+        return "pass"
+    except Exception as exc:
+        return token_of(exc)
+
+
+def import_outcome(block):
+    text = "---\n" + block + "\n---\nbody text\n"
+    try:
+        probe_import.extract_front_matter(text)
+        return "pass"
+    except Exception as exc:
+        return token_of(exc)
+
+
 # ----------------------------------------------------------------
 # The container seam, in its standing form: the three readings
 # agree on the worked forms.
@@ -160,7 +191,6 @@ class TestContainerSeamStandingForm(SeededBase):
             '{"note": {"%s": "s"}}' % ("k" * 4000)))
 
 
-
 class TestContainerKeyAtTheSeamBothForms(LimitedBase):
 
     def test_container_key_of_200_refuses_at_the_seam(self):
@@ -177,9 +207,9 @@ class TestContainerKeyAtTheSeamBothForms(LimitedBase):
 
 
 # ----------------------------------------------------------------
-# The top level key position as cured, standing in its cured form
-# at the service seam, in the primary form and in the fallback
-# form.
+# The top level key position as cured, standing cured at the
+# service reading, in the primary form and in the fallback form
+# alike.
 # ----------------------------------------------------------------
 
 class TestTopLevelKeyCuredFormPrimary(LimitedBase):
@@ -259,9 +289,9 @@ class TestCorrectedPinStanding(unittest.TestCase):
         import importlib.util
         import io
         pin_path = (Path(__file__).resolve().parent
-                    / "test_step17_r8_f2.py")
+                    / "test_acquisition_interior_forms.py")
         spec = importlib.util.spec_from_file_location(
-            "test_step17_r8_f2", pin_path)
+            "test_acquisition_interior_forms", pin_path)
         pin_module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(pin_module)
         suite = unittest.TestSuite()
@@ -279,7 +309,8 @@ class TestCorrectedPinStanding(unittest.TestCase):
 
 
 # ----------------------------------------------------------------
-# The watch figures in their exact forms.
+# The watch figures in their exact forms, and both
+# watch modes standing as options.
 # ----------------------------------------------------------------
 
 class TestWatchFiguresExactForms(SeededBase):
@@ -338,6 +369,149 @@ class TestWatchFiguresExactForms(SeededBase):
         self.assertEqual(
             token_of(caught.exception),
             "WATCH_TARGET_COUNT_EXCEEDED")
+
+
+# ----------------------------------------------------------------
+# The page and import follower readings on the cured sets,: the
+# two readings agree on the twelve widened openings and on the six
+# further openings at the judged positions.
+# ----------------------------------------------------------------
+
+WIDENED_OPENINGS = (
+    ".", "+", "$", "~", ";", "/", "=", "@", "^", "`",
+    "́", "‿")
+FURTHER_OPENINGS = ("?", "\\", "(", ")", "<", ":")
+CONSTRUCT_CHARS = ("&", "*", "%", "!")
+
+
+class TestFollowerReadingsCuredSets(unittest.TestCase):
+
+    def test_widened_openings_refuse_at_both_readings(self):
+        for construct in CONSTRUCT_CHARS:
+            for opening in WIDENED_OPENINGS:
+                with self.subTest(construct=construct,
+                                  opening=repr(opening)):
+                    block = "title: x." + construct + opening + "a"
+                    self.assertEqual(
+                        page_outcome(block), "PAGE_EXTRACTION_FAILED")
+                    self.assertEqual(
+                        import_outcome(block),
+                        "IMPORT_VALIDATION_FAILED")
+
+    def test_further_openings_refuse_at_both_readings(self):
+        for construct in CONSTRUCT_CHARS:
+            for opening in FURTHER_OPENINGS:
+                with self.subTest(construct=construct,
+                                  opening=repr(opening)):
+                    block = "title: x." + construct + opening + "a"
+                    self.assertEqual(
+                        page_outcome(block), "PAGE_EXTRACTION_FAILED")
+                    self.assertEqual(
+                        import_outcome(block),
+                        "IMPORT_VALIDATION_FAILED")
+
+    def test_further_openings_refuse_at_the_json_key(self):
+        for opening in FURTHER_OPENINGS:
+            with self.subTest(opening=repr(opening)):
+                block = json.dumps(
+                    {"x.&" + opening + "a": "v"}, ensure_ascii=False)
+                self.assertEqual(
+                    page_outcome(block), "PAGE_EXTRACTION_FAILED")
+                self.assertEqual(
+                    import_outcome(block), "IMPORT_VALIDATION_FAILED")
+
+
+# ----------------------------------------------------------------
+# The colon seam, in its bounded observation sustained
+# form under the settled disposition:
+# a colon standing inside an indented continuation
+# line stands consumed as the key separator of its
+# line at both readings alike, at no judged position
+# the governing statement names, and the colon opening
+# refuses at every judged position. Recorded here,
+# not cured and not reopened as an entry.
+# ----------------------------------------------------------------
+
+class TestColonSeamSustainedBoundedForm(unittest.TestCase):
+
+    def test_colon_on_an_indented_continuation_line_passes_both(self):
+        block = "title: first\n  cont x.&:a more"
+        self.assertEqual(page_outcome(block), "pass")
+        self.assertEqual(import_outcome(block), "pass")
+
+    def test_question_mark_on_the_same_continuation_line_refuses(self):
+        block = "title: first\n  cont x.&?a more"
+        self.assertEqual(
+            page_outcome(block), "PAGE_EXTRACTION_FAILED")
+        self.assertEqual(
+            import_outcome(block), "IMPORT_VALIDATION_FAILED")
+
+    def test_colon_refuses_at_every_judged_position(self):
+        line_value = "title: x.&:a"
+        self.assertEqual(
+            page_outcome(line_value), "PAGE_EXTRACTION_FAILED")
+        self.assertEqual(
+            import_outcome(line_value), "IMPORT_VALIDATION_FAILED")
+        json_value = json.dumps({"title": "x.&:a"})
+        self.assertEqual(
+            page_outcome(json_value), "PAGE_EXTRACTION_FAILED")
+        self.assertEqual(
+            import_outcome(json_value), "IMPORT_VALIDATION_FAILED")
+        json_key = json.dumps({"x.&:a": "v"})
+        self.assertEqual(
+            page_outcome(json_key), "PAGE_EXTRACTION_FAILED")
+        self.assertEqual(
+            import_outcome(json_key), "IMPORT_VALIDATION_FAILED")
+
+    def test_colon_form_on_a_line_of_its_own_passes_both(self):
+        block = "x.&:a more"
+        self.assertEqual(page_outcome(block), "pass")
+        self.assertEqual(import_outcome(block), "pass")
+
+    def test_two_identical_colon_lines_refuse_on_duplicate_key(self):
+        block = ("title: first\n  cont x.&:a more"
+                 "\n  cont x.&:a more")
+        self.assertEqual(
+            page_outcome(block), "PAGE_EXTRACTION_FAILED")
+        self.assertEqual(
+            import_outcome(block), "IMPORT_VALIDATION_FAILED")
+
+    def test_colon_in_a_continuation_lines_own_key_value_refuses(self):
+        block = "title: first\n  cont k: x.&:a more"
+        self.assertEqual(
+            page_outcome(block), "PAGE_EXTRACTION_FAILED")
+        self.assertEqual(
+            import_outcome(block), "IMPORT_VALIDATION_FAILED")
+
+
+# ----------------------------------------------------------------
+# The combining mark opening, in the form that stands settled on
+# both sides of the cures charged at in this wave. The limb those
+# cures stand on stands in progress and stands judged whole in the
+# next round, and no pin in this class judges it.
+# ----------------------------------------------------------------
+
+class TestCombiningMarkSettledForms(unittest.TestCase):
+
+    def test_combining_mark_in_the_landed_range_refuses_both(self):
+        for opening in ("\u0301", "\u036f"):
+            with self.subTest(opening=repr(opening)):
+                block = "title: x.&" + opening + "a"
+                self.assertEqual(
+                    page_outcome(block), "PAGE_EXTRACTION_FAILED")
+                self.assertEqual(
+                    import_outcome(block),
+                    "IMPORT_VALIDATION_FAILED")
+
+    def test_combining_mark_covered_by_the_word_set_refuses_both(self):
+        for opening in ("ؐ", "︀"):
+            with self.subTest(opening=repr(opening)):
+                block = "title: x.&" + opening + "a"
+                self.assertEqual(
+                    page_outcome(block), "PAGE_EXTRACTION_FAILED")
+                self.assertEqual(
+                    import_outcome(block),
+                    "IMPORT_VALIDATION_FAILED")
 
 
 if __name__ == "__main__":

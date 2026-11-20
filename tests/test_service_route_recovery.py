@@ -2,7 +2,8 @@
 
 Pins the settled rules:
 and. Entry is a rename charge in
-product/tests/test_step16_f5.py and stands pinned by that
+product/tests/test_service_validation_and_records.py and
+stands pinned by that
 file's own run, not by a test here. Every test was written
 before its cure and run failing for the register stated
 reason, except the controls named as controls. Oracle: the
